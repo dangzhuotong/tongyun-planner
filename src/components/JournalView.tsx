@@ -489,24 +489,24 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
         value={draftContent}
         onChange={(e) => handleContentChange(e.target.value)}
         placeholder={mode === "diary" ? (j.diaryPlaceholder || "写点什么，记下今天…") : "写点什么…"}
-        className="flex-grow min-h-0 w-full resize-none rounded-xl p-4 text-[14px] leading-relaxed text-slate-700 font-serif focus:outline-none focus:border-[#4D7C5D] custom-scrollbar bg-transparent border-transparent"
+        className="flex-grow min-h-0 w-full resize-none rounded-xl p-4 text-[14px] leading-relaxed text-slate-700 dark:text-slate-200 font-serif focus:outline-none focus:border-[#4D7C5D] custom-scrollbar bg-transparent border-transparent"
         style={mode === "diary" ? { lineHeight: "32px", backgroundImage: "repeating-linear-gradient(transparent, transparent 31px, #ECE4D2 32px)", backgroundAttachment: "local" } : undefined}
         spellCheck={false}
       />
 
-      <div className="rounded-xl bg-gradient-to-br from-[#F0F5F1] to-[#FCEFF4] border border-[#E4EEE6] p-4">
-        <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#E8A0BF] mb-2">
+      <div className="rounded-xl bg-gradient-to-br from-[#F0F5F1] to-[#FCEFF4] dark:from-[#232924] dark:to-[#2B2125] border border-[#E4EEE6] dark:border-[#33353A] p-4">
+        <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#E8A0BF] dark:text-[#E8A0BF]/80 mb-2">
           <Sparkles className="w-3.5 h-3.5" />{j.aiCommentTitle || "暖评"}
         </div>
         {selected?.aiComment ? (
           <>
-            <p className="text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">{selected.aiComment}</p>
-            <button onClick={generateAiComment} disabled={aiLoading} className="mt-2 text-[10px] text-[#4D7C5D] hover:underline disabled:opacity-40 cursor-pointer">
+            <p className="text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{selected.aiComment}</p>
+            <button onClick={generateAiComment} disabled={aiLoading} className="mt-2 text-[10px] text-[#4D7C5D] dark:text-[#6FAD84] hover:underline disabled:opacity-40 cursor-pointer">
               {aiLoading ? "..." : (j.regenerate || "重新生成")}
             </button>
           </>
         ) : (
-          <button onClick={generateAiComment} disabled={aiLoading} className="text-[11px] font-semibold px-3 py-2 rounded-lg bg-white border border-[#E4EEE6] text-[#4D7C5D] hover:bg-[#EAF1EC] transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5">
+          <button onClick={generateAiComment} disabled={aiLoading} className="text-[11px] font-semibold px-3 py-2 rounded-lg bg-white dark:bg-[#1C1D21] border border-[#E4EEE6] dark:border-[#383A42] text-[#4D7C5D] dark:text-[#6FAD84] hover:bg-[#EAF1EC] dark:hover:bg-[#232924] transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5" />{aiLoading ? (j.aiThinking || "正在写暖评...") : (j.aiGenerate || "完成今天，收下今天的暖评")}
           </button>
         )}
@@ -643,10 +643,10 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
       <div className="flex flex-grow min-h-0 gap-4">
         <section className="flex-grow min-w-0 flex flex-col gap-3">
           {mode === "diary" ? (
-            <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] shadow-[0_2px_14px_rgba(120,100,70,0.10)] border border-[#ECE3D2] relative">
+            <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] dark:bg-[#1C1D21] shadow-[0_2px_14px_rgba(120,100,70,0.10)] dark:shadow-none border border-[#ECE3D2] dark:border-[#383A42] relative">
               {/* 书脊 */}
-              <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6]" />
-              <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70" />
+              <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6] dark:from-[#25272D] dark:via-[#1F2025] dark:to-[#25272D]" />
+              <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70 dark:bg-[#383A42]" />
               <div className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0">
                 {/* 页眉：大日期 + 翻页 */}
                 <div className="flex items-center gap-2">
@@ -695,7 +695,7 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
                     <button
                       key={e.id}
                       onClick={() => { setSelectedNoteId(e.id); }}
-                      className="text-left p-3 rounded-xl bg-[#FCFBF7] border border-[#ECE3D2] hover:border-[#4D7C5D] shadow-[0_2px_10px_rgba(120,100,70,0.08)] cursor-pointer transition-colors min-h-[88px] flex flex-col"
+                      className="text-left p-3 rounded-xl bg-[#FCFBF7] dark:bg-[#1C1D21] border border-[#ECE3D2] dark:border-[#383A42] hover:border-[#4D7C5D] dark:hover:border-[#4D7C5D] shadow-[0_2px_10px_rgba(120,100,70,0.08)] dark:shadow-none cursor-pointer transition-colors min-h-[88px] flex flex-col"
                     >
                       <span className="text-[13px] font-bold text-[#2D323A] truncate">{e.title || "(无标题)"}</span>
                       <span className="text-[10px] text-slate-400 mt-1 line-clamp-3 flex-grow overflow-hidden">{e.content.replace(/[#*`\[\]]/g, "").slice(0, 80)}</span>
@@ -709,9 +709,9 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
                   )}
                 </div>
               ) : (
-                <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] shadow-[0_2px_14px_rgba(120,100,70,0.10)] border border-[#ECE3D2] relative">
-                  <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6]" />
-                  <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70" />
+                <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] dark:bg-[#1C1D21] shadow-[0_2px_14px_rgba(120,100,70,0.10)] dark:shadow-none border border-[#ECE3D2] dark:border-[#383A42] relative">
+                  <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6] dark:from-[#25272D] dark:via-[#1F2025] dark:to-[#25272D]" />
+                  <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70 dark:bg-[#383A42]" />
                   <div className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0">
                     {editorInner}
                   </div>
