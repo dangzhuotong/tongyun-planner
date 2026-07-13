@@ -107,7 +107,10 @@ function MoodPanel({ date, mood, note, attachments, moods, onSetMood, onSetMoodN
       const buffer = await file.arrayBuffer();
       const bytes = new Uint8Array(buffer);
       const attId = createId("mood");
-      const path = getAttachmentPath("diary-" + date, attId, file.name);
+      // Sanitize filename: keep only extension, use attId as base to avoid path issues
+      const ext = file.name.includes(".") ? file.name.split(".").pop()! : "bin";
+      const safeName = `${attId}.${ext}`;
+      const path = getAttachmentPath("diary-" + date, attId, safeName);
       const savedPath = await storageManager.uploadFile(path, bytes, file.type);
       const att: Attachment = { id: attId, name: file.name, path: savedPath, type: file.type, size: file.size, createdAt: new Date().toISOString() };
       onSetMoodAttachments(date, [...attachments, att]);
@@ -116,7 +119,9 @@ function MoodPanel({ date, mood, note, attachments, moods, onSetMood, onSetMoodN
         setImgUrls((prev) => ({ ...prev, [att.id]: url }));
       }
     } catch (err: any) {
-      setError(err?.message ? `上传失败：${err.message}` : "上传失败，请检查存储后端配置");
+      // Tauri invoke errors are plain strings, not Error objects
+      const msg = typeof err === "string" ? err : (err?.message || JSON.stringify(err));
+      setError(`上传失败：${msg}`);
     } finally {
       setUploading(false);
       e.target.value = "";

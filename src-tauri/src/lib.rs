@@ -302,6 +302,20 @@ fn file_save(app: AppHandle, path: String, data: Vec<u8>) -> Result<(), String> 
 }
 
 #[tauri::command]
+fn file_save_b64(app: AppHandle, path: String, data_b64: String) -> Result<(), String> {
+    use base64::Engine;
+    let data = base64::engine::general_purpose::STANDARD
+        .decode(&data_b64)
+        .map_err(|e| format!("Invalid base64: {}", e))?;
+    let base = ensure_tongyun_dir(&app)?;
+    let full = base.join(&path);
+    if let Some(parent) = full.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("Cannot create parent dir: {}", e))?;
+    }
+    std::fs::write(&full, data).map_err(|e| format!("Cannot write file: {}", e))
+}
+
+#[tauri::command]
 fn file_read(app: AppHandle, path: String) -> Result<Vec<u8>, String> {
     let base = ensure_tongyun_dir(&app)?;
     let full = base.join(&path);
@@ -309,6 +323,18 @@ fn file_read(app: AppHandle, path: String) -> Result<Vec<u8>, String> {
         return Err("E_NOT_FOUND".to_string());
     }
     std::fs::read(&full).map_err(|e| format!("Cannot read file: {}", e))
+}
+
+#[tauri::command]
+fn file_read_b64(app: AppHandle, path: String) -> Result<String, String> {
+    use base64::Engine;
+    let base = ensure_tongyun_dir(&app)?;
+    let full = base.join(&path);
+    if !full.exists() {
+        return Err("E_NOT_FOUND".to_string());
+    }
+    let data = std::fs::read(&full).map_err(|e| format!("Cannot read file: {}", e))?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(&data))
 }
 
 #[tauri::command]
@@ -387,7 +413,9 @@ pub fn run() {
             webdav_download_binary,
             webdav_delete,
             file_save,
+            file_save_b64,
             file_read,
+            file_read_b64,
             file_delete,
             file_list,
             fetch_rss,
