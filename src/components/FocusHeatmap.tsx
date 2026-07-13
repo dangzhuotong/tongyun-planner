@@ -144,7 +144,7 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({ pomodoroLogs, weeks 
   ];
 
   return (
-    <div className="rounded-2xl bg-white/70 border border-[#EFEBE4] p-4 shadow-2xs backdrop-blur-xs select-none">
+    <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-4 shadow-2xs select-none">
       {/* 标题行 */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">

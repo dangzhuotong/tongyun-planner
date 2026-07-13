@@ -140,7 +140,7 @@ export const RSSView: React.FC<RSSViewProps> = ({ searchQuery, onOpenArticle, is
     <div className="flex gap-4 flex-grow min-h-0">
       {/* Sidebar */}
       <div className="w-full md:w-[220px] flex-shrink-0 flex flex-col gap-3 self-start md:sticky md:top-4">
-        <div className="bg-white/80 border border-[#E8E0D0] rounded-2xl p-3.5 backdrop-blur-sm">
+        <div className="bg-white/80 border border-[#E8E0D0] rounded-2xl p-3.5 ">
           <span className="text-[9px] font-extrabold text-slate-300 uppercase tracking-[0.15em] block mb-2">订阅源</span>
           <div className="flex flex-col gap-1">
             {feeds.map((feed) => (

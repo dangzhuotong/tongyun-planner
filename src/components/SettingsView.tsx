@@ -410,7 +410,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
     <div className="animate-fade-in-up grid grid-cols-1 lg:grid-cols-5 gap-6 flex-grow select-none">
       {/* 左侧配置栏 */}
       <div
-        className={`rounded-2xl bg-white/70 border border-[#EFEBE4] p-5 flex flex-col gap-5 shadow-sm backdrop-blur-sm ${
+        className={`rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col gap-5 shadow-sm ${
           showLivePreview ? "lg:col-span-3" : "lg:col-span-5"
         }`}
       >
@@ -966,7 +966,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
             </div>
 
             {/* 保存 & 测试连接 */}
-            <div className="flex gap-3 pt-1 sticky bottom-0 bg-white/90 backdrop-blur-sm pb-1">
+            <div className="flex gap-3 pt-1 sticky bottom-0 bg-white/90 pb-1">
               <button
                 type="button"
                 onClick={handleSaveAiConfig}
@@ -1189,7 +1189,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
             </div>
 
             {/* 保存 & 测试 */}
-            <div className="flex gap-3 pt-1 sticky bottom-0 bg-white/90 backdrop-blur-sm pb-1">
+            <div className="flex gap-3 pt-1 sticky bottom-0 bg-white/90 pb-1">
               <button
                 type="button"
                 onClick={handleSaveEmail}
@@ -1932,7 +1932,7 @@ category: \`urgent-important\` \`important-not-urgent\` \`urgent-not-important\`
 
       {/* 右侧实时预览面板 — 仅个性装扮页展示 */}
       {showLivePreview && (
-      <div className="lg:col-span-2 rounded-2xl bg-[#F4EFEA]/40 border border-[#EFEBE4] p-5 flex flex-col items-center justify-center gap-5 shadow-sm backdrop-blur-sm relative min-h-[360px]">
+      <div className="lg:col-span-2 rounded-2xl bg-[#F4EFEA]/80 border border-[#EFEBE4] p-5 flex flex-col items-center justify-center gap-5 shadow-sm relative min-h-[360px]">
         <span className="absolute top-3.5 left-4 text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">
           {s.livePreview}
         </span>

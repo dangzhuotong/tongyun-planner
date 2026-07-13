@@ -52,7 +52,7 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(({ tasks, onTaskCl
         </div>
       </div>
 
-      <div className="bg-white/70 border border-[#EFEBE4] rounded-2xl overflow-hidden shadow-sm backdrop-blur-sm">
+      <div className="bg-white/90 border border-[#EFEBE4] rounded-2xl overflow-hidden shadow-sm ">
         <div className="overflow-x-auto custom-scrollbar" style={{ maxHeight: "60vh" }}>
           <div className="min-w-[600px]">
             {/* Header row */}

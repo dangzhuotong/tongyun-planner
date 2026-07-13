@@ -166,7 +166,7 @@ export const TrendingView: React.FC<{ actions: NewsActions }> = ({ actions }) =>
           return (
             <div
               key={platform.key}
-              className="bg-white/70 border border-[#EFEBE4] rounded-2xl backdrop-blur-sm hover:border-[#C4D7B2] hover:shadow-sm transition-all overflow-hidden flex flex-col"
+              className="bg-white/90 border border-[#EFEBE4] rounded-2xl hover:border-[#C4D7B2] hover:shadow-sm transition-all overflow-hidden flex flex-col"
             >
               {/* Card header */}
               <div className={"flex items-center justify-between px-3.5 py-2.5 border-b border-[#EFEBE4] " + platform.color.split(" ").slice(0, 2).join(" ") + " dark:!bg-[#2D323A]/40 dark:!text-slate-300"}>

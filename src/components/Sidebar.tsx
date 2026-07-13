@@ -219,7 +219,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
   );
 
   return (
-    <aside className={`flex-shrink-0 border-r border-[#EFEBE4] bg-[#F4EFEA]/60 flex flex-col justify-between backdrop-blur-sm z-10 relative select-none overflow-y-auto custom-scrollbar transition-[width,padding] duration-300 ease-in-out ${
+    <aside className={`flex-shrink-0 border-r border-[#EFEBE4] bg-[#F4EFEA]/90 flex flex-col justify-between z-10 relative select-none overflow-y-auto custom-scrollbar transition-[width,padding] duration-300 ease-in-out ${
       isCollapsed ? "w-[54px] px-1.5 py-4" : "w-[210px] p-4"
     }`}>
       <div className="space-y-5 flex-shrink-0">

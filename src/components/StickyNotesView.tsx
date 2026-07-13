@@ -74,7 +74,7 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
   );
   return (
     <div className="flex flex-col gap-4 flex-grow z-10 relative select-none min-h-0">
-      <div className="flex justify-between items-center bg-white/70 border border-[#EFEBE4] px-5 py-3 rounded-2xl shadow-sm backdrop-blur-sm">
+      <div className="flex justify-between items-center bg-white/90 border border-[#EFEBE4] px-5 py-3 rounded-2xl shadow-sm ">
         <div>
           <h3 className="text-xs font-bold text-[#8B6E3C] tracking-wide flex items-center gap-1.5">
             <StickyNote className="w-4 h-4 text-[#8B6E3C]" />
@@ -162,12 +162,12 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
           })}
         </div>
       ) : stickyNotes.length > 0 ? (
-        <div className="text-center py-16 bg-white/40 border border-[#EFEBE4] rounded-2xl backdrop-blur-sm flex flex-col items-center gap-3">
+        <div className="text-center py-16 bg-white/80 border border-[#EFEBE4] rounded-2xl flex flex-col items-center gap-3">
           <Search className="w-10 h-10 text-slate-300" />
           <p className="text-xs text-slate-400 font-bold">{sn.searchEmpty}</p>
         </div>
       ) : (
-        <div className="text-center py-20 bg-white/40 border border-[#EFEBE4] rounded-2xl backdrop-blur-sm flex flex-col items-center gap-3">
+        <div className="text-center py-20 bg-white/80 border border-[#EFEBE4] rounded-2xl flex flex-col items-center gap-3">
           <StickyNote className="w-12 h-12 text-[#EFEBE4]" />
           <p className="text-xs text-slate-400 font-bold">{sn.empty}</p>
           <button
