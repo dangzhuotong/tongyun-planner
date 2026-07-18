@@ -79,7 +79,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(({
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="rounded-2xl bg-white/80 border border-[#EFEBE4] p-5 shadow-sm backdrop-blur-sm space-y-4"
+          className="rounded-2xl bg-white/80 border border-[#EFEBE4] p-5 shadow-sm space-y-4"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -177,7 +177,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(({
                 ) : (
                   <button
                     onClick={() => setConfirmDelete(event.id)}
-                    className="absolute top-3 right-3 w-6 h-6 rounded-full bg-white/60 backdrop-blur-sm border border-[#EFEBE4] flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
+                    className="absolute top-3 right-3 w-6 h-6 rounded-full bg-white/85 border border-[#EFEBE4] flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
                     title={c.delete}
                   >
                     <Trash2 className="w-3 h-3" />

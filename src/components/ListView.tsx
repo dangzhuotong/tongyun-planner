@@ -103,7 +103,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(({
   }, [categoryFilter, searchQuery, showFavoritesOnly, tagFilter, tasks]);
 
   return (
-    <div className="animate-fade-in-up rounded-2xl bg-white/70 border border-[#EFEBE4] p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[600px] custom-scrollbar select-none shadow-sm backdrop-blur-sm relative">
+    <div className="animate-fade-in-up rounded-2xl bg-white/90 border border-[#EFEBE4] p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[600px] custom-scrollbar select-none shadow-sm relative">
       
       {/* 筛选与搜索 */}
       <div className="flex gap-3 pb-2 border-b border-[#EFEBE4] items-center">

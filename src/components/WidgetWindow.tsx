@@ -315,14 +315,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
     getCurrentWebviewWindow().setTitle(t.app.title);
   }, [t.app.title]);
 
-  const handleMouseDownDrag = (e: React.PointerEvent) => {
-    // 允许按住非交互区拖拽窗口
-    if (e.button === 0) {
-      import("@tauri-apps/api/webviewWindow").then((m) => {
-        m.getCurrentWebviewWindow().startDragging();
-      });
-    }
-  };
+
 
   const urgentTasks = useMemo(() => tasks.filter((t) => t.category === "urgent-important"), [tasks]);
   const displayTask = urgentTasks[0] || tasks[0];
@@ -372,7 +365,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
 
   return (
     <div
-      onPointerDown={handleMouseDownDrag}
+      
       className={`w-full h-full p-4 flex flex-col justify-between items-center rounded-2xl glassmorphism-dark text-[#2D323A] border border-[#EFEBE4] select-none overflow-hidden glow-card cursor-move transition-all duration-500 ${
         isWidgetLocked 
           ? "opacity-45 hover:opacity-90 theme-glass-solid ring-1 ring-[#8B6E3C]/20" 
@@ -957,7 +950,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
         ) : displayTask ? (
           /* 挂件内卡片展示 */
           <div
-            onPointerDown={handleMouseDownDrag}
+            
             className="flex-grow flex items-center justify-center w-full cursor-move"
           >
             <SwipeCard
@@ -976,7 +969,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
         ) : (
           /* 任务空状态 */
           <div
-            onPointerDown={handleMouseDownDrag}
+            
             className="flex-grow flex items-center justify-center w-full cursor-move"
           >
             <div

@@ -1113,7 +1113,7 @@ const MainLayout = React.memo(function MainLayout({
           )}
 
           {aiHook.showAiInbox && (activeTab === "matrix" || activeTab === "list") && (
-            <div className="bg-white/60 border border-[#EFEBE4] p-4 rounded-2xl shadow-sm z-10 relative backdrop-blur-sm flex flex-col gap-2.5 transition-all duration-300">
+            <div className="bg-white/85 border border-[#EFEBE4] p-4 rounded-2xl shadow-sm z-10 relative flex flex-col gap-2.5 transition-all duration-300">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#8B6E3C] tracking-wide flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-[#8B6E3C]" />

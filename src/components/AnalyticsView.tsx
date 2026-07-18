@@ -337,7 +337,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
     <div className="animate-fade-in-up flex flex-col gap-4 flex-grow z-10 relative select-none">
       {/* AI Report Card */}
       {customizationConfig?.aiApiKey && (
-        <div className="rounded-2xl bg-white/70 border border-[#EFEBE4] p-4 shadow-sm backdrop-blur-sm">
+        <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-4 shadow-sm ">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5 text-[#8B6E3C]" />
@@ -408,7 +408,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
 
       {/* Heatmap & Time Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 rounded-2xl bg-white/70 border border-[#EFEBE4] p-5 flex flex-col shadow-sm backdrop-blur-sm">
+        <div className="lg:col-span-2 rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
           <div className="flex items-center justify-between pb-3.5 border-b border-[#EFEBE4] mb-4">
             <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
               <BarChart3 className="w-4 h-4 text-[#4D7C5D]" />
@@ -428,7 +428,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
         </div>
 
         {/* 1. Time-of-day distribution */}
-        <div className="rounded-2xl bg-white/70 border border-[#EFEBE4] p-5 flex flex-col shadow-sm backdrop-blur-sm">
+        <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
           <div className="pb-3 border-b border-[#EFEBE4] mb-3">
             <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-[#7C5D9E]" />
@@ -457,7 +457,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
 
 
       {/* 4. Daily goal progress */}
-      <div className="rounded-2xl bg-white/70 border border-[#EFEBE4] p-5 flex flex-col shadow-sm backdrop-blur-sm">
+      <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
         <div className="flex items-center justify-between pb-3.5 border-b border-[#EFEBE4] mb-4">
           <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
             <Target className="w-4 h-4 text-[#A34E36]" />
@@ -507,7 +507,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
           {/* Quadrant distribution */}
-          <div className="rounded-2xl bg-white/70 border border-[#EFEBE4] p-5 flex flex-col shadow-sm backdrop-blur-sm">
+          <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
             <div className="pb-3.5 border-b border-[#EFEBE4] mb-4">
               <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-[#4D7C5D]" />
@@ -537,7 +537,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
           </div>
 
           {/* AI Weekly Summary */}
-          <div className="rounded-2xl bg-white/70 border border-[#EFEBE4] p-5 flex flex-col shadow-sm backdrop-blur-sm">
+          <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
             <div className="pb-3.5 border-b border-[#EFEBE4] mb-4">
               <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
                 <BrainCircuit className="w-4 h-4 text-[#7C5D9E]" />
@@ -564,7 +564,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
         </div>
 
         {/* Tag-based focus stats */}
-        <div className="rounded-2xl bg-white/70 border border-[#EFEBE4] p-5 flex flex-col shadow-sm backdrop-blur-sm">
+        <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
           <div className="pb-3.5 border-b border-[#EFEBE4] mb-4">
             <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
               <Tags className="w-4 h-4 text-[#C97D3E]" />
@@ -596,7 +596,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
 
       {/* Task focus ranking */}
       <div className="grid grid-cols-1 gap-5">
-        <div className="rounded-2xl bg-white/70 border border-[#EFEBE4] p-5 flex flex-col shadow-sm backdrop-blur-sm">
+        <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
           <div className="pb-3.5 border-b border-[#EFEBE4] mb-4">
             <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-[#A34E36]" />

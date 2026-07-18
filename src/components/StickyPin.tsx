@@ -10,7 +10,7 @@ export const StickyPin: React.FC<StickyPinProps> = ({ type }) => {
     case "tape":
       // Washi Tape: semi-transparent, rotated, soft washi paper texture
       return (
-        <div className="absolute top-[-8px] left-1/2 transform -translate-x-1/2 z-10 w-14 h-4.5 bg-yellow-250/45 border border-yellow-300/20 shadow-xs -rotate-2 backdrop-blur-[0.5px] select-none pointer-events-none">
+        <div className="absolute top-[-8px] left-1/2 transform -translate-x-1/2 z-10 w-14 h-4.5 bg-yellow-250/45 border border-yellow-300/20 shadow-xs -rotate-2 select-none pointer-events-none">
           {/* Subtle lines or jagged edges effect */}
           <div className="absolute inset-0 flex justify-between px-0.5 text-yellow-500/20 text-[6px] font-mono select-none">
             <span>|||</span>

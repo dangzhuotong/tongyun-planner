@@ -390,7 +390,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(({
                     const buffer = await file.arrayBuffer();
                     const bytes = new Uint8Array(buffer);
                     const attId = crypto.randomUUID();
-                    const path = getAttachmentPath(task.id, attId, file.name);
+                    // Sanitize filename to avoid path issues with spaces/special chars
+                    const ext = file.name.includes(".") ? file.name.split(".").pop()! : "bin";
+                    const safeName = `${attId}.${ext}`;
+                    const path = getAttachmentPath(task.id, attId, safeName);
                     const savedPath = await storageManager.uploadFile(path, bytes, file.type);
                     const att: Attachment = {
                       id: attId,
@@ -403,7 +406,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(({
                     const next = [...attachments, att];
                     setAttachments(next);
                     onEditTask(task.id, { attachments: next });
-                    // Load display URL immediately for the new image
                     if (att.type.startsWith("image/")) {
                       try {
                         const url = await storageManager.getFileUrl(att.path, att.type);
@@ -412,7 +414,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(({
                     }
                   } catch (err: any) {
                     console.error("Upload failed", err);
-                    setUploadError(err?.message ? `上传失败：${err.message}` : "上传失败，请检查存储后端配置");
+                    // Tauri invoke errors are plain strings, not Error objects
+                    const msg = typeof err === "string" ? err : (err?.message || JSON.stringify(err));
+                    setUploadError(`上传失败：${msg}`);
                   } finally {
                     setUploading(false);
                     e.target.value = "";

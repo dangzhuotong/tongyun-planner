@@ -140,7 +140,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(({
           placeholder={lv.search}
           value={effectiveQuery}
           onChange={(e) => effectiveSetQuery(e.target.value)}
-          className="w-full bg-white/70 border border-[#EFEBE4] pl-10 pr-4 py-2.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] transition-colors font-semibold backdrop-blur-md"
+          className="w-full bg-white/90 border border-[#EFEBE4] pl-10 pr-4 py-2.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] transition-colors font-semibold "
         />
       </div>
       <div 
@@ -161,7 +161,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(({
         return (
           <div
             key={quad.id}
-            className={`rounded-2xl border ${borderClass} ${bgClass} shadow-[0_8px_20px_-8px_rgba(154,142,128,0.08)] transition-all duration-300 p-5 flex flex-col gap-3 relative overflow-hidden backdrop-blur-sm ${
+            className={`rounded-2xl border ${borderClass} ${bgClass} shadow-[0_8px_20px_-8px_rgba(154,142,128,0.08)] transition-all duration-300 p-5 flex flex-col gap-3 relative overflow-hidden ${
               expandedQuadrant 
                 ? "flex-grow min-h-[460px] shadow-md border-[#C4D7B2]" 
                 : "min-h-[220px] max-h-[300px] hover:-translate-y-0.5"
