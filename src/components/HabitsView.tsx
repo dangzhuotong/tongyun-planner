@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Plus, Flame, Circle, CheckCircle2, Trash2 } from "lucide-react";
 import { getLocalDateString } from "../utils/date";
+import { habitsBrokenYesterday } from "../utils/dailyReview";
 import { usePersonal } from "../context/PersonalContext";
 
 const HABIT_EMOJIS = ["💪", "📖", "🧘", "🏃", "💧", "🥗", "🌙", "☀️", "🎯", "✍️", "🎨", "🧠"];
@@ -11,6 +12,11 @@ export const HabitsView: React.FC = React.memo(() => {
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newEmoji, setNewEmoji] = useState("💪");
+
+  const broken = useMemo(
+    () => habitsBrokenYesterday(habits, habitLogs, today),
+    [habits, habitLogs, today]
+  );
 
   const handleAdd = () => {
     if (!newTitle.trim()) return;
@@ -61,6 +67,26 @@ export const HabitsView: React.FC = React.memo(() => {
           添加习惯
         </button>
       </div>
+
+      {broken.length > 0 && (
+        <div className="rounded-2xl border border-[#F6DCD2] bg-[#FBECE5]/70 px-4 py-3 text-[11px] text-[#A64424] font-medium leading-relaxed">
+          <span className="font-bold">昨天断签：</span>
+          {broken.map((h) => `${h.emoji} ${h.title}`).join("、")}
+          <span className="text-[#A64424]/70"> — 今天补上？</span>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {broken.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => onToggleLog(h.id, today)}
+                className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white/80 border border-[#F6DCD2] hover:border-[#E57C58] cursor-pointer transition-colors"
+              >
+                {h.emoji} 补打卡
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showAdd && (
         <div className="bg-white/80 border border-[#EFEBE4] p-4 rounded-2xl space-y-3 animate-fade-in-up">

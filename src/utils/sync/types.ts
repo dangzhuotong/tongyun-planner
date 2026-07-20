@@ -14,7 +14,7 @@ export interface SyncData {
   journal: JournalEntry[];
 }
 
-export type SyncBackendType = "webdav" | "supabase" | "none";
+export type SyncBackendType = "webdav" | "supabase" | "http" | "none";
 
 /** Keys matching each slice of SyncData that gets its own file on WebDAV */
 export type SyncCategory =
@@ -55,6 +55,7 @@ export interface SyncBackendConfig {
   type: SyncBackendType;
   webdav?: { url: string; username: string; password?: string };
   supabase?: { url: string; anonKey: string; userId?: string };
+  http?: { baseUrl: string; apiKey: string };
 }
 
 export interface SyncProvider {

@@ -11,6 +11,7 @@ function getAllKnownKeys(): string[] {
     'tongyun_countdowns', 'tongyun_habits', 'tongyun_habit_logs',
     'tongyun_moods', 'tongyun_ai_praise',
     'tongyun_webdav_url', 'tongyun_webdav_user', 'tongyun_webdav_pass',
+    'tongyun_http_sync_url', 'tongyun_http_sync_key', 'tongyun_sync_backend',
     'aero_last_backup_time', 'tongyun_sync_version', 'tongyun_last_updated',
     'tongyun_widget_split', 'tongyun_locale', 'tongyun_nickname',
     'pomodoro_focus_duration', 'pomodoro_break_duration',

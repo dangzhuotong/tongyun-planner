@@ -1,0 +1,7 @@
+# TongYun Sync Server — Python deps
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.9.0
+pydantic-settings>=2.6.0
+PyMySQL>=1.1.1
+cryptography>=43.0.0

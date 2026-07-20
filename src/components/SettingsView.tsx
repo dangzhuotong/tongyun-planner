@@ -4,8 +4,8 @@ import type { CustomizationConfig, AlertSoundType, Locale, EmailConfig } from ".
 import type { SyncBackendType } from "../utils/sync/types";
 import { storageManager, type StorageBackendType } from "../utils/storage";
 import { syncEngine } from "../utils/sync/engine";
-import { normalizeSyncData, applySyncData } from "../utils/sync/types";
-import { PLANNER_COLORS } from "../constants";
+import { normalizeSyncData, applySyncData, getLocalSyncData } from "../utils/sync/types";
+import { PLANNER_COLORS, NOISE_DEFINITIONS, getVisibleNoises, setVisibleNoises } from "../constants";
 import { openExternal } from "../utils/openExternal";
 import type { SelectOption } from "../constants";
 import { StickyPin } from "./StickyPin";
@@ -165,6 +165,12 @@ const ALERT_SOUND_OPTIONS: SelectOption<AlertSoundType>[] = [
   { value: "beep", label: "电子 Chime 🔔 (Beep)" },
   { value: "cuckoo", label: "布谷鸟叫 🐦 (Cuckoo)" },
   { value: "meow", label: "猫咪叫 🐱 (Meow)" },
+  { value: "chime", label: "风铃 Wind Chime 🎐 (Chime)" },
+  { value: "ding", label: "叮咚 Doorbell 🛎️ (Ding)" },
+  { value: "phone", label: "电话 Ring 📞 (Phone)" },
+  { value: "marimba", label: "马林巴 Marimba 🎵 (Marimba)" },
+  { value: "bells", label: "铃音 Bell Cascade 🔔 (Bells)" },
+  { value: "alarm", label: "警报 Alarm 🚨 (Alarm)" },
 ];
 
 const LOCALE_OPTIONS: SelectOption<Locale>[] = [
@@ -189,6 +195,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
 }) => {
   const { t } = useTranslation();
   const s = t.settings;
+  const sb = t.sidebar;
   const [subTab, setSubTab] = useState<"personalization" | "ai" | "sunset" | "sync" | "system" | "fun" | "email">("personalization");
   const [webdavUrl, setWebdavUrl] = useState(() => localStorage.getItem("tongyun_webdav_url") || "");
   const [webdavUser, setWebdavUser] = useState(() => localStorage.getItem("tongyun_webdav_user") || "");
@@ -196,6 +203,28 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
   const [syncBackend, setSyncBackend] = useState<SyncBackendType>(() => syncEngine.currentBackend);
   const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem("tongyun_supabase_url") || "");
   const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem("tongyun_supabase_anon_key") || "");
+  const [httpSyncUrl, setHttpSyncUrl] = useState(() => localStorage.getItem("tongyun_http_sync_url") || "http://127.0.0.1:8787");
+  const [httpSyncKey, setHttpSyncKey] = useState(() => localStorage.getItem("tongyun_http_sync_key") || "");
+
+  const applySyncProviderConfig = () => {
+    if (syncBackend === "webdav") {
+      syncEngine.webdavProvider.setConfig({
+        url: webdavUrl,
+        username: webdavUser,
+        password: webdavPass || undefined,
+      });
+    } else if (syncBackend === "supabase") {
+      syncEngine.supabaseProvider.setConfig({
+        url: supabaseUrl,
+        anonKey: supabaseKey,
+      });
+    } else if (syncBackend === "http") {
+      syncEngine.httpProvider.setConfig({
+        baseUrl: httpSyncUrl,
+        apiKey: httpSyncKey,
+      });
+    }
+  };
   const [storageBackend, setStorageBackend] = useState<StorageBackendType>(() => storageManager.current);
   const [ossRegion, setOssRegion] = useState(() => { try { return JSON.parse(localStorage.getItem("tongyun_oss_config") || "{}").region || ""; } catch { return ""; } });
   const [ossBucket, setOssBucket] = useState(() => { try { return JSON.parse(localStorage.getItem("tongyun_oss_config") || "{}").bucket || ""; } catch { return ""; } });
@@ -214,6 +243,15 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
     return safeJsonParse(localStorage.getItem("tongyun_ai_praise"), []);
   });
   const [generatingPraise, setGeneratingPraise] = useState(false);
+  const [visibleNoises, setVisibleNoisesState] = useState<string[]>(() => getVisibleNoises());
+  const [dueRemindEnabled, setDueRemindEnabled] = useState(() => {
+    const v = localStorage.getItem("tongyun_due_remind_enabled");
+    return v === null ? true : v === "1";
+  });
+  const [dueRemindBeforeMinutes, setDueRemindBeforeMinutes] = useState(() => {
+    const n = parseInt(localStorage.getItem("tongyun_due_remind_before_min") || "15", 10);
+    return [5, 15, 30, 60].includes(n) ? n : 15;
+  });
 
   const [emailConfig, setEmailConfig] = useState<EmailConfig>(() => {
     const saved = localStorage.getItem("tongyun_email_config");
@@ -1250,15 +1288,15 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
             {/* 后端选择器 */}
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">同步后端</label>
-              <div className="flex gap-2">
-                {([["none", "不使用"], ["webdav", "坚果云 WebDAV"], ["supabase", "Supabase"]] as [SyncBackendType, string][]).map(([val, label]) => (
+              <div className="grid grid-cols-2 gap-2">
+                {([["none", "不使用"], ["webdav", "坚果云 WebDAV"], ["http", "自建 Sync 服务"], ["supabase", "Supabase"]] as [SyncBackendType, string][]).map(([val, label]) => (
                   <button
                     key={val}
                     onClick={() => {
                       setSyncBackend(val);
                       syncEngine.setBackend(val);
                     }}
-                    className={`flex-1 py-2 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer ${
+                    className={`py-2 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer ${
                       syncBackend === val
                         ? "bg-[#4D7C5D] text-white border-[#4D7C5D]"
                         : "bg-white text-slate-600 border-[#EFEBE4] hover:border-[#4D7C5D]"
@@ -1318,6 +1356,74 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
                     />
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* 自建 HTTP Sync 服务 */}
+            {syncBackend === "http" && (
+              <div className="space-y-3">
+                <div className="rounded-xl bg-[#F7F5F0] dark:bg-slate-800/60 border border-[#EFEBE4] dark:border-slate-700 p-3 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <p className="mb-1.5">对接仓库内 <code className="text-slate-700 dark:text-slate-200">sync-server/</code>（FastAPI + MySQL）。本机默认 <code className="text-slate-700 dark:text-slate-200">http://127.0.0.1:8787</code>，API Key 填服务器 <code className="text-slate-700 dark:text-slate-200">.env</code> 里的值。密钥只存本机，不要提交到 Git。</p>
+                  <p className="text-[10px] opacity-80">启动：<code className="text-slate-700 dark:text-slate-200">cd sync-server && docker compose up -d</code></p>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">服务地址</label>
+                  <input
+                    type="text"
+                    placeholder="http://127.0.0.1:8787"
+                    value={httpSyncUrl}
+                    onChange={(e) => {
+                      setHttpSyncUrl(e.target.value);
+                      localStorage.setItem("tongyun_http_sync_url", e.target.value);
+                    }}
+                    className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">API Key</label>
+                  <input
+                    type="password"
+                    placeholder="与 sync-server/.env 中 API_KEY 一致"
+                    value={httpSyncKey}
+                    onChange={(e) => {
+                      setHttpSyncKey(e.target.value);
+                      localStorage.setItem("tongyun_http_sync_key", e.target.value);
+                    }}
+                    className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+                  />
+                </div>
+                {httpSyncUrl.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const base = httpSyncUrl.trim().replace(/\/+$/, "");
+                      const doc = `# TongYun 自建 Sync 服务（无密钥）
+
+Base URL: ${base}
+鉴权：请求头 \`X-API-Key\` 由用户本机配置，不要写入此文档或 Git。
+
+分类与桌面端一致：tasks / completedTasks / stickyNotes / pomodoroLogs / countdowns / habits / journal / config
+
+## API
+- GET ${base}/health
+- GET ${base}/v1/manifest
+- GET ${base}/v1/categories/{category}
+- PUT ${base}/v1/categories/{category}  body: {"data":...,"version":ms,"base_version":n}
+- GET ${base}/v1/snapshot
+- PUT ${base}/v1/snapshot  body: {"snapshot":{...},"merge_by_version":false}
+
+habits payload: {"habits":[],"habitLogs":{},"moods":{}}
+写操作先 GET 再带 base_version；409 时用 server_data 合并后重试。
+完整字段说明见仓库 sync-server/AI_PROMPT.md。`;
+                      navigator.clipboard.writeText(doc);
+                      triggerToast("已复制 API 说明（不含密钥）✅", "success");
+                    }}
+                    className="w-full bg-white hover:bg-[#F5F1EA] border border-[#DEEAE2] text-[#4D7C5D] dark:text-[#6DAF7E] py-2 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <Copy className="w-3 h-3" />
+                    复制 AI 接口说明（无密钥）
+                  </button>
+                )}
               </div>
             )}
 
@@ -1390,18 +1496,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
                 <div className="flex gap-2">
                   <button
                     onClick={async () => {
-                      if (syncBackend === "webdav") {
-                        syncEngine.webdavProvider.setConfig({
-                          url: webdavUrl,
-                          username: webdavUser,
-                          password: webdavPass || undefined,
-                        });
-                      } else {
-                        syncEngine.supabaseProvider.setConfig({
-                          url: supabaseUrl,
-                          anonKey: supabaseKey,
-                        });
-                      }
+                      applySyncProviderConfig();
                       setIsLoading(true);
                       const ok = await syncEngine.testConnection();
                       setIsLoading(false);
@@ -1415,23 +1510,14 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
                   </button>
                   <button
                     onClick={async () => {
-                      if (syncBackend === "webdav") {
-                        syncEngine.webdavProvider.setConfig({
-                          url: webdavUrl,
-                          username: webdavUser,
-                          password: webdavPass || undefined,
-                        });
-                      } else {
-                        syncEngine.supabaseProvider.setConfig({
-                          url: supabaseUrl,
-                          anonKey: supabaseKey,
-                        });
-                      }
+                      applySyncProviderConfig();
                       setIsLoading(true);
                       await syncEngine.sync();
                       setIsLoading(false);
                       if (syncEngine.status === "success") {
                         triggerToast("同步成功 ✅", "success");
+                      } else if (syncEngine.status === "error") {
+                        triggerToast(syncEngine.errorMessage || "同步失败", "error");
                       }
                     }}
                     disabled={isLoading || syncStatus === "syncing"}
@@ -1570,24 +1656,41 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
                       onClick={() => {
                         const doc = `# 🎯 TongYun-List 数据管理工具集
 
-通过坚果云 WebDAV 读写用户的所有应用数据：待办、便签、心情、习惯、倒计时等。
+通过坚果云 WebDAV 读写用户的所有应用数据：待办、已完成、便签、日记、习惯/心情、倒计时、专注记录、配置。
+
+远程目录：\`${webdavUrl}TongYunPlanner/\`
 
 ---
 
 ## 📦 数据文件一览
 
-| # | 文件 | 内容 | 结构 |
-|---|------|------|------|
-| 1 | \`tasks.json\` | 待办任务列表 | \`Task[]\` |
-| 2 | \`completed.json\` | 已完成任务 | \`Task[]\` |
-| 3 | \`notes.json\` | 便签 | \`StickyNote[]\` |
-| 4 | \`pomodoro.json\` | 专注记录 | \`PomodoroLog[]\` |
-| 5 | \`countdowns.json\` | 倒计时事件 | \`CountdownEvent[]\` |
-| 6 | \`habits.json\` | 习惯 + 打卡 + 心情 | \`{ habits[], habitLogs, moods }\` |
-| 7 | \`config.json\` | 应用配置 | \`CustomizationConfig\` |
-| 8 | \`manifest.json\` | ⚠️ 版本清单 | \`{ "分类": { "version": 时间戳 } }\` |
+| # | 文件 | manifest 键名（必须精确） | 内容 | 结构 |
+|---|------|---------------------------|------|------|
+| 1 | \`tasks.json\` | \`tasks\` | 活动待办 | \`Task[]\` |
+| 2 | \`completed.json\` | \`completedTasks\` | 已完成任务 | \`Task[]\` |
+| 3 | \`notes.json\` | \`stickyNotes\` | 便签 | \`StickyNote[]\` |
+| 4 | \`pomodoro.json\` | \`pomodoroLogs\` | 专注记录 | \`PomodoroLog[]\` |
+| 5 | \`countdowns.json\` | \`countdowns\` | 倒计时事件 | \`CountdownEvent[]\` |
+| 6 | \`habits.json\` | \`habits\` | 习惯 + 打卡 + 心情 | \`{ habits, habitLogs, moods }\` |
+| 7 | \`journal.json\` | \`journal\` | 日记 + 随记 | \`JournalEntry[]\` |
+| 8 | \`config.json\` | \`config\` | 应用配置 | \`CustomizationConfig\` |
+| 9 | \`manifest.json\` | — | ⚠️ 版本清单 | 见下方 |
 
-> **manifest.json 最关键**：每次写数据后必须更新版本号，否则 App 不会拉取新数据。
+> **manifest 最关键**：文件名 ≠ 键名。键名必须用上表 camelCase（如 \`stickyNotes\`，不是 \`notes\`）。每次写数据后必须更新对应键的 \`version\`，否则 App 不会拉取。
+
+### manifest.json 完整示例
+\`\`\`json
+{
+  "tasks": { "version": 1721433600000 },
+  "completedTasks": { "version": 1721433600000 },
+  "stickyNotes": { "version": 1721433600000 },
+  "pomodoroLogs": { "version": 1721433600000 },
+  "countdowns": { "version": 1721433600000 },
+  "habits": { "version": 1721433600000 },
+  "journal": { "version": 1721433600000 },
+  "config": { "version": 1721433600000 }
+}
+\`\`\`
 
 ---
 
@@ -1607,21 +1710,19 @@ curl -s -u "${webdavUser}:${webdavPass}" \\
 # 1. 读取当前数据
 curl -s -u "${webdavUser}:${webdavPass}" "${webdavUrl}TongYunPlanner/tasks.json"
 
-# 2. 修改数组（id 用 Date.now().toString(36)+Math.random().toString(36).slice(2,6)）
+# 2. 修改（id 用 Date.now().toString(36)+Math.random().toString(36).slice(2,6)）
 
-# 3. PUT 写回完整数组
+# 3. PUT 写回完整数据（永远整文件覆盖，勿丢其他条目）
 curl -s -X PUT -u "${webdavUser}:${webdavPass}" \\
   -H "Content-Type: application/json" \\
-  -d '<完整 JSON 数组>' \\
+  -d '<完整 JSON>' \\
   "${webdavUrl}TongYunPlanner/tasks.json"
 
-# 4. ⚠️ 更新 manifest.json 版本号
-#    GET → 修改对应分类 version 为 Date.now() → PUT
+# 4. ⚠️ 更新 manifest：GET → 只改对应键 version 为 Date.now() → PUT 整份 manifest
 curl -s -u "${webdavUser}:${webdavPass}" "${webdavUrl}TongYunPlanner/manifest.json"
-#    {"tasks":{"version":1712345678000}}
 curl -s -X PUT -u "${webdavUser}:${webdavPass}" \\
   -H "Content-Type: application/json" \\
-  -d '<更新后的 manifest>' \\
+  -d '<更新后的完整 manifest>' \\
   "${webdavUrl}TongYunPlanner/manifest.json"
 \`\`\`
 
@@ -1629,42 +1730,137 @@ curl -s -X PUT -u "${webdavUser}:${webdavPass}" \\
 
 ## 📋 各数据格式
 
-### Task（待办）
+### Task（tasks.json / completed.json 共用）
 \`\`\`json
-{"id":"k3x8p2a","title":"准备汇报","category":"important-not-urgent","dueDate":"2026-07-10","dueTime":"18:00","tags":["工作"],"description":"详情","isFavorite":false,"subtasks":[{"id":"m9n","title":"子任务","completed":false}],"repeat":"none"}
+{
+  "id": "k3x8p2a",
+  "title": "准备汇报",
+  "description": "详情",
+  "notes": "补充备注",
+  "category": "important-not-urgent",
+  "dueDate": "2026-07-10",
+  "dueTime": "18:00",
+  "priority": "medium",
+  "tags": ["工作"],
+  "isFavorite": false,
+  "isPinned": false,
+  "repeat": "none",
+  "subtasks": [{ "id": "m9n", "title": "子任务", "completed": false }],
+  "dependsOn": [],
+  "attachments": [],
+  "journalId": "",
+  "completedAt": 1721433600000
+}
 \`\`\`
-category: \`urgent-important\` \`important-not-urgent\` \`urgent-not-important\` \`not-urgent-not-important\`
+- \`category\`：\`urgent-important\` | \`important-not-urgent\` | \`urgent-not-important\` | \`not-urgent-not-important\`
+- \`priority\`：\`high\` | \`medium\` | \`low\`
+- \`repeat\`：\`none\` | \`daily\` | \`weekly\` | \`monthly\` 或自定义字符串
+- \`dueDate\`：\`YYYY-MM-DD\`；\`dueTime\`：\`HH:mm\`
+- \`dependsOn\`：前置任务 id 数组；\`journalId\`：由日记「加入待办」创建时关联日记 id
+- \`attachments\`：\`{ id, name, path, type, size, createdAt }\`（附件本体不在 WebDAV 文本同步范围内，勿乱改 path）
+- \`completedAt\`：完成时刻（毫秒时间戳）；仅已完成任务需要；撤销完成时删除该字段
+- 完成任务：从 \`tasks.json\` 移除，写入 \`completed.json\`（结构相同），并分别 bump \`tasks\` / \`completedTasks\` 的 manifest
 
-### StickyNote（便签）
+### StickyNote（notes.json）
 \`\`\`json
-{"id":"abc","text":"便签内容","color":"#FFD700","rotate":-3}
+{ "id": "abc", "text": "便签内容", "color": "#FFD700", "rotate": -3 }
+\`\`\`
+manifest 键：\`stickyNotes\`
+
+### CountdownEvent（countdowns.json）
+\`\`\`json
+{ "id": "cde", "title": "春节", "targetDate": "2027-01-28", "emoji": "🎉", "color": "#D4380D" }
 \`\`\`
 
-### CountdownEvent（倒计时）
+### PomodoroLog（pomodoro.json）
 \`\`\`json
-{"id":"cde","title":"春节","targetDate":"2027-01-28","emoji":"🎉","color":"#D4380D"}
+{ "id": "xyz", "timestamp": 1700000000000, "duration": 1500, "taskId": "k3x", "taskTitle": "标题" }
 \`\`\`
-
-### PomodoroLog（专注记录）
-\`\`\`json
-{"id":"xyz","timestamp":1700000000000,"duration":1500,"taskId":"k3x","taskTitle":"标题"}
-\`\`\`
+\`duration\` 单位秒；manifest 键：\`pomodoroLogs\`
 
 ### habits.json（习惯 + 打卡 + 心情）
 \`\`\`json
-{"habits":[{"id":"h1","title":"早起","emoji":"🌅"}],"habitLogs":{"2026-07-05":["h1"]},"moods":{"2026-07-05":4}}
+{
+  "habits": [{ "id": "h1", "title": "早起", "emoji": "🌅" }],
+  "habitLogs": { "2026-07-05": ["h1"] },
+  "moods": { "2026-07-05": 4 }
+}
 \`\`\`
+- \`habitLogs\`：日期 → 当日已打卡的 habit id 数组
+- \`moods\`：日期 → 1–5 心情分数
+- 心情备注/附件仅本地，不在此文件，勿臆造字段
 
-### config.json（配置）
-应用完整配置，读取可查看，修改需谨慎。
+### JournalEntry（journal.json）
+\`\`\`json
+{
+  "id": "j1a2b3",
+  "linkKey": "2026-07-20",
+  "title": "2026-07-20",
+  "content": "今天写点什么…",
+  "date": "2026-07-20",
+  "isDaily": true,
+  "templateId": "",
+  "aiComment": "",
+  "createdAt": 1721433600000,
+  "updatedAt": 1721433600000
+}
+\`\`\`
+- 日记：\`isDaily: true\`，\`linkKey\` / \`date\` / \`title\` 均为 \`YYYY-MM-DD\`
+- 随记：\`isDaily: false\`，\`linkKey\` 通常等于标题原文
+- \`content\` 纯文本；改写后请更新 \`updatedAt\`
+
+### config.json（CustomizationConfig）
+\`\`\`json
+{
+  "qColors": {
+    "urgent-important": "#...",
+    "important-not-urgent": "#...",
+    "urgent-not-important": "#...",
+    "not-urgent-not-important": "#..."
+  },
+  "cardBackground": "white",
+  "pinType": "pin",
+  "interfaceGlass": "light",
+  "watercolorStyle": "oasis",
+  "fontFamily": "sans",
+  "enableSunsetMode": false,
+  "sunsetStartHour": 20,
+  "sunsetEndHour": 7,
+  "sunsetWarmth": 40,
+  "enableCelebration": true,
+  "locale": "zh-CN",
+  "weatherCity": "北京",
+  "darkMode": "auto",
+  "aiProvider": "openai",
+  "aiApiKey": "",
+  "aiEndpoint": "",
+  "aiModel": "",
+  "aiAutoCategorize": false,
+  "journalCommentPrompt": "",
+  "enableAutoBackup": false,
+  "syncInterval": 300
+}
+\`\`\`
+- 修改配置前务必先 GET 再合并字段 PUT，勿用残缺对象覆盖
+- \`aiApiKey\` 等敏感字段若已有值，默认不要清空或回显给用户
+- \`syncInterval\`：秒，\`0\` 表示手动；常见 15/30/60/300/900/1800/3600
+- \`cardBackground\`：\`white\` | \`grid\` | \`lined\` | \`watercolor\` | \`doodle\`
+- \`darkMode\`：\`light\` | \`dark\` | \`auto\`；\`locale\`：\`zh-CN\` | \`en\`
+- \`aiProvider\`：\`openai\` | \`anthropic\`
+
+---
+
+## 🚫 不在 WebDAV 同步范围内（勿臆造远程文件）
+资讯收藏/历史、RSS 订阅源、心情备注与附件、AI 散文/建议缓存、昵称等仅本地。
 
 ---
 
 ## 📐 规则
 1. **404** = 数据不存在，初始化为 \`[]\` 或 \`{}\`
-2. **完整写回**：永远 PUT 完整数据，不丢失其他字段
-3. **manifest**：每次写数据后同步更新 manifest.json 版本号（用 \`Date.now()\`）
-4. **确认**：操作前展示变更内容让用户确认`;
+2. **完整写回**：永远 PUT 完整文件，不丢失其他字段/条目
+3. **manifest**：写完数据后更新对应 camelCase 键的 \`version\`（\`Date.now()\`），并 PUT 完整 manifest
+4. **确认**：操作前展示变更内容让用户确认
+5. **完成任务**：在 \`tasks\` 与 \`completedTasks\` 两侧同时维护，并分别 bump 两个 manifest 键`;
 
                         navigator.clipboard.writeText(doc);
                         triggerToast("已复制 ✅ 完整技能定义，可直接粘贴给 AI", "success");
@@ -1691,16 +1887,9 @@ category: \`urgent-important\` \`important-not-urgent\` \`urgent-not-important\`
               <div className="flex gap-3">
                 <button
                   onClick={() => {
+                    const sync = getLocalSyncData();
                     const data = {
-                      tasks: safeJsonParse(localStorage.getItem("aero_todos"), []),
-                      completedTasks: safeJsonParse(localStorage.getItem("aero_completed_todos"), []),
-                      stickyNotes: safeJsonParse(localStorage.getItem("aero_sticky_notes"), []),
-                      customizationConfig: safeJsonParse(localStorage.getItem("aero_customization_config"), {}),
-                      pomodoroLogs: safeJsonParse(localStorage.getItem("aero_pomodoro_logs"), []),
-                      countdowns: safeJsonParse(localStorage.getItem("tongyun_countdowns"), []),
-                      habits: safeJsonParse(localStorage.getItem("tongyun_habits"), []),
-                      habitLogs: safeJsonParse(localStorage.getItem("tongyun_habit_logs"), {}),
-                      moods: safeJsonParse(localStorage.getItem("tongyun_moods"), {}),
+                      ...sync,
                       aiPraise: safeJsonParse(localStorage.getItem("tongyun_ai_praise"), []),
                       exportedAt: new Date().toISOString(),
                     };
@@ -1814,6 +2003,121 @@ category: \`urgent-important\` \`important-not-urgent\` \`urgent-not-important\`
                 options={ALERT_SOUND_OPTIONS}
                 className="w-full max-w-sm"
               />
+            </div>
+
+            {/* 任务到期系统通知 */}
+            <div className="space-y-3 pb-3 border-b border-[#EFEBE4]">
+              <h4 className="text-xs font-bold text-slate-700">{s.dueRemindTitle}</h4>
+              <p className="text-[10px] text-slate-400 font-medium">{s.dueRemindDesc}</p>
+              <div className="bg-[#FAF8F5] border border-[#EFEBE4] rounded-2xl p-3.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-slate-700 block">{s.dueRemindToggle}</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">{s.dueRemindClickHint}</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={dueRemindEnabled}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setDueRemindEnabled(enabled);
+                    localStorage.setItem("tongyun_due_remind_enabled", enabled ? "1" : "0");
+                  }}
+                  className="w-4 h-4 accent-[#4D7C5D] cursor-pointer flex-shrink-0"
+                />
+              </div>
+              {dueRemindEnabled && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold text-slate-500">{s.dueRemindBefore}</span>
+                    <select
+                      value={dueRemindBeforeMinutes}
+                      onChange={(e) => {
+                        const mins = parseInt(e.target.value, 10);
+                        setDueRemindBeforeMinutes(mins);
+                        localStorage.setItem("tongyun_due_remind_before_min", String(mins));
+                      }}
+                      className="bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-700 focus:outline-none focus:border-[#4D7C5D] cursor-pointer"
+                    >
+                      <option value={5}>5 {s.dueRemindMinutes}</option>
+                      <option value={15}>15 {s.dueRemindMinutes}</option>
+                      <option value={30}>30 {s.dueRemindMinutes}</option>
+                      <option value={60}>60 {s.dueRemindMinutes}</option>
+                    </select>
+                    <span className="text-[10px] text-slate-400 font-medium">{s.dueRemindBeforeDesc}</span>
+                  </div>
+                  {typeof Notification !== "undefined" && Notification.permission !== "granted" && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const result = await Notification.requestPermission();
+                          if (result === "granted") {
+                            triggerToast(s.dueRemindPermissionGranted || "通知权限已开启", "success");
+                          } else if (result === "denied") {
+                            triggerToast(s.dueRemindPermissionDenied || "通知被系统拒绝", "error");
+                          }
+                        } catch {
+                          triggerToast(s.dueRemindPermissionDenied || "通知被系统拒绝", "error");
+                        }
+                      }}
+                      className="text-[10px] font-bold text-[#4D7C5D] bg-[#F0F5F1] border border-[#DEEAE2] px-3 py-1.5 rounded-lg hover:bg-[#E4EDE6] cursor-pointer transition-colors"
+                    >
+                      {s.dueRemindPermission || "开启系统通知权限"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 白噪音管理 */}
+            <div className="space-y-2 pb-3 border-b border-[#EFEBE4]">
+              <h4 className="text-xs font-bold text-slate-700">{s.noiseSelectTitle}</h4>
+              <p className="text-[10px] text-slate-400 font-medium">{s.noiseSelectDesc}</p>
+              <div className="grid grid-cols-2 gap-1.5 mt-1">
+                {NOISE_DEFINITIONS.map((def) => {
+                  const checked = visibleNoises.includes(def.id);
+                  return (
+                    <div
+                      key={def.id}
+                      className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${
+                        checked
+                          ? "bg-[#4D7C5D]/8 border-[#4D7C5D]/25"
+                          : "bg-white border-[#EFEBE4]"
+                      }`}
+                    >
+                      <button
+                        onClick={() => {
+                          audioEngine.stopNoise();
+                          audioEngine.startNoise(def.id, 0.3);
+                          setTimeout(() => audioEngine.stopNoise(), 2000);
+                        }}
+                        className="flex-shrink-0 w-5 h-5 rounded-md bg-slate-100 hover:bg-[#4D7C5D]/15 flex items-center justify-center cursor-pointer transition-colors"
+                        title={`试听 ${(sb as any)[def.labelKey]}`}
+                      >
+                        <span className="text-[9px]">▶</span>
+                      </button>
+                      <label className="flex items-center gap-1.5 flex-grow cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const next = e.target.checked
+                              ? [...visibleNoises, def.id]
+                              : visibleNoises.filter((id: string) => id !== def.id);
+                            setVisibleNoises(next);
+                            setVisibleNoisesState(next);
+                          }}
+                          className="sr-only"
+                        />
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${checked ? "bg-[#4D7C5D]" : "bg-slate-200"}`} />
+                        <span className={`font-medium ${checked ? "text-[#4D7C5D]" : "text-slate-400"}`}>
+                          {(sb as any)[def.labelKey]}
+                        </span>
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* 清空及重置 */}

@@ -40,6 +40,8 @@ export interface Task {
   dependsOn?: string[];  // task IDs that must be completed first
   attachments?: Attachment[];
   journalId?: string;    // 关联自某篇日记（addToTodo 时创建）
+  /** 完成时刻（ms）；撤销完成时清除。旧数据可能缺失 */
+  completedAt?: number;
 }
 
 export interface PomodoroLog {
@@ -77,7 +79,7 @@ export interface JournalTemplate {
   content: string;
 }
 
-export type AlertSoundType = "beep" | "cuckoo" | "meow";
+export type AlertSoundType = "beep" | "cuckoo" | "meow" | "chime" | "ding" | "phone" | "marimba" | "bells" | "alarm";
 
 export type AppTab = "home" | "matrix" | "list" | "calendar" | "notes" | "analytics" | "completed" | "countdown" | "habits" | "settings" | "tasks" | "focus" | "archive" | "news" | "gantt" | "journal";
 

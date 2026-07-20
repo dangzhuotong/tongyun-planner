@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { BookOpen, StickyNote as NoteIcon, Trash2, Search, ListChecks, Image as ImageIcon, X, SmilePlus, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus } from "lucide-react";
-import type { JournalEntry, Task, Attachment, CustomizationConfig } from "../types";
+import type { JournalEntry, Task, Attachment, CustomizationConfig, PomodoroLog } from "../types";
 import { extractJournalTags } from "../constants";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
+import { pomodoroStatsOn, taskCompletedOn } from "../utils/dailyReview";
 import { useTranslation } from "../i18n/LanguageContext";
 import { storageManager, getAttachmentPath } from "../utils/storage";
 import { callAI } from "../utils/aiEngine";
@@ -217,11 +218,12 @@ function MoodPanel({ date, mood, note, attachments, moods, onSetMood, onSetMoodN
 
 interface JournalViewProps {
   tasks: Task[];
-  pomodoroLogs: { id: string; timestamp: number; duration: number }[];
+  completedTasks: Task[];
+  pomodoroLogs: Pick<PomodoroLog, "id" | "timestamp" | "duration">[];
   aiConfig: CustomizationConfig;
 }
 
-export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps) {
+export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: JournalViewProps) {
   const {
     journal, handleUpsertJournal: onUpsert, handleDeleteJournal: onDelete,
     journalAddTodo: addTodoEnabled, handleToggleJournalAddTodo: onToggleAddTodo,
@@ -333,16 +335,15 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
     handleContentChange(next);
   };
 
-  const viewFocus = useMemo(() => {
-    const start = new Date(viewDate + "T00:00:00").getTime();
-    const end = start + 86400000;
-    let minutes = 0;
-    let count = 0;
-    for (const log of pomodoroLogs) {
-      if (log.timestamp >= start && log.timestamp < end) { minutes += log.duration || 0; count++; }
-    }
-    return { minutes, count };
-  }, [pomodoroLogs, viewDate]);
+  const viewFocus = useMemo(
+    () => pomodoroStatsOn(pomodoroLogs, viewDate),
+    [pomodoroLogs, viewDate]
+  );
+
+  const viewDone = useMemo(
+    () => completedTasks.filter((task) => taskCompletedOn(task, viewDate)),
+    [completedTasks, viewDate]
+  );
 
   // 温柔的 AI 评语
   const [aiLoading, setAiLoading] = useState(false);
@@ -753,6 +754,20 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
                   title={task.title}
                 >
                   {task.title}
+                </button>
+              ))}
+            </div>
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{j.todayDone || "今日完成"}</div>
+            <div className="space-y-1 mb-3">
+              {viewDone.length === 0 && <div className="text-[11px] text-slate-300">{j.noDone || "今天还没有完成任务"}</div>}
+              {viewDone.slice(0, 8).map((task) => (
+                <button
+                  key={task.id}
+                  onClick={() => insertLine(`✓ ${task.title}`)}
+                  className="w-full text-left text-[11px] text-[#4D7C5D] bg-[#F0F5F1] border border-[#C4D7B2]/60 hover:border-[#4D7C5D] rounded-lg px-2 py-1.5 cursor-pointer transition-colors truncate"
+                  title={task.title}
+                >
+                  ✓ {task.title}
                 </button>
               ))}
             </div>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "../i18n/LanguageContext";
-import { Sparkles, History, Circle, CheckCircle2, ListTodo, CloudSun, CalendarDays, Award, Clock, PenLine, TrendingUp, RefreshCw } from "lucide-react";
-import type { Task, CustomizationConfig } from "../types";
+import { Sparkles, History, Circle, CheckCircle2, ListTodo, CloudSun, CalendarDays, Award, Clock, PenLine, TrendingUp, RefreshCw, BookOpen, Flame, Timer } from "lucide-react";
+import type { Task, CustomizationConfig, PomodoroLog } from "../types";
 import { getLocalDateString } from "../utils/date";
 import { generateProse, generateDailySuggestion } from "../utils/aiEngine";
 import { safeJsonParse } from "../utils/json";
-
+import { usePersonal } from "../context/PersonalContext";
+import { computeDailyReview } from "../utils/dailyReview";
 
 // ============ 每日缓存工具 ============
 // 用 localStorage 做当天缓存，进 Dashboard 只在\"今天还没生成过\"时才调 AI。
@@ -36,24 +37,43 @@ function writeDailyCache<T>(key: string, today: string, locale: string, data: T)
 interface DashboardViewProps {
   tasks: Task[];
   completedTasks: Task[];
+  pomodoroLogs: PomodoroLog[];
   handleComplete: (id: string) => void;
   onTaskClick: (task: Task) => void;
+  onOpenJournal?: () => void;
   config: CustomizationConfig;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
   tasks,
   completedTasks,
+  pomodoroLogs,
   handleComplete,
   onTaskClick,
+  onOpenJournal,
   config,
 }) => {
   const { t } = useTranslation();
   const d = t.dashboard;
+  const { journal, habits, habitLogs } = usePersonal();
 
   const [nickname] = useState(() => localStorage.getItem("tongyun_nickname") || "");
   const today = getLocalDateString();
   const localeKey = config.locale || "zh-CN";
+
+  const review = useMemo(
+    () =>
+      computeDailyReview({
+        date: today,
+        tasks,
+        completedTasks,
+        pomodoroLogs,
+        habits,
+        habitLogs,
+        journal,
+      }),
+    [today, tasks, completedTasks, pomodoroLogs, habits, habitLogs, journal]
+  );
 
   const hour = new Date().getHours();
   let greetKey: string;
@@ -339,6 +359,44 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
           </div>
         ) : null}
       </div>
+
+      {/* 今日回顾：任务 × 日记 × 番茄 × 习惯 */}
+      <button
+        type="button"
+        onClick={() => onOpenJournal?.()}
+        className="w-full text-left rounded-2xl bg-white/90 border border-[#EFEBE4] p-4 shadow-2xs hover:shadow-xs card-hover-lift cursor-pointer transition-all"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[9px] font-black text-[#4D7C5D] tracking-widest uppercase flex items-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5" /> {d.reviewTitle || "今日回顾"}
+          </span>
+          <span className="text-[9px] font-bold text-[#8B6E3C] opacity-80">
+            {d.reviewOpenJournal || "去写日记"} →
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { icon: <CheckCircle2 className="w-3.5 h-3.5" />, label: d.reviewDone || "完成", value: String(review.completedCount), tone: "text-[#4D7C5D] bg-[#F0F5F1]" },
+            { icon: <ListTodo className="w-3.5 h-3.5" />, label: d.reviewOpen || "待办", value: String(review.openDueCount), tone: "text-[#8B6E3C] bg-[#FAF8F5]" },
+            { icon: <Timer className="w-3.5 h-3.5" />, label: d.reviewFocus || "专注", value: `${review.focusMinutes}${d.reviewMinutes || "分"}`, tone: "text-[#A64424] bg-[#FBECE5]" },
+            { icon: <Flame className="w-3.5 h-3.5" />, label: d.reviewHabits || "习惯", value: review.habitTotal ? `${review.habitDone}/${review.habitTotal}` : "—", tone: "text-[#E8A0BF] bg-[#FDF2F8]" },
+          ].map((cell) => (
+            <div key={cell.label} className={`rounded-xl px-2.5 py-2.5 ${cell.tone}`}>
+              <div className="flex items-center gap-1 opacity-70 mb-1">{cell.icon}<span className="text-[9px] font-bold">{cell.label}</span></div>
+              <div className="text-sm font-black tracking-tight">{cell.value}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-500 font-medium">
+          <BookOpen className="w-3.5 h-3.5 text-[#4D7C5D] flex-shrink-0" />
+          <span className="truncate">
+            {d.reviewJournal || "日记"}：
+            {review.hasJournal
+              ? (review.journalPreview || (d.reviewJournalDone || "已记录"))
+              : (d.reviewJournalEmpty || "还没写")}
+          </span>
+        </div>
+      </button>
 
       {/* 独立精致的 4 个统计小卡片 */}
       <div className="grid grid-cols-4 gap-4">
