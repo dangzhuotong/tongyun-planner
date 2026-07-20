@@ -234,7 +234,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.aiApiKey, today, localeKey]);
 
-  // Prose —— 同样当日缓存,进入 Dashboard 自动生成一次,支持手动重新生成
+  // Prose —— 当日缓存；进页只读缓存，不自动打 AI；按钮手动生成/重生成
   const PROSE_CACHE_KEY = "tongyun_ai_daily_prose";
   const [prose, setProse] = useState<string | null>(() =>
     readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey)
@@ -242,22 +242,23 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
   const [proseLoading, setProseLoading] = useState(false);
   const [proseError, setProseError] = useState(false);
 
-  const handleGenerateProse = async (force: boolean = false) => {
+  const handleGenerateProse = async () => {
     if (!config.aiApiKey) {
       setProseError(true);
       return;
     }
-    if (!force) {
-      const cached = readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey);
-      if (cached) {
-        setProse(cached);
-        return;
-      }
-    }
     setProseLoading(true);
     setProseError(false);
     try {
-      const result = await generateProse(config, localeKey);
+      const contextHints = tasks
+        .filter((t) => t.dueDate === today)
+        .map((t) => t.title)
+        .filter(Boolean)
+        .slice(0, 3);
+      const result = await generateProse(config, localeKey, {
+        avoidSnippet: prose || undefined,
+        contextHints,
+      });
       if (result) {
         setProse(result);
         writeDailyCache(PROSE_CACHE_KEY, today, localeKey, result);
@@ -270,17 +271,11 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     setProseLoading(false);
   };
 
-  // 进入 Dashboard 自动生成一次(有缓存直接用,不发请求)
+  // 跨天/切语言时刷新缓存展示（不发请求）
   useEffect(() => {
-    if (!config.aiApiKey) return;
-    const cached = readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey);
-    if (cached) {
-      setProse(cached);
-      return;
-    }
-    handleGenerateProse(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.aiApiKey, today, localeKey]);
+    setProse(readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey));
+    setProseError(false);
+  }, [today, localeKey]);
 
   // Format local date elegantly
   const localDateStr = new Date().toLocaleDateString(
@@ -580,7 +575,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             <PenLine className="w-3.5 h-3.5" /> {t.prose?.title || "AI 散文"}
           </span>
           <button
-            onClick={() => handleGenerateProse(true)}
+            onClick={() => handleGenerateProse()}
             disabled={proseLoading}
             className={`text-[9px] font-black flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
               proseLoading
@@ -589,7 +584,11 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             }`}
           >
             <Sparkles className={`w-3 h-3 ${proseLoading ? "animate-spin" : ""}`} />
-            {proseLoading ? (t.prose?.generating || "生成中...") : (t.prose?.generate || "生成散文")}
+            {proseLoading
+              ? (t.prose?.generating || "生成中...")
+              : prose
+                ? (t.prose?.regenerate || "换一篇")
+                : (t.prose?.generate || "生成散文")}
           </button>
         </div>
         <div className="min-h-[60px]">

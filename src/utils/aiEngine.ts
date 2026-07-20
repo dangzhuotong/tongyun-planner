@@ -264,37 +264,47 @@ export async function generatePraiseBatch(
   }
 }
 
+export interface GenerateProseOptions {
+  /** 上一篇摘要，用于同日重生成时避开撞题 */
+  avoidSnippet?: string;
+  /** 可选的今日生活线索（如任务标题），轻量点染即可 */
+  contextHints?: string[];
+}
+
 /**
- * 6c. AI 生成散文 — 根据当前日期和季节生成一篇优美的短篇散文
+ * 6c. AI 生成散文 — 短篇随笔，贴合今日，避免题材套路
  */
 export async function generateProse(
   config: CustomizationConfig,
-  locale: string
+  locale: string,
+  options: GenerateProseOptions = {}
 ): Promise<string> {
   const now = new Date();
   const dateStr = locale === "zh-CN"
     ? `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`
     : now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  const season = ["spring", "summer", "autumn", "winter"][Math.floor(now.getMonth() / 3)];
 
-  const systemPrompt = `你是一位文风清雅、温润自持的散文作家。你擅长"白话为骨，雅字为韵"的写作风格，不随波逐流，文字自有风骨。
+  const systemPrompt = `你是一位文风平实的散文作家，写短篇随笔。
 
-风格要求：
-1. 语言底色（白话为骨）：整体语言要平实、自然、顺畅，使用通俗易懂的白话文。避免大篇幅堆砌文言文、生僻字或过于繁复的修辞，切忌矫揉造作、无病呻吟。
-2. 文字点睛（雅字为韵）：在平实的句式中，恰到好处地安放一两个凝练、带有书卷气或古典美感的词汇。例如用"思虑"代替"想得太多"，用"惊扰"代替"打扰"，用"自持"、"内敛"、"提点"、"耳濡目染"等词语，展现分寸感和读书人的从容。
-3. 情感态度：基调是温和、诚恳、谦逊且内省的。文字中要透着一种"随心、由衷"的淡然，不刻意迎合，也不故作高深。
-4. 字数控制在 500-800 字，主题与当前季节（${season}）和日期（${dateStr}）相关。
+要求：
+1. 白话为主，自然顺畅；可偶有一点书卷气，但不要堆砌文言、生僻字或套路修辞。
+2. 语气温和、诚恳，不鸡汤、不矫情。
+3. 全文 200–350 字。不要刻意写季节、节气、喝茶、读书等固定题材。
+4. 从今天某个具体、琐碎的生活细节切入，略作延展后收束即可。
 
-结构布局：
-- 引入：从生活中的一个细节、日常习惯、或者一个小故事或对话切入。
-- 展开：由此细节延展开去，探讨人与人、人与物，或人与自我的关系，夹叙夹议。
-- 收尾：总结自己的心境或态度。
+输出格式：第一行标题（2–8 字），空一行后写正文。只返回标题和正文。`;
 
-输出格式：第一行作为标题，空一行后写正文。标题需简洁有韵味（2-8 字），与正文内容一致。只返回标题和正文，不要任何额外说明。`;
+  const parts = [`今天是 ${dateStr}。请写一篇短篇随笔。`];
+  const hints = (options.contextHints || []).map((h) => h.trim()).filter(Boolean).slice(0, 3);
+  if (hints.length > 0) {
+    parts.push(`可参考这些今日线索（不必全用，点到即可）：${hints.join("；")}。`);
+  }
+  if (options.avoidSnippet?.trim()) {
+    parts.push(`请换一个完全不同的切入点，不要与下面这篇相似：\n${options.avoidSnippet.trim().slice(0, 120)}`);
+  }
 
-  const userPrompt = `请以今天（${dateStr}，${season}）为背景，写一篇随笔散文。主题可以是独处、慢行、惜物、喝茶、读书等日常生活中的一件小事。`;
   try {
-    return await callAI(config, systemPrompt, userPrompt);
+    return await callAI(config, systemPrompt, parts.join("\n"));
   } catch {
     return "";
   }
