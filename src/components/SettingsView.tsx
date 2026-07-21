@@ -1409,7 +1409,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
 Base URL: ${base}
 鉴权：请求头 \`X-API-Key\` 由用户本机配置，不要写入此文档或 Git。
 
-分类与桌面端一致：tasks / completedTasks / stickyNotes / pomodoroLogs / countdowns / habits / journal / config
+分类与桌面端一致：tasks / completedTasks / stickyNotes / pomodoroLogs / countdowns / journal / config
 
 ## API
 - GET ${base}/health
@@ -1419,7 +1419,6 @@ Base URL: ${base}
 - GET ${base}/v1/snapshot
 - PUT ${base}/v1/snapshot  body: {"snapshot":{...},"merge_by_version":false}
 
-habits payload: {"habits":[],"habitLogs":{},"moods":{}}
 写操作先 GET 再带 base_version；409 时用 server_data 合并后重试。
 完整字段说明见仓库 sync-server/AI_PROMPT.md。`;
                       navigator.clipboard.writeText(doc);
@@ -1663,7 +1662,7 @@ habits payload: {"habits":[],"habitLogs":{},"moods":{}}
                       onClick={() => {
                         const doc = `# 🎯 TongYun-List 数据管理工具集
 
-通过坚果云 WebDAV 读写用户的所有应用数据：待办、已完成、便签、日记、习惯/心情、倒计时、专注记录、配置。
+通过坚果云 WebDAV 读写用户的所有应用数据：待办、已完成、便签、日记、倒计时、专注记录、配置。
 
 远程目录：\`${webdavUrl}TongYunPlanner/\`
 
@@ -1678,10 +1677,9 @@ habits payload: {"habits":[],"habitLogs":{},"moods":{}}
 | 3 | \`notes.json\` | \`stickyNotes\` | 便签 | \`StickyNote[]\` |
 | 4 | \`pomodoro.json\` | \`pomodoroLogs\` | 专注记录 | \`PomodoroLog[]\` |
 | 5 | \`countdowns.json\` | \`countdowns\` | 倒计时事件 | \`CountdownEvent[]\` |
-| 6 | \`habits.json\` | \`habits\` | 习惯 + 打卡 + 心情 | \`{ habits, habitLogs, moods }\` |
-| 7 | \`journal.json\` | \`journal\` | 日记 + 随记 | \`JournalEntry[]\` |
-| 8 | \`config.json\` | \`config\` | 应用配置 | \`CustomizationConfig\` |
-| 9 | \`manifest.json\` | — | ⚠️ 版本清单 | 见下方 |
+| 6 | \`journal.json\` | \`journal\` | 日记 + 随记 | \`JournalEntry[]\` |
+| 7 | \`config.json\` | \`config\` | 应用配置 | \`CustomizationConfig\` |
+| 8 | \`manifest.json\` | — | ⚠️ 版本清单 | 见下方 |
 
 > **manifest 最关键**：文件名 ≠ 键名。键名必须用上表 camelCase（如 \`stickyNotes\`，不是 \`notes\`）。每次写数据后必须更新对应键的 \`version\`，否则 App 不会拉取。
 
@@ -1693,7 +1691,6 @@ habits payload: {"habits":[],"habitLogs":{},"moods":{}}
   "stickyNotes": { "version": 1721433600000 },
   "pomodoroLogs": { "version": 1721433600000 },
   "countdowns": { "version": 1721433600000 },
-  "habits": { "version": 1721433600000 },
   "journal": { "version": 1721433600000 },
   "config": { "version": 1721433600000 }
 }
@@ -1785,18 +1782,6 @@ manifest 键：\`stickyNotes\`
 \`\`\`
 \`duration\` 单位秒；manifest 键：\`pomodoroLogs\`
 
-### habits.json（习惯 + 打卡 + 心情）
-\`\`\`json
-{
-  "habits": [{ "id": "h1", "title": "早起", "emoji": "🌅" }],
-  "habitLogs": { "2026-07-05": ["h1"] },
-  "moods": { "2026-07-05": 4 }
-}
-\`\`\`
-- \`habitLogs\`：日期 → 当日已打卡的 habit id 数组
-- \`moods\`：日期 → 1–5 心情分数
-- 心情备注/附件仅本地，不在此文件，勿臆造字段
-
 ### JournalEntry（journal.json）
 \`\`\`json
 {
@@ -1807,6 +1792,7 @@ manifest 键：\`stickyNotes\`
   "date": "2026-07-20",
   "isDaily": true,
   "templateId": "",
+  "mood": "😊",
   "aiComment": "",
   "createdAt": 1721433600000,
   "updatedAt": 1721433600000
@@ -1814,6 +1800,7 @@ manifest 键：\`stickyNotes\`
 \`\`\`
 - 日记：\`isDaily: true\`，\`linkKey\` / \`date\` / \`title\` 均为 \`YYYY-MM-DD\`
 - 随记：\`isDaily: false\`，\`linkKey\` 通常等于标题原文
+- \`mood\`：可选，日记当日心情 emoji（如 😞😔😐😊😄）
 - \`content\` 纯文本；改写后请更新 \`updatedAt\`
 
 ### config.json（CustomizationConfig）
@@ -1858,7 +1845,7 @@ manifest 键：\`stickyNotes\`
 ---
 
 ## 🚫 不在 WebDAV 同步范围内（勿臆造远程文件）
-资讯收藏/历史、RSS 订阅源、心情备注与附件、AI 散文/建议缓存、昵称等仅本地。
+资讯收藏/历史、RSS 订阅源、AI 散文/建议缓存、昵称等仅本地。
 
 ---
 

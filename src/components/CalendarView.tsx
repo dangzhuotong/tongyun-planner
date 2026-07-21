@@ -35,7 +35,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(({
   handleComplete,
   handleAddTask,
 }) => {
-  const { moods, calendarYear, setCalendarYear, calendarMonth, setCalendarMonth, selectedCalendarDate, setSelectedCalendarDate } = usePersonal();
+  const { calendarYear, setCalendarYear, calendarMonth, setCalendarMonth, selectedCalendarDate, setSelectedCalendarDate } = usePersonal();
   const { t } = useTranslation(); const cv = t.calendarView; const m = t.matrix;
   // Pre-group tasks by due date using useMemo to convert O(N) filters to O(1) lookups
   const tasksByDueDate = useMemo(() => {
@@ -78,15 +78,6 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(({
       })
       .catch(() => {});
   }, [calendarYear]);
-
-  // 日历心情直接取自日记手账的 moods（数值 1-5），不再单独存储
-  const MOOD_EMOJI_BY_VALUE: Record<number, string> = {
-    1: "😞",
-    2: "😔",
-    3: "😐",
-    4: "😊",
-    5: "😄",
-  };
 
   // 时间块规划
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>(() =>
@@ -233,7 +224,6 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(({
           <span className="relative leading-none flex items-center justify-center w-full gap-0.5">
             {badgeText && <span className={`text-[5px] px-1 rounded-sm font-extrabold leading-none py-0.5 ${badgeStyle}`}>{badgeText}</span>}
             <span>{dayNum}</span>
-            {moods[dateStr] !== undefined && <span className="text-[7px] ml-0.5">{MOOD_EMOJI_BY_VALUE[moods[dateStr]]}</span>}
           </span>
           <div className="flex gap-0.5 justify-center w-full min-h-[4px]">
             {meta.type === "休" || meta.type === "班"
@@ -367,16 +357,6 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(({
                       </p>
                     );
                   })()}
-                </div>
-                {/* 心情便签（取自日记手账） */}
-                <div className="mt-2">
-                  {moods[selectedCalendarDate] !== undefined ? (
-                    <span className="text-base leading-none" title="心情来自日记手账">
-                      {MOOD_EMOJI_BY_VALUE[moods[selectedCalendarDate]]}
-                    </span>
-                  ) : (
-                    <span className="text-[9px] text-slate-400 font-medium">当天日记未记录心情</span>
-                  )}
                 </div>
                 {(() => {
                   const meta = getDayMeta(selectedCalendarDate);

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "../i18n/LanguageContext";
-import { Sparkles, History, Circle, CheckCircle2, ListTodo, CloudSun, CalendarDays, Award, Clock, PenLine, TrendingUp, RefreshCw, BookOpen, Flame, Timer } from "lucide-react";
+import { Sparkles, History, Circle, CheckCircle2, ListTodo, CloudSun, CalendarDays, Clock, PenLine, TrendingUp, RefreshCw, BookOpen, Timer } from "lucide-react";
 import type { Task, CustomizationConfig, PomodoroLog } from "../types";
-import { getLocalDateString } from "../utils/date";
+import { getLocalDateString, filterHomeActionableTasks, getHomeTaskKind } from "../utils/date";
 import { generateProse, generateDailySuggestion } from "../utils/aiEngine";
 import { safeJsonParse } from "../utils/json";
 import { usePersonal } from "../context/PersonalContext";
@@ -55,7 +55,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 }) => {
   const { t } = useTranslation();
   const d = t.dashboard;
-  const { journal, habits, habitLogs, moods } = usePersonal();
+  const { journal } = usePersonal();
 
   const [nickname] = useState(() => localStorage.getItem("tongyun_nickname") || "");
   const today = getLocalDateString();
@@ -68,11 +68,9 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         tasks,
         completedTasks,
         pomodoroLogs,
-        habits,
-        habitLogs,
         journal,
       }),
-    [today, tasks, completedTasks, pomodoroLogs, habits, habitLogs, journal]
+    [today, tasks, completedTasks, pomodoroLogs, journal]
   );
 
   const hour = new Date().getHours();
@@ -100,9 +98,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 
   const greeting = `${d[greetKey]}${nickname ? `, ${nickname}` : ""}!`;
 
-  const todayTasks = useMemo(() => tasks.filter((t) => t.dueDate === today), [tasks, today]);
-  const totalCount = tasks.length + completedTasks.length;
-  const progressPct = totalCount === 0 ? 0 : Math.round((completedTasks.length / totalCount) * 100);
+  const todayTasks = useMemo(() => filterHomeActionableTasks(tasks, today), [tasks, today]);
 
   // Weather
   const [weather, setWeather] = useState<{
@@ -235,19 +231,13 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
       const todayTasksBrief = tasks
         .filter((t) => t.dueDate === today)
         .map((t) => ({ title: t.title, category: t.category, dueTime: t.dueTime, description: t.description }));
-      const dayLogs = habitLogs[today] || [];
-      const habitsDone = habits.filter((h) => dayLogs.includes(h.id)).map((h) => h.title);
-      const habitsPending = habits.filter((h) => !dayLogs.includes(h.id)).map((h) => h.title);
       const dayStart = new Date(today + "T00:00:00").getTime();
       const dayEnd = dayStart + 24 * 60 * 60 * 1000;
       const todayPomos = pomodoroLogs.filter((l) => l.timestamp >= dayStart && l.timestamp < dayEnd);
       const pomodoroMinutes = Math.round(todayPomos.reduce((s, l) => s + (l.duration || 0), 0) / 60);
       const result = await generateDailySuggestion(config, todayTasksBrief, localeKey, {
-        habitsDone,
-        habitsPending,
         pomodoroCount: todayPomos.length,
         pomodoroMinutes,
-        mood: moods[today],
         unfinishedCount: todayTasksBrief.length,
       });
       if (result) {
@@ -326,17 +316,6 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     }
   );
 
-  // Year progress
-  const nowYear = new Date().getFullYear();
-  const yearStart = new Date(nowYear, 0, 1);
-  const yearEnd = new Date(nowYear + 1, 0, 1);
-  const yearPct = Math.round(((Date.now() - yearStart.getTime()) / (yearEnd.getTime() - yearStart.getTime())) * 100);
-
-  // SVG circular progress parameters
-  const radius = 16;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progressPct / 100) * circumference;
-
   return (
     <div className="animate-fade-in-up flex flex-col gap-5 flex-grow z-10 relative select-none max-w-3xl mx-auto w-full pt-2">
       
@@ -379,7 +358,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         ) : null}
       </div>
 
-      {/* 今日回顾：任务 × 日记 × 番茄 × 习惯 */}
+      {/* 今日回顾：任务 × 日记 × 番茄 */}
       <button
         type="button"
         onClick={() => onOpenJournal?.()}
@@ -393,12 +372,11 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
             {d.reviewOpenJournal || "去写日记"} →
           </span>
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {[
             { icon: <CheckCircle2 className="w-3.5 h-3.5" />, label: d.reviewDone || "完成", value: String(review.completedCount), tone: "text-[#4D7C5D] bg-[#F0F5F1]" },
             { icon: <ListTodo className="w-3.5 h-3.5" />, label: d.reviewOpen || "待办", value: String(review.openDueCount), tone: "text-[#8B6E3C] bg-[#FAF8F5]" },
             { icon: <Timer className="w-3.5 h-3.5" />, label: d.reviewFocus || "专注", value: `${review.focusMinutes}${d.reviewMinutes || "分"}`, tone: "text-[#A64424] bg-[#FBECE5]" },
-            { icon: <Flame className="w-3.5 h-3.5" />, label: d.reviewHabits || "习惯", value: review.habitTotal ? `${review.habitDone}/${review.habitTotal}` : "—", tone: "text-[#E8A0BF] bg-[#FDF2F8]" },
           ].map((cell) => (
             <div key={cell.label} className={`rounded-xl px-2.5 py-2.5 ${cell.tone}`}>
               <div className="flex items-center gap-1 opacity-70 mb-1">{cell.icon}<span className="text-[9px] font-bold">{cell.label}</span></div>
@@ -416,94 +394,6 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
           </span>
         </div>
       </button>
-
-      {/* 独立精致的 4 个统计小卡片 */}
-      <div className="grid grid-cols-4 gap-4">
-        {/* 卡片 1: 待办任务 */}
-        <div className="stat-card-todo rounded-2xl border border-[#EFEBE4] p-3.5 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.sidebar.remaining}</span>
-            <div className="text-xl font-black text-slate-800 animate-count-up">{tasks.length}</div>
-          </div>
-          <div className="w-9 h-9 rounded-xl bg-white border border-[#EFEBE4] flex items-center justify-center shadow-3xs">
-            <ListTodo className="w-4.5 h-4.5 text-[#5B99B0]" />
-          </div>
-        </div>
-
-        {/* 卡片 2: 已完成任务 */}
-        <div className="stat-card-done rounded-2xl border border-[#EFEBE4] p-3.5 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.sidebar.completed}</span>
-            <div className="text-xl font-black text-slate-800 animate-count-up">{completedTasks.length}</div>
-          </div>
-          <div className="w-9 h-9 rounded-xl bg-white border border-[#EFEBE4] flex items-center justify-center shadow-3xs">
-            <Award className="w-4.5 h-4.5 text-[#4D7C5D]" />
-          </div>
-        </div>
-
-        {/* 卡片 3: 今日进度率 */}
-        <div className="stat-card-rate rounded-2xl border border-[#EFEBE4] p-3.5 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.sidebar.progress}</span>
-            <div className="text-xl font-black text-slate-800 animate-count-up">{progressPct}%</div>
-          </div>
-          
-          {/* Circular Progress Ring */}
-          <div className="relative w-9 h-9 flex items-center justify-center">
-            <svg className="progress-ring w-9 h-9">
-              {/* Background circle */}
-              <circle
-                className="text-slate-100"
-                strokeWidth="3.5"
-                stroke="currentColor"
-                fill="transparent"
-                r={radius}
-                cx="18"
-                cy="18"
-              />
-              {/* Progress circle */}
-              <circle
-                className="progress-ring-circle text-[#E8A0BF]"
-                strokeWidth="3.5"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="transparent"
-                r={radius}
-                cx="18"
-                cy="18"
-              />
-            </svg>
-          </div>
-        </div>
-
-        {/* 卡片 4: 年度进度 */}
-        <div className="rounded-2xl border border-[#EFEBE4] p-3.5 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between bg-white/40">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{nowYear}</span>
-            <div className="text-xl font-black text-slate-800 animate-count-up">{yearPct}%</div>
-          </div>
-          <div className="relative w-9 h-9 flex items-center justify-center">
-            <svg className="w-9 h-9" viewBox="0 0 36 36">
-              <circle className="text-slate-100" strokeWidth="3.5" stroke="currentColor" fill="transparent" r={radius} cx="18" cy="18" />
-              <circle
-                className="text-[#B2C8DF]"
-                strokeWidth="3.5"
-                strokeDasharray={circumference}
-                strokeDashoffset={circumference - (yearPct / 100) * circumference}
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="transparent"
-                r={radius}
-                cx="18"
-                cy="18"
-                transform="rotate(-90 18 18)"
-              />
-            </svg>
-          </div>
-        </div>
-      </div>
 
       {/* 本周回顾 */}
       {(() => {
@@ -732,7 +622,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         </div>
       </div>
 
-      {/* Today's Tasks */}
+      {/* Today's Tasks — 含今日 / 逾期 / 未设日期 */}
       <div className="rounded-3xl bg-white/90 border border-[#EFEBE4] shadow-2xs overflow-hidden">
         <div className="px-5 py-3.5 border-b border-[#EFEBE4]/60 flex items-center justify-between">
           <h3 className="text-xs font-black text-[#8B6E3C] tracking-wider flex items-center gap-1.5 uppercase">
@@ -747,10 +637,9 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
           {todayTasks.length > 0 ? (
             <div className="space-y-1.5">
               {todayTasks.map((task) => {
-                // Determine priority bar color from category
+                const kind = getHomeTaskKind(task, today);
                 const priorityBarClass = `task-bar-${task.category || "urgent-important"}`;
                 
-                // Get quad number label
                 let quadLabel = "I";
                 let quadColor = "text-[#E8A0BF] bg-[#FCF2F0] border-[#F5DFDB]";
                 if (task.category === "important-not-urgent") {
@@ -763,6 +652,13 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                   quadLabel = "IV";
                   quadColor = "text-[#A08B30] bg-[#FBF8EC] border-[#EDE5C8]";
                 }
+
+                const dueBadge =
+                  kind === "overdue"
+                    ? { text: d.overdue || "已逾期", cls: "text-[#A34E36] bg-[#FCF2F0] border-[#F5DFDB]" }
+                    : kind === "undated"
+                      ? { text: d.noDueDate || "未设日期", cls: "text-slate-400 bg-[#FAF8F5] border-[#EFEBE4]" }
+                      : { text: d.dueToday, cls: "text-slate-400 bg-[#FAF8F5] border-[#EFEBE4]" };
 
                 return (
                   <div
@@ -782,7 +678,6 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                       <CheckCircle2 className="w-4 h-4 hidden group-hover:block text-[#4D7C5D]" />
                     </button>
                     
-                    {/* Priority badge indicator */}
                     <span className={`text-[8px] font-black border px-1.5 py-0.5 rounded-md ${quadColor} shrink-0`}>
                       {quadLabel}
                     </span>
@@ -794,8 +689,8 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                       )}
                     </div>
 
-                    <span className="text-[8.5px] text-slate-400 font-black bg-[#FAF8F5] border border-[#EFEBE4]/60 px-2 py-0.5 rounded-lg shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {d.dueToday}
+                    <span className={`text-[8.5px] font-black border px-2 py-0.5 rounded-lg shrink-0 ${dueBadge.cls} ${kind === "overdue" ? "" : "opacity-0 group-hover:opacity-100 transition-opacity"}`}>
+                      {dueBadge.text}
                     </span>
                   </div>
                 );

@@ -15,7 +15,6 @@ import {
   Play,
   Lock,
   Layout,
-  Hash,
 } from "lucide-react";
 import type { Task, StickyNote as StickyNoteType, AppTab } from "../types";
 
@@ -83,7 +82,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       { id: "nav-analytics", label: "数据分析", section: "navigation", icon: BarChart3, onSelect: () => onNavigate("analytics"), keywords: "analytics 分析 统计 数据" },
       { id: "nav-completed", label: "已完成", section: "navigation", icon: CheckCircle2, onSelect: () => onNavigate("completed"), keywords: "completed done 完成" },
       { id: "nav-countdown", label: "倒计时", section: "navigation", icon: Timer, onSelect: () => onNavigate("countdown"), keywords: "countdown 倒计时" },
-      { id: "nav-habits", label: "习惯打卡", section: "navigation", icon: Hash, onSelect: () => onNavigate("habits"), keywords: "habits 习惯 打卡" },
       { id: "nav-settings", label: "设置", section: "navigation", icon: Settings, onSelect: () => onNavigate("settings"), keywords: "settings 设置 setting" },
     ];
 

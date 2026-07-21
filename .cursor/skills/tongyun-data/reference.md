@@ -54,20 +54,6 @@
 
 `duration` 单位：秒。
 
-## habits bundle
-
-```json
-{
-  "habits": [{ "id": "h1", "title": "早起", "emoji": "🌅" }],
-  "habitLogs": { "2026-07-05": ["h1"] },
-  "moods": { "2026-07-05": 4 }
-}
-```
-
-- `habitLogs`：日期 → habit id 数组  
-- `moods`：日期 → 1–5  
-- 心情备注/附件不同步
-
 ## JournalEntry
 
 ```json
@@ -79,6 +65,7 @@
   "date": "2026-07-20",
   "isDaily": true,
   "templateId": "",
+  "mood": "😊",
   "aiComment": "",
   "createdAt": 1721433600000,
   "updatedAt": 1721433600000
@@ -87,6 +74,7 @@
 
 - 日记：`isDaily: true`，`linkKey` / `date` / `title` 多为 `YYYY-MM-DD`
 - 随记：`isDaily: false`，`linkKey` 常等于标题
+- `mood`：可选，日记当日心情 emoji（如 😞😔😐😊😄）
 - 改写后更新 `updatedAt`
 
 ## config（CustomizationConfig 要点）
@@ -103,7 +91,6 @@
   "stickyNotes": { "version": 1721433600000 },
   "pomodoroLogs": { "version": 1721433600000 },
   "countdowns": { "version": 1721433600000 },
-  "habits": { "version": 1721433600000 },
   "journal": { "version": 1721433600000 },
   "config": { "version": 1721433600000 }
 }
@@ -113,7 +100,5 @@
 
 ```
 version, tasks, completedTasks, stickyNotes, pomodoroLogs, countdowns,
-habits, habitLogs, moods, journal, customizationConfig
+journal, customizationConfig
 ```
-
-注意：HTTP/WebDAV 的 `habits` **分类**是 bundle；快照顶层把 `habits` / `habitLogs` / `moods` 拆开（与桌面 `getLocalSyncData()` 一致）。

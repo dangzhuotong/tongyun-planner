@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { X, CheckCircle2, ListTodo } from "lucide-react";
 import type { Task, PomodoroLog } from "../types";
-import { getLocalDateString } from "../utils/date";
+import { getLocalDateString, filterHomeActionableTasks } from "../utils/date";
 import { FocusHeatmap } from "./FocusHeatmap";
 
 interface FlowModeProps {
@@ -19,17 +19,7 @@ export const FlowMode: React.FC<FlowModeProps> = ({
 }) => {
   const today = getLocalDateString();
 
-  const queue = useMemo(() =>
-    tasks
-      .filter((task) => task.dueDate === today)
-      .sort((a, b) => {
-        if (a.isPinned && !b.isPinned) return -1;
-        if (!a.isPinned && b.isPinned) return 1;
-        const order = ["urgent-important", "important-not-urgent", "urgent-not-important", "not-urgent-not-important"];
-        return order.indexOf(a.category) - order.indexOf(b.category);
-      }),
-    [tasks, today]
-  );
+  const queue = useMemo(() => filterHomeActionableTasks(tasks, today), [tasks, today]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);

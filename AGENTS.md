@@ -283,6 +283,30 @@
 - 若症状仍存在，请在「设置 → 日记 → 日记自动加入待办」确认该开关状态；本修复保证：即便开启，删除/完成的日记任务也不会再自动复活
 - 普通（非日记生成）任务本就与 effect 无关，删除/完成逻辑此前已验证正常
 
+## Session 12 (2026-07-21)
+
+### 完成项
+- **移除习惯打卡**：删除 HabitsView / 侧栏入口 / 命令面板 / sync `habits` 分类
+- **移除结构化心情**：删除 MoodPanel、日历心情点、moods/moodNotes/moodAttachments 状态；心情写在日记正文即可
+- PersonalContext 仅保留日记 + 日历导航；同步 payload 不再含习惯/心情
+
+## Session 13 (2026-07-21)
+
+### 完成项
+- **主页去重**：有「今日回顾」后，删除下方四格统计卡（剩余待办 / 已完成 / 进度 / 年度）及对应 CSS
+- **专注统计**：番茄热力图旁的周趋势折线图改为「本周速览」（本周次数 / 活跃天数 / 对比上周），后改为热力图下方横排三格
+- **日记心情**：日记页页眉恢复五级 emoji 心情（😞😔😐😊😄），写入 `JournalEntry.mood`；再点同一项清除；日期滑条有心情时显示 emoji
+
+### 相关文件
+- `src/components/DashboardView.tsx`
+- `src/components/AnalyticsView.tsx`
+- `src/components/JournalView.tsx`
+- `src/types.ts`
+- `src/i18n/zh-CN.ts`
+- `src/i18n/en.ts`
+- `src/index.css`
+- `.cursor/skills/tongyun-data/reference.md`
+
 ## Session 11 (2026-07-21)
 
 ### 背景

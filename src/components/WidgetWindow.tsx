@@ -198,7 +198,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
   const [newTitle, setNewTitle] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [newNotes, setNewNotes] = useState("");
-  const [newCategory, setNewCategory] = useState<Task["category"]>("urgent-important");
+  const [newCategory, setNewCategory] = useState<Task["category"]>("important-not-urgent");
   const [newWidgetDueDate, setNewWidgetDueDate] = useState<string>(
     getLocalDateString()
   );

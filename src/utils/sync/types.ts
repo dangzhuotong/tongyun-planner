@@ -8,9 +8,6 @@ export interface SyncData {
   pomodoroLogs: PomodoroLog[];
   countdowns: CountdownEvent[];
   customizationConfig: CustomizationConfig | null;
-  habits: { id: string; title: string; emoji: string }[];
-  habitLogs: Record<string, string[]>;
-  moods: Record<string, number>;
   journal: JournalEntry[];
 }
 
@@ -23,13 +20,12 @@ export type SyncCategory =
   | "stickyNotes"
   | "pomodoroLogs"
   | "countdowns"
-  | "habits"      // habits + habitLogs + moods bundled
   | "journal"     // daily notes + linked notes
   | "config";     // customizationConfig
 
 export const ALL_SYNC_CATEGORIES: SyncCategory[] = [
   "tasks", "completedTasks", "stickyNotes", "pomodoroLogs",
-  "countdowns", "habits", "journal", "config",
+  "countdowns", "journal", "config",
 ];
 
 /** Remote filename for each category */
@@ -39,7 +35,6 @@ export const SYNC_CATEGORY_FILES: Record<SyncCategory, string> = {
   stickyNotes: "notes.json",
   pomodoroLogs: "pomodoro.json",
   countdowns: "countdowns.json",
-  habits: "habits.json",
   journal: "journal.json",
   config: "config.json",
 };
@@ -117,7 +112,6 @@ export function getCategoryPayload(data: SyncData, cat: SyncCategory): unknown {
     case "stickyNotes":    return data.stickyNotes;
     case "pomodoroLogs":   return data.pomodoroLogs;
     case "countdowns":     return data.countdowns;
-    case "habits":         return { habits: data.habits, habitLogs: data.habitLogs, moods: data.moods };
     case "journal":        return data.journal;
     case "config":         return data.customizationConfig;
   }
@@ -157,13 +151,6 @@ export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void 
     case "countdowns":
       localStorage.setItem("tongyun_countdowns", JSON.stringify(payload));
       break;
-    case "habits": {
-      const h = payload as { habits?: unknown; habitLogs?: unknown; moods?: unknown };
-      localStorage.setItem("tongyun_habits", JSON.stringify(h.habits || []));
-      localStorage.setItem("tongyun_habit_logs", JSON.stringify(h.habitLogs || {}));
-      localStorage.setItem("tongyun_moods", JSON.stringify(h.moods || {}));
-      break;
-    }
     case "config":
       if (payload) localStorage.setItem("aero_customization_config", JSON.stringify(payload));
       break;
@@ -210,7 +197,6 @@ export function mergeCompletedPreferLocal(
 export function reconcileTasksAndCompleted(): void {
   const active = readJson<Task[]>("aero_todos", "[]");
   const remoteOrLocalCompleted = readJson<Task[]>("aero_completed_todos", "[]");
-  // 两侧都读当前落盘数据：完成态并集 + 活动列表去重
   const { tasks, completedTasks } = mergeCompletedPreferLocal(
     active,
     remoteOrLocalCompleted,
@@ -222,8 +208,6 @@ export function reconcileTasksAndCompleted(): void {
 
 export function getLocalSyncData(): SyncData {
   const completedTasks = readJson<Task[]>("aero_completed_todos", "[]");
-  // 已完成任务绝不应当出现在活动列表里：云端 pull 可能因时间戳 LWW 把已完成的任务
-  // 重新写回 aero_todos，导致「点完成又出现在列表」。这里统一去重。
   const tasks = dedupeActiveTasks(readJson<Task[]>("aero_todos", "[]"), completedTasks);
   return {
     version: getLocalSyncVersion(),
@@ -236,9 +220,6 @@ export function getLocalSyncData(): SyncData {
       const v = localStorage.getItem("aero_customization_config");
       return v ? JSON.parse(v) : null;
     })(),
-    habits: readJson("tongyun_habits", "[]"),
-    habitLogs: readJson("tongyun_habit_logs", "{}"),
-    moods: readJson("tongyun_moods", "{}"),
     journal: readJson("tongyun_journal", "[]"),
   };
 }
@@ -267,15 +248,11 @@ export function normalizeSyncData(raw: unknown): SyncData | null {
     pomodoroLogs: (obj.pomodoroLogs as PomodoroLog[]) || [],
     countdowns: (obj.countdowns as CountdownEvent[]) || [],
     customizationConfig: (obj.customizationConfig as CustomizationConfig) || null,
-    habits: (obj.habits as SyncData["habits"]) || [],
-    habitLogs: (obj.habitLogs as Record<string, string[]>) || {},
-    moods: (obj.moods as Record<string, number>) || {},
     journal: (obj.journal as JournalEntry[]) || [],
   };
 }
 
 export function applySyncData(data: SyncData): void {
-  // 写入前完成态优先：合并 completed，并从 active 剔除（附件二进制不在 sync 文本 payload 内）
   const localCompleted = readJson<Task[]>("aero_completed_todos", "[]");
   const { tasks, completedTasks } = mergeCompletedPreferLocal(
     data.tasks,
@@ -290,9 +267,6 @@ export function applySyncData(data: SyncData): void {
   if (data.customizationConfig) {
     localStorage.setItem("aero_customization_config", JSON.stringify(data.customizationConfig));
   }
-  localStorage.setItem("tongyun_habits", JSON.stringify(data.habits));
-  localStorage.setItem("tongyun_habit_logs", JSON.stringify(data.habitLogs));
-  localStorage.setItem("tongyun_moods", JSON.stringify(data.moods));
   localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
   localStorage.setItem("tongyun_sync_version", String(data.version));
   localStorage.setItem("tongyun_last_updated", String(Date.now()));

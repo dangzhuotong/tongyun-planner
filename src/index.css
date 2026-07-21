@@ -409,15 +409,6 @@ html.transparent-window body {
   background-clip: text;
 }
 
-/* 环形进度条 (Circular Progress Ring) */
-.progress-ring {
-  transform: rotate(-90deg);
-}
-.progress-ring-circle {
-  transition: stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-  stroke-linecap: round;
-}
-
 /* 柔和呼吸脉冲 (Soft Pulse) */
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
@@ -435,15 +426,6 @@ html.transparent-window body {
 }
 .animate-bounce-gentle {
   animation: bounce-gentle 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* 计数器翻动效果 (Count Up) */
-@keyframes count-up {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-.animate-count-up {
-  animation: count-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* 侧边栏导航活跃色条 (Nav Active Indicator) */
@@ -546,11 +528,6 @@ html.transparent-window body {
   transform: rotate(-8deg);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-/* 统计卡片背景色 */
-.stat-card-todo { background: linear-gradient(135deg, rgba(178, 200, 223, 0.15), rgba(178, 200, 223, 0.05)); }
-.stat-card-done { background: linear-gradient(135deg, rgba(196, 215, 178, 0.15), rgba(196, 215, 178, 0.05)); }
-.stat-card-rate { background: linear-gradient(135deg, rgba(232, 160, 191, 0.15), rgba(232, 160, 191, 0.05)); }
 
 /* 交错入场动画 */
 .stagger-1 { animation-delay: 0.05s; }
@@ -962,20 +939,6 @@ html.transparent-window body {
 .dark input[type="time"]::placeholder,
 .dark input[type="search"]::placeholder {
   color: #5C5E66 !important;
-}
-
-/* stat-card 统计卡片深色背景 */
-.dark .stat-card-todo {
-  background: rgba(25, 35, 45, 0.35) !important;
-  border-color: rgba(178, 200, 223, 0.15) !important;
-}
-.dark .stat-card-done {
-  background: rgba(25, 45, 30, 0.35) !important;
-  border-color: rgba(196, 215, 178, 0.15) !important;
-}
-.dark .stat-card-rate {
-  background: rgba(45, 25, 30, 0.35) !important;
-  border-color: rgba(232, 160, 191, 0.15) !important;
 }
 
 /* 杂项 border-slate 补充 */

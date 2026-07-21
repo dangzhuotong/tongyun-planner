@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { Clock, CheckCircle2, Heart, Coffee, BarChart3, Sun, Moon, Sunrise, Target, Sparkles, Tags, BrainCircuit } from "lucide-react";
+import { Clock, CheckCircle2, Heart, Coffee, BarChart3, Sun, Moon, Sunrise, Target, Sparkles, Tags, BrainCircuit, TrendingUp, TrendingDown } from "lucide-react";
 import type { Task, PomodoroLog, CustomizationConfig } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
 import { getLocalDateString } from "../utils/date";
@@ -125,7 +125,38 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
 
   const maxSlot = Math.max(...timeSlots.map((s) => s.count), 1);
 
+  // 本周速览：次数 / 活跃天 / 对比上周
+  const weekGlance = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const dow = now.getDay();
+    const mondayOffset = dow === 0 ? -6 : 1 - dow;
+    const thisMonday = new Date(now);
+    thisMonday.setDate(now.getDate() + mondayOffset);
+    const nextMonday = new Date(thisMonday);
+    nextMonday.setDate(thisMonday.getDate() + 7);
+    const lastMonday = new Date(thisMonday);
+    lastMonday.setDate(thisMonday.getDate() - 7);
 
+    let thisCount = 0;
+    let lastCount = 0;
+    const active = new Set<string>();
+    pomodoroLogs.forEach((log) => {
+      const d = new Date(log.timestamp);
+      d.setHours(0, 0, 0, 0);
+      if (d >= thisMonday && d < nextMonday) {
+        thisCount++;
+        active.add(getLocalDateString(d));
+      } else if (d >= lastMonday && d < thisMonday) {
+        lastCount++;
+      }
+    });
+    return {
+      thisCount,
+      activeDays: active.size,
+      delta: thisCount - lastCount,
+    };
+  }, [pomodoroLogs]);
 
   const goalStats = useMemo(() => {
     const perDay = new Map<string, number>();
@@ -271,56 +302,26 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
     const sw = LABEL_W + gw, sh = MONTH_H + gh;
     const dayLabels = [{ l: "一", o: 0 }, { l: "三", o: 2 }, { l: "五", o: 4 }];
 
-    // Weekly totals for trend
-    const weeklyTotals = grid.map(col => col.reduce((s, c) => s + c.count, 0));
-    const maxW = Math.max(...weeklyTotals, 1);
-    const tw = 160, th = 64, tp = { t: 4, r: 4, b: 14, l: 4 };
-    const cw = tw - tp.l - tp.r, che = th - tp.t - tp.b;
-    const pts = weeklyTotals.map((v, i) => ({
-      x: tp.l + (i / Math.max(weeklyTotals.length - 1, 1)) * cw,
-      y: tp.t + che - (v / maxW) * che,
-    }));
-    const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-    const area = `${line} L${pts[pts.length-1].x},${tp.t+che} L${pts[0].x},${tp.t+che} Z`;
-
     return (
-      <div className="flex gap-5 items-start">
-        {/* GitHub-style heatmap */}
-        <svg width={sw} height={sh} className="overflow-visible shrink-0">
-          {monthLabels.map(m => (
-            <text key={m.col} x={LABEL_W + m.col * STEP + CELL/2} y={8}
-              textAnchor="middle" className="fill-slate-400 font-bold" fontSize={8}>{m.label}</text>
-          ))}
-          {dayLabels.map(d => (
-            <text key={d.o} x={6} y={MONTH_H + d.o * STEP + CELL - 2}
-              textAnchor="end" className="fill-slate-400 font-bold" fontSize={8}>{d.l}</text>
-          ))}
-          {grid.map((col, ci) => col.map((cell, ri) => (
-            <rect key={`${ci}-${ri}`}
-              x={LABEL_W + ci * STEP} y={MONTH_H + ri * STEP}
-              width={CELL} height={CELL} rx={2} ry={2}
-              className={`${LEVELS[level(cell.count)]} transition-all duration-200 hover:brightness-110 cursor-help ${cell.isToday ? "stroke-[#A34E36] stroke-[2.5]" : ""}`}
-            >
-              <title>{`${cell.date} · ${cell.count} 个番茄`}</title>
-            </rect>
-          )))}
-        </svg>
-
-        {/* Mini trend chart */}
-        <svg width={tw} height={th} viewBox={`0 0 ${tw} ${th}`} className="overflow-visible shrink-0">
-          <defs>
-            <linearGradient id="aGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#4D7C5D" stopOpacity="0.3"/>
-              <stop offset="100%" stopColor="#4D7C5D" stopOpacity="0.02"/>
-            </linearGradient>
-          </defs>
-          <path d={area} fill="url(#aGrad)"/>
-          <path d={line} fill="none" stroke="#4D7C5D" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
-          {pts.map((p, i) => (
-            <circle key={i} cx={p.x} cy={p.y} r="2" fill="#4D7C5D"/>
-          ))}
-        </svg>
-      </div>
+      <svg width={sw} height={sh} className="overflow-visible">
+        {monthLabels.map(m => (
+          <text key={m.col} x={LABEL_W + m.col * STEP + CELL/2} y={8}
+            textAnchor="middle" className="fill-slate-400 font-bold" fontSize={8}>{m.label}</text>
+        ))}
+        {dayLabels.map(d => (
+          <text key={d.o} x={6} y={MONTH_H + d.o * STEP + CELL - 2}
+            textAnchor="end" className="fill-slate-400 font-bold" fontSize={8}>{d.l}</text>
+        ))}
+        {grid.map((col, ci) => col.map((cell, ri) => (
+          <rect key={`${ci}-${ri}`}
+            x={LABEL_W + ci * STEP} y={MONTH_H + ri * STEP}
+            width={CELL} height={CELL} rx={2} ry={2}
+            className={`${LEVELS[level(cell.count)]} transition-all duration-200 hover:brightness-110 cursor-help ${cell.isToday ? "stroke-[#A34E36] stroke-[2.5]" : ""}`}
+          >
+            <title>{`${cell.date} · ${cell.count} 个番茄`}</title>
+          </rect>
+        )))}
+      </svg>
     );
   };
 
@@ -424,7 +425,53 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
               <span>{a.high}</span>
             </div>
           </div>
-          {renderHeatmap()}
+
+          <div className="overflow-x-auto pb-1">{renderHeatmap()}</div>
+
+          {/* 本周速览：热力图下方横排三格 */}
+          <div className="mt-4 pt-3.5 border-t border-[#EFEBE4]/80">
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <span className="text-[9px] font-black text-[#4D7C5D] tracking-widest uppercase">
+                {a.weekGlance || "本周速览"}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl bg-[#FAF8F5] border border-[#EFEBE4]/80 px-3 py-2.5 text-center">
+                <div className="text-base font-black text-[#2D323A] tracking-tight leading-none">
+                  {weekGlance.thisCount}
+                </div>
+                <div className="text-[9px] font-bold text-slate-400 mt-1.5">
+                  {a.weekSessions || "个番茄"}
+                </div>
+              </div>
+              <div className="rounded-xl bg-[#FAF8F5] border border-[#EFEBE4]/80 px-3 py-2.5 text-center">
+                <div className="text-base font-black text-[#2D323A] tracking-tight leading-none">
+                  {weekGlance.activeDays}
+                </div>
+                <div className="text-[9px] font-bold text-slate-400 mt-1.5">
+                  {(a.weekActiveDaysShort || "活跃天数")}
+                </div>
+              </div>
+              <div className={`rounded-xl border px-3 py-2.5 text-center ${
+                weekGlance.delta > 0
+                  ? "bg-[#F0F5F1] border-[#DEEAE2]"
+                  : weekGlance.delta < 0
+                    ? "bg-[#FCF2F0] border-[#F5DFDB]"
+                    : "bg-[#FAF8F5] border-[#EFEBE4]/80"
+              }`}>
+                <div className={`text-base font-black tracking-tight leading-none flex items-center justify-center gap-1 ${
+                  weekGlance.delta > 0 ? "text-[#4D7C5D]" : weekGlance.delta < 0 ? "text-[#A34E36]" : "text-slate-500"
+                }`}>
+                  {weekGlance.delta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : null}
+                  {weekGlance.delta < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : null}
+                  {weekGlance.delta === 0 ? "—" : `${weekGlance.delta > 0 ? "+" : ""}${weekGlance.delta}`}
+                </div>
+                <div className="text-[9px] font-bold text-slate-400 mt-1.5">
+                  {a.weekVsLast || "对比上周"}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* 1. Time-of-day distribution */}

@@ -36,7 +36,6 @@ interface SidebarProps {
   tasksCount: number;
   stickyNotesCount: number;
   countdownCount: number;
-  habitsCount: number;
   syncStatus: "synced" | "syncing" | "error";
   lastBackupTime: number | null;
 
@@ -50,7 +49,7 @@ interface SidebarProps {
 
 // Map old tab values to new grouped structure for active detection
 const TASKS_GROUP: AppTab[] = ["matrix", "list", "calendar"];
-const FOCUS_GROUP: AppTab[] = ["analytics", "habits"];
+const FOCUS_GROUP: AppTab[] = ["analytics"];
 const ARCHIVE_GROUP: AppTab[] = ["completed", "countdown"];
 
 
@@ -62,7 +61,6 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
   tasksCount,
   stickyNotesCount,
   countdownCount,
-  habitsCount,
   syncStatus,
   lastBackupTime,
   handleToggleWidget,
@@ -301,7 +299,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
             )}
           </div>
 
-          {/* 3. Focus (expandable: Analytics / Habits) */}
+          {/* 3. Focus (expandable: Analytics) */}
           <div>
             <GroupHeader
               icon={<Timer className="w-4 h-4" />}
@@ -321,7 +319,6 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
             {!isCollapsed && focusExpanded && (
               <div className="mt-0.5 space-y-0.5">
                 <SubNavButton tab="analytics" label={s.analytics || "统计"} />
-                <SubNavButton tab="habits" label={s.habits || "习惯"} count={habitsCount} />
               </div>
             )}
           </div>

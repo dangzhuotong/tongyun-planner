@@ -362,11 +362,8 @@ export async function generateRecollection(
  * 6d. AI 每日建议 —— 基于今日任务智能推荐与优先级
  */
 export interface DailySuggestionContext {
-  habitsDone?: string[];      // 今日已打卡习惯名
-  habitsPending?: string[];   // 今日未打卡习惯名
   pomodoroCount?: number;     // 今日番茄次数
   pomodoroMinutes?: number;   // 今日专注分钟
-  mood?: number;              // 当日心情 1-5
   unfinishedCount?: number;   // 今日未完成任务数
 }
 
@@ -386,14 +383,11 @@ export async function generateDailySuggestion(
   if (ctx?.pomodoroCount != null) {
     extras.push(`今日番茄: ${ctx.pomodoroCount} 次` + (ctx.pomodoroMinutes != null ? `（约 ${ctx.pomodoroMinutes} 分钟）` : ""));
   }
-  if (ctx?.mood != null) extras.push(`今日心情: ${ctx.mood}/5`);
-  if (ctx?.habitsDone?.length) extras.push(`已打卡习惯: ${ctx.habitsDone.join("、")}`);
-  if (ctx?.habitsPending?.length) extras.push(`未打卡习惯: ${ctx.habitsPending.join("、")}`);
 
   const systemPrompt = `你是一个温和高效的日程顾问。请用 ${lang} 给用户写一段简短的今日建议（80-140 字）。
 要求：
 - 根据以下今日待办与上下文，推荐先做什么、后做什么，给出理由
-- 若有习惯/番茄/心情信息，可轻描淡写地融入建议，不要逐条复述
+- 若有番茄信息，可轻描淡写地融入建议，不要逐条复述
 - 语气温暖、鼓励，像朋友一样自然
 - 不要列点，用流畅的段落表达
 - 如果列表为空，则说"今天没有待办，好好休息或规划明天吧"
@@ -492,11 +486,11 @@ export async function extractTasksFromNote(
 export async function generateReport(
   config: CustomizationConfig,
   type: "daily" | "weekly",
-  data: { completedTasks: number; pomodoroCount: number; pomodoroMinutes: number; avgMood?: number; taskCategories: Record<string, number> }
+  data: { completedTasks: number; pomodoroCount: number; pomodoroMinutes: number; taskCategories: Record<string, number> }
 ): Promise<string> {
   const dateRange = type === "daily" ? "今天" : "过去一周";
   const systemPrompt = `你是一个效率助手。请根据以下数据生成一份简洁温暖的${type === "daily" ? "日" : "周"}报总结。`;
-  const userPrompt = `请为以下数据生成一份${dateRange}的效率报告（100字以内，Markdown格式）：\n完成待办: ${data.completedTasks}项\n番茄专注: ${data.pomodoroCount}次 (${data.pomodoroMinutes}分钟)\n平均心情: ${data.avgMood ? data.avgMood.toFixed(1) : "未记录"}\n任务分类: ${JSON.stringify(data.taskCategories)}`;
+  const userPrompt = `请为以下数据生成一份${dateRange}的效率报告（100字以内，Markdown格式）：\n完成待办: ${data.completedTasks}项\n番茄专注: ${data.pomodoroCount}次 (${data.pomodoroMinutes}分钟)\n任务分类: ${JSON.stringify(data.taskCategories)}`;
 
   return await callAI(config, systemPrompt, userPrompt);
 }

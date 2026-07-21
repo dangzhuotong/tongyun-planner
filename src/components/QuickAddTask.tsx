@@ -28,10 +28,26 @@ interface QuickAddTaskProps {
   compact?: boolean; // If true, hides description, notes, priority dropdown, etc., just a clean single-line bar
 }
 
+const LAST_QUICK_CATEGORY_KEY = "tongyun_last_quick_category";
+const VALID_CATEGORIES: Task["category"][] = [
+  "urgent-important",
+  "important-not-urgent",
+  "urgent-not-important",
+  "not-urgent-not-important",
+];
+
+function readLastQuickCategory(): Task["category"] {
+  try {
+    const v = localStorage.getItem(LAST_QUICK_CATEGORY_KEY);
+    if (v && (VALID_CATEGORIES as string[]).includes(v)) return v as Task["category"];
+  } catch { /* ignore */ }
+  return "important-not-urgent";
+}
+
 export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(({
   handleAddTask,
   defaultDueDate,
-  defaultCategory = "urgent-important",
+  defaultCategory,
   placeholder = "添加任务，按回车保存...",
   compact = false,
 }) => {
@@ -43,7 +59,7 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(({
   const [notes, setNotes] = useState("");
   const [dueDate, setDueDate] = useState(() => defaultDueDate || getLocalDateString());
   const [dueTime, setDueTime] = useState("");
-  const [category, setCategory] = useState<Task["category"]>(defaultCategory);
+  const [category, setCategory] = useState<Task["category"]>(() => defaultCategory ?? readLastQuickCategory());
   const [repeat, setRepeat] = useState<RepeatType>("none");
   const [showRepeatModal, setShowRepeatModal] = useState(false);
   const [repeatFreq, setRepeatFreq] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('WEEKLY');
@@ -65,7 +81,7 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(({
     }
   }, [defaultDueDate]);
 
-  // Sync default category if it changes (useful for Matrix quadrants)
+  // Sync default category if parent passes one (e.g. Matrix quadrant); otherwise keep last choice
   useEffect(() => {
     if (defaultCategory) {
       setCategory(defaultCategory);
@@ -99,6 +115,10 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(({
       tags: tags.length > 0 ? tags : undefined,
       priority,
     });
+
+    try {
+      localStorage.setItem(LAST_QUICK_CATEGORY_KEY, category);
+    } catch { /* ignore */ }
 
     // Reset fields except date, category, and repeat for ease of adding multiple
     setTitle("");

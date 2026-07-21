@@ -2,7 +2,7 @@
 name: tongyun-data
 description: >-
   TongYun Planner (通云清单) data model and sync transports. Use when reading or
-  writing tasks, journal, habits, notes, pomodoro, countdowns, or config via
+  writing tasks, journal, notes, pomodoro, countdowns, or config via
   WebDAV, self-hosted HTTP sync-server, or local JSON snapshot; when fixing
   sync/manifest issues; or when an AI agent must manage TongYun backup data.
 ---
@@ -26,7 +26,6 @@ description: >-
 | `stickyNotes` | 便签 | `StickyNote[]` |
 | `pomodoroLogs` | 番茄 | `PomodoroLog[]` |
 | `countdowns` | 倒数日 | `CountdownEvent[]` |
-| `habits` | 习惯+打卡+心情 | `{ habits, habitLogs, moods }` |
 | `journal` | 日记/随记 | `JournalEntry[]` |
 | `config` | 应用配置 | `CustomizationConfig \| null` |
 
@@ -51,7 +50,7 @@ description: >-
 优先：用户启用了 WebDAV 时。
 
 - 目录：`{webdavUrl}TongYunPlanner/`
-- 文件名 ↔ category：`tasks.json`→`tasks`，`completed.json`→`completedTasks`，`notes.json`→`stickyNotes`，`pomodoro.json`→`pomodoroLogs`，`countdowns.json`→`countdowns`，`habits.json`→`habits`，`journal.json`→`journal`，`config.json`→`config`
+- 文件名 ↔ category：`tasks.json`→`tasks`，`completed.json`→`completedTasks`，`notes.json`→`stickyNotes`，`pomodoro.json`→`pomodoroLogs`，`countdowns.json`→`countdowns`，`journal.json`→`journal`，`config.json`→`config`
 - **文件名 ≠ manifest 键**（键必须是上表 camelCase）
 - 写完数据后必须更新 `manifest.json` 对应键的 `version`（`Date.now()`），否则 App 不拉
 - Basic Auth；curl 示例见设置页「复制 AI 工具定义」（保留给外部助手用）
@@ -64,7 +63,7 @@ description: >-
 
 ## 不在同步范围（勿臆造远程文件）
 
-资讯收藏/历史、RSS、心情备注与附件、AI 散文/建议缓存、昵称等仅本地。
+资讯收藏/历史、RSS、AI 散文/建议缓存、昵称等仅本地。独立习惯打卡 / MoodPanel 已移除（2026-07）；日记当日心情写在 `JournalEntry.mood`。旧云端 `habits.json` 可忽略。
 
 ## 工作流
 

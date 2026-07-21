@@ -68,6 +68,8 @@ export interface JournalEntry {
   date: string;          // YYYY-MM-DD（日记 = linkKey；笔记 = 创建日期）
   isDaily: boolean;      // 是否为日期日记（自动按日归档）
   templateId?: string;
+  /** 当日心情 emoji（仅日记常用），如 😊 */
+  mood?: string;
   aiComment?: string;    // AI 生成的温柔评语
   createdAt: number;
   updatedAt: number;
@@ -81,7 +83,7 @@ export interface JournalTemplate {
 
 export type AlertSoundType = "beep" | "cuckoo" | "meow" | "chime" | "ding" | "phone" | "marimba" | "bells" | "alarm";
 
-export type AppTab = "home" | "matrix" | "list" | "calendar" | "notes" | "analytics" | "completed" | "countdown" | "habits" | "settings" | "tasks" | "focus" | "archive" | "news" | "gantt" | "journal";
+export type AppTab = "home" | "matrix" | "list" | "calendar" | "notes" | "analytics" | "completed" | "countdown" | "settings" | "tasks" | "focus" | "archive" | "news" | "gantt" | "journal";
 
 export interface CountdownEvent {
   id: string;

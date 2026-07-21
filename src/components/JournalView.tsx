@@ -1,14 +1,22 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { BookOpen, StickyNote as NoteIcon, Trash2, Search, ListChecks, Image as ImageIcon, X, SmilePlus, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus } from "lucide-react";
-import type { JournalEntry, Task, Attachment, CustomizationConfig, PomodoroLog } from "../types";
+import { BookOpen, StickyNote as NoteIcon, Trash2, Search, ListChecks, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus } from "lucide-react";
+import type { JournalEntry, Task, CustomizationConfig, PomodoroLog } from "../types";
 import { extractJournalTags } from "../constants";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
 import { pomodoroStatsOn, taskCompletedOn } from "../utils/dailyReview";
 import { useTranslation } from "../i18n/LanguageContext";
-import { storageManager, getAttachmentPath } from "../utils/storage";
 import { callAI } from "../utils/aiEngine";
 import { usePersonal } from "../context/PersonalContext";
+
+/** 日记页心情：五级，存为 emoji 字符串 */
+const JOURNAL_MOODS = [
+  { emoji: "😞", label: "很差" },
+  { emoji: "😔", label: "不好" },
+  { emoji: "😐", label: "一般" },
+  { emoji: "😊", label: "不错" },
+  { emoji: "😄", label: "很棒" },
+] as const;
 
 /** 「暖评」内置默认系统提示词：先深度思考，再写一段克制而真诚的温暖回应 */
 export function buildDefaultCommentPrompt(lang: string): string {
@@ -29,193 +37,6 @@ export function buildDefaultCommentPrompt(lang: string): string {
 - 只返回回应文本本身，不要任何前缀、标题、引号或解释`;
 }
 
-const MOOD_EMOJIS: { value: number; emoji: string; label: string }[] = [
-  { value: 1, emoji: "😞", label: "很差" },
-  { value: 2, emoji: "😔", label: "不好" },
-  { value: 3, emoji: "😐", label: "一般" },
-  { value: 4, emoji: "😊", label: "不错" },
-  { value: 5, emoji: "😄", label: "很棒" },
-];
-
-interface MoodPanelProps {
-  date: string;
-  mood?: number;
-  note: string;
-  attachments: Attachment[];
-  moods: Record<string, number>;
-  onSetMood: (date: string, mood: number) => void;
-  onSetMoodNote: (date: string, note: string) => void;
-  onSetMoodAttachments: (date: string, attachments: Attachment[]) => void;
-}
-
-/** 与心情记录共享同一份按日期的数据，日记里可直接记录/查看 */
-function MoodPanel({ date, mood, note, attachments, moods, onSetMood, onSetMoodNote, onSetMoodAttachments }: MoodPanelProps) {
-  const { t } = useTranslation();
-  const j = t.journal as Record<string, string>;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(note);
-  const [imgUrls, setImgUrls] = useState<Record<string, string>>({});
-  const [preview, setPreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const blobUrls = useRef<string[]>([]);
-
-  useEffect(() => { setDraft(note); }, [note, date]);
-  useEffect(() => {
-    blobUrls.current.forEach((u) => URL.revokeObjectURL(u));
-    blobUrls.current = [];
-    const load = async () => {
-      const map: Record<string, string> = {};
-      for (const att of attachments) {
-        if (!att.type.startsWith("image/")) continue;
-        try {
-          const url = await storageManager.getFileUrl(att.path, att.type);
-          map[att.id] = url;
-          blobUrls.current.push(url);
-        } catch { /* ignore */ }
-      }
-      setImgUrls(map);
-    };
-    load();
-    return () => { blobUrls.current.forEach((u) => URL.revokeObjectURL(u)); };
-  }, [attachments]);
-
-  const trend = useMemo(() => {
-    let streak = 0;
-    const d = new Date();
-    while (true) {
-      const ds = getLocalDateString(d);
-      if (moods[ds] !== undefined) { streak++; d.setDate(d.getDate() - 1); } else break;
-    }
-    const now = new Date();
-    const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const entries = Object.entries(moods).filter(([k]) => k.startsWith(prefix));
-    if (entries.length === 0) return { streak, count: 0, avg: 0, dist: [0, 0, 0, 0, 0] as number[] };
-    const avg = entries.reduce((s, [, v]) => s + v, 0) / entries.length;
-    const dist = [0, 0, 0, 0, 0];
-    entries.forEach(([, v]) => { dist[v - 1]++; });
-    return { streak, count: entries.length, avg, dist };
-  }, [moods]);
-
-  const saveNote = () => { onSetMoodNote(date, draft); setEditing(false); };
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true); setError(null);
-    try {
-      const buffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      const attId = createId("mood");
-      // Sanitize filename: keep only extension, use attId as base to avoid path issues
-      const ext = file.name.includes(".") ? file.name.split(".").pop()! : "bin";
-      const safeName = `${attId}.${ext}`;
-      const path = getAttachmentPath("diary-" + date, attId, safeName);
-      const savedPath = await storageManager.uploadFile(path, bytes, file.type);
-      const att: Attachment = { id: attId, name: file.name, path: savedPath, type: file.type, size: file.size, createdAt: new Date().toISOString() };
-      onSetMoodAttachments(date, [...attachments, att]);
-      if (file.type.startsWith("image/")) {
-        const url = await storageManager.getFileUrl(att.path, att.type);
-        setImgUrls((prev) => ({ ...prev, [att.id]: url }));
-      }
-    } catch (err: any) {
-      // Tauri invoke errors are plain strings, not Error objects
-      const msg = typeof err === "string" ? err : (err?.message || JSON.stringify(err));
-      setError(`上传失败：${msg}`);
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  };
-
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#E8A0BF] mb-2">
-        <SmilePlus className="w-3.5 h-3.5" />{j.moodTitle || "今日心情"}
-        <span className="text-[9px] font-normal text-slate-400 ml-auto">{date}</span>
-      </div>
-      <div className="flex items-center gap-1 mb-2 flex-wrap">
-        {MOOD_EMOJIS.map((m) => (
-          <button
-            key={m.value}
-            onClick={() => onSetMood(date, m.value)}
-            className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-lg transition-all cursor-pointer border ${
-              mood === m.value ? "border-[#E8A0BF] bg-[#FCEFF4] scale-110" : "border-transparent hover:bg-[#FAF8F5]"
-            }`}
-            title={m.label}
-          >
-            <span className="text-lg leading-none">{m.emoji}</span>
-          </button>
-        ))}
-      </div>
-      <div className="mb-2">
-        {editing ? (
-          <div className="space-y-1.5">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={j.moodPlaceholder || "今天心情如何？写点什么..."}
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-lg text-[11px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] resize-y min-h-[52px]"
-              autoFocus
-            />
-            <div className="flex gap-1.5">
-              <button onClick={saveNote} className="text-[10px] px-2.5 py-1 rounded-lg bg-[#4D7C5D] text-white font-bold hover:bg-[#3F684C] transition-colors cursor-pointer">{j.save || "保存"}</button>
-              <button onClick={() => { setEditing(false); setDraft(note); }} className="text-[10px] px-2.5 py-1 rounded-lg border border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] transition-colors cursor-pointer">{j.cancel || "取消"}</button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => { setDraft(note); setEditing(true); }}
-            className="w-full text-left text-[11px] text-slate-500 hover:text-slate-700 bg-[#FAF8F5] border border-[#EFEBE4] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer min-h-[34px]"
-          >
-            {note || (j.moodPlaceholder || "今天心情如何？写点什么...")}
-          </button>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {attachments.filter((a) => a.type.startsWith("image/")).map((att) => (
-          <div key={att.id} className="relative group">
-            <button onClick={() => setPreview(imgUrls[att.id] || null)} className="w-12 h-12 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
-              {imgUrls[att.id] ? <img src={imgUrls[att.id]} alt={att.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-100" />}
-            </button>
-            <button
-              onClick={() => onSetMoodAttachments(date, attachments.filter((a) => a.id !== att.id))}
-              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        ))}
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading || !storageManager.isConfigured()}
-          className="w-12 h-12 rounded-lg border-2 border-dashed border-[#EFEBE4] flex items-center justify-center text-slate-300 hover:text-[#4D7C5D] hover:border-[#4D7C5D] transition-all cursor-pointer disabled:opacity-40"
-        >
-          {uploading ? <div className="w-3.5 h-3.5 border-2 border-[#4D7C5D] border-t-transparent rounded-full animate-spin" /> : <ImageIcon className="w-4 h-4" />}
-        </button>
-        {error && <p className="text-[9px] text-red-500 w-full">{error}</p>}
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-      </div>
-      {(trend.streak > 0 || trend.count > 0) && (
-        <div className="mt-2 pt-2 border-t border-[#FCEFF4] flex items-center gap-2 text-[9px] text-slate-400">
-          <span className="text-[#E8A0BF] font-bold">🔥 {trend.streak}</span>
-          <span>本月 {trend.count} 天</span>
-          <span className="ml-auto flex items-center gap-0.5 opacity-70">
-            {MOOD_EMOJIS.map((m) => <span key={m.value}>{m.emoji}</span>)}
-          </span>
-        </div>
-      )}
-      {preview && (
-        <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-8" onClick={() => setPreview(null)}>
-          <button onClick={() => setPreview(null)} className="absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors cursor-pointer z-10"><X className="w-5 h-5" /></button>
-          <img src={preview} alt="preview" className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface JournalViewProps {
   tasks: Task[];
   completedTasks: Task[];
@@ -227,8 +48,6 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
   const {
     journal, handleUpsertJournal: onUpsert, handleDeleteJournal: onDelete,
     journalAddTodo: addTodoEnabled, handleToggleJournalAddTodo: onToggleAddTodo,
-    habits, habitLogs, moods, moodNotes, moodAttachments,
-    handleSetMood: onSetMood, handleSetMoodNote: onSetMoodNote, handleSetMoodAttachments: onSetMoodAttachments,
   } = usePersonal();
   const { t, locale } = useTranslation();
   const j = t.journal as Record<string, string>;
@@ -262,7 +81,6 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
   }, [mode, currentDate, dailyEntryMap, notes, selectedNoteId]);
 
   const viewDate = mode === "diary" ? currentDate : (selected?.date || today);
-  const activeMoodDate = viewDate;
 
   // 本地草稿，避免每次按键都触发父级重渲染造成的光标跳动
   const [draftTitle, setDraftTitle] = useState("");
@@ -301,6 +119,25 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
     setDraftTitle(v);
     const linkKey = selected?.isDaily ? selected.linkKey : v.trim() || createId("journal");
     commit({ title: v, linkKey });
+  };
+  const handleMoodPick = (emoji: string) => {
+    if (mode !== "diary") return;
+    const base = selected || ({
+      id: createId("journal"),
+      linkKey: viewDate,
+      title: viewDate,
+      content: "",
+      date: viewDate,
+      isDaily: true,
+      createdAt: Date.now(),
+    } as JournalEntry);
+    const next: JournalEntry = { ...base, updatedAt: Date.now() };
+    if (selected?.mood === emoji) {
+      delete next.mood;
+    } else {
+      next.mood = emoji;
+    }
+    onUpsert(next);
   };
 
   const newDaily = () => { setMode("diary"); setCurrentDate(today); };
@@ -446,7 +283,6 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
     () => tasks.filter((task) => task.dueDate === viewDate),
     [tasks, viewDate]
   );
-  const viewHabits = habitLogs[viewDate] || [];
 
   const tags = useMemo(() => extractJournalTags(draftContent), [draftContent]);
 
@@ -628,7 +464,8 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
             {dateStrip.map((ds) => {
               const [y, m, d] = ds.split("-").map(Number);
               const wd = weekdayNames[new Date(y, m - 1, d).getDay()];
-              const has = dailyEntryMap.has(ds);
+              const entry = dailyEntryMap.get(ds);
+              const has = !!entry && !!(entry.content?.trim() || entry.mood);
               const active = ds === currentDate;
               return (
                 <button
@@ -646,7 +483,11 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
                 >
                   <span className="text-[11px] font-bold leading-none">{m}/{d}</span>
                   <span className="text-[9px] mt-0.5 leading-none">{wd}</span>
-                  {has && <span className={`w-1 h-1 rounded-full mt-1 ${active ? "bg-white" : "bg-[#C4D7B2]"}`} />}
+                  {entry?.mood ? (
+                    <span className="text-[10px] mt-0.5 leading-none">{entry.mood}</span>
+                  ) : has ? (
+                    <span className={`w-1 h-1 rounded-full mt-1 ${active ? "bg-white" : "bg-[#C4D7B2]"}`} />
+                  ) : null}
                 </button>
               );
             })}
@@ -748,9 +589,6 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
                   </button>
                 </div>
                 <div className="flex items-center justify-center gap-2 -mt-1">
-                  {moods[currentDate] !== undefined && (
-                    <span className="text-lg leading-none">{MOOD_EMOJIS[moods[currentDate] - 1]?.emoji}</span>
-                  )}
                   {!isToday && (
                     <button
                       onClick={goToday}
@@ -760,6 +598,33 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
                     </button>
                   )}
                   {isFuture && <span className="text-[10px] text-slate-400">· {j.futureDay}</span>}
+                </div>
+
+                {/* 今日心情 */}
+                <div className="flex flex-col items-center gap-1.5">
+                  <span className="text-[9px] font-bold text-[#9A8866] tracking-wider">
+                    {j.moodTitle || "今日心情"}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {JOURNAL_MOODS.map((m) => {
+                      const active = selected?.mood === m.emoji;
+                      return (
+                        <button
+                          key={m.emoji}
+                          type="button"
+                          onClick={() => handleMoodPick(m.emoji)}
+                          title={m.label}
+                          className={`w-8 h-8 flex items-center justify-center rounded-full text-base transition-all cursor-pointer border ${
+                            active
+                              ? "bg-[#F0F5F1] border-[#4D7C5D] scale-110 shadow-sm"
+                              : "bg-transparent border-transparent hover:bg-[#F3ECDF]/80 opacity-70 hover:opacity-100"
+                          }`}
+                        >
+                          {m.emoji}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {editorInner}
@@ -801,16 +666,6 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
 
         {/* 右：今日关联 */}
         <aside className="w-56 flex-shrink-0 flex flex-col gap-4 border-l border-[#EFEBE4] pl-3 overflow-y-auto custom-scrollbar">
-          <MoodPanel
-            date={activeMoodDate}
-            mood={moods[activeMoodDate]}
-            note={moodNotes[activeMoodDate] || ""}
-            attachments={moodAttachments[activeMoodDate] || []}
-            moods={moods}
-            onSetMood={onSetMood}
-            onSetMoodNote={onSetMoodNote}
-            onSetMoodAttachments={onSetMoodAttachments}
-          />
           <div>
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] mb-2">
               <ListChecks className="w-3.5 h-3.5" />{j.todayLinks}
@@ -842,24 +697,6 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
                   ✓ {task.title}
                 </button>
               ))}
-            </div>
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{j.todayHabits}</div>
-            <div className="space-y-1">
-              {habits.length === 0 && <div className="text-[11px] text-slate-300">{j.noHabits}</div>}
-              {habits.map((h) => {
-                const done = viewHabits.includes(h.id);
-                return (
-                  <button
-                    key={h.id}
-                    onClick={() => insertLine(`${h.emoji} ${h.title}`)}
-                    className={`w-full text-left text-[11px] rounded-lg px-2 py-1.5 cursor-pointer transition-colors border ${
-                      done ? "bg-[#F0F5F1] border-[#C4D7B2] text-[#4D7C5D]" : "bg-white border-[#EFEBE4] text-slate-600 hover:border-[#4D7C5D]"
-                    }`}
-                  >
-                    {h.emoji} {h.title} {done && "✓"}
-                  </button>
-                );
-              })}
             </div>
             {viewFocus.count > 0 && (
               <button

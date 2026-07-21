@@ -20,7 +20,6 @@ const SettingsView = React.lazy(() => import("./components/SettingsView").then((
 import { FloatingNoteWindow } from "./components/FloatingNoteWindow";
 const CountdownView = React.lazy(() => import("./components/CountdownView").then((m) => ({ default: m.CountdownView })));
 const FlowMode = React.lazy(() => import("./components/FlowMode").then((m) => ({ default: m.FlowMode })));
-const HabitsView = React.lazy(() => import("./components/HabitsView").then((m) => ({ default: m.HabitsView })));
 const GanttView = React.lazy(() => import("./components/GanttView").then((m) => ({ default: m.GanttView })));
 const JournalView = React.lazy(() => import("./components/JournalView").then((m) => ({ default: m.JournalView })));
 
@@ -83,6 +82,8 @@ function AppBody() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   const [celebrationMessage, setCelebrationMessage] = useState<string | null>(null);
+  const [deleteUndoToast, setDeleteUndoToast] = useState<string | null>(null);
+  const deleteUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [flowMode, setFlowMode] = useState(false);
@@ -112,7 +113,7 @@ function AppBody() {
     }
   }, [customizationHook.customizationConfig.locale, locale, setLocale]);
 
-  const { journal, journalAddTodo, handleUpsertJournal, setJournal, setHabits, setHabitLogs } = usePersonal();
+  const { journal, journalAddTodo, handleUpsertJournal, setJournal } = usePersonal();
 
   // 全局开关：是否把每一天的日记加入当日待办 → 同步生成/移除关联任务
   const journalTodoTitle = useCallback((entry: JournalEntry) => {
@@ -730,6 +731,29 @@ function AppBody() {
     }
   }, [originalHandleComplete, customizationHook.customizationConfig.enableCelebration, locale]);
 
+  const wrappedHandleDeleteTask = useCallback((id: string) => {
+    const victim =
+      tasksHook.tasks.find((t) => t.id === id) ||
+      tasksHook.completedTasks.find((t) => t.id === id);
+    tasksHook.handleDeleteTask(id);
+    if (!victim) return;
+    if (deleteUndoTimerRef.current) clearTimeout(deleteUndoTimerRef.current);
+    setDeleteUndoToast(victim.title);
+    deleteUndoTimerRef.current = setTimeout(() => {
+      setDeleteUndoToast(null);
+      deleteUndoTimerRef.current = null;
+    }, 5000);
+  }, [tasksHook.tasks, tasksHook.completedTasks, tasksHook.handleDeleteTask]);
+
+  const handleUndoDeleteClick = useCallback(() => {
+    if (deleteUndoTimerRef.current) {
+      clearTimeout(deleteUndoTimerRef.current);
+      deleteUndoTimerRef.current = null;
+    }
+    tasksHook.handleUndoDelete();
+    setDeleteUndoToast(null);
+  }, [tasksHook.handleUndoDelete]);
+
   // ============ 云端同步（统一走 syncEngine）============
   const applySyncDataToState = useCallback((data: SyncData) => {
     isRestoringRef.current = true;
@@ -741,17 +765,12 @@ function AppBody() {
     notesHook.setStickyNotes(data.stickyNotes);
     pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
     countdownHook.setCountdowns(data.countdowns);
-    setHabits(data.habits);
-    setHabitLogs(data.habitLogs);
     setJournal(data.journal || []);
-    localStorage.setItem("tongyun_habits", JSON.stringify(data.habits));
-    localStorage.setItem("tongyun_habit_logs", JSON.stringify(data.habitLogs));
-    localStorage.setItem("tongyun_moods", JSON.stringify(data.moods));
     localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
     if (data.customizationConfig) {
       customizationHook.setCustomizationConfig(data.customizationConfig);
     }
-  }, [tasksHook, notesHook, pomodoroHook, countdownHook, customizationHook]);
+  }, [tasksHook, notesHook, pomodoroHook, countdownHook, customizationHook, setJournal]);
 
   // 监听 syncEngine 拉取远程数据后刷新 UI
   useEffect(() => {
@@ -774,7 +793,7 @@ function AppBody() {
   }, []);
 
   // ============ 数据变更 → 按分类标记脏 + 递增版本号 ============
-  // 之前 markDirty() 无参会把所有分类都标记脏，导致「改一处心情 emoji 也全量上传所有分类文件」。
+  // 之前 markDirty() 无参会把所有分类都标记脏，导致「改一处也全量上传所有分类文件」。
   // 现在用 diff 比对，只把真正变化的分类标记脏，sync 时只上传变化的文件，减少无谓的全量上传。
   const prevSyncDataRef = useRef<{
     tasks: Task[]; completedTasks: Task[]; stickyNotes: unknown; config: unknown;
@@ -986,7 +1005,7 @@ function AppBody() {
     completedTasks={tasksHook.completedTasks}
     progressPercentage={tasksHook.progressPercentage}
     wrappedHandleComplete={wrappedHandleComplete}
-    handleDeleteTask={tasksHook.handleDeleteTask}
+    handleDeleteTask={wrappedHandleDeleteTask}
     handleTaskClick={tasksHook.handleTaskClick}
     handleCloseDetail={tasksHook.handleCloseDetail}
     handleToggleSubtask={tasksHook.handleToggleSubtask}
@@ -1012,6 +1031,8 @@ function AppBody() {
         handlePinNoteToDesktop={handlePinNoteToDesktop}
         celebrationMessage={celebrationMessage}
     setCelebrationMessage={setCelebrationMessage}
+    deleteUndoToast={deleteUndoToast}
+    onUndoDelete={handleUndoDeleteClick}
     syncStatus={syncStatus}
     lastBackupTime={lastBackupTime}
     commandPaletteOpen={commandPaletteOpen}
@@ -1072,6 +1093,8 @@ interface MainLayoutProps {
   handlePinNoteToDesktop: (id: string) => void;
   celebrationMessage: string | null;
   setCelebrationMessage: (msg: string | null) => void;
+  deleteUndoToast: string | null;
+  onUndoDelete: () => void;
   syncStatus: "synced" | "syncing" | "error";
   lastBackupTime: number | null;
   commandPaletteOpen: boolean; setCommandPaletteOpen: (v: boolean) => void;
@@ -1093,12 +1116,12 @@ const MainLayout = React.memo(function MainLayout({
   notesHook, countdownHook, widgetHook, aiHook, customizationHook, pomodoroHandleStartFocus, pomodoroLogs, alertSoundType, setAlertSoundType,
   handlePinNoteToDesktop,
   celebrationMessage, setCelebrationMessage,
+  deleteUndoToast, onUndoDelete,
   syncStatus, lastBackupTime,
   commandPaletteOpen, setCommandPaletteOpen, windowLabel,
   resetTasks, handleClearCompleted,
   onNewsSaveTask, onNewsSaveJournal,
 }: MainLayoutProps) {
-  const { habits } = usePersonal();
   return (
     <>
       {flowMode ? (
@@ -1122,7 +1145,6 @@ const MainLayout = React.memo(function MainLayout({
           tasksCount={tasks.length}
           stickyNotesCount={notesHook.stickyNotes.length}
           countdownCount={countdownHook.countdowns.length}
-          habitsCount={habits.length}
           handleToggleWidget={widgetHook.handleToggleWidget}
           handleToggleWidgetLock={widgetHook.handleToggleWidgetLock}
           isWidgetLocked={widgetHook.isWidgetLocked}
@@ -1147,7 +1169,6 @@ const MainLayout = React.memo(function MainLayout({
                       : activeTab === "completed" ? t.header.completed
                       : activeTab === "countdown" ? t.header.countdown
                       : activeTab === "news" ? t.header.news
-                      : activeTab === "habits" ? (t.sidebar.habits || "习惯打卡")
                       : activeTab === "gantt" ? "甘特图"
                       : activeTab === "journal" ? (t.journal?.title || "日记手账")
                       : t.header.completed}
@@ -1284,9 +1305,6 @@ const MainLayout = React.memo(function MainLayout({
           {activeTab === "countdown" && (
             <CountdownView countdowns={countdownHook.countdowns} handleAddCountdown={countdownHook.handleAddCountdown} handleDeleteCountdown={countdownHook.handleDeleteCountdown} />
           )}
-          {activeTab === "habits" && (
-            <HabitsView />
-          )}
           {activeTab === "gantt" && (
             <GanttView tasks={tasks} onTaskClick={handleTaskClick} />
           )}
@@ -1333,6 +1351,20 @@ const MainLayout = React.memo(function MainLayout({
 
         {celebrationMessage && (
           <CelebrationOverlay message={celebrationMessage} onDone={() => setCelebrationMessage(null)} />
+        )}
+        {deleteUndoToast && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
+            <span className="max-w-[240px] truncate">
+              {(t.listView.deletedToast || "已删除「{title}」").replace("{title}", deleteUndoToast)}
+            </span>
+            <button
+              type="button"
+              onClick={onUndoDelete}
+              className="shrink-0 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-[#C4D7B2] cursor-pointer transition-colors"
+            >
+              {t.common.undoDelete || t.common.undo || "撤销"}
+            </button>
+          </div>
         )}
         {detailTaskId && (() => {
           const activeTask = tasks.find((t: Task) => t.id === detailTaskId);

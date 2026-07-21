@@ -32,6 +32,7 @@ export function useTasks() {
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [editingNotes, setEditingNotes] = useState("");
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const [lastDeleted, setLastDeleted] = useState<{ task: Task; wasCompleted: boolean } | null>(null);
 
   // 持久化只写 localStorage；unifiedStorage 会自动 debounce 同步到 SQLite。
   const saveTasks = useCallback(async (updatedTasks: Task[]) => {
@@ -134,6 +135,16 @@ export function useTasks() {
   }, [saveTasks, syncState]);
 
   const handleDeleteTask = useCallback((id: string, shouldSync: boolean = true) => {
+    const fromActive = tasks.find((t) => t.id === id);
+    const fromCompleted = !fromActive ? completedTasks.find((t) => t.id === id) : undefined;
+    if (fromActive) {
+      setLastDeleted({ task: fromActive, wasCompleted: false });
+    } else if (fromCompleted) {
+      setLastDeleted({ task: fromCompleted, wasCompleted: true });
+    } else {
+      setLastDeleted(null);
+    }
+
     setTasks((prev) => {
       const updated = prev.filter((t) => t.id !== id);
       saveTasks(updated);
@@ -146,7 +157,42 @@ export function useTasks() {
     });
     setDetailTaskId((prev) => (prev === id ? null : prev));
     if (shouldSync) syncState(id, "delete");
-  }, [saveTasks, saveCompleted, syncState]);
+  }, [tasks, completedTasks, saveTasks, saveCompleted, syncState]);
+
+  const handleUndoDelete = useCallback((shouldSync: boolean = true) => {
+    if (!lastDeleted) return;
+    const { task, wasCompleted } = lastDeleted;
+    setLastDeleted(null);
+
+    if (wasCompleted) {
+      setCompletedTasks((prev) => {
+        if (prev.some((t) => t.id === task.id)) return prev;
+        const updated = [task, ...prev];
+        saveCompleted(updated);
+        return updated;
+      });
+      if (shouldSync) syncState(task.id, "complete");
+    } else {
+      setTasks((prev) => {
+        if (prev.some((t) => t.id === task.id)) return prev;
+        const updated = [task, ...prev];
+        saveTasks(updated);
+        return updated;
+      });
+      if (shouldSync) {
+        syncState(
+          task.id,
+          "add",
+          task.title,
+          task.description || "",
+          task.category,
+          task.notes || "",
+          task.dueDate,
+          task.dueTime
+        );
+      }
+    }
+  }, [lastDeleted, saveTasks, saveCompleted, syncState]);
 
   const handleTaskClick = useCallback((task: Task) => {
     setDetailTaskId(task.id);
@@ -343,6 +389,8 @@ export function useTasks() {
     handleToggleFavorite,
     handleTogglePin,
     handleDeleteTask,
+    handleUndoDelete,
+    lastDeleted,
     handleTaskClick,
     handleCloseDetail,
     handleToggleSubtask,
