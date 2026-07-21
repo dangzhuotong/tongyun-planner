@@ -552,6 +552,12 @@ const en: Translations = {
     reviewJournalDone: "Written",
     reviewOpenJournal: "Open journal",
     reviewMinutes: "min",
+    quoteRefresh: "Another",
+    aiSuggestionTitle: "AI Daily Plan",
+    aiSuggestionRefresh: "Regenerate",
+    aiSuggestionRegenTitle: "Regenerate daily suggestion",
+    aiSuggestionThinking: "Thinking about your day...",
+    aiSuggestionRetry: "Failed, tap to retry",
   },
 
   flow: {

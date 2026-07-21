@@ -598,33 +598,26 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
                     </button>
                   )}
                   {isFuture && <span className="text-[10px] text-slate-400">· {j.futureDay}</span>}
-                </div>
-
-                {/* 今日心情 */}
-                <div className="flex flex-col items-center gap-1.5">
-                  <span className="text-[9px] font-bold text-[#9A8866] tracking-wider">
-                    {j.moodTitle || "今日心情"}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {JOURNAL_MOODS.map((m) => {
-                      const active = selected?.mood === m.emoji;
-                      return (
-                        <button
-                          key={m.emoji}
-                          type="button"
-                          onClick={() => handleMoodPick(m.emoji)}
-                          title={m.label}
-                          className={`w-8 h-8 flex items-center justify-center rounded-full text-base transition-all cursor-pointer border ${
-                            active
-                              ? "bg-[#F0F5F1] border-[#4D7C5D] scale-110 shadow-sm"
-                              : "bg-transparent border-transparent hover:bg-[#F3ECDF]/80 opacity-70 hover:opacity-100"
-                          }`}
-                        >
-                          {m.emoji}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {/* 今日心情：与「回到今天」同行，省一行 */}
+                  <span className="mx-1 text-[#E5D9C2]">|</span>
+                  {JOURNAL_MOODS.map((m) => {
+                    const active = selected?.mood === m.emoji;
+                    return (
+                      <button
+                        key={m.emoji}
+                        type="button"
+                        onClick={() => handleMoodPick(m.emoji)}
+                        title={m.label}
+                        className={`w-7 h-7 flex items-center justify-center rounded-full text-sm transition-all cursor-pointer border ${
+                          active
+                            ? "bg-[#F0F5F1] border-[#4D7C5D] scale-110 shadow-sm"
+                            : "bg-transparent border-transparent hover:bg-[#F3ECDF]/80 opacity-60 hover:opacity-100"
+                        }`}
+                      >
+                        {m.emoji}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {editorInner}

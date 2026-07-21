@@ -395,35 +395,6 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         </div>
       </button>
 
-      {/* 本周回顾 */}
-      {(() => {
-        const now = new Date();
-        const weekAgo = new Date(now);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        const weekCompleted = completedTasks.filter((t) => {
-          if (!t.dueDate) return false;
-          const d = new Date(t.dueDate);
-          return d >= weekAgo && d <= now;
-        });
-        const weekCompletedCount = weekCompleted.length;
-        const todayCount = completedTasks.filter((t) => t.dueDate === today).length;
-        if (weekCompletedCount === 0) return null;
-        return (
-          <div className="rounded-2xl bg-gradient-to-r from-[#FAF5ED] to-[#FFF9F5] border border-[#EFE5D3] p-3.5 flex items-center gap-3 shadow-2xs">
-            <TrendingUp className="w-5 h-5 text-[#8B6E3C]" />
-            <div className="flex-grow">
-              <span className="text-[10px] font-bold text-[#8B6E3C] tracking-wide">
-                本周回顾
-              </span>
-              <p className="text-[11px] text-slate-600 font-medium mt-0.5">
-                本周已完成 {weekCompletedCount} 项任务{todayCount > 0 ? `，今天已完成 ${todayCount} 项` : ""}
-              </p>
-            </div>
-            <span className="text-lg">📊</span>
-          </div>
-        );
-      })()}
-
       {/* Quote + History in 2-column on wide screens */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Quote */}
@@ -449,7 +420,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
               <Sparkles className="w-3 h-3 text-[#4D7C5D]" /> Daily Inspiration
             </span>
             <button onClick={() => fetchHitokoto(true)} className="text-[9px] font-black text-[#4D7C5D] hover:underline cursor-pointer">
-              换一句
+              {d.quoteRefresh || "换一句"}
             </button>
           </div>
         </div>
@@ -508,7 +479,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#4D7C5D]" />
-              <span className="text-[9px] font-black text-[#4D7C5D] tracking-widest uppercase">AI 今日建议</span>
+              <span className="text-[9px] font-black text-[#4D7C5D] tracking-widest uppercase">{d.aiSuggestionTitle || "AI 今日建议"}</span>
             </div>
             <button
               onClick={() => generateSuggestion(true)}
@@ -518,16 +489,16 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                   ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                   : "bg-white/60 text-[#4D7C5D] hover:bg-white hover:scale-105 border border-[#DEEAE2]"
               }`}
-              title="重新生成今日建议"
+              title={d.aiSuggestionRegenTitle || "重新生成今日建议"}
             >
               <RefreshCw className={`w-2.5 h-2.5 ${suggestionLoading ? "animate-spin" : ""}`} />
-              换一条
+              {d.aiSuggestionRefresh || "换一条"}
             </button>
           </div>
           {suggestionLoading ? (
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 border-2 border-[#4D7C5D]/30 border-t-[#4D7C5D] rounded-full animate-spin" />
-              <span className="text-[10px] text-slate-400 font-medium">为你思考今日计划...</span>
+              <span className="text-[10px] text-slate-400 font-medium">{d.aiSuggestionThinking || "为你思考今日计划..."}</span>
             </div>
           ) : suggestionError && !dailySuggestion ? (
             <button
@@ -535,7 +506,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
               onClick={() => generateSuggestion(true)}
               className="text-[11px] text-[#A34E36] font-medium hover:underline cursor-pointer"
             >
-              生成失败，点击重试
+              {d.aiSuggestionRetry || "生成失败，点击重试"}
             </button>
           ) : (
             <p className="text-[11px] text-slate-700 leading-relaxed font-medium">{dailySuggestion}</p>

@@ -552,6 +552,12 @@ const zhCN: Translations = {
     reviewJournalDone: "已记录",
     reviewOpenJournal: "去写日记",
     reviewMinutes: "分钟",
+    quoteRefresh: "换一句",
+    aiSuggestionTitle: "AI 今日建议",
+    aiSuggestionRefresh: "换一条",
+    aiSuggestionRegenTitle: "重新生成今日建议",
+    aiSuggestionThinking: "为你思考今日计划...",
+    aiSuggestionRetry: "生成失败，点击重试",
   },
 
   flow: {
