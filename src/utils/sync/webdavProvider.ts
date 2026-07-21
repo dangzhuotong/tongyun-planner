@@ -7,6 +7,7 @@ import {
   applyCategoryPayload,
   normalizeSyncData,
   getLocalSyncData,
+  reconcileTasksAndCompleted,
 } from "./types";
 import type { WebDavConfig } from "../../types";
 import { invoke } from "@tauri-apps/api/core";
@@ -233,7 +234,8 @@ export class WebDAVProvider implements SyncProvider {
     }
 
     if (anyUpdated) {
-      // Re-read the full local data after applying partial updates
+      // 交叉去重后再读：防止只更新 tasks 或 completed 一侧时脏数据落盘
+      reconcileTasksAndCompleted();
       return getLocalSyncData();
     }
 

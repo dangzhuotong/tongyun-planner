@@ -367,6 +367,14 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
     }
   }, [aiConfig, draftContent, commit, locale, j]);
 
+  const [flipTick, setFlipTick] = useState(0);
+  const prevFlipDate = useRef(currentDate);
+  useEffect(() => {
+    if (prevFlipDate.current === currentDate) return;
+    prevFlipDate.current = currentDate;
+    setFlipTick((n) => n + 1);
+  }, [currentDate]);
+
   // 顶部日期滑条：过去 60 天 ~ 未来 7 天
   const dateStrip = useMemo(() => {
     const days: string[] = [];
@@ -379,6 +387,37 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
     }
     return days;
   }, [today]);
+
+  const stripStart = dateStrip[0];
+  const stripEnd = dateStrip[dateStrip.length - 1];
+  const earliestDaily = useMemo(() => {
+    let min: string | null = null;
+    for (const e of journal) {
+      if (!e.isDaily) continue;
+      if (!min || e.date < min) min = e.date;
+    }
+    return min;
+  }, [journal]);
+
+  const jumpEarlier = () => {
+    if (earliestDaily && earliestDaily < stripStart) {
+      setCurrentDate(earliestDaily);
+      return;
+    }
+    const base = currentDate < stripStart ? currentDate : stripStart;
+    const [y, m, d] = base.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() - 1);
+    setCurrentDate(getLocalDateString(dt));
+  };
+
+  const jumpLater = () => {
+    const base = currentDate > stripEnd ? currentDate : stripEnd;
+    const [y, m, d] = base.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + 1);
+    setCurrentDate(getLocalDateString(dt));
+  };
 
   // 日期滑条自动居中定位到当前选中日期
   useEffect(() => {
@@ -564,6 +603,28 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
 
         {mode === "diary" && (
           <div ref={stripRef} className="flex-1 overflow-x-auto custom-scrollbar flex items-center gap-1.5 pb-1">
+            <button
+              type="button"
+              onClick={jumpEarlier}
+              className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 border border-[#EFEBE4] bg-white hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer"
+              title={j.jumpEarlier || "更早"}
+            >
+              ‹ {j.jumpEarlier || "更早"}
+            </button>
+            {(currentDate < stripStart || currentDate > stripEnd) && (
+              <button
+                type="button"
+                ref={activeDateRef}
+                onClick={() => {}}
+                className="flex-shrink-0 flex flex-col items-center px-2.5 py-1 rounded-xl bg-[#4D7C5D] text-white border border-[#4D7C5D]"
+                title={currentDate}
+              >
+                <span className="text-[11px] font-bold leading-none">
+                  {(() => { const [, m, d] = currentDate.split("-"); return `${Number(m)}/${Number(d)}`; })()}
+                </span>
+                <span className="text-[9px] mt-0.5 leading-none">{j.outsideStrip || "滑条外"}</span>
+              </button>
+            )}
             {dateStrip.map((ds) => {
               const [y, m, d] = ds.split("-").map(Number);
               const wd = weekdayNames[new Date(y, m - 1, d).getDay()];
@@ -589,6 +650,14 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={jumpLater}
+              className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 border border-[#EFEBE4] bg-white hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer"
+              title={j.jumpLater || "更晚"}
+            >
+              {j.jumpLater || "更晚"} ›
+            </button>
           </div>
         )}
 
@@ -653,7 +722,10 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
               {/* 书脊 */}
               <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6] dark:from-[#25272D] dark:via-[#1F2025] dark:to-[#25272D]" />
               <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70 dark:bg-[#383A42]" />
-              <div className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0">
+              <div
+                key={`page-${currentDate}-${flipTick}`}
+                className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0 animate-fade-in-up"
+              >
                 {/* 页眉：大日期 + 翻页 */}
                 <div className="flex items-center gap-2">
                   <button

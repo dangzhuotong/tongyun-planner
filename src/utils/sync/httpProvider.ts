@@ -5,6 +5,7 @@ import {
   getCategoryPayload,
   applyCategoryPayload,
   getLocalSyncData,
+  reconcileTasksAndCompleted,
 } from "./types";
 
 export interface HttpSyncConfig {
@@ -189,7 +190,8 @@ export class HttpSyncProvider implements SyncProvider {
       anyUpdated = true;
     }
 
-    return anyUpdated ? getLocalSyncData() : getLocalSyncData();
+    if (anyUpdated) reconcileTasksAndCompleted();
+    return getLocalSyncData();
   }
 
   private async fetchCategory(

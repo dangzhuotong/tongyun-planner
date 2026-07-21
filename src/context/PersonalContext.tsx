@@ -50,6 +50,23 @@ export function usePersonal(): PersonalState {
   return ctx;
 }
 
+function sanitizeMoodAttachments(raw: Record<string, Attachment[]>): Record<string, Attachment[]> {
+  const out: Record<string, Attachment[]> = {};
+  for (const [date, list] of Object.entries(raw || {})) {
+    if (!Array.isArray(list)) continue;
+    const cleaned = list.filter((a) => {
+      if (!a || typeof a !== "object") return false;
+      const path = typeof a.path === "string" ? a.path : "";
+      if (!path) return false;
+      // 丢弃 legacy data: / base64 内联；sync 文本 payload 本就不含附件二进制
+      if (path.startsWith("data:")) return false;
+      return true;
+    });
+    if (cleaned.length > 0) out[date] = cleaned;
+  }
+  return out;
+}
+
 export function PersonalProvider({ children }: { children: React.ReactNode }) {
   const [journal, setJournal] = useState<JournalEntry[]>(() =>
     safeJsonParse(localStorage.getItem("tongyun_journal") || "[]", [])
@@ -103,7 +120,7 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
     safeJsonParse(localStorage.getItem("tongyun_mood_notes") || "{}", {})
   );
   const [moodAttachments, setMoodAttachments] = useState<Record<string, Attachment[]>>(() =>
-    safeJsonParse(localStorage.getItem("tongyun_mood_attachments") || "{}", {})
+    sanitizeMoodAttachments(safeJsonParse(localStorage.getItem("tongyun_mood_attachments") || "{}", {}))
   );
   const handleSetMood = useCallback((date: string, mood: number) => {
     setMoods((prev) => ({ ...prev, [date]: mood }));
@@ -112,7 +129,10 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
     setMoodNotes((prev) => ({ ...prev, [date]: note }));
   }, []);
   const handleSetMoodAttachments = useCallback((date: string, attachments: Attachment[]) => {
-    setMoodAttachments((prev) => ({ ...prev, [date]: attachments }));
+    setMoodAttachments((prev) => ({
+      ...prev,
+      [date]: attachments.filter((a) => a?.path && !String(a.path).startsWith("data:")),
+    }));
   }, []);
 
   const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
@@ -127,7 +147,7 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
   useDebouncedPersistence(habitLogs, "tongyun_habit_logs", 250);
   useDebouncedPersistence(moods, "tongyun_moods", 250);
   useDebouncedPersistence(moodNotes, "tongyun_mood_notes", 250);
-  // 附件类可能含 base64 图片，用更长 debounce 降低写入频率
+  // 附件只存 path 元数据（二进制在 storageManager）；debounce 稍长即可
   useDebouncedPersistence(moodAttachments, "tongyun_mood_attachments", 600);
 
   // ============ sync 脏标记（仅个人数据分类）============

@@ -361,30 +361,48 @@ export async function generateRecollection(
 /**
  * 6d. AI 每日建议 —— 基于今日任务智能推荐与优先级
  */
+export interface DailySuggestionContext {
+  habitsDone?: string[];      // 今日已打卡习惯名
+  habitsPending?: string[];   // 今日未打卡习惯名
+  pomodoroCount?: number;     // 今日番茄次数
+  pomodoroMinutes?: number;   // 今日专注分钟
+  mood?: number;              // 当日心情 1-5
+  unfinishedCount?: number;   // 今日未完成任务数
+}
+
 export async function generateDailySuggestion(
   config: CustomizationConfig,
   todayTasks: { title: string; category: Task["category"]; dueTime?: string; description?: string }[],
-  locale: string
+  locale: string,
+  ctx?: DailySuggestionContext
 ): Promise<string> {
   const lang = locale === "zh-CN" ? "简体中文" : "English";
   const taskList = todayTasks.map((t, i) =>
     `${i + 1}. [${t.category}] ${t.title}${t.dueTime ? ` (截止: ${t.dueTime})` : ""}${t.description ? ` — ${t.description.slice(0, 30)}` : ""}`
   ).join("\n");
 
-  const systemPrompt = `你是一个温和高效的日程顾问。请用 ${lang} 给用户写一段简短的今日建议（80-120 字）。
+  const extras: string[] = [];
+  if (ctx?.unfinishedCount != null) extras.push(`今日未完成待办数: ${ctx.unfinishedCount}`);
+  if (ctx?.pomodoroCount != null) {
+    extras.push(`今日番茄: ${ctx.pomodoroCount} 次` + (ctx.pomodoroMinutes != null ? `（约 ${ctx.pomodoroMinutes} 分钟）` : ""));
+  }
+  if (ctx?.mood != null) extras.push(`今日心情: ${ctx.mood}/5`);
+  if (ctx?.habitsDone?.length) extras.push(`已打卡习惯: ${ctx.habitsDone.join("、")}`);
+  if (ctx?.habitsPending?.length) extras.push(`未打卡习惯: ${ctx.habitsPending.join("、")}`);
+
+  const systemPrompt = `你是一个温和高效的日程顾问。请用 ${lang} 给用户写一段简短的今日建议（80-140 字）。
 要求：
-- 根据以下今日待办列表，推荐先做什么、后做什么，给出理由
+- 根据以下今日待办与上下文，推荐先做什么、后做什么，给出理由
+- 若有习惯/番茄/心情信息，可轻描淡写地融入建议，不要逐条复述
 - 语气温暖、鼓励，像朋友一样自然
 - 不要列点，用流畅的段落表达
 - 如果列表为空，则说"今天没有待办，好好休息或规划明天吧"
 - 只返回建议文本本身，不要任何额外说明`;
 
-  const userPrompt = `今日待办列表:\n${taskList || "（空）"}`;
-  try {
-    return await callAI(config, systemPrompt, userPrompt);
-  } catch {
-    return "";
-  }
+  const userPrompt = `今日待办列表:\n${taskList || "（空）"}` +
+    (extras.length ? `\n\n补充上下文:\n${extras.join("\n")}` : "");
+
+  return await callAI(config, systemPrompt, userPrompt);
 }
 
 /**

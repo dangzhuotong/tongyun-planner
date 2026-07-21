@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import type { CustomizationConfig } from "../types";
 import { useSync } from "./useSync";
 
@@ -35,7 +35,7 @@ export function useCustomization() {
 
   const handleConfigChange = useCallback((newConfig: CustomizationConfig) => {
     setCustomizationConfig(newConfig);
-    localStorage.setItem("aero_customization_config", JSON.stringify(newConfig));
+    // aero_customization_config 由 App.tsx 的 useDebouncedPersistence 统一落盘
     if (newConfig.locale) {
       localStorage.setItem("tongyun_locale", newConfig.locale);
     }
@@ -106,10 +106,10 @@ export function useCustomization() {
     }
   }, [customizationConfig.darkMode]);
 
-  return {
+  return useMemo(() => ({
     customizationConfig,
     setCustomizationConfig,
     handleConfigChange,
     DEFAULT_CUSTOMIZATION_CONFIG,
-  };
+  }), [customizationConfig, handleConfigChange]);
 }

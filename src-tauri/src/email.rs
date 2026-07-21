@@ -60,7 +60,7 @@ pub async fn send_test_email(config: SmtpConfig) -> Result<String, String> {
                 SMTP 配置成功
               </h2>
               <p style="margin:0;font-size:13px;color:#5C7A6A;line-height:1.6">
-                如果收到这封邮件，说明邮件提醒功能一切正常
+                如果收到这封邮件，说明 SMTP 配置正确，测试发送可用
               </p>
             </td></tr>
           </table>
@@ -70,11 +70,11 @@ pub async fn send_test_email(config: SmtpConfig) -> Result<String, String> {
         <tr><td style="padding:0 40px 8px">
           <table width="100%" cellpadding="0" cellspacing="0" style="background:#FAF5ED;border-radius:12px;border:1px solid #EFE5D3">
             <tr><td style="padding:16px 20px">
-              <p style="margin:0 0 6px;font-size:12px;color:#8B6E3C;font-weight:700">📌 你会收到以下提醒</p>
+              <p style="margin:0 0 6px;font-size:12px;color:#8B6E3C;font-weight:700">📌 当前状态</p>
               <ul style="margin:0;padding-left:18px;font-size:12px;color:#64748B;line-height:1.8">
-                <li>任务到期前提醒（提前 15/30 分钟等）</li>
-                <li>每日任务汇总（每天早上 8:00）</li>
-                <li>过期未完成催办</li>
+                <li>SMTP 测试发送已可用</li>
+                <li>到期/每日汇总自动邮件尚未实现</li>
+                <li>任务提醒请使用应用内「系统通知」</li>
               </ul>
             </td></tr>
           </table>

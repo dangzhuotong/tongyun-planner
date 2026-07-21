@@ -126,12 +126,28 @@ export function getCategoryPayload(data: SyncData, cat: SyncCategory): unknown {
 /** Apply a single category's payload into localStorage */
 export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void {
   switch (cat) {
-    case "tasks":
-      localStorage.setItem("aero_todos", JSON.stringify(payload));
+    case "tasks": {
+      const localCompleted = readJson<Task[]>("aero_completed_todos", "[]");
+      const { tasks } = mergeCompletedPreferLocal(
+        (payload as Task[]) || [],
+        localCompleted,
+        localCompleted
+      );
+      localStorage.setItem("aero_todos", JSON.stringify(tasks));
       break;
-    case "completedTasks":
-      localStorage.setItem("aero_completed_todos", JSON.stringify(payload));
+    }
+    case "completedTasks": {
+      const localCompleted = readJson<Task[]>("aero_completed_todos", "[]");
+      const active = readJson<Task[]>("aero_todos", "[]");
+      const { tasks, completedTasks } = mergeCompletedPreferLocal(
+        active,
+        (payload as Task[]) || [],
+        localCompleted
+      );
+      localStorage.setItem("aero_todos", JSON.stringify(tasks));
+      localStorage.setItem("aero_completed_todos", JSON.stringify(completedTasks));
       break;
+    }
     case "stickyNotes":
       localStorage.setItem("aero_sticky_notes", JSON.stringify(payload));
       break;
@@ -173,6 +189,37 @@ export function dedupeActiveTasks(tasks: Task[], completed: Task[]): Task[] {
   return tasks.filter(t => !doneIds.has(t.id));
 }
 
+/**
+ * 完成态优先合并：任一侧已在 completed 的 id，最终进入 completed，并从 active 剔除。
+ * 用于 pull 后交叉去重，防止远端更高 version 的 tasks.json 把已完成任务写回活动列表。
+ */
+export function mergeCompletedPreferLocal(
+  active: Task[],
+  remoteCompleted: Task[],
+  localCompleted: Task[]
+): { tasks: Task[]; completedTasks: Task[] } {
+  const byId = new Map<string, Task>();
+  for (const t of remoteCompleted || []) byId.set(t.id, t);
+  for (const t of localCompleted || []) byId.set(t.id, t); // local wins on field conflicts
+  const completedTasks = Array.from(byId.values());
+  const tasks = dedupeActiveTasks(active || [], completedTasks);
+  return { tasks, completedTasks };
+}
+
+/** 将 localStorage 中的 tasks / completed 交叉去重并写回（pull 部分更新后调用） */
+export function reconcileTasksAndCompleted(): void {
+  const active = readJson<Task[]>("aero_todos", "[]");
+  const remoteOrLocalCompleted = readJson<Task[]>("aero_completed_todos", "[]");
+  // 两侧都读当前落盘数据：完成态并集 + 活动列表去重
+  const { tasks, completedTasks } = mergeCompletedPreferLocal(
+    active,
+    remoteOrLocalCompleted,
+    remoteOrLocalCompleted
+  );
+  localStorage.setItem("aero_todos", JSON.stringify(tasks));
+  localStorage.setItem("aero_completed_todos", JSON.stringify(completedTasks));
+}
+
 export function getLocalSyncData(): SyncData {
   const completedTasks = readJson<Task[]>("aero_completed_todos", "[]");
   // 已完成任务绝不应当出现在活动列表里：云端 pull 可能因时间戳 LWW 把已完成的任务
@@ -209,10 +256,13 @@ export function normalizeSyncData(raw: unknown): SyncData | null {
         ? obj.timestamp
         : 0;
 
+  const completedTasks = (obj.completedTasks as Task[]) || [];
+  const tasks = dedupeActiveTasks(obj.tasks as Task[], completedTasks);
+
   return {
     version,
-    tasks: obj.tasks as Task[],
-    completedTasks: (obj.completedTasks as Task[]) || [],
+    tasks,
+    completedTasks,
     stickyNotes: (obj.stickyNotes as StickyNote[]) || [],
     pomodoroLogs: (obj.pomodoroLogs as PomodoroLog[]) || [],
     countdowns: (obj.countdowns as CountdownEvent[]) || [],
@@ -225,8 +275,15 @@ export function normalizeSyncData(raw: unknown): SyncData | null {
 }
 
 export function applySyncData(data: SyncData): void {
-  localStorage.setItem("aero_todos", JSON.stringify(data.tasks));
-  localStorage.setItem("aero_completed_todos", JSON.stringify(data.completedTasks));
+  // 写入前完成态优先：合并 completed，并从 active 剔除（附件二进制不在 sync 文本 payload 内）
+  const localCompleted = readJson<Task[]>("aero_completed_todos", "[]");
+  const { tasks, completedTasks } = mergeCompletedPreferLocal(
+    data.tasks,
+    data.completedTasks || [],
+    localCompleted
+  );
+  localStorage.setItem("aero_todos", JSON.stringify(tasks));
+  localStorage.setItem("aero_completed_todos", JSON.stringify(completedTasks));
   localStorage.setItem("aero_sticky_notes", JSON.stringify(data.stickyNotes));
   localStorage.setItem("aero_pomodoro_logs", JSON.stringify(data.pomodoroLogs));
   localStorage.setItem("tongyun_countdowns", JSON.stringify(data.countdowns));
@@ -241,6 +298,8 @@ export function applySyncData(data: SyncData): void {
   localStorage.setItem("tongyun_last_updated", String(Date.now()));
 
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: data }));
+    window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, {
+      detail: { ...data, tasks, completedTasks },
+    }));
   }
 }

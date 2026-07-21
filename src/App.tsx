@@ -605,9 +605,10 @@ function AppBody() {
   }, []);
 
   // ============ 任务到期系统通知（智能规划 C 补全）============
-  // 每分钟扫描：今日到期、有具体时间、未完成的任务；
-  // 到期前 N 分钟（设置可配，默认 15）与到期时刻各提醒一次。
-  // 仅 main 窗口触发；key 分 before/due 防止两阶段互相吞掉。
+  // 每分钟扫描：今日到期、未完成的任务；
+  // 有 dueTime：到期前 N 分钟与到期时刻各提醒一次；
+  // 无 dueTime：当天默认 09:00 起 1 小时窗口内提醒一次（phase=day）。
+  // 仅 main 窗口触发；key 分 before/due/day 防止互相吞掉。
   // 点击通知 → 聚焦主窗 + 打开任务详情。
   const notifiedDueRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -630,29 +631,42 @@ function AppBody() {
       const beforeMinRaw = parseInt(localStorage.getItem("tongyun_due_remind_before_min") || "15", 10);
       const beforeMin = [5, 15, 30, 60].includes(beforeMinRaw) ? beforeMinRaw : 15;
       const REMIND_BEFORE = beforeMin * 60 * 1000;
+      const DATE_ONLY_HOUR = 9;
 
       const now = new Date();
       const todayStr = getLocalDateString(now);
       const nowTs = now.getTime();
       const isZh = locale === "zh-CN";
+      const completedIds = new Set(tasksHook.completedTasks.map((c) => c.id));
       for (const task of tasksHook.tasks) {
-        if (task.dueDate !== todayStr || !task.dueTime) continue;
-        if (tasksHook.completedTasks.some((c) => c.id === task.id)) continue;
-        const [h, m] = task.dueTime.split(":").map(Number);
-        if (Number.isNaN(h) || Number.isNaN(m)) continue;
-        const dueTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0).getTime();
-        let phase: "before" | "due" | null = null;
+        if (task.dueDate !== todayStr) continue;
+        if (completedIds.has(task.id)) continue;
+
+        let phase: "before" | "due" | "day" | null = null;
         let body = "";
-        if (nowTs >= dueTs && nowTs <= dueTs + 60 * 60 * 1000) {
-          phase = "due";
-          body = isZh ? `已到截止时间 ${task.dueTime}` : `Due at ${task.dueTime}`;
-        } else if (nowTs >= dueTs - REMIND_BEFORE && nowTs < dueTs) {
-          phase = "before";
-          const mins = Math.max(1, Math.round((dueTs - nowTs) / 60000));
-          body = isZh
-            ? (mins <= 1 ? `即将在 ${task.dueTime} 截止` : `还有 ${mins} 分钟（${task.dueTime}）截止`)
-            : (mins <= 1 ? `Due at ${task.dueTime}` : `${mins} min left (due ${task.dueTime})`);
+
+        if (task.dueTime) {
+          const [h, m] = task.dueTime.split(":").map(Number);
+          if (Number.isNaN(h) || Number.isNaN(m)) continue;
+          const dueTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0).getTime();
+          if (nowTs >= dueTs && nowTs <= dueTs + 60 * 60 * 1000) {
+            phase = "due";
+            body = isZh ? `已到截止时间 ${task.dueTime}` : `Due at ${task.dueTime}`;
+          } else if (nowTs >= dueTs - REMIND_BEFORE && nowTs < dueTs) {
+            phase = "before";
+            const mins = Math.max(1, Math.round((dueTs - nowTs) / 60000));
+            body = isZh
+              ? (mins <= 1 ? `即将在 ${task.dueTime} 截止` : `还有 ${mins} 分钟（${task.dueTime}）截止`)
+              : (mins <= 1 ? `Due at ${task.dueTime}` : `${mins} min left (due ${task.dueTime})`);
+          }
+        } else {
+          const dayTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), DATE_ONLY_HOUR, 0, 0, 0).getTime();
+          if (nowTs >= dayTs && nowTs <= dayTs + 60 * 60 * 1000) {
+            phase = "day";
+            body = isZh ? "今日到期（未设具体时间）" : "Due today (no specific time)";
+          }
         }
+
         if (!phase) continue;
         const key = `${task.id}:${phase}`;
         if (notifiedDueRef.current.has(key)) continue;

@@ -55,7 +55,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 }) => {
   const { t } = useTranslation();
   const d = t.dashboard;
-  const { journal, habits, habitLogs } = usePersonal();
+  const { journal, habits, habitLogs, moods } = usePersonal();
 
   const [nickname] = useState(() => localStorage.getItem("tongyun_nickname") || "");
   const today = getLocalDateString();
@@ -217,6 +217,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     readDailyCache<string>(SUGGESTION_CACHE_KEY, today, localeKey)
   );
   const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestionError, setSuggestionError] = useState(false);
 
   const generateSuggestion = async (force: boolean = false) => {
     if (!config.aiApiKey) return;
@@ -224,19 +225,37 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
       const cached = readDailyCache<string>(SUGGESTION_CACHE_KEY, today, localeKey);
       if (cached) {
         setDailySuggestion(cached);
+        setSuggestionError(false);
         return;
       }
     }
     setSuggestionLoading(true);
+    setSuggestionError(false);
     try {
       const todayTasksBrief = tasks
         .filter((t) => t.dueDate === today)
         .map((t) => ({ title: t.title, category: t.category, dueTime: t.dueTime, description: t.description }));
-      const result = await generateDailySuggestion(config, todayTasksBrief, localeKey);
+      const dayLogs = habitLogs[today] || [];
+      const habitsDone = habits.filter((h) => dayLogs.includes(h.id)).map((h) => h.title);
+      const habitsPending = habits.filter((h) => !dayLogs.includes(h.id)).map((h) => h.title);
+      const dayStart = new Date(today + "T00:00:00").getTime();
+      const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+      const todayPomos = pomodoroLogs.filter((l) => l.timestamp >= dayStart && l.timestamp < dayEnd);
+      const pomodoroMinutes = Math.round(todayPomos.reduce((s, l) => s + (l.duration || 0), 0) / 60);
+      const result = await generateDailySuggestion(config, todayTasksBrief, localeKey, {
+        habitsDone,
+        habitsPending,
+        pomodoroCount: todayPomos.length,
+        pomodoroMinutes,
+        mood: moods[today],
+        unfinishedCount: todayTasksBrief.length,
+      });
       if (result) {
         setDailySuggestion(result);
         writeDailyCache(SUGGESTION_CACHE_KEY, today, localeKey, result);
       }
+    } catch {
+      setSuggestionError(true);
     } finally {
       setSuggestionLoading(false);
     }
@@ -594,7 +613,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 
 
       {/* AI 每日建议 —— 当日缓存，进入即用；右上角提供手动重新生成 */}
-      {config.aiApiKey && (dailySuggestion || suggestionLoading) && (
+      {config.aiApiKey && (dailySuggestion || suggestionLoading || suggestionError) && (
         <div className="rounded-2xl bg-gradient-to-r from-[#F0F5F1] to-[#EBF3F6] border border-[#DEEAE2] p-4.5 shadow-2xs">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -620,6 +639,14 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
               <div className="w-4 h-4 border-2 border-[#4D7C5D]/30 border-t-[#4D7C5D] rounded-full animate-spin" />
               <span className="text-[10px] text-slate-400 font-medium">为你思考今日计划...</span>
             </div>
+          ) : suggestionError && !dailySuggestion ? (
+            <button
+              type="button"
+              onClick={() => generateSuggestion(true)}
+              className="text-[11px] text-[#A34E36] font-medium hover:underline cursor-pointer"
+            >
+              生成失败，点击重试
+            </button>
           ) : (
             <p className="text-[11px] text-slate-700 leading-relaxed font-medium">{dailySuggestion}</p>
           )}

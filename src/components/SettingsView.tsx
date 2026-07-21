@@ -1160,10 +1160,13 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
             </div>
 
             {/* 提醒规则 */}
-            <div className="border-t border-[#EFEBE4] pt-4 space-y-3">
+            <div className="border-t border-[#EFEBE4] pt-4 space-y-3 opacity-60">
               <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
                 {s.emailRemindRules}
               </h4>
+              <p className="text-[11px] text-[#A34E36] font-medium leading-relaxed bg-[#FCF2F0] border border-[#F5DFDB] rounded-xl px-3 py-2">
+                {s.emailRemindUnavailable}
+              </p>
 
               {/* 到期前提醒 */}
               <div className="flex items-center justify-between p-3 rounded-xl border border-[#EFEBE4] bg-white/50">
@@ -1174,8 +1177,9 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
                 <input
                   type="checkbox"
                   checked={emailConfig.enableRemindBefore}
-                  onChange={e => setEmailConfig(p => ({ ...p, enableRemindBefore: e.target.checked }))}
-                  className="w-4 h-4 accent-[#4D7C5D] cursor-pointer"
+                  disabled
+                  onChange={() => {}}
+                  className="w-4 h-4 accent-[#4D7C5D] cursor-not-allowed"
                 />
               </div>
               {emailConfig.enableRemindBefore && (
@@ -1183,8 +1187,9 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
                   <span className="text-[10px] font-bold text-slate-500">{s.emailRemindBeforeLabel}</span>
                   <select
                     value={emailConfig.remindBeforeMinutes}
-                    onChange={e => setEmailConfig(p => ({ ...p, remindBeforeMinutes: parseInt(e.target.value) }))}
-                    className="bg-white border border-[#EFEBE4] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-[#4D7C5D]"
+                    disabled
+                    onChange={() => {}}
+                    className="bg-white border border-[#EFEBE4] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 cursor-not-allowed"
                   >
                     <option value={15}>15 {s.emailMinutes}</option>
                     <option value={30}>30 {s.emailMinutes}</option>
@@ -1205,8 +1210,9 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
                 <input
                   type="checkbox"
                   checked={emailConfig.enableDailyDigest}
-                  onChange={e => setEmailConfig(p => ({ ...p, enableDailyDigest: e.target.checked }))}
-                  className="w-4 h-4 accent-[#4D7C5D] cursor-pointer"
+                  disabled
+                  onChange={() => {}}
+                  className="w-4 h-4 accent-[#4D7C5D] cursor-not-allowed"
                 />
               </div>
               {emailConfig.enableDailyDigest && (
@@ -1214,8 +1220,9 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
                   <span className="text-[10px] font-bold text-slate-500">{s.emailDigestTime}</span>
                   <select
                     value={emailConfig.digestHour}
-                    onChange={e => setEmailConfig(p => ({ ...p, digestHour: parseInt(e.target.value) }))}
-                    className="bg-white border border-[#EFEBE4] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-[#4D7C5D]"
+                    disabled
+                    onChange={() => {}}
+                    className="bg-white border border-[#EFEBE4] px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 cursor-not-allowed"
                   >
                     {Array.from({ length: 24 }).map((_, h) => (
                       <option key={h} value={h}>{h.toString().padStart(2, "0")}:{emailConfig.digestMinute.toString().padStart(2, "0")}</option>
