@@ -51,6 +51,7 @@ interface StickyNotesViewProps {
   stickyNotes: StickyNoteType[];
   handleAddNote: () => void;
   handleEditNoteText: (id: string, text: string) => void;
+  handleEditNoteTitle: (id: string, title: string) => void;
   handleChangeNoteColor: (id: string, color: string) => void;
   handleDeleteNote: (id: string) => void;
   pinType?: "pin" | "tape" | "clip" | "heart" | "smiley";
@@ -61,6 +62,7 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
   stickyNotes,
   handleAddNote,
   handleEditNoteText,
+  handleEditNoteTitle,
   handleChangeNoteColor,
   handleDeleteNote,
   pinType,
@@ -142,11 +144,14 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
 
                 {/* 预览文本 */}
                 <div className="flex-grow overflow-hidden relative">
+                  {note.title && (
+                    <div className={`text-[13px] font-bold mb-1 truncate ${theme.text}`}>{note.title}</div>
+                  )}
                   <div
                     className={`text-xs font-semibold leading-relaxed whitespace-pre-wrap break-words ${theme.text} ${!hasText ? "opacity-40 italic" : ""}`}
                     style={{
                       display: "-webkit-box",
-                      WebkitLineClamp: 6,
+                      WebkitLineClamp: note.title ? 5 : 6,
                       WebkitBoxOrient: "vertical",
                       overflow: "hidden",
                       maskImage: note.text.split("\n").length > 6 ? fadeMask : undefined,
@@ -268,9 +273,20 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
               </div>
 
               {/* 编辑区域 */}
-              <div className="flex-1 px-5 pb-5 min-h-0">
+              <div className="flex-1 px-5 pb-5 min-h-0 flex flex-col gap-2">
+                <input
+                  value={expandedNote.title || ""}
+                  onChange={(e) => {
+                    const newTitle = e.target.value;
+                    setExpandedNote({ ...expandedNote, title: newTitle });
+                    handleEditNoteTitle(expandedNote.id, newTitle);
+                  }}
+                  placeholder={sn.titlePlaceholder || "标题（可选）"}
+                  className={`w-full bg-transparent border-none border-b border-dashed focus:outline-none text-base font-bold pb-1.5 placeholder-slate-400/50 ${theme.text}`}
+                  style={{ borderColor: theme.accent + "33" }}
+                />
                 <textarea
-                  autoFocus
+                  autoFocus={!expandedNote.title}
                   value={expandedNote.text}
                   onChange={(e) => {
                     const newText = e.target.value;
@@ -278,7 +294,7 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
                     handleEditNoteText(expandedNote.id, newText);
                   }}
                   placeholder={sn.add}
-                  className={`w-full h-full min-h-[200px] bg-transparent resize-none focus:outline-none text-sm font-semibold leading-relaxed placeholder-slate-400/60 custom-scrollbar ${theme.text}`}
+                  className={`w-full flex-1 min-h-[200px] bg-transparent resize-none focus:outline-none text-sm font-semibold leading-relaxed placeholder-slate-400/60 custom-scrollbar ${theme.text}`}
                 />
               </div>
             </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { BookOpen, StickyNote as NoteIcon, Trash2, Search, ListChecks, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus } from "lucide-react";
+import { Trash2, Search, ListChecks, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus } from "lucide-react";
 import type { JournalEntry, Task, CustomizationConfig, PomodoroLog } from "../types";
 import { extractJournalTags } from "../constants";
 import { createId } from "../utils/id";
@@ -53,9 +53,7 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
   const j = t.journal as Record<string, string>;
   const today = getLocalDateString();
 
-  const [mode, setMode] = useState<"diary" | "note">("diary");
   const [currentDate, setCurrentDate] = useState<string>(today);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tagOpen, setTagOpen] = useState(false);
@@ -70,24 +68,14 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
     return m;
   }, [journal]);
 
-  const notes = useMemo(
-    () => journal.filter((e) => !e.isDaily).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)),
-    [journal]
-  );
+  const selected = useMemo(() => dailyEntryMap.get(currentDate) || null, [currentDate, dailyEntryMap]);
 
-  const selected = useMemo(() => {
-    if (mode === "diary") return dailyEntryMap.get(currentDate) || null;
-    return notes.find((n) => n.id === selectedNoteId) || null;
-  }, [mode, currentDate, dailyEntryMap, notes, selectedNoteId]);
-
-  const viewDate = mode === "diary" ? currentDate : (selected?.date || today);
+  const viewDate = currentDate;
 
   // 本地草稿，避免每次按键都触发父级重渲染造成的光标跳动
-  const [draftTitle, setDraftTitle] = useState("");
   const [draftContent, setDraftContent] = useState("");
 
   useEffect(() => {
-    setDraftTitle(selected?.title || "");
     setDraftContent(selected?.content || "");
     setConfirmDelete(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,7 +88,7 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
       title: viewDate,
       content: "",
       date: viewDate,
-      isDaily: mode === "diary",
+      isDaily: true,
       createdAt: Date.now(),
     } as JournalEntry);
     const next: JournalEntry = {
@@ -109,19 +97,13 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
       updatedAt: Date.now(),
     };
     onUpsert(next);
-  }, [selected, onUpsert, viewDate, mode]);
+  }, [selected, onUpsert, viewDate]);
 
   const handleContentChange = (v: string) => {
     setDraftContent(v);
     commit({ content: v });
   };
-  const handleTitleChange = (v: string) => {
-    setDraftTitle(v);
-    const linkKey = selected?.isDaily ? selected.linkKey : v.trim() || createId("journal");
-    commit({ title: v, linkKey });
-  };
   const handleMoodPick = (emoji: string) => {
-    if (mode !== "diary") return;
     const base = selected || ({
       id: createId("journal"),
       linkKey: viewDate,
@@ -138,25 +120,6 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
       next.mood = emoji;
     }
     onUpsert(next);
-  };
-
-  const newDaily = () => { setMode("diary"); setCurrentDate(today); };
-  const newNote = () => {
-    const title = window.prompt(j.newNoteTitle || "笔记标题", "")?.trim();
-    if (!title) return;
-    const entry: JournalEntry = {
-      id: createId("journal"),
-      linkKey: title,
-      title,
-      content: "",
-      date: today,
-      isDaily: false,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    onUpsert(entry);
-    setMode("note");
-    setSelectedNoteId(entry.id);
   };
 
   const shiftDate = (delta: number) => {
@@ -258,24 +221,13 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
 
   // 日期滑条自动居中定位到当前选中日期
   useEffect(() => {
-    if (mode !== "diary") return;
     activeDateRef.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [currentDate, mode]);
+  }, [currentDate]);
 
-  const filteredNotes = useMemo(() => {
-    let list = notes;
-    if (activeTag) list = list.filter((e) => extractJournalTags(e.content).includes(activeTag));
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((e) => e.content.toLowerCase().includes(q) || e.title.toLowerCase().includes(q));
-    }
-    return list;
-  }, [notes, search, activeTag]);
-
-  // 全部日记/笔记中出现过的标签（去重排序），用于侧栏标签筛选
+  // 全部日记中出现过的标签（去重排序），用于标签筛选
   const allTags = useMemo(() => {
     const set = new Set<string>();
-    journal.forEach((e) => extractJournalTags(e.content).forEach((tag) => set.add(tag)));
+    journal.forEach((e) => { if (e.isDaily) extractJournalTags(e.content).forEach((tag) => set.add(tag)); });
     return [...set].sort((a, b) => a.localeCompare(b, locale === "zh-CN" ? "zh" : "en"));
   }, [journal, locale]);
 
@@ -289,7 +241,6 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
   // 农历（装饰，动态加载 lunar-javascript，失败则忽略）
   const [lunarText, setLunarText] = useState("");
   useEffect(() => {
-    if (mode !== "diary") { setLunarText(""); return; }
     let cancelled = false;
     import("lunar-javascript").then((mod: any) => {
       try {
@@ -301,7 +252,7 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
       } catch { /* ignore */ }
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [currentDate, mode]);
+  }, [currentDate]);
 
   const weekdayNames = locale === "zh-CN" ? ["日", "一", "二", "三", "四", "五", "六"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const fmtDate = (ds: string) => {
@@ -320,20 +271,12 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
   const editorInner = (
     <>
       <div className="flex items-center gap-2 flex-wrap">
-        {mode === "note" && (
-          <input
-            value={draftTitle}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            placeholder={j.titlePlaceholder}
-            className="flex-grow min-w-[160px] bg-transparent text-lg font-bold text-[#2D323A] focus:outline-none placeholder-slate-300 border-b border-transparent focus:border-[#EFEBE4] transition-colors"
-          />
-        )}
         {selected && (
           confirmDelete ? (
             <div className="ml-auto flex items-center gap-1.5">
               <span className="text-[10px] text-[#A34E36]">{j.confirmDelete || "确定删除？"}</span>
               <button
-                onClick={() => { onDelete(selected.id); setConfirmDelete(false); if (mode === "diary") setCurrentDate(currentDate); else setSelectedNoteId(null); }}
+                onClick={() => { onDelete(selected.id); setConfirmDelete(false); }}
                 className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#A34E36] text-white hover:bg-[#8A4029] cursor-pointer transition-colors"
               >
                 {j.delete}
@@ -369,9 +312,9 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
         ref={textareaRef}
         value={draftContent}
         onChange={(e) => handleContentChange(e.target.value)}
-        placeholder={mode === "diary" ? (j.diaryPlaceholder || "写点什么，记下今天…") : "写点什么…"}
+        placeholder={j.diaryPlaceholder || "写点什么，记下今天…"}
         className="flex-grow min-h-0 w-full resize-none rounded-xl p-4 text-[14px] leading-relaxed text-slate-700 dark:text-slate-200 font-serif focus:outline-none focus:border-[#4D7C5D] custom-scrollbar bg-transparent border-transparent"
-        style={mode === "diary" ? { lineHeight: "32px", backgroundImage: "repeating-linear-gradient(transparent, transparent 31px, #ECE4D2 32px)", backgroundAttachment: "local" } : undefined}
+        style={{ lineHeight: "32px", backgroundImage: "repeating-linear-gradient(transparent, transparent 31px, #ECE4D2 32px)", backgroundAttachment: "local" }}
         spellCheck={false}
       />
 
@@ -403,33 +346,14 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
 
   return (
     <div className="flex flex-col gap-3 h-full min-h-0">
-      {/* 顶部：模式 + 日期滑条 + 工具 */}
+      {/* 顶部：日期滑条 + 工具 */}
       <header className="flex items-center gap-3 flex-shrink-0">
-        <div className="flex gap-1.5">
-          <button
-            onClick={newDaily}
-            className={`flex items-center gap-1 text-[11px] font-bold rounded-xl px-3 py-1.5 cursor-pointer transition-colors ${
-              mode === "diary" ? "text-white bg-[#4D7C5D] hover:bg-[#3F684C]" : "text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EEE6] border border-[#C4D7B2]"
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />{j.dailyNotes}
-          </button>
-          <button
-            onClick={newNote}
-            className={`flex items-center gap-1 text-[11px] font-bold rounded-xl px-3 py-1.5 cursor-pointer transition-colors ${
-              mode === "note" ? "text-white bg-[#4D7C5D] hover:bg-[#3F684C]" : "text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EEE6] border border-[#C4D7B2]"
-            }`}
-          >
-            <NoteIcon className="w-3.5 h-3.5" />{j.notes}
-          </button>
-        </div>
-
         <button
           onClick={() => onToggleAddTodo(!addTodoEnabled)}
           className={`flex items-center gap-1.5 text-[11px] font-bold rounded-xl px-3 py-1.5 cursor-pointer transition-colors border ${
             addTodoEnabled
               ? "text-white bg-[#4D7C5D] hover:bg-[#3F684C] border-[#4D7C5D]"
-              : "text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EEE6] border-[#C4D7B2]"
+              : "text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EEE6] border border-[#C4D7B2]"
           }`}
           title={j.addTodoHint || "开启后，每一天的日记都会加入当日待办"}
         >
@@ -437,8 +361,7 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
           {addTodoEnabled ? "✓ " : ""}{j.addTodo}
         </button>
 
-        {mode === "diary" && (
-          <div ref={stripRef} className="flex-1 overflow-x-auto custom-scrollbar flex items-center gap-1.5 pb-1">
+        <div ref={stripRef} className="flex-1 overflow-x-auto custom-scrollbar flex items-center gap-1.5 pb-1">
             <button
               type="button"
               onClick={jumpEarlier}
@@ -500,7 +423,6 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
               {j.jumpLater || "更晚"} ›
             </button>
           </div>
-        )}
 
         <div className="ml-auto flex items-center gap-2 flex-shrink-0 relative">
           <div className="relative">
@@ -546,9 +468,9 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
             </div>
           )}
           <button
-            onClick={mode === "diary" ? newDaily : newNote}
+            onClick={goToday}
             className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#4D7C5D] hover:bg-[#3F684C] text-white cursor-pointer transition-colors"
-            title={mode === "diary" ? j.newDaily : j.newNote}
+            title={j.goToday || "今天"}
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -558,8 +480,7 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
       {/* 主体：日记本 + 右侧关联 */}
       <div className="flex flex-grow min-h-0 gap-4">
         <section className="flex-grow min-w-0 flex flex-col gap-3">
-          {mode === "diary" ? (
-            <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] dark:bg-[#1C1D21] shadow-[0_2px_14px_rgba(120,100,70,0.10)] dark:shadow-none border border-[#ECE3D2] dark:border-[#383A42] relative">
+          <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] dark:bg-[#1C1D21] shadow-[0_2px_14px_rgba(120,100,70,0.10)] dark:shadow-none border border-[#ECE3D2] dark:border-[#383A42] relative">
               {/* 书脊 */}
               <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6] dark:from-[#25272D] dark:via-[#1F2025] dark:to-[#25272D]" />
               <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70 dark:bg-[#383A42]" />
@@ -623,38 +544,6 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
                 {editorInner}
               </div>
             </div>
-          ) : (
-            <div className="flex-grow min-h-0 flex flex-col gap-3">
-              {!selected ? (
-                <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {filteredNotes.map((e) => (
-                    <button
-                      key={e.id}
-                      onClick={() => { setSelectedNoteId(e.id); }}
-                      className="text-left p-3 rounded-xl bg-[#FCFBF7] dark:bg-[#1C1D21] border border-[#ECE3D2] dark:border-[#383A42] hover:border-[#4D7C5D] dark:hover:border-[#4D7C5D] shadow-[0_2px_10px_rgba(120,100,70,0.08)] dark:shadow-none cursor-pointer transition-colors min-h-[88px] flex flex-col"
-                    >
-                      <span className="text-[13px] font-bold text-[#2D323A] truncate">{e.title || "(无标题)"}</span>
-                      <span className="text-[10px] text-slate-400 mt-1 line-clamp-3 flex-grow overflow-hidden">{e.content.replace(/[#*`\[\]]/g, "").slice(0, 80)}</span>
-                    </button>
-                  ))}
-                  {filteredNotes.length === 0 && (
-                    <div className="col-span-full flex flex-col items-center justify-center text-slate-400 gap-3 select-none h-full">
-                      <BookOpen className="w-12 h-12 opacity-40" />
-                      <p className="text-sm font-medium">{j.noEntry}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] dark:bg-[#1C1D21] shadow-[0_2px_14px_rgba(120,100,70,0.10)] dark:shadow-none border border-[#ECE3D2] dark:border-[#383A42] relative">
-                  <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6] dark:from-[#25272D] dark:via-[#1F2025] dark:to-[#25272D]" />
-                  <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70 dark:bg-[#383A42]" />
-                  <div className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0">
-                    {editorInner}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </section>
 
         {/* 右：今日关联 */}

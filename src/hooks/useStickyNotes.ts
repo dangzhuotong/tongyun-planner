@@ -26,6 +26,11 @@ export function useStickyNotes() {
     syncState(id, "edit_note_text", text);
   }, [syncState]);
 
+  const handleEditNoteTitle = useCallback((id: string, title: string) => {
+    setStickyNotes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)));
+    syncState(id, "edit_note_title", title);
+  }, [syncState]);
+
   const handleChangeNoteColor = useCallback((id: string, color: string) => {
     setStickyNotes((prev) => prev.map((n) => (n.id === id ? { ...n, color } : n)));
     syncState(id, "change_note_color", color);
@@ -41,7 +46,8 @@ export function useStickyNotes() {
     setStickyNotes,
     handleAddNote,
     handleEditNoteText,
+    handleEditNoteTitle,
     handleChangeNoteColor,
     handleDeleteNote,
-  }), [stickyNotes, handleAddNote, handleEditNoteText, handleChangeNoteColor, handleDeleteNote]);
+  }), [stickyNotes, handleAddNote, handleEditNoteText, handleEditNoteTitle, handleChangeNoteColor, handleDeleteNote]);
 }

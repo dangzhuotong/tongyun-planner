@@ -54,6 +54,7 @@ export interface PomodoroLog {
 
 export interface StickyNote {
   id: string;
+  title?: string;
   text: string;
   color: string;
   rotate: number;
