@@ -244,6 +244,7 @@ const en: Translations = {
     add: "Add Note",
     search: "Search notes...",
     searchEmpty: "No matching notes",
+    titlePlaceholder: "Title (optional)",
   },
 
   analytics: {

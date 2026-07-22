@@ -381,6 +381,9 @@ function AppBody() {
         case "edit_note_text":
           nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, text: p.title } : n));
           break;
+        case "edit_note_title":
+          nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, title: p.title } : n));
+          break;
         case "change_note_color":
           nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, color: p.title } : n));
           break;
@@ -1287,7 +1290,7 @@ const MainLayout = React.memo(function MainLayout({
             <CalendarView tasks={tasks} handleComplete={wrappedHandleComplete} handleAddTask={handleAddTaskWithAI} />
           )}
           {activeTab === "notes" && (
-            <StickyNotesView stickyNotes={notesHook.stickyNotes} handleAddNote={notesHook.handleAddNote} handleEditNoteText={notesHook.handleEditNoteText} handleChangeNoteColor={notesHook.handleChangeNoteColor} handleDeleteNote={notesHook.handleDeleteNote} pinType={customizationHook.customizationConfig.pinType} onPinNoteToDesktop={handlePinNoteToDesktop} />
+            <StickyNotesView stickyNotes={notesHook.stickyNotes} handleAddNote={notesHook.handleAddNote} handleEditNoteText={notesHook.handleEditNoteText} handleEditNoteTitle={notesHook.handleEditNoteTitle} handleChangeNoteColor={notesHook.handleChangeNoteColor} handleDeleteNote={notesHook.handleDeleteNote} pinType={customizationHook.customizationConfig.pinType} onPinNoteToDesktop={handlePinNoteToDesktop} />
           )}
           {activeTab === "news" && (
             <NewsView

@@ -244,6 +244,7 @@ const zhCN: Translations = {
     add: "添加便签",
     search: "搜索便签...",
     searchEmpty: "没有匹配的便签",
+    titlePlaceholder: "标题（可选）",
   },
 
   analytics: {
