@@ -270,7 +270,7 @@ const en: Translations = {
     count: "{count}",
     avgDuration: "Avg Session",
     avgDurationValue: "{n} min",
-    heatmapTitle: "Pomodoro Heatmap (Last 18 Weeks)",
+    heatmapTitle: "Pomodoro Heatmap (Last 26 Weeks)",
     weekGlance: "This Week",
     weekSessions: "pomodoros",
     weekActiveDays: "{n} active days",

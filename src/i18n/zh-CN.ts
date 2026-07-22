@@ -270,7 +270,7 @@ const zhCN: Translations = {
     count: "{count} 个",
     avgDuration: "单次平均时间",
     avgDurationValue: "{n} 分钟",
-    heatmapTitle: "番茄专注热力图 (最近 18 周)",
+    heatmapTitle: "番茄专注热力图 (最近 26 周)",
     weekGlance: "本周速览",
     weekSessions: "个番茄",
     weekActiveDays: "活跃 {n} 天",

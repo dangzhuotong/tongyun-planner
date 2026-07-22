@@ -309,6 +309,24 @@
 - `src/index.css`
 - `.cursor/skills/tongyun-data/reference.md`
 
+## Session 14 (2026-07-22)
+
+### 完成项
+- **番茄专注热力图重构升级**：
+  - 时间跨度由 18 周扩展为 **26 周 (半年/182天)**
+  - 实现 **响应式自适应铺满 (Responsive viewBox)**：使热力图 100% 优雅填满大卡片宽度，彻底解决原来右侧空出大片空白的问题
+  - **4 维数据速览与连胜**：底部整合扩充为 4 维速览面板（本周番茄、活跃天数、对比上周、当前连续打卡 🔥 / 单日最高 🏆）
+  - **统一组件与代码重构**：将 AnalyticsView 原有的局部内联热力图和速览逻辑统一收拢到 `FocusHeatmap.tsx` 组件，实现样式与逻辑复用，包含暗黑模式色阶适配与 i18n
+  - **文档同步**：同步更新 `README.md` 与国际化语言包（zh-CN / en）
+
+### 相关文件
+- `src/components/FocusHeatmap.tsx`
+- `src/components/AnalyticsView.tsx`
+- `src/i18n/zh-CN.ts`
+- `src/i18n/en.ts`
+- `README.md`
+- `AGENTS.md`
+
 ## Session 11 (2026-07-21)
 
 ### 背景
