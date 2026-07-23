@@ -8,6 +8,7 @@ import {
   normalizeSyncData,
   getLocalSyncData,
   reconcileTasksAndCompleted,
+  protectAgainstEmptyOverwrite,
 } from "./types";
 import type { WebDavConfig } from "../../types";
 import { invoke } from "@tauri-apps/api/core";
@@ -181,16 +182,47 @@ export class WebDAVProvider implements SyncProvider {
       }
     }
 
-    // Upload changed files
+    // Upload changed files（空本地不得盖掉远端非空）
+    const pushed: SyncCategory[] = [];
     for (const cat of toPush) {
-      const payload = getCategoryPayload(data, cat);
+      let payload = getCategoryPayload(data, cat);
+      const remoteJson = await tryDownload(this.config, REMOTE_DIR + SYNC_CATEGORY_FILES[cat]);
+      let remotePayload: unknown = null;
+      if (remoteJson) {
+        try {
+          remotePayload = JSON.parse(remoteJson);
+        } catch {
+          remotePayload = null;
+        }
+      }
+      const guard = protectAgainstEmptyOverwrite(cat, payload, remotePayload);
+      if (guard.skip) {
+        console.warn(`[sync] skip empty overwrite for ${cat}`);
+        if (remotePayload != null) {
+          applyCategoryPayload(cat, remotePayload);
+          if (!remoteManifest) remoteManifest = await this.getRemoteManifest();
+          const remoteVer = remoteManifest?.[cat]?.version || 0;
+          if (remoteVer > 0) {
+            localStorage.setItem("tongyun_cat_ver_" + cat, String(remoteVer));
+            localManifest[cat].version = remoteVer;
+          }
+        }
+        continue;
+      }
+      if (guard.mergedLocal !== undefined) {
+        payload = guard.mergedLocal;
+        applyCategoryPayload(cat, payload);
+      }
       const json = JSON.stringify(payload);
       await uploadFile(this.config, REMOTE_DIR + SYNC_CATEGORY_FILES[cat], json);
       localManifest[cat].size = json.length;
+      pushed.push(cat);
     }
 
-    // Always upload manifest last
-    await uploadFile(this.config, REMOTE_DIR + MANIFEST_FILE, JSON.stringify(localManifest));
+    // 若全部被 skip，仍写 manifest（版本可能已对齐远端）
+    if (pushed.length > 0 || toPush.length > 0) {
+      await uploadFile(this.config, REMOTE_DIR + MANIFEST_FILE, JSON.stringify(localManifest));
+    }
   }
 
   /* ── Multi-file incremental pull ── */

@@ -117,6 +117,55 @@ export function getCategoryPayload(data: SyncData, cat: SyncCategory): unknown {
   }
 }
 
+/**
+ * 判断某分类 payload 是否「空到不该盖远端」。
+ * 数组：length===0；config：无对象或无 aiApiKey。
+ */
+export function isEffectivelyEmptyCategory(cat: SyncCategory, payload: unknown): boolean {
+  if (cat === "config") {
+    if (!payload || typeof payload !== "object") return true;
+    const key = (payload as CustomizationConfig).aiApiKey;
+    return !key || !String(key).trim();
+  }
+  return !Array.isArray(payload) || payload.length === 0;
+}
+
+/**
+ * 本地空、远端非空时禁止覆盖。
+ * 仅保护 journal / config（开发时空本地最容易误盖这两类）；
+ * 任务等仍允许用户主动清空后同步。
+ * config：本地无 Key 而远端有 Key 时，合并保留远端 ai 字段后再允许推送。
+ */
+export function protectAgainstEmptyOverwrite(
+  cat: SyncCategory,
+  localPayload: unknown,
+  remotePayload: unknown
+): { skip: boolean; mergedLocal?: unknown } {
+  if (cat !== "journal" && cat !== "config") {
+    return { skip: false };
+  }
+  if (!isEffectivelyEmptyCategory(cat, localPayload)) {
+    return { skip: false };
+  }
+  if (isEffectivelyEmptyCategory(cat, remotePayload)) {
+    return { skip: false }; // 两边都空，推不推都行
+  }
+  if (cat === "config" && localPayload && typeof localPayload === "object" && remotePayload && typeof remotePayload === "object") {
+    const local = localPayload as CustomizationConfig;
+    const remote = remotePayload as CustomizationConfig;
+    const merged: CustomizationConfig = {
+      ...remote,
+      ...local,
+      aiApiKey: local.aiApiKey?.trim() ? local.aiApiKey : remote.aiApiKey,
+      aiEndpoint: local.aiEndpoint || remote.aiEndpoint,
+      aiModel: local.aiModel || remote.aiModel,
+      aiProvider: local.aiProvider || remote.aiProvider,
+    };
+    return { skip: false, mergedLocal: merged };
+  }
+  return { skip: true };
+}
+
 /** Apply a single category's payload into localStorage */
 export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void {
   switch (cat) {

@@ -6,6 +6,7 @@ import {
   applyCategoryPayload,
   getLocalSyncData,
   reconcileTasksAndCompleted,
+  protectAgainstEmptyOverwrite,
 } from "./types";
 
 export interface HttpSyncConfig {
@@ -142,12 +143,26 @@ export class HttpSyncProvider implements SyncProvider {
     for (const cat of toPush) {
       const remote = await this.fetchCategory(cat);
       const baseVersion = remote?.version ?? 0;
+      let payload = getCategoryPayload(data, cat);
+      const guard = protectAgainstEmptyOverwrite(cat, payload, remote?.data);
+      if (guard.skip) {
+        console.warn(`[sync] skip empty overwrite for ${cat}`);
+        if (remote?.data != null) {
+          applyCategoryPayload(cat, remote.data);
+          localStorage.setItem("tongyun_cat_ver_" + cat, String(remote.version));
+        }
+        continue;
+      }
+      if (guard.mergedLocal !== undefined) {
+        payload = guard.mergedLocal;
+        applyCategoryPayload(cat, payload);
+      }
       const version = Math.max(localManifest[cat].version || 0, Date.now());
       try {
         await request(this.config, `/v1/categories/${cat}`, {
           method: "PUT",
           body: JSON.stringify({
-            data: getCategoryPayload(data, cat),
+            data: payload,
             version,
             base_version: baseVersion,
           }),

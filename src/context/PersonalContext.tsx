@@ -4,6 +4,8 @@ import { safeJsonParse } from "../utils/json";
 import { useDebouncedPersistence } from "../hooks/useDebouncedPersistence";
 import { syncEngine } from "../utils/sync/engine";
 import { bumpSyncVersion, bumpCategoryVersion, type SyncCategory } from "../utils/sync/types";
+import { isSyncApplying } from "../utils/sync/syncApplyGuard";
+import { storage } from "../utils/unifiedStorage";
 
 interface PersonalState {
   // 日记
@@ -35,6 +37,7 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
   const [journal, setJournal] = useState<JournalEntry[]>(() =>
     safeJsonParse(localStorage.getItem("tongyun_journal") || "[]", [])
   );
+  const [persistReady, setPersistReady] = useState(false);
   const [journalAddTodo, setJournalAddTodo] = useState<boolean>(() =>
     safeJsonParse(localStorage.getItem("tongyun_journal_add_todo") || "false", false)
   );
@@ -58,11 +61,26 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
     safeJsonParse(localStorage.getItem("tongyun_selected_date") || '""', "")
   );
 
-  useDebouncedPersistence(journal, "tongyun_journal", 250);
+  // 等 SQLite 灌回 localStorage 后再持久化，避免开发启动时用空 [] 盖掉已有日记
+  useEffect(() => {
+    let cancelled = false;
+    storage.init().then(() => {
+      if (cancelled) return;
+      const fresh = safeJsonParse<JournalEntry[]>(localStorage.getItem("tongyun_journal") || "[]", []);
+      setJournal(fresh);
+      setPersistReady(true);
+    }).catch(() => {
+      if (!cancelled) setPersistReady(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useDebouncedPersistence(journal, "tongyun_journal", 250, persistReady);
 
   const isFirstLoad = useRef(true);
   const prevJournal = useRef<JournalEntry[] | null>(null);
   useEffect(() => {
+    if (!persistReady) return;
     if (isFirstLoad.current) {
       isFirstLoad.current = false;
       prevJournal.current = journal;
@@ -70,13 +88,15 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
     }
     if (prevJournal.current === journal) return;
     prevJournal.current = journal;
+    // 云端回写不 bump / 不标脏，防止空本地再次推上去
+    if (isSyncApplying()) return;
     const changed: SyncCategory[] = ["journal"];
     bumpSyncVersion();
     for (const c of changed) {
       bumpCategoryVersion(c);
       syncEngine.markDirty(c);
     }
-  }, [journal]);
+  }, [journal, persistReady]);
 
   const value: PersonalState = {
     journal, handleUpsertJournal, handleDeleteJournal,

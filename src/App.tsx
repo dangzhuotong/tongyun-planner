@@ -50,6 +50,7 @@ import { safeJsonParse } from "./utils/json";
 import { storage } from "./utils/unifiedStorage";
 import { syncEngine } from "./utils/sync/engine";
 import { SYNC_APPLIED_EVENT, bumpSyncVersion, bumpCategoryVersion, dedupeActiveTasks, type SyncCategory, type SyncData } from "./utils/sync/types";
+import { beginSyncApply, endSyncApply, isSyncApplying } from "./utils/sync/syncApplyGuard";
 
 function AppInner() {
   return (
@@ -760,19 +761,24 @@ function AppBody() {
 
   // ============ 云端同步（统一走 syncEngine）============
   const applySyncDataToState = useCallback((data: SyncData) => {
+    beginSyncApply();
     isRestoringRef.current = true;
-    const tasks = dedupeActiveTasks(data.tasks, data.completedTasks);
-    tasksHook.setTasks(tasks);
-    tasksHook.saveTasks(tasks);
-    tasksHook.setCompletedTasks(data.completedTasks);
-    tasksHook.saveCompleted(data.completedTasks);
-    notesHook.setStickyNotes(data.stickyNotes);
-    pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
-    countdownHook.setCountdowns(data.countdowns);
-    setJournal(data.journal || []);
-    localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
-    if (data.customizationConfig) {
-      customizationHook.setCustomizationConfig(data.customizationConfig);
+    try {
+      const tasks = dedupeActiveTasks(data.tasks, data.completedTasks);
+      tasksHook.setTasks(tasks);
+      tasksHook.saveTasks(tasks);
+      tasksHook.setCompletedTasks(data.completedTasks);
+      tasksHook.saveCompleted(data.completedTasks);
+      notesHook.setStickyNotes(data.stickyNotes);
+      pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
+      countdownHook.setCountdowns(data.countdowns);
+      setJournal(data.journal || []);
+      localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
+      if (data.customizationConfig) {
+        customizationHook.setCustomizationConfig(data.customizationConfig);
+      }
+    } finally {
+      endSyncApply();
     }
   }, [tasksHook, notesHook, pomodoroHook, countdownHook, customizationHook, setJournal]);
 
@@ -799,6 +805,7 @@ function AppBody() {
   // ============ 数据变更 → 按分类标记脏 + 递增版本号 ============
   // 之前 markDirty() 无参会把所有分类都标记脏，导致「改一处也全量上传所有分类文件」。
   // 现在用 diff 比对，只把真正变化的分类标记脏，sync 时只上传变化的文件，减少无谓的全量上传。
+  // 云端 apply / isSyncApplying 期间不 bump，避免空本地被标脏后盖掉远端。
   const prevSyncDataRef = useRef<{
     tasks: Task[]; completedTasks: Task[]; stickyNotes: unknown; config: unknown;
     pomodoroLogs: unknown; countdowns: unknown;
@@ -806,7 +813,7 @@ function AppBody() {
 
   useEffect(() => {
     if (isFirstLoad.current) return;
-    if (isRestoringRef.current) {
+    if (isRestoringRef.current || isSyncApplying()) {
       isRestoringRef.current = false;
       prevSyncDataRef.current = {
         tasks: tasksHook.tasks, completedTasks: tasksHook.completedTasks,
@@ -1164,9 +1171,9 @@ const MainLayout = React.memo(function MainLayout({
         <main className="flex-grow p-6 overflow-y-auto flex flex-col gap-5 z-10 relative custom-scrollbar min-h-0">
           {activeTab !== "home" && (
             <>
-              <header className="flex justify-between items-center border-b border-[#EFEBE4] pb-4">
+              <header className="flex justify-between items-center border-b border-[#EFEBE4] dark:border-[#33353A] pb-4">
                 <div>
-                  <h2 className="text-xl font-bold tracking-wide text-[#2D323A]">
+                  <h2 className="text-xl font-bold tracking-wide text-[#2D323A] dark:text-slate-100">
                     {activeTab === "matrix" ? t.header.matrix
                       : activeTab === "list" ? t.header.list
                       : activeTab === "calendar" ? t.header.calendar
@@ -1180,7 +1187,7 @@ const MainLayout = React.memo(function MainLayout({
                       : activeTab === "memory" ? (t.sidebar?.memory || "时光长廊")
                       : t.header.completed}
                   </h2>
-                  <p className="text-xs text-slate-500 mt-1 font-medium">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                     {activeTab === "settings"
                       ? "自定义主题色调、材质滤镜与系统字体，个性化配置您的待办看板。"
                       : activeTab === "news"
@@ -1194,7 +1201,9 @@ const MainLayout = React.memo(function MainLayout({
                   <button
                     onClick={() => aiHook.setShowAiInbox(!aiHook.showAiInbox)}
                     className={`text-xs px-3.5 py-2 rounded-xl font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-xs select-none ${
-                      aiHook.showAiInbox ? "bg-[#FCF2F0] text-[#A34E36] border-[#F5DFDB]" : "bg-white text-slate-500 border-[#EFEBE4] hover:bg-[#FAF8F5]"
+                      aiHook.showAiInbox 
+                        ? "bg-[#FCF2F0] dark:bg-[#3D2325] text-[#A34E36] dark:text-[#E06D53] border-[#F5DFDB] dark:border-[#422D30]" 
+                        : "bg-white dark:bg-[#1C1D21] text-slate-500 dark:text-slate-400 border-[#EFEBE4] dark:border-[#33353A] hover:bg-[#FAF8F5] dark:hover:bg-[#282A30]"
                     }`}
                     title={aiHook.showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}
                   >
@@ -1208,15 +1217,15 @@ const MainLayout = React.memo(function MainLayout({
           )}
 
           {aiHook.showAiInbox && (activeTab === "matrix" || activeTab === "list") && (
-            <div className="bg-white/85 border border-[#EFEBE4] p-4 rounded-2xl shadow-sm z-10 relative flex flex-col gap-2.5 transition-all duration-300">
+            <div className="bg-white/90 dark:bg-[#1C1D21]/95 border border-[#EFEBE4] dark:border-[#33353A] p-4 rounded-2xl shadow-sm dark:shadow-md z-10 relative flex flex-col gap-2.5 transition-all duration-300">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#8B6E3C] tracking-wide flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#8B6E3C]" />
+                <span className="text-xs font-bold text-[#8B6E3C] dark:text-[#CBB182] tracking-wide flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[#8B6E3C] dark:text-[#CBB182]" />
                   <span>{t.quickAdd.aiInboxTitle}</span>
                 </span>
               </div>
               {aiHook.aiInputMessage && (
-                <div className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2 animate-fade-in-up ${aiHook.aiInputMessage.type === "success" ? "bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9]" : "bg-[#FFF3E0] text-[#E65100] border border-[#FFE0B2]"}`}>
+                <div className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2 animate-fade-in-up ${aiHook.aiInputMessage.type === "success" ? "bg-[#E8F5E9] dark:bg-[#1D2B22] text-[#2E7D32] dark:text-[#6FAD84] border border-[#C8E6C9] dark:border-[#2D3A31]" : "bg-[#FFF3E0] dark:bg-[#2D231B] text-[#E65100] dark:text-[#E06D53] border border-[#FFE0B2] dark:border-[#3E2D26]"}`}>
                   <span>{aiHook.aiInputMessage.text === "API_KEY_MISSING" ? t.quickAdd.apiKeyMissing : aiHook.aiInputMessage.text}</span>
                   {aiHook.aiInputMessage.text === "API_KEY_MISSING" && (
                     <button onClick={() => { setActiveTab("settings"); aiHook.setShowAiInbox(false); aiHook.setAiInputMessage(null); }} className="flex-shrink-0 px-3 py-1 rounded-lg bg-[#E65100] text-white text-[10px] font-bold hover:bg-[#BF360C] transition-colors cursor-pointer">
@@ -1227,15 +1236,15 @@ const MainLayout = React.memo(function MainLayout({
               )}
               {aiHook.aiPreviewTasks.length > 0 ? (
                 <div className="flex flex-col gap-3 animate-fade-in-up">
-                  <div className="text-[10px] font-bold text-slate-500 mb-1 border-b border-[#EFEBE4] pb-1.5">{t.quickAdd.aiPreview}</div>
+                  <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 border-b border-[#EFEBE4] dark:border-[#33353A] pb-1.5">{t.quickAdd.aiPreview}</div>
                   <div className="space-y-3.5 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
                     {aiHook.aiPreviewTasks.map((item, idx) => (
-                      <div key={`ai-${item.title}-${idx}`} className="p-3 bg-[#FAF8F5]/85 border border-[#EFEBE4] rounded-xl flex flex-col gap-2 shadow-2xs">
+                      <div key={`ai-${item.title}-${idx}`} className="p-3 bg-[#FAF8F5]/85 dark:bg-[#23252B] border border-[#EFEBE4] dark:border-[#33353A] rounded-xl flex flex-col gap-2 shadow-2xs">
                         <div className="flex gap-2 items-center">
-                          <input type="text" value={item.title} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].title = e.target.value; aiHook.setAiPreviewTasks(u); }} className="flex-grow bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.taskTitle} />
-                          <input type="date" value={item.dueDate} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].dueDate = e.target.value; aiHook.setAiPreviewTasks(u); }} className="bg-white border border-[#EFEBE4] px-2 py-1 rounded-lg text-[10px] text-slate-700 font-bold focus:outline-none focus:border-[#4D7C5D] w-28 flex-shrink-0" />
-                          <input type="time" value={item.dueTime || ""} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].dueTime = e.target.value; aiHook.setAiPreviewTasks(u); }} className="bg-white border border-[#EFEBE4] px-2 py-1 rounded-lg text-[10px] text-slate-700 font-bold focus:outline-none focus:border-[#4D7C5D] w-16 flex-shrink-0" />
-                          <select value={item.category} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].category = e.target.value as Task["category"]; aiHook.setAiPreviewTasks(u); }} className="bg-white border border-[#EFEBE4] px-2 py-1 rounded-lg text-[10px] text-slate-700 font-semibold focus:outline-none focus:border-[#4D7C5D] w-32 flex-shrink-0">
+                          <input type="text" value={item.title} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].title = e.target.value; aiHook.setAiPreviewTasks(u); }} className="flex-grow bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.taskTitle} />
+                          <input type="date" value={item.dueDate} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].dueDate = e.target.value; aiHook.setAiPreviewTasks(u); }} className="bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:border-[#4D7C5D] w-28 flex-shrink-0" />
+                          <input type="time" value={item.dueTime || ""} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].dueTime = e.target.value; aiHook.setAiPreviewTasks(u); }} className="bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:border-[#4D7C5D] w-16 flex-shrink-0" />
+                          <select value={item.category} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].category = e.target.value as Task["category"]; aiHook.setAiPreviewTasks(u); }} className="bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 font-semibold focus:outline-none focus:border-[#4D7C5D] w-32 flex-shrink-0">
                             <option value="urgent-important">I. {t.matrix.urgentImportant}</option>
                             <option value="important-not-urgent">II. {t.matrix.importantNotUrgent}</option>
                             <option value="urgent-not-important">III. {t.matrix.urgentNotImportant}</option>
@@ -1244,26 +1253,26 @@ const MainLayout = React.memo(function MainLayout({
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">任务说明/详情描述</label>
-                            <input type="text" value={item.description} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].description = e.target.value; aiHook.setAiPreviewTasks(u); }} className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1 rounded-lg text-[10px] text-slate-600 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.noDescription} />
+                            <label className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase block mb-0.5">任务说明/详情描述</label>
+                            <input type="text" value={item.description} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].description = e.target.value; aiHook.setAiPreviewTasks(u); }} className="w-full bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2.5 py-1 rounded-lg text-[10px] text-slate-600 dark:text-slate-300 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.noDescription} />
                           </div>
                           <div>
-                            <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">{t.quickAdd.techNotes}</label>
-                            <input type="text" value={item.notes} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].notes = e.target.value; aiHook.setAiPreviewTasks(u); }} className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1 rounded-lg text-[10px] text-slate-600 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.noNotes} />
+                            <label className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase block mb-0.5">{t.quickAdd.techNotes}</label>
+                            <input type="text" value={item.notes} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].notes = e.target.value; aiHook.setAiPreviewTasks(u); }} className="w-full bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2.5 py-1 rounded-lg text-[10px] text-slate-600 dark:text-slate-300 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.noNotes} />
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2 justify-end pt-1.5 border-t border-[#EFEBE4]">
-                    <button onClick={() => aiHook.setAiPreviewTasks([])} className="text-[10px] text-slate-500 hover:text-slate-700 px-3.5 py-1.5 rounded-lg border border-[#EFEBE4] transition-colors cursor-pointer">{t.quickAdd.discard}</button>
-                    <button onClick={handleConfirmAiTasks} className="text-[10px] text-white bg-[#4D7C5D] hover:bg-[#3F684C] px-4.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shadow-xs">{t.quickAdd.confirmImport}</button>
+                  <div className="flex gap-2 justify-end pt-1.5 border-t border-[#EFEBE4] dark:border-[#33353A]">
+                    <button onClick={() => aiHook.setAiPreviewTasks([])} className="text-[10px] text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-3.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#383A42] bg-white dark:bg-[#1C1D21] transition-colors cursor-pointer">{t.quickAdd.discard}</button>
+                    <button onClick={handleConfirmAiTasks} className="text-[10px] text-white bg-[#4D7C5D] dark:bg-[#3F684C] hover:bg-[#3F684C] dark:hover:bg-[#33553C] px-4.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shadow-xs">{t.quickAdd.confirmImport}</button>
                   </div>
                 </div>
               ) : (
                 <div className="flex gap-3">
-                  <textarea value={aiHook.aiInputText} onChange={(e) => aiHook.setAiInputText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); aiHook.handleAiBatchInput(); } }} onFocus={() => aiHook.aiInputMessage && aiHook.setAiInputMessage(null)} placeholder={t.quickAdd.aiPlaceholder} className="flex-grow bg-[#FAF8F5]/80 border border-[#EFEBE4] px-3.5 py-2 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] transition-colors resize-none h-14 custom-scrollbar font-semibold" disabled={aiHook.aiInputLoading} />
-                  <button onClick={aiHook.handleAiBatchInput} disabled={aiHook.aiInputLoading} className={`px-4.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all shadow-[0_2px_4px_rgba(77,124,93,0.1)] select-none ${aiHook.aiInputLoading ? "bg-slate-300 border-slate-300 cursor-not-allowed" : "bg-[#4D7C5D] hover:bg-[#3F684C] border-[#4D7C5D] cursor-pointer hover:scale-105"}`}>
+                  <textarea value={aiHook.aiInputText} onChange={(e) => aiHook.setAiInputText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); aiHook.handleAiBatchInput(); } }} onFocus={() => aiHook.aiInputMessage && aiHook.setAiInputMessage(null)} placeholder={t.quickAdd.aiPlaceholder} className="flex-grow bg-[#FAF8F5]/80 dark:bg-[#23252B] border border-[#EFEBE4] dark:border-[#383A42] px-3.5 py-2.5 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] transition-colors resize-none h-16 custom-scrollbar font-semibold" disabled={aiHook.aiInputLoading} />
+                  <button onClick={aiHook.handleAiBatchInput} disabled={aiHook.aiInputLoading} className={`px-4.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all shadow-[0_2px_4px_rgba(77,124,93,0.1)] select-none ${aiHook.aiInputLoading ? "bg-slate-300 dark:bg-slate-700 border-slate-300 dark:border-slate-700 cursor-not-allowed" : "bg-[#4D7C5D] dark:bg-[#3F684C] hover:bg-[#3F684C] dark:hover:bg-[#33553C] border-[#4D7C5D] dark:border-[#3F684C] cursor-pointer hover:scale-105"}`}>
                     {aiHook.aiInputLoading ? (
                       <><Sparkles className="w-3.5 h-3.5 animate-spin" /><span>{t.quickAdd.aiProcessing}</span></>
                     ) : (

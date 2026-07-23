@@ -385,3 +385,27 @@
 - `src/components/CommandPalette.tsx`
 - `src/App.tsx`
 - `src/types.ts`
+
+## Session 17 (2026-07-23)
+
+### 背景
+开发时日记 / AI 配置反复丢失。根因：① `tongyun_journal` 未进 SQLite 白名单；② 空本地被标脏后整包 push 盖掉远端；③ 同步回写 React 状态再次 markDirty。
+
+### 完成项
+- **SQLite 持久化**：`unifiedStorage` 白名单补 `tongyun_journal` / `tongyun_journal_add_todo` / 各 `tongyun_cat_ver_*`
+- **空包保护**：WebDAV / HTTP push 时，本地空 `journal` 且远端非空 → 跳过上传并拉回；本地无 `aiApiKey` 且远端有 → 合并保留远端 Key
+- **脏标记抑制**：`syncApplyGuard` + PersonalContext 等 SQLite hydrate 后再持久化/标脏；App applySync 期间不 bump
+
+- **四象限拖拽清理 (MatrixView)**：
+  - **彻底移除拖拽相关逻辑**：根据用户选择，彻底清除了四象限中繁琐且在 Windows WebView2 下体验不佳的拖拽事件 (`onDragOver/onDrop/draggable/dataTransfer`)、状态与提示文案，恢复极其干净简洁的四象限面板。
+
+### 相关文件
+- `src/utils/unifiedStorage.ts`
+- `src/utils/sync/types.ts`
+- `src/utils/sync/webdavProvider.ts`
+- `src/utils/sync/httpProvider.ts`
+- `src/utils/sync/syncApplyGuard.ts`
+- `src/context/PersonalContext.tsx`
+- `src/App.tsx`
+- `src/components/MatrixView.tsx`
+- `.cursor/skills/tongyun-data/SKILL.md`
