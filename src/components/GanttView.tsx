@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -22,7 +22,8 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
     const [startOffset, setStartOffset] = useState(0);
     const [zoom, setZoom] = useState<"day" | "week">("week");
     const [searchQuery, setSearchQuery] = useState("");
-    const [draggedTaskId, setDraagedTaskId] = useState<string | null>(null);
+    const draggedTaskIdRef = useRef<string | null>(null);
+    const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
     const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
     const today = getLocalDateString();
@@ -67,8 +68,12 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
     // Handle Drag and Drop for rescheduling task due dates
     const handleDragStart = (e: React.DragEvent, taskId: string) => {
       e.stopPropagation();
-      setDraagedTaskId(taskId);
-      e.dataTransfer.setData("text/plain", taskId);
+      draggedTaskIdRef.current = taskId;
+      setDraggedTaskId(taskId);
+      try {
+        e.dataTransfer.setData("text/plain", taskId);
+        e.dataTransfer.setData("text", taskId);
+      } catch {}
       e.dataTransfer.effectAllowed = "move";
     };
 
@@ -87,11 +92,13 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
     const handleDrop = (e: React.DragEvent, targetDate: string) => {
       e.preventDefault();
       setDragOverDate(null);
-      const taskId = e.dataTransfer.getData("text/plain") || draggedTaskId;
+      const dataId = e.dataTransfer.getData("text/plain") || e.dataTransfer.getData("text");
+      const taskId = dataId || draggedTaskIdRef.current || draggedTaskId;
       if (taskId && onEditTask) {
         onEditTask(taskId, { dueDate: targetDate });
       }
-      setDraagedTaskId(null);
+      draggedTaskIdRef.current = null;
+      setDraggedTaskId(null);
     };
 
     return (
