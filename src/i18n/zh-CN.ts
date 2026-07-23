@@ -17,6 +17,7 @@ const zhCN: Translations = {
     calendar: "日历日程",
     notes: "随手便签",
     journal: "日记手账",
+    memory: "时光长廊",
     analytics: "专注统计",
     history: "历史归档",
     countdown: "倒数日",
@@ -97,6 +98,7 @@ const zhCN: Translations = {
     completed: "已完成历史归档",
     countdown: "倒数日",
     mood: "心情日记",
+    memory: "时光长廊 · 岁月印记与记忆画廊",
   },
 
   matrix: {

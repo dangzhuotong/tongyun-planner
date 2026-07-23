@@ -15,14 +15,15 @@ import {
   Play,
   Lock,
   Layout,
+  Sparkles,
 } from "lucide-react";
-import type { Task, StickyNote as StickyNoteType, AppTab } from "../types";
+import type { Task, StickyNote as StickyNoteType, AppTab, JournalEntry } from "../types";
 
 interface CommandItem {
   id: string;
   label: string;
   hint?: string;
-  section: "navigation" | "tasks" | "notes" | "actions";
+  section: "navigation" | "tasks" | "notes" | "journal" | "actions";
   icon: React.ComponentType<{ className?: string }>;
   onSelect: () => void;
   keywords?: string;
@@ -33,6 +34,7 @@ interface CommandPaletteProps {
   onClose: () => void;
   tasks: Task[];
   stickyNotes: StickyNoteType[];
+  journal?: JournalEntry[];
   onTaskClick: (task: Task) => void;
   onNavigate: (tab: AppTab) => void;
   onCreateTask: () => void;
@@ -47,6 +49,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onClose,
   tasks,
   stickyNotes,
+  journal,
   onTaskClick,
   onNavigate,
   onCreateTask,
@@ -65,7 +68,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     if (open) {
       setQuery("");
       setActiveIdx(0);
-      // 下一帧再聚焦，等 DOM 挂上
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
@@ -73,24 +75,152 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // 构建候选项池
   const allItems = useMemo<CommandItem[]>(() => {
     const navigation: CommandItem[] = [
-      { id: "nav-home", label: "首页 Dashboard", section: "navigation", icon: Home, onSelect: () => onNavigate("home"), keywords: "home dashboard 首页 主页" },
-      { id: "nav-matrix", label: "四象限矩阵", section: "navigation", icon: Grid3x3, onSelect: () => onNavigate("matrix"), keywords: "matrix 矩阵 象限 艾森豪威尔" },
-      { id: "nav-list", label: "任务列表", section: "navigation", icon: ListTodo, onSelect: () => onNavigate("list"), keywords: "list 列表 任务" },
-      { id: "nav-calendar", label: "日历视图", section: "navigation", icon: Calendar, onSelect: () => onNavigate("calendar"), keywords: "calendar 日历" },
-      { id: "nav-notes", label: "便签墙", section: "navigation", icon: StickyNote, onSelect: () => onNavigate("notes"), keywords: "notes 便签 sticky" },
-      { id: "nav-journal", label: "日记手账", section: "navigation", icon: BookOpen, onSelect: () => onNavigate("journal"), keywords: "journal 日记 手账 双链 笔记" },
-      { id: "nav-analytics", label: "数据分析", section: "navigation", icon: BarChart3, onSelect: () => onNavigate("analytics"), keywords: "analytics 分析 统计 数据" },
-      { id: "nav-completed", label: "已完成", section: "navigation", icon: CheckCircle2, onSelect: () => onNavigate("completed"), keywords: "completed done 完成" },
-      { id: "nav-countdown", label: "倒计时", section: "navigation", icon: Timer, onSelect: () => onNavigate("countdown"), keywords: "countdown 倒计时" },
-      { id: "nav-settings", label: "设置", section: "navigation", icon: Settings, onSelect: () => onNavigate("settings"), keywords: "settings 设置 setting" },
+      {
+        id: "nav-home",
+        label: "首页 Dashboard",
+        section: "navigation",
+        icon: Home,
+        onSelect: () => onNavigate("home"),
+        keywords: "home dashboard 首页 主页",
+      },
+      {
+        id: "nav-matrix",
+        label: "四象限矩阵",
+        section: "navigation",
+        icon: Grid3x3,
+        onSelect: () => onNavigate("matrix"),
+        keywords: "matrix 矩阵 象限 艾森豪威尔",
+      },
+      {
+        id: "nav-list",
+        label: "任务列表",
+        section: "navigation",
+        icon: ListTodo,
+        onSelect: () => onNavigate("list"),
+        keywords: "list 列表 任务",
+      },
+      {
+        id: "nav-calendar",
+        label: "日历视图",
+        section: "navigation",
+        icon: Calendar,
+        onSelect: () => onNavigate("calendar"),
+        keywords: "calendar 日历",
+      },
+      {
+        id: "nav-notes",
+        label: "便签墙",
+        section: "navigation",
+        icon: StickyNote,
+        onSelect: () => onNavigate("notes"),
+        keywords: "notes 便签 sticky",
+      },
+      {
+        id: "nav-journal",
+        label: "日记手账",
+        section: "navigation",
+        icon: BookOpen,
+        onSelect: () => onNavigate("journal"),
+        keywords: "journal 日记 手账 双链 笔记",
+      },
+      {
+        id: "nav-[#memory]",
+        label: "时光长廊",
+        section: "navigation",
+        icon: Sparkles,
+        onSelect: () => onNavigate("memory"),
+        keywords: "memory 时光长廊 记忆 回顾 画廊",
+      },
+      {
+        id: "nav-analytics",
+        label: "数据分析",
+        section: "navigation",
+        icon: BarChart3,
+        onSelect: () => onNavigate("analytics"),
+        keywords: "analytics 分析 统计 数据",
+      },
+      {
+        id: "nav-completed",
+        label: "已完成",
+        section: "navigation",
+        icon: CheckCircle2,
+        onSelect: () => onNavigate("completed"),
+        keywords: "completed done 完成",
+      },
+      {
+        id: "nav-countdown",
+        label: "倒计时",
+        section: "navigation",
+        icon: Timer,
+        onSelect: () => onNavigate("countdown"),
+        keywords: "countdown 倒计时",
+      },
+      {
+        id: "nav-settings",
+        label: "设置",
+        section: "navigation",
+        icon: Settings,
+        onSelect: () => onNavigate("settings"),
+        keywords: "settings 设置 setting",
+      },
     ];
 
     const actions: CommandItem[] = [
-      { id: "act-new-task", label: "新建任务", hint: "打开列表并新建", section: "actions", icon: Plus, onSelect: () => { onNavigate("list"); setTimeout(onCreateTask, 100); }, keywords: "new create 新建 添加 任务" },
-      { id: "act-flow", label: "进入专注流模式", section: "actions", icon: Layout, onSelect: onEnterFlowMode, keywords: "flow focus 流 专注 全屏" },
-      { id: "act-widget", label: "显示/隐藏挂件", section: "actions", icon: Layout, onSelect: onToggleWidget, keywords: "widget 挂件 悬浮" },
-      { id: "act-widget-lock", label: "锁定/解锁挂件", section: "actions", icon: Lock, onSelect: onToggleWidgetLock, keywords: "lock unlock 锁定 解锁 挂件" },
+      {
+        id: "act-new-task",
+        label: "新建任务",
+        hint: "打开列表并新建",
+        section: "actions",
+        icon: Plus,
+        onSelect: () => {
+          onNavigate("list");
+          setTimeout(onCreateTask, 100);
+        },
+        keywords: "new create 新建 添加 任务",
+      },
+      {
+        id: "act-new-journal",
+        label: "写一篇新日记手帐",
+        section: "actions",
+        icon: BookOpen,
+        onSelect: () => onNavigate("journal"),
+        keywords: "journal write 新建 日记 随记 手账",
+      },
+      {
+        id: "act-flow",
+        label: "进入专注流模式",
+        section: "actions",
+        icon: Layout,
+        onSelect: onEnterFlowMode,
+        keywords: "flow focus 流 专注 全屏",
+      },
+      {
+        id: "act-widget",
+        label: "显示/隐藏挂件",
+        section: "actions",
+        icon: Layout,
+        onSelect: onToggleWidget,
+        keywords: "widget 挂件 悬浮",
+      },
+      {
+        id: "act-widget-lock",
+        label: "锁定/解锁挂件",
+        section: "actions",
+        icon: Lock,
+        onSelect: onToggleWidgetLock,
+        keywords: "lock unlock 锁定 解锁 挂件",
+      },
     ];
+
+    const journalItems: CommandItem[] = (journal || []).slice(0, 50).map((j) => ({
+      id: `journal-${j.id}`,
+      label: j.title || `日记 ${j.date}`,
+      hint: j.content.slice(0, 50),
+      section: "journal",
+      icon: BookOpen,
+      onSelect: () => onNavigate("journal"),
+      keywords: `${j.title} ${j.content} ${j.date} ${(j.mood || "")}`,
+    }));
 
     const taskItems: CommandItem[] = tasks.slice(0, 100).map((t) => ({
       id: `task-${t.id}`,
@@ -122,27 +252,43 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       keywords: n.text,
     }));
 
-    return [...navigation, ...actions, ...focusItems, ...taskItems, ...noteItems];
-  }, [tasks, stickyNotes, onNavigate, onTaskClick, onCreateTask, onStartFocus, onToggleWidget, onToggleWidgetLock, onEnterFlowMode]);
+    return [
+      ...navigation,
+      ...actions,
+      ...focusItems,
+      ...journalItems,
+      ...taskItems,
+      ...noteItems,
+    ];
+  }, [
+    tasks,
+    stickyNotes,
+    journal,
+    onNavigate,
+    onTaskClick,
+    onCreateTask,
+    onStartFocus,
+    onToggleWidget,
+    onToggleWidgetLock,
+    onEnterFlowMode,
+  ]);
 
   // 简易 fuzzy：所有字符按顺序出现即算命中；同时对完全 includes 优先加分
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) {
-      // 无查询时：只显示 navigation + actions（前几条），避免面板一开就把所有 task 铺满
-      return allItems.filter((it) => it.section === "navigation" || it.section === "actions").slice(0, 12);
+      return allItems
+        .filter((it) => it.section === "navigation" || it.section === "actions")
+        .slice(0, 12);
     }
     const scored: { item: CommandItem; score: number }[] = [];
     for (const item of allItems) {
       const hay = `${item.label} ${item.keywords || ""}`.toLowerCase();
-      // 完全包含 = 100 分
       if (hay.includes(q)) {
-        // 开头匹配加分
         const startBonus = hay.startsWith(q) ? 50 : 0;
         scored.push({ item, score: 100 + startBonus });
         continue;
       }
-      // fuzzy：所有字符顺序出现
       let i = 0;
       for (const ch of hay) {
         if (ch === q[i]) i++;
@@ -156,22 +302,32 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return scored.slice(0, 50).map((s) => s.item);
   }, [query, allItems]);
 
-  // filtered 变化时把高亮拉回顶部
   useEffect(() => {
     setActiveIdx(0);
   }, [query]);
 
   const sectionLabel: Record<CommandItem["section"], string> = {
-    navigation: "页面",
-    actions: "操作",
-    tasks: "任务",
-    notes: "便签",
+    navigation: "页面导航",
+    actions: "快捷操作",
+    journal: "日记手帐",
+    tasks: "待办任务",
+    notes: "随手便签",
   };
 
   const { grouped, flatOrder } = useMemo(() => {
-    const grouped: { section: CommandItem["section"]; items: CommandItem[]; startIdx: number }[] = [];
+    const grouped: {
+      section: CommandItem["section"];
+      items: CommandItem[];
+      startIdx: number;
+    }[] = [];
     let cursor = 0;
-    for (const section of ["actions", "navigation", "tasks", "notes"] as CommandItem["section"][]) {
+    for (const section of [
+      "actions",
+      "navigation",
+      "journal",
+      "tasks",
+      "notes",
+    ] as CommandItem["section"][]) {
       const items = filtered.filter((it) => it.section === section);
       if (items.length > 0) {
         grouped.push({ section, items, startIdx: cursor });
@@ -182,7 +338,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return { grouped, flatOrder };
   }, [filtered]);
 
-  // 键盘操作 — 基于 flatOrder 而非 filtered，保证键盘顺序和显示一致
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -208,10 +363,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return () => window.removeEventListener("keydown", handler);
   }, [open, flatOrder, activeIdx, onClose]);
 
-  // 让当前高亮项滚入视口
   useEffect(() => {
     if (!listRef.current) return;
-    const el = listRef.current.querySelector<HTMLElement>(`[data-idx="${activeIdx}"]`);
+    const el = listRef.current.querySelector<HTMLElement>(
+      `[data-idx="${activeIdx}"]`
+    );
     if (el) el.scrollIntoView({ block: "nearest" });
   }, [activeIdx]);
 
@@ -219,7 +375,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/25 backdrop-blur-sm animate-fade-in-up"
+      className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/25 backdrop-blur-xs animate-fade-in-up"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -233,7 +389,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索任务、便签，或输入命令..."
+            placeholder="搜索任务、日记正文、便签，或输入命令..."
             className="flex-grow bg-transparent focus:outline-none text-sm font-medium text-slate-800 placeholder-slate-400"
           />
           <kbd className="text-[9px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shrink-0">
@@ -242,7 +398,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {/* 结果列表 */}
-        <div ref={listRef} className="max-h-[50vh] overflow-y-auto custom-scrollbar py-1">
+        <div
+          ref={listRef}
+          className="max-h-[50vh] overflow-y-auto custom-scrollbar py-1"
+        >
           {flatOrder.length === 0 ? (
             <div className="text-center py-10 text-xs text-slate-400 font-medium">
               没有找到匹配项
@@ -263,16 +422,24 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       data-idx={flatIdx}
                       onMouseEnter={() => setActiveIdx(flatIdx)}
                       onMouseDown={(e) => {
-                        e.preventDefault(); // 防止 input 失焦
+                        e.preventDefault();
                         item.onSelect();
                         onClose();
                       }}
                       className={`flex items-center gap-3 px-3 py-2 mx-1 rounded-xl cursor-pointer transition-colors ${
-                        isActive ? "bg-[#FCF2F0] text-[#A34E36]" : "text-slate-700 hover:bg-slate-50"
+                        isActive
+                          ? "bg-[#FCF2F0] text-[#A34E36]"
+                          : "text-slate-700 hover:bg-slate-50"
                       }`}
                     >
-                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-[#A34E36]" : "text-slate-400"}`} />
-                      <span className="text-xs font-bold flex-grow truncate">{item.label}</span>
+                      <Icon
+                        className={`w-3.5 h-3.5 shrink-0 ${
+                          isActive ? "text-[#A34E36]" : "text-slate-400"
+                        }`}
+                      />
+                      <span className="text-xs font-bold flex-grow truncate">
+                        {item.label}
+                      </span>
                       {item.hint && (
                         <span className="text-[10px] text-slate-400 font-medium truncate max-w-[180px]">
                           {item.hint}
@@ -295,11 +462,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         <div className="px-4 py-2 border-t border-[#EFEBE4] bg-[#FAF8F5]/60 flex items-center justify-between text-[9px] text-slate-400 font-bold">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="bg-white border border-slate-200 px-1 py-0.5 rounded">↑↓</kbd>
+              <kbd className="bg-white border border-slate-200 px-1 py-0.5 rounded">
+                ↑↓
+              </kbd>
               选择
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="bg-white border border-slate-200 px-1 py-0.5 rounded">↵</kbd>
+              <kbd className="bg-white border border-slate-200 px-1 py-0.5 rounded">
+                ↵
+              </kbd>
               确认
             </span>
           </div>

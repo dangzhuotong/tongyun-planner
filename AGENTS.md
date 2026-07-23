@@ -340,3 +340,48 @@
 - **AI 今日建议**：加厚习惯/番茄/心情上下文，失败可见
 - **附件轻量清理**：hydrate 丢弃 legacy `data:` 项
 - **日记**：翻页过渡 + 滑条外日期跳转
+
+## Session 15 (2026-07-23)
+
+### 完成项
+- **全新【时光长廊 · 岁月印记】展示页 (MemoryView)**：
+  - **月度记忆沉淀**：整合 `journal` 日记手帐、`completedTasks` 高光成果、`pomodoroLogs` 深度专注以及当日 Mood 心情。
+  - **高光速览面板**：顶部显示当月积累的手账篇数、已完成任务项、专注小时数与常见 Mood 趋势。
+  - **按月筛选与岁月时间轴 (Timeline Stream)**：自动解析所有记录月份，支持年月快速切换与全部/日记/高光/专注多分类筛选。
+  - **拟物拍立得抽卡 (Memory Card Drawer)**：提供“抽取记忆手牌”温故知新交互，伴随 3D 翻牌弹窗呈现历史上的某一天或精彩瞬间。
+  - **一键联动**：点击日记卡片可直接无缝跳转回日记手帐，查阅当日全文。
+- **导航与国际化**：`Sidebar` 归档组新增“时光长廊”入口，同步补全 `zh-CN` / `en` 国际化文案。
+
+### 相关文件
+- `src/components/MemoryView.tsx`
+- `src/components/Sidebar.tsx`
+- `src/App.tsx`
+- `src/types.ts`
+- `src/i18n/zh-CN.ts`
+- `src/i18n/en.ts`
+
+## Session 16 (2026-07-23)
+
+### 完成项
+- **甘特图交互升华 (GanttView)**：
+  - **拖拽排期**：支持直接按住甘特图中的任务区块拖拽放置到目标日期网格，自动更新截止日期 (`dueDate`)。
+  - **依赖与搜索**：增加 `dependsOn` 依赖提示标记与关键词实时筛选，带有今日醒目标线 (`Today line`)。
+- **倒数日农历支持 (CountdownView)**：
+  - **农历生日/节日重复**：新增 `isLunar` 勾选项，基于 `lunar-javascript` 自动推算今年或下一年的目标公历日期，实现农历倒计时准确计算。
+- **全局命令面板全搜 (CommandPalette / Cmd+K)**：
+  - **全文深度搜索**：命令面板打通对 `journal` 日记标题与正文摘要的模糊检索。
+  - **快捷新建指令**：增加快捷写日记、搜索“时光长廊”等指令。
+- **时光长廊暗黑模式修复 (MemoryView)**：
+  - 为顶部面板、月度概览卡片、时间轴流水卡片、抽卡弹窗补全全套 `dark:` 暗黑适配类，保证在暗黑模式下文本对比度与视觉柔和度。
+- **四象限看板交互与法则升级 (MatrixView)**：
+  - **跨象限拖拽放置**：实现按住任务卡片直接拖投至任意象限，即时更改任务分类。
+  - **容量占比与方法论指引**：增加象限任务比重百分比，内置“艾森豪威尔法则指引”展开卡片。
+
+### 相关文件
+- `src/components/MemoryView.tsx`
+- `src/components/MatrixView.tsx`
+- `src/components/GanttView.tsx`
+- `src/components/CountdownView.tsx`
+- `src/components/CommandPalette.tsx`
+- `src/App.tsx`
+- `src/types.ts`

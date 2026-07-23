@@ -17,6 +17,7 @@ const en: Translations = {
     calendar: "Calendar",
     notes: "Sticky Notes",
     journal: "Journal",
+    memory: "Memory Wall",
     analytics: "Analytics",
     history: "History",
     countdown: "Countdown",
@@ -97,6 +98,7 @@ const en: Translations = {
     completed: "Completed Archive",
     countdown: "Countdown",
     mood: "Mood Diary",
+    memory: "Memory Wall · Life Footprints Gallery",
   },
 
   matrix: {

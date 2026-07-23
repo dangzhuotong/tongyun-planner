@@ -313,8 +313,15 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
         value={draftContent}
         onChange={(e) => handleContentChange(e.target.value)}
         placeholder={j.diaryPlaceholder || "写点什么，记下今天…"}
-        className="flex-grow min-h-0 w-full resize-none rounded-xl p-4 text-[14px] leading-relaxed text-slate-700 dark:text-slate-200 font-serif focus:outline-none focus:border-[#4D7C5D] custom-scrollbar bg-transparent border-transparent"
-        style={{ lineHeight: "32px", backgroundImage: "repeating-linear-gradient(transparent, transparent 31px, #ECE4D2 32px)", backgroundAttachment: "local" }}
+        className="flex-grow min-h-0 w-full resize-none rounded-xl text-[15px] text-slate-700 dark:text-slate-200 font-serif focus:outline-none custom-scrollbar bg-transparent border-transparent"
+        style={{
+          padding: "6px 16px 16px 16px",
+          lineHeight: "32px",
+          backgroundImage: "linear-gradient(transparent 31px, #EADFC9 31px)",
+          backgroundSize: "100% 32px",
+          backgroundPosition: "0 0",
+          backgroundAttachment: "local",
+        }}
         spellCheck={false}
       />
 

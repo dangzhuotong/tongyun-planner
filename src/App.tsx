@@ -22,6 +22,7 @@ const CountdownView = React.lazy(() => import("./components/CountdownView").then
 const FlowMode = React.lazy(() => import("./components/FlowMode").then((m) => ({ default: m.FlowMode })));
 const GanttView = React.lazy(() => import("./components/GanttView").then((m) => ({ default: m.GanttView })));
 const JournalView = React.lazy(() => import("./components/JournalView").then((m) => ({ default: m.JournalView })));
+const MemoryView = React.lazy(() => import("./components/MemoryView").then((m) => ({ default: m.MemoryView })));
 
 const viewFallback = (
   <div className="flex-grow flex items-center justify-center text-slate-400 text-sm py-20">
@@ -1006,6 +1007,7 @@ function AppBody() {
     fontFamily={customizationHook.customizationConfig.fontFamily || "sans"}
     tasks={tasksHook.tasks}
     completedTasks={tasksHook.completedTasks}
+    journal={journal}
     progressPercentage={tasksHook.progressPercentage}
     wrappedHandleComplete={wrappedHandleComplete}
     handleDeleteTask={wrappedHandleDeleteTask}
@@ -1061,6 +1063,7 @@ interface MainLayoutProps {
   t: ReturnType<typeof useTranslation>["t"];
   fontFamily: string;
   tasks: Task[]; completedTasks: Task[];
+  journal: JournalEntry[];
   progressPercentage: number;
   wrappedHandleComplete: (id: string) => void;
   handleDeleteTask: (id: string) => void;
@@ -1110,7 +1113,7 @@ interface MainLayoutProps {
 
 const MainLayout = React.memo(function MainLayout({
   flowMode, setFlowMode, activeTab, setActiveTab, t, fontFamily,
-  tasks, completedTasks, progressPercentage,
+  tasks, completedTasks, journal, progressPercentage,
   wrappedHandleComplete, handleDeleteTask, handleTaskClick,
   handleCloseDetail, handleToggleSubtask, handleAddSubtask,
   handleSaveNotes, handleUpdateTags, handleEditTask, handleUndoComplete,
@@ -1174,6 +1177,7 @@ const MainLayout = React.memo(function MainLayout({
                       : activeTab === "news" ? t.header.news
                       : activeTab === "gantt" ? "甘特图"
                       : activeTab === "journal" ? (t.journal?.title || "日记手账")
+                      : activeTab === "memory" ? (t.sidebar?.memory || "时光长廊")
                       : t.header.completed}
                   </h2>
                   <p className="text-xs text-slate-500 mt-1 font-medium">
@@ -1181,6 +1185,8 @@ const MainLayout = React.memo(function MainLayout({
                       ? "自定义主题色调、材质滤镜与系统字体，个性化配置您的待办看板。"
                       : activeTab === "news"
                       ? "阅读纸质风骨的每日热点，或订阅您喜爱的 RSS 资讯源。"
+                      : activeTab === "memory"
+                      ? "回味每一篇手账、每一次专注与已完成的高光成果，感受时光的沉淀。"
                       : "规划今日待办，有条不紊地记录生活的每个瞬间。"}
                   </p>
                 </div>
@@ -1281,7 +1287,7 @@ const MainLayout = React.memo(function MainLayout({
             />
           )}
           {activeTab === "matrix" && (
-            <MatrixView tasks={tasks} handleComplete={wrappedHandleComplete} qColors={customizationHook.customizationConfig.qColors} handleStartFocus={pomodoroHandleStartFocus} handleAddTask={handleAddTaskWithAI} handleToggleFavorite={handleToggleFavorite} handleTogglePin={handleTogglePin} onTaskClick={handleTaskClick} searchQuery={aiHook.searchQuery} setSearchQuery={aiHook.setSearchQuery} />
+            <MatrixView tasks={tasks} handleComplete={wrappedHandleComplete} qColors={customizationHook.customizationConfig.qColors} handleStartFocus={pomodoroHandleStartFocus} handleAddTask={handleAddTaskWithAI} handleToggleFavorite={handleToggleFavorite} handleTogglePin={handleTogglePin} onTaskClick={handleTaskClick} onEditTask={handleEditTask} searchQuery={aiHook.searchQuery} setSearchQuery={aiHook.setSearchQuery} />
           )}
           {activeTab === "list" && (
             <ListView tasks={tasks} searchQuery={aiHook.searchQuery} setSearchQuery={aiHook.setSearchQuery} categoryFilter={aiHook.categoryFilter} setCategoryFilter={aiHook.setCategoryFilter} tagFilter={aiHook.tagFilter} setTagFilter={aiHook.setTagFilter} handleComplete={wrappedHandleComplete} handleDeleteTask={handleDeleteTask} expandedNoteId={expandedNoteId} setExpandedNoteId={setExpandedNoteId} editingNotes={editingNotes} setEditingNotes={setEditingNotes} handleSaveNotes={handleSaveNotes} handleStartFocus={pomodoroHandleStartFocus} handleAddTask={handleAddTaskWithAI} handleToggleFavorite={handleToggleFavorite} handleTogglePin={handleTogglePin} onTaskClick={handleTaskClick} />
@@ -1309,7 +1315,7 @@ const MainLayout = React.memo(function MainLayout({
             <CountdownView countdowns={countdownHook.countdowns} handleAddCountdown={countdownHook.handleAddCountdown} handleDeleteCountdown={countdownHook.handleDeleteCountdown} />
           )}
           {activeTab === "gantt" && (
-            <GanttView tasks={tasks} onTaskClick={handleTaskClick} />
+            <GanttView tasks={tasks} onTaskClick={handleTaskClick} onEditTask={handleEditTask} />
           )}
           {activeTab === "journal" && (
             <JournalView
@@ -1319,12 +1325,23 @@ const MainLayout = React.memo(function MainLayout({
               aiConfig={customizationHook.customizationConfig}
             />
           )}
+          {activeTab === "memory" && (
+            <MemoryView
+              tasks={tasks}
+              completedTasks={completedTasks}
+              pomodoroLogs={pomodoroLogs}
+              journal={journal}
+              onOpenJournalDate={(_date) => {
+                setActiveTab("journal");
+              }}
+            />
+          )}
           {activeTab === "settings" && (
             <SettingsView config={customizationHook.customizationConfig} onChange={customizationHook.handleConfigChange} alertSoundType={alertSoundType} setAlertSoundType={setAlertSoundType} resetTasks={resetTasks} />
           )}
         </main>
         ), [
-          activeTab, tasks, completedTasks,
+          activeTab, tasks, completedTasks, journal,
           t, fontFamily,
           wrappedHandleComplete, handleDeleteTask, handleTaskClick,
           handleCloseDetail, handleToggleSubtask, handleAddSubtask,
@@ -1387,6 +1404,7 @@ const MainLayout = React.memo(function MainLayout({
         onClose={() => setCommandPaletteOpen(false)}
         tasks={tasks}
         stickyNotes={notesHook.stickyNotes}
+        journal={journal}
         onTaskClick={(task) => { handleTaskClick(task); setCommandPaletteOpen(false); }}
         onNavigate={(tab) => { setActiveTab(tab); setFlowMode(false); }}
         onCreateTask={() => {}}

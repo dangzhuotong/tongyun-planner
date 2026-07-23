@@ -50,7 +50,7 @@ interface SidebarProps {
 // Map old tab values to new grouped structure for active detection
 const TASKS_GROUP: AppTab[] = ["matrix", "list", "calendar"];
 const FOCUS_GROUP: AppTab[] = ["analytics"];
-const ARCHIVE_GROUP: AppTab[] = ["completed", "countdown"];
+const ARCHIVE_GROUP: AppTab[] = ["completed", "countdown", "memory"];
 
 
 export const Sidebar: React.FC<SidebarProps> = React.memo(({
@@ -353,6 +353,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
             {!isCollapsed && archiveExpanded && (
               <div className="mt-0.5 space-y-0.5">
                 <SubNavButton tab="completed" label={s.history || "已完成"} count={completedTasksCount} />
+                <SubNavButton tab="memory" label={s.memory || "时光长廊"} />
                 <SubNavButton tab="countdown" label={s.countdown || "倒计时"} count={countdownCount} />
               </div>
             )}

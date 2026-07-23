@@ -84,7 +84,7 @@ export interface JournalTemplate {
 
 export type AlertSoundType = "beep" | "cuckoo" | "meow" | "chime" | "ding" | "phone" | "marimba" | "bells" | "alarm";
 
-export type AppTab = "home" | "matrix" | "list" | "calendar" | "notes" | "analytics" | "completed" | "countdown" | "settings" | "tasks" | "focus" | "archive" | "news" | "gantt" | "journal";
+export type AppTab = "home" | "matrix" | "list" | "calendar" | "notes" | "analytics" | "completed" | "countdown" | "settings" | "tasks" | "focus" | "archive" | "news" | "gantt" | "journal" | "memory";
 
 export interface CountdownEvent {
   id: string;
@@ -92,6 +92,7 @@ export interface CountdownEvent {
   targetDate: string; // YYYY-MM-DD
   emoji?: string;
   color?: string;
+  isLunar?: boolean;   // 是否为农历生日/农历倒计时
 }
 
 export type Locale = "zh-CN" | "en";
