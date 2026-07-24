@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Trash2, Search, ListChecks, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus } from "lucide-react";
-import type { JournalEntry, Task, CustomizationConfig, PomodoroLog } from "../types";
+import { Trash2, Search, ListChecks, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus, Camera, X } from "lucide-react";
+import type { JournalEntry, Task, CustomizationConfig, PomodoroLog, Attachment } from "../types";
 import { extractJournalTags } from "../constants";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
@@ -69,6 +69,64 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
   }, [journal]);
 
   const selected = useMemo(() => dailyEntryMap.get(currentDate) || null, [currentDate, dailyEntryMap]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handlePickImage = () => fileInputRef.current?.click();
+
+  const handleFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    if (!file.type.startsWith("image/")) return;
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const att: Attachment = {
+      id: createId("att"),
+      name: file.name,
+      path: dataUrl,
+      type: file.type,
+      size: file.size,
+      createdAt: new Date().toISOString(),
+    };
+    commit({ attachments: [...(selected?.attachments || []), att] });
+  };
+
+  const handleImagePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith("image/")) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (!file) continue;
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const att: Attachment = {
+          id: createId("att"),
+          name: file.name || `pasted-${Date.now()}.png`,
+          path: dataUrl,
+          type: file.type,
+          size: file.size,
+          createdAt: new Date().toISOString(),
+        };
+        commit({ attachments: [...(selected?.attachments || []), att] });
+        break;
+      }
+    }
+  };
+
+  const handleRemoveImage = (attId: string) => {
+    const existing = selected?.attachments || [];
+    commit({ attachments: existing.filter((a) => a.id !== attId) });
+  };
 
   const viewDate = currentDate;
 
@@ -166,6 +224,54 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
       setAiLoading(false);
     }
   }, [aiConfig, draftContent, commit, locale, j]);
+
+  // 导出
+  const entryToMarkdown = useCallback((entry: JournalEntry): string => {
+    const lines: string[] = [];
+    lines.push(`# ${entry.title}`);
+    lines.push(`日期：${entry.date}`);
+    if (entry.mood) lines.push(`心情：${entry.mood}`);
+    lines.push("");
+    if (entry.content.trim()) lines.push(entry.content);
+    if ((entry.attachments?.length ?? 0) > 0) {
+      lines.push("");
+      for (const att of entry.attachments!) {
+        lines.push(`![${att.name}](${att.path})`);
+      }
+    }
+    if (entry.aiComment) {
+      lines.push("");
+      lines.push("---");
+      lines.push(entry.aiComment);
+    }
+    return lines.join("\n");
+  }, []);
+
+  const downloadMarkdown = useCallback((filename: string, content: string) => {
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const handleExportCurrent = useCallback(() => {
+    const entry = selected || dailyEntryMap.get(currentDate);
+    if (!entry) return;
+    const md = entryToMarkdown(entry);
+    downloadMarkdown(`journal-${currentDate}.md`, md);
+  }, [selected, currentDate, dailyEntryMap, entryToMarkdown, downloadMarkdown]);
+
+  const handleExportAll = useCallback(() => {
+    const dailies = journal.filter((e) => e.isDaily).sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt);
+    const parts = dailies.map(entryToMarkdown);
+    const md = parts.join("\n\n---\n\n");
+    downloadMarkdown(`tongyun-journal-all-${today}.md`, md);
+  }, [journal, entryToMarkdown, downloadMarkdown, today]);
 
   const [flipTick, setFlipTick] = useState(0);
   const prevFlipDate = useRef(currentDate);
@@ -308,10 +414,23 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
         </div>
       )}
 
+      <div className="flex items-center gap-2">
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChosen} />
+        <button
+          onClick={handlePickImage}
+          className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] text-slate-500 hover:text-[#4D7C5D] hover:border-[#4D7C5D] hover:bg-[#F0F5F1] cursor-pointer transition-colors dark:border-[#3A3A3A] dark:text-slate-400 dark:hover:text-[#6FAD84] dark:hover:border-[#6FAD84] dark:hover:bg-[#232924]"
+          title={j.addImage}
+        >
+          <Camera className="w-3 h-3" />
+          {j.addImage}
+        </button>
+      </div>
+
       <textarea
         ref={textareaRef}
         value={draftContent}
         onChange={(e) => handleContentChange(e.target.value)}
+        onPaste={handleImagePaste}
         placeholder={j.diaryPlaceholder || "写点什么，记下今天…"}
         className="flex-grow min-h-0 w-full resize-none rounded-xl text-[15px] text-slate-700 dark:text-slate-200 font-serif focus:outline-none custom-scrollbar bg-transparent border-transparent"
         style={{
@@ -324,6 +443,26 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
         }}
         spellCheck={false}
       />
+
+      {(selected?.attachments?.length ?? 0) > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {selected!.attachments!.map((att) => (
+            <div key={att.id} className="relative group">
+              <img
+                src={att.path}
+                alt={att.name}
+                className="w-28 h-28 object-cover rounded-xl border border-[#EFEBE4] dark:border-[#3A3A3A] shadow-sm"
+              />
+              <button
+                onClick={() => handleRemoveImage(att.id)}
+                className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-md hover:bg-red-600"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="rounded-xl bg-gradient-to-br from-[#F0F5F1] to-[#FCEFF4] dark:from-[#232924] dark:to-[#2B2125] border border-[#E4EEE6] dark:border-[#33353A] p-4">
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#E8A0BF] dark:text-[#E8A0BF]/80 mb-2">
@@ -474,6 +613,20 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
               )}
             </div>
           )}
+          <button
+            onClick={handleExportCurrent}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer transition-colors"
+            title={j.exportCurrent}
+          >
+            <span className="text-[10px] font-bold">↓1</span>
+          </button>
+          <button
+            onClick={handleExportAll}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer transition-colors"
+            title={j.exportAll}
+          >
+            <span className="text-[10px] font-bold">↓*</span>
+          </button>
           <button
             onClick={goToday}
             className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#4D7C5D] hover:bg-[#3F684C] text-white cursor-pointer transition-colors"

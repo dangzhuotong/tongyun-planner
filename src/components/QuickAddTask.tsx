@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Plus, Calendar, Flag, Repeat, Zap } from "lucide-react";
-import type { Task, RepeatType, TimeBlock, TaskPriority } from "../types";
+import type { Task, TimeBlock, TaskPriority } from "../types";
 import { PRIORITY_OPTIONS, PRIORITY_LEVELS } from "../constants";
 import { CustomSelect } from "./CustomSelect";
 import { useTranslation } from "../i18n/LanguageContext";
@@ -16,7 +16,7 @@ interface QuickAddTaskProps {
     category: Task["category"];
     dueDate: string;
     dueTime?: string;
-    repeat?: RepeatType;
+    repeat?: string;
     tags?: string[];
     priority?: Task["priority"];
   }) => void;
@@ -60,7 +60,7 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(({
   const [dueDate, setDueDate] = useState(() => defaultDueDate || getLocalDateString());
   const [dueTime, setDueTime] = useState("");
   const [category, setCategory] = useState<Task["category"]>(() => defaultCategory ?? readLastQuickCategory());
-  const [repeat, setRepeat] = useState<RepeatType>("none");
+  const [repeat, setRepeat] = useState<string>("none");
   const [showRepeatModal, setShowRepeatModal] = useState(false);
   const [repeatFreq, setRepeatFreq] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('WEEKLY');
   const [repeatInterval, setRepeatInterval] = useState(1);
@@ -414,7 +414,7 @@ const NLPDateInput: React.FC<{ onParse: (date?: string, time?: string) => void }
                     value={repeat === "none" || repeat === "daily" || repeat === "weekly" || repeat === "monthly" ? repeat : "custom"}
                     onChange={(v) => {
                       if (v === "custom") { setShowRepeatModal(true); return; }
-                      setRepeat(v as RepeatType);
+                      setRepeat(v);
                     }}
                     options={[
                       { value: "none", label: tc.repeatNone },

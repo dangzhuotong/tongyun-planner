@@ -409,3 +409,42 @@
 - `src/App.tsx`
 - `src/components/MatrixView.tsx`
 - `.cursor/skills/tongyun-data/SKILL.md`
+
+## Session 18 (2026-07-23)
+
+### 完成项
+- **RepeatType 类型修复**：移除 `| string` 尾缀，`Task.repeat` 扩为 `string`（兼容 rrule 字符串），清理 `useTasks` / `QuickAddTask` 中的 `RepeatType` 导入
+- **依赖清理**：移除未使用的 `sharp`、`ali-oss`、`@types/ali-oss`、`cos-js-sdk-v5`，删除 COS/OSS 存储 Provider 及类型、UI 配置入口
+- **App.tsx 拆分**（1,470 → 1,002 行，减少 32%）：
+  - `usePomodoroTimer`（100 行）— 番茄钟计时器 + 随机休息状态机
+  - `useDueNotifications`（92 行）— 任务到期系统通知
+  - `useCrossWindowSync`（100 行）— 跨窗口事件同步（18+ action）
+  - `useStoreInit`（100 行）— SQLite 初始化 + localStorage 回退
+- **ESLint + Prettier 配置**：新增 `eslint.config.js`、`.prettierrc`、`.prettierignore`，添加 `lint`/`format`/`format:check` npm scripts
+
+### 关键决策
+- `RepeatType` 保留为 clean union（`"daily" | "weekly" | "monthly" | "none"`），`Task.repeat` 用 `string` 以适应 rrule 字符串存储
+- console 语句均为有效错误处理（`.error`/`.warn`），保留不删
+- MainLayout/AIInbox 组件提取跳过（与 hook 状态深度耦合，收益不大）
+- SettingsView 拆分跳过（2,294 行纯改善可读性，不影响功能）
+- COS/OSS 存储后端从未实际使用，彻底移除减少构建体积
+
+### 相关文件
+- `src/types.ts`
+- `src/App.tsx`
+- `src/components/QuickAddTask.tsx`
+- `src/hooks/useTasks.ts`
+- `src/hooks/usePomodoroTimer.ts`（新增）
+- `src/hooks/useDueNotifications.ts`（新增）
+- `src/hooks/useCrossWindowSync.ts`（新增）
+- `src/hooks/useStoreInit.ts`（新增）
+- `src/utils/storage/types.ts`
+- `src/utils/storage/index.ts`
+- `src/utils/storage/manager.ts`
+- `src/utils/storage/ossProvider.ts`（删除）
+- `src/utils/storage/cosProvider.ts`（删除）
+- `src/types/cos-js-sdk-v5.d.ts`（删除）
+- `package.json`
+- `eslint.config.js`（新增）
+- `.prettierrc`（新增）
+- `.prettierignore`（新增）

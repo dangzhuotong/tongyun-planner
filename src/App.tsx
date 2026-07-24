@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { listen } from "@tauri-apps/api/event";
-import type { Task, AppTab, CustomizationConfig } from "./types";
+import type { Task, AppTab } from "./types";
 import { TitleBar } from "./components/TitleBar";
 import { Sidebar } from "./components/Sidebar";
 import { DashboardView } from "./components/DashboardView";
@@ -41,16 +40,19 @@ import { useAI } from "./hooks/useAI";
 import { useWidget } from "./hooks/useWidget";
 import { useDebouncedPersistence } from "./hooks/useDebouncedPersistence";
 import type { JournalEntry } from "./types";
-import { useSync, subscribeDevSync } from "./hooks/useSync";
+import { useSync } from "./hooks/useSync";
 import { PomodoroContext } from "./context/PomodoroContext";
 import { PersonalProvider, usePersonal } from "./context/PersonalContext";
 import { createId } from "./utils/id";
 import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
-import { storage } from "./utils/unifiedStorage";
 import { syncEngine } from "./utils/sync/engine";
 import { SYNC_APPLIED_EVENT, bumpSyncVersion, bumpCategoryVersion, dedupeActiveTasks, type SyncCategory, type SyncData } from "./utils/sync/types";
 import { beginSyncApply, endSyncApply, isSyncApplying } from "./utils/sync/syncApplyGuard";
+import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
+import { useDueNotifications } from "./hooks/useDueNotifications";
+import { useCrossWindowSync } from "./hooks/useCrossWindowSync";
+import { useStoreInit } from "./hooks/useStoreInit";
 
 function AppInner() {
   return (
@@ -178,253 +180,11 @@ function AppBody() {
   });
 
   // ============ Store Initialization ============
-  // StrictMode guard：dev 模式下 effect 会跑两次，避免 initStore 重复执行导致数据回滚 (#13)
-  const initStartedRef = useRef(false);
   const windowLabelRef = useRef("main");
-  useEffect(() => {
-    if (initStartedRef.current) return;
-    initStartedRef.current = true;
+  useStoreInit(handlersRef, setWindowLabel, windowLabelRef, setIsHydrated);
 
-    // 提前启动 SQLite 初始化（initStore 内部 await 等待完成）
-    const initPromise = storage.init().catch((e) => console.error("SQLite 初始化失败", e));
-
-    let label = "main";
-    try {
-      label = getCurrentWebviewWindow().label;
-    } catch (e) {}
-    setWindowLabel(label);
-    windowLabelRef.current = label;
-    if (label !== "main") {
-      document.documentElement.classList.add("transparent-window");
-    }
-
-    if (typeof Notification !== "undefined" && Notification.permission !== "granted" && Notification.permission !== "denied") {
-      Notification.requestPermission();
-    }
-
-    const savedCustomization = localStorage.getItem("aero_customization_config");
-    if (savedCustomization) {
-      const parsed = safeJsonParse<CustomizationConfig | null>(savedCustomization, null);
-      if (parsed) {
-        handlersRef.current.customizationHook.setCustomizationConfig(parsed);
-        if (parsed.locale) handlersRef.current.setLocale(parsed.locale);
-      }
-    }
-
-    const savedSound = localStorage.getItem("aero_alert_sound_type");
-    if (savedSound) handlersRef.current.pomodoroHook.setAlertSoundType(savedSound as any);
-
-    const savedFocus = localStorage.getItem("pomodoro_focus_duration");
-    const savedBreak = localStorage.getItem("pomodoro_break_duration");
-    if (savedFocus) {
-      const f = parseInt(savedFocus, 10);
-      handlersRef.current.pomodoroHook.setFocusDuration(f);
-      handlersRef.current.pomodoroHook.setPomodoroTimeLeft(f * 60);
-    }
-    if (savedBreak) handlersRef.current.pomodoroHook.setBreakDuration(parseInt(savedBreak, 10));
-
-    const initStore = async () => {
-      // 等待 SQLite 初始化完成（unifiedStorage 会把 SQLite 数据灌入 localStorage）
-      await initPromise;
-
-      try {
-        const localLogs = localStorage.getItem("aero_pomodoro_logs");
-        if (localLogs) {
-          handlersRef.current.pomodoroHook.setPomodoroLogs(safeJsonParse(localLogs, []));
-        }
-
-        const localNotes = localStorage.getItem("aero_sticky_notes");
-        if (localNotes) {
-          handlersRef.current.notesHook.setStickyNotes(safeJsonParse(localNotes, []));
-        }
-
-        const localCountdowns = localStorage.getItem("tongyun_countdowns");
-        if (localCountdowns) handlersRef.current.countdownHook.setCountdowns(safeJsonParse(localCountdowns, []));
-
-        const localTasks = localStorage.getItem("aero_todos");
-        const localCompleted = localStorage.getItem("aero_completed_todos");
-
-        let resolvedTasks: Task[];
-        let resolvedCompleted: Task[];
-
-        if (!localTasks || safeJsonParse<Task[]>(localTasks, []).length === 0) {
-          resolvedTasks = handlersRef.current.tasksHook.INITIAL_TASKS;
-          resolvedCompleted = [];
-        } else {
-          resolvedTasks = safeJsonParse<Task[]>(localTasks, handlersRef.current.tasksHook.INITIAL_TASKS);
-          resolvedCompleted = safeJsonParse<Task[]>(localCompleted, []);
-        }
-        resolvedTasks = dedupeActiveTasks(resolvedTasks, resolvedCompleted);
-
-        handlersRef.current.tasksHook.setTasks(resolvedTasks);
-        handlersRef.current.tasksHook.setCompletedTasks(resolvedCompleted);
-      } catch (e) {
-        console.warn("数据加载失败，使用初始任务", e);
-        handlersRef.current.tasksHook.setTasks(handlersRef.current.tasksHook.INITIAL_TASKS);
-        handlersRef.current.tasksHook.setCompletedTasks([]);
-      } finally {
-        setIsHydrated(true);
-      }
-    };
-    initStore();
-  }, []);
-
-  // ============ 跨窗口 event listener（独立 useEffect，避免 StrictMode 双挂载丢失监听器）============
-  useEffect(() => {
-    const handleSyncPayload = (p: any) => {
-      if (p.source_window && p.source_window === windowLabelRef.current) return;
-      const { tasksHook: tH, pomodoroHook: pH, notesHook: nH, widgetHook: wH, customizationHook: cH } = handlersRef.current;
-      switch (p.action) {
-        case "complete":
-          tH.handleComplete(p.task_id, false);
-          break;
-        case "undo_complete":
-          tH.handleUndoComplete(p.task_id, false);
-          break;
-        case "delete":
-          tH.handleDeleteTask(p.task_id, false);
-          break;
-        case "snooze":
-          tH.handleSnooze(p.task_id, false);
-          break;
-        case "add": {
-          const newTask: Task = {
-            id: p.task_id,
-            title: p.title || "无题任务",
-            notes: p.notes || undefined,
-            description: p.description || undefined,
-            category: p.category || "urgent-important",
-            dueDate: p.due_date || undefined,
-            dueTime: p.due_time || undefined,
-          };
-          tH.setTasks((prev: Task[]) => {
-            const updated = [newTask, ...prev.filter((t: Task) => t.id !== newTask.id)];
-            tH.saveTasks(updated);
-            return updated;
-          });
-          break;
-        }
-        case "favorite_sync":
-          tH.setTasks((prev: Task[]) => {
-            const updated = prev.map((t) => t.id === p.task_id ? { ...t, isFavorite: p.title === "true" } : t);
-            tH.saveTasks(updated);
-            return updated;
-          });
-          break;
-        case "pin_sync":
-          tH.setTasks((prev: Task[]) => {
-            const updated = prev.map((t) => t.id === p.task_id ? { ...t, isPinned: p.title === "true" } : t);
-            tH.saveTasks(updated);
-            return updated;
-          });
-          break;
-        case "update":
-          tH.setTasks((prev: Task[]) => {
-            const updated = prev.map((t) => {
-              if (t.id !== p.task_id) return t;
-              const next: Task = { ...t };
-              if (p.title != null && p.title !== "") next.title = p.title;
-              if (p.description != null) next.description = p.description || undefined;
-              if (p.category != null && p.category !== "") next.category = p.category as Task["category"];
-              if (p.notes != null) next.notes = p.notes || undefined;
-              if (p.due_date != null) next.dueDate = p.due_date || undefined;
-              if (p.due_time != null) next.dueTime = p.due_time || undefined;
-              return next;
-            });
-            tH.saveTasks(updated);
-            return updated;
-          });
-          break;
-        case "reset":
-          tH.setTasks(tH.INITIAL_TASKS);
-          tH.setCompletedTasks([]);
-          tH.saveTasks(tH.INITIAL_TASKS);
-          tH.saveCompleted([]);
-          break;
-        case "clear_completed":
-          tH.setCompletedTasks([]);
-          tH.saveCompleted([]);
-          break;
-        case "lock_widget":
-          wH.setIsWidgetLocked(true);
-          break;
-        case "unlock_widget":
-          wH.setIsWidgetLocked(false);
-          break;
-        case "toggle_lock_from_tray":
-          if (windowLabelRef.current === "main") wH.handleToggleWidgetLock();
-          break;
-        case "pomodoro_sync":
-          try {
-            const data = JSON.parse(p.title);
-            pH.setPomodoroIsActive(data.active);
-            pH.setPomodoroTimeLeft(data.timeLeft);
-            pH.setPomodoroIsBreak(data.isBreak);
-            pH.setFocusDuration(data.focusDuration);
-            pH.setBreakDuration(data.breakDuration);
-            pH.setPomodoroSessionCount(data.sessionCount);
-            pH.setPomodoroTaskId(data.taskId || null);
-            pH.setPomodoroTaskTitle(data.taskTitle || null);
-            pH.setPomodoroEndTime(data.endTime);
-          } catch (e) {}
-          break;
-        case "add_pomodoro_log":
-          try {
-            const log = JSON.parse(p.title);
-            pH.setPomodoroLogs((prev: any[]) => [log, ...prev.filter((l: any) => l.id !== log.id)]);
-          } catch (e) {}
-          break;
-        case "add_note":
-          try {
-            const note = JSON.parse(p.title);
-            nH.setStickyNotes((prev: any[]) => [note, ...prev.filter((n: any) => n.id !== note.id)]);
-          } catch (e) {}
-          break;
-        case "edit_note_text":
-          nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, text: p.title } : n));
-          break;
-        case "edit_note_title":
-          nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, title: p.title } : n));
-          break;
-        case "change_note_color":
-          nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, color: p.title } : n));
-          break;
-        case "delete_note":
-          nH.setStickyNotes((prev: any[]) => prev.filter((n) => n.id !== p.task_id));
-          break;
-        case "settings_sync":
-          try {
-            const config = JSON.parse(p.title);
-            cH.setCustomizationConfig(config);
-          } catch (e) {}
-          break;
-        case "restore_sync":
-          try {
-            const restored = JSON.parse(p.title);
-            const tasks = restored.tasks || [];
-            const completed = restored.completedTasks || [];
-            const notes = restored.stickyNotes || [];
-            tH.setTasks(tasks);
-            tH.saveTasks(tasks);
-            tH.setCompletedTasks(completed);
-            tH.saveCompleted(completed);
-            nH.setStickyNotes(notes);
-            setJournal(restored.journal || []);
-            localStorage.setItem("tongyun_journal", JSON.stringify(restored.journal || []));
-            cH.setCustomizationConfig(restored.customizationConfig || cH.DEFAULT_CUSTOMIZATION_CONFIG);
-          } catch (e) {}
-          break;
-      }
-    };
-
-    const unlistenPromise = listen("todo-sync-event", (event: any) => handleSyncPayload(event.payload)).catch(() => undefined);
-    const unsubDev = subscribeDevSync((event) => handleSyncPayload(event.payload));
-
-    return () => {
-      unlistenPromise.then((unlisten) => { if (typeof unlisten === "function") unlisten(); }).catch(() => {});
-      unsubDev();
-    };
-  }, []);
+  // ============ 跨窗口 event listener ============
+  useCrossWindowSync(handlersRef, windowLabelRef, setJournal);
 
   // ============ State Persistence (#2) ============
   // 之前有 6 个「状态一变就写 localStorage」的 effect，与 useTasks 内部持久化重叠，
@@ -435,265 +195,35 @@ function AppBody() {
   useDebouncedPersistence(pomodoroHook.pomodoroLogs, "aero_pomodoro_logs", 250, isHydrated);
   useDebouncedPersistence(countdownHook.countdowns, "tongyun_countdowns", 250, isHydrated);
 
-  // ============ Pomodoro Timer Effect (stable interval, ref-based state machine) ============
-  // 用 ref 转发"随时可能变"的字段。effect 依赖只保留 active + endTime，避免每次
-  // session/duration/taskId 变化都 clear+rebuild interval 引起秒表跳变或重复触发完成分支。
-  const pomodoroStateRef = useRef({
-    isBreak: pomodoroHook.pomodoroIsBreak,
-    focusDuration: pomodoroHook.focusDuration,
-    breakDuration: pomodoroHook.breakDuration,
-    sessionCount: pomodoroHook.pomodoroSessionCount,
-    taskId: pomodoroHook.pomodoroTaskId,
-    taskTitle: pomodoroHook.pomodoroTaskTitle,
+  // ============ Pomodoro Timer Effect ============
+  usePomodoroTimer({
+    pomodoroHook,
     locale,
     windowLabel,
-    syncPomodoro: pomodoroHook.syncPomodoro,
-    focusTime: t.notification.focusTime,
-    focusTimeBody: t.notification.focusTimeBody,
-    pomodoroTime: t.notification.pomodoroTime,
-    pomodoroTimeBody: t.notification.pomodoroTimeBody,
-    randomBreakEnabled: pomodoroHook.randomBreakEnabled,
-    isPlayingNoise: pomodoroHook.isPlayingNoise,
-    autoNoiseEnabled: pomodoroHook.autoNoiseEnabled,
-    selectedNoiseType: pomodoroHook.selectedNoiseType,
-    noiseVolume: pomodoroHook.noiseVolume,
+    t,
+    onCelebration: setCelebrationMessage,
   });
-  useEffect(() => {
-    pomodoroStateRef.current = {
-      isBreak: pomodoroHook.pomodoroIsBreak,
-      focusDuration: pomodoroHook.focusDuration,
-      breakDuration: pomodoroHook.breakDuration,
-      sessionCount: pomodoroHook.pomodoroSessionCount,
-      taskId: pomodoroHook.pomodoroTaskId,
-      taskTitle: pomodoroHook.pomodoroTaskTitle,
-      locale,
-      windowLabel,
-      syncPomodoro: pomodoroHook.syncPomodoro,
-      focusTime: t.notification.focusTime,
-      focusTimeBody: t.notification.focusTimeBody,
-      pomodoroTime: t.notification.pomodoroTime,
-      pomodoroTimeBody: t.notification.pomodoroTimeBody,
-      randomBreakEnabled: pomodoroHook.randomBreakEnabled,
-      isPlayingNoise: pomodoroHook.isPlayingNoise,
-      autoNoiseEnabled: pomodoroHook.autoNoiseEnabled,
-      selectedNoiseType: pomodoroHook.selectedNoiseType,
-      noiseVolume: pomodoroHook.noiseVolume,
-    };
-  });
-
-  const nextRandomBreakRef = useRef<number | null>(null);
-  const isOnRandomBreakRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    if (!pomodoroHook.pomodoroIsActive || !pomodoroHook.pomodoroEndTime) return;
-    const endTime = pomodoroHook.pomodoroEndTime;
-    let fired = false;
-
-    // Initialize first random break when focus session starts
-    if (pomodoroHook.randomBreakEnabled && !pomodoroHook.pomodoroIsBreak && nextRandomBreakRef.current === null) {
-      const minGap = 180;
-      const maxGap = 420;
-      const totalSec = pomodoroHook.focusDuration * 60;
-      nextRandomBreakRef.current = totalSec - (minGap + Math.random() * (maxGap - minGap));
-    }
-
-    const tick = () => {
-      const now = Date.now();
-      const diff = Math.max(0, Math.round((endTime - now) / 1000));
-      pomodoroHook.setPomodoroTimeLeft(diff);
-
-      const ps = pomodoroStateRef.current;
-
-      // Random micro-break check
-      if (
-        ps.randomBreakEnabled &&
-        !ps.isBreak &&
-        diff > 0 &&
-        nextRandomBreakRef.current !== null &&
-        diff <= nextRandomBreakRef.current &&
-        !isOnRandomBreakRef.current
-      ) {
-        isOnRandomBreakRef.current = true;
-        clearInterval(intervalId);
-        const sounds = ["beep", "cuckoo", "meow", "chime", "ding", "marimba"];
-        const randomSound = sounds[Math.floor(Math.random() * sounds.length)];
-        audioEngine.playCompletionSound(randomSound);
-        const wasPlayingNoise = ps.isPlayingNoise;
-        if (wasPlayingNoise) {
-          pomodoroHook.stopNoise();
-        }
-        const minGap = 180;
-        const maxGap = 420;
-        const nextGap = minGap + Math.random() * (maxGap - minGap);
-        nextRandomBreakRef.current = diff - nextGap;
-        if (nextRandomBreakRef.current < 30) {
-          nextRandomBreakRef.current = -1;
-        }
-        setTimeout(() => {
-          isOnRandomBreakRef.current = false;
-          const psNow = pomodoroStateRef.current;
-          if (wasPlayingNoise || psNow.autoNoiseEnabled) {
-            pomodoroHook.startNoise(psNow.selectedNoiseType, psNow.noiseVolume);
-          }
-          pomodoroHook.setPomodoroEndTime(endTime + 5000);
-        }, 5000);
-      }
-
-      if (diff <= 0 && !fired) {
-        fired = true;
-        clearInterval(intervalId);
-        nextRandomBreakRef.current = null;
-        isOnRandomBreakRef.current = false;
-
-        const s = pomodoroStateRef.current;
-        if (s.windowLabel !== "main") return;
-
-        pomodoroHook.playCompletionSound();
-        // Auto-noise only: stop when session ends (manual noise keeps playing)
-        if (pomodoroHook.autoNoiseEnabled) {
-          pomodoroHook.stopNoise();
-        }
-
-        if (s.isBreak) {
-          pomodoroHook.setPomodoroIsBreak(false);
-          pomodoroHook.setPomodoroIsActive(false);
-          pomodoroHook.setPomodoroEndTime(null);
-          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-            new Notification(s.focusTime, { body: s.focusTimeBody });
-          }
-          const nextTime = s.focusDuration * 60;
-          pomodoroHook.setPomodoroTimeLeft(nextTime);
-          setTimeout(() => {
-            s.syncPomodoro(false, nextTime, false, s.focusDuration, s.breakDuration, s.sessionCount, null, null);
-          }, 50);
-        } else {
-          pomodoroHook.setPomodoroIsBreak(true);
-          pomodoroHook.setPomodoroIsActive(false);
-          pomodoroHook.setPomodoroEndTime(null);
-          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-            new Notification(s.pomodoroTime, { body: s.pomodoroTimeBody });
-          }
-          const nextSession = s.sessionCount + 1;
-          pomodoroHook.setPomodoroSessionCount(nextSession);
-          const nextTime = s.breakDuration * 60;
-          pomodoroHook.setPomodoroTimeLeft(nextTime);
-
-          const newLog = {
-            id: createId("pomodoro-log"),
-            timestamp: Date.now(),
-            duration: s.focusDuration,
-            taskId: s.taskId || undefined,
-            taskTitle: s.taskTitle || undefined,
-          };
-          pomodoroHook.setPomodoroLogs((prev: any[]) => [newLog, ...prev]);
-
-          setCelebrationMessage(s.locale === "en" ? "Focus session done! Keep going 💪" : "专注一关完成！继续加油 💪");
-
-          pomodoroHook.setPomodoroTaskId(null);
-          pomodoroHook.setPomodoroTaskTitle(null);
-
-          setTimeout(() => {
-            s.syncPomodoro(false, nextTime, true, s.focusDuration, s.breakDuration, nextSession, null, null);
-          }, 50);
-        }
-      }
-    };
-
-    tick();
-    const intervalId = setInterval(tick, 1000);
-    return () => clearInterval(intervalId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pomodoroHook.pomodoroIsActive, pomodoroHook.pomodoroEndTime]);
 
   // Audio cleanup
   useEffect(() => {
     return () => { audioEngine.close(); };
   }, []);
 
-  // ============ 任务到期系统通知（智能规划 C 补全）============
-  // 每分钟扫描：今日到期、未完成的任务；
-  // 有 dueTime：到期前 N 分钟与到期时刻各提醒一次；
-  // 无 dueTime：当天默认 09:00 起 1 小时窗口内提醒一次（phase=day）。
-  // 仅 main 窗口触发；key 分 before/due/day 防止互相吞掉。
-  // 点击通知 → 聚焦主窗 + 打开任务详情。
-  const notifiedDueRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!isHydrated) return;
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-    if (windowLabelRef.current !== "main") return;
-
-    const openTaskFromNotification = (taskId: string) => {
+  // ============ 任务到期系统通知 ============
+  useDueNotifications({
+    isHydrated,
+    locale,
+    tasks: tasksHook.tasks,
+    completedTasks: tasksHook.completedTasks,
+    onOpenTask: (taskId) => {
       try {
         getCurrentWebviewWindow().setFocus().catch(() => {});
       } catch { /* browser / non-tauri */ }
       setActiveTab("home");
       setFlowMode(false);
       tasksHook.setDetailTaskId(taskId);
-    };
-
-    const check = () => {
-      const enabledRaw = localStorage.getItem("tongyun_due_remind_enabled");
-      if (enabledRaw === "0") return;
-      const beforeMinRaw = parseInt(localStorage.getItem("tongyun_due_remind_before_min") || "15", 10);
-      const beforeMin = [5, 15, 30, 60].includes(beforeMinRaw) ? beforeMinRaw : 15;
-      const REMIND_BEFORE = beforeMin * 60 * 1000;
-      const DATE_ONLY_HOUR = 9;
-
-      const now = new Date();
-      const todayStr = getLocalDateString(now);
-      const nowTs = now.getTime();
-      const isZh = locale === "zh-CN";
-      const completedIds = new Set(tasksHook.completedTasks.map((c) => c.id));
-      for (const task of tasksHook.tasks) {
-        if (task.dueDate !== todayStr) continue;
-        if (completedIds.has(task.id)) continue;
-
-        let phase: "before" | "due" | "day" | null = null;
-        let body = "";
-
-        if (task.dueTime) {
-          const [h, m] = task.dueTime.split(":").map(Number);
-          if (Number.isNaN(h) || Number.isNaN(m)) continue;
-          const dueTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0).getTime();
-          if (nowTs >= dueTs && nowTs <= dueTs + 60 * 60 * 1000) {
-            phase = "due";
-            body = isZh ? `已到截止时间 ${task.dueTime}` : `Due at ${task.dueTime}`;
-          } else if (nowTs >= dueTs - REMIND_BEFORE && nowTs < dueTs) {
-            phase = "before";
-            const mins = Math.max(1, Math.round((dueTs - nowTs) / 60000));
-            body = isZh
-              ? (mins <= 1 ? `即将在 ${task.dueTime} 截止` : `还有 ${mins} 分钟（${task.dueTime}）截止`)
-              : (mins <= 1 ? `Due at ${task.dueTime}` : `${mins} min left (due ${task.dueTime})`);
-          }
-        } else {
-          const dayTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), DATE_ONLY_HOUR, 0, 0, 0).getTime();
-          if (nowTs >= dayTs && nowTs <= dayTs + 60 * 60 * 1000) {
-            phase = "day";
-            body = isZh ? "今日到期（未设具体时间）" : "Due today (no specific time)";
-          }
-        }
-
-        if (!phase) continue;
-        const key = `${task.id}:${phase}`;
-        if (notifiedDueRef.current.has(key)) continue;
-        notifiedDueRef.current.add(key);
-        try {
-          const n = new Notification(isZh ? "⏰ 任务提醒" : "⏰ Task Reminder", {
-            body: `${task.title}\n${body}`,
-            tag: `tongyun-due-${task.id}-${phase}`,
-            data: { taskId: task.id },
-          });
-          n.onclick = () => {
-            openTaskFromNotification(task.id);
-            try { n.close(); } catch { /* ignore */ }
-          };
-        } catch { /* ignore */ }
-      }
-    };
-    check();
-    const timer = setInterval(check, 60 * 1000);
-    return () => clearInterval(timer);
-  }, [isHydrated, locale, tasksHook.tasks, tasksHook.completedTasks, tasksHook.setDetailTaskId]);
+    },
+  });
 
   // ============ AI Confirm Tasks ============
   const handleConfirmAiTasks = useCallback(() => {

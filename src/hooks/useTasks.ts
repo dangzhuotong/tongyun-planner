@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import type { Task, SubTask, RepeatType } from "../types";
+import type { Task, SubTask } from "../types";
 import { useSync } from "./useSync";
 import { createId } from "../utils/id";
 import { addLocalDays, addLocalMonths, getLocalDateString } from "../utils/date";
@@ -17,7 +17,7 @@ function createInitialTasks(): Task[] {
 
 const INITIAL_TASKS = createInitialTasks();
 
-function getNextDueDate(currentDue: string | undefined, repeat: RepeatType): string | undefined {
+function getNextDueDate(currentDue: string | undefined, repeat: string): string | undefined {
   if (!repeat || repeat === "none") return undefined;
   if (repeat === "daily") return addLocalDays(currentDue, 1);
   if (repeat === "weekly") return addLocalDays(currentDue, 7);
@@ -279,7 +279,7 @@ export function useTasks() {
     dueDate: string;
     dueTime?: string;
     isExplicit?: boolean;
-    repeat?: RepeatType;
+    repeat?: string;
     tags?: string[];
     priority?: Task["priority"];
   }) => {

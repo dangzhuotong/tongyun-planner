@@ -1,8 +1,6 @@
 export type {
   StorageProvider,
   StorageBackendType,
-  OSSConfig,
-  COSConfig,
   SupabaseStorageConfig,
 } from "./types";
 
@@ -19,6 +17,4 @@ export type { StorageStatus, StorageListener } from "./manager";
 
 export { LocalStorageProvider } from "./localProvider";
 export { WebDAVStorageProvider } from "./webdavProvider";
-export { OSSStorageProvider } from "./ossProvider";
-export { COSStorageProvider } from "./cosProvider";
 export { SupabaseStorageProvider } from "./supabaseProvider";

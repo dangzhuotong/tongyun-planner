@@ -1,4 +1,4 @@
-export type StorageBackendType = "local" | "webdav" | "supabase" | "oss" | "cos";
+export type StorageBackendType = "local" | "webdav" | "supabase";
 
 export interface StorageProvider {
   readonly type: StorageBackendType;
@@ -31,21 +31,6 @@ export interface StorageProvider {
   writeText(path: string, content: string): Promise<void>;
   /** Read text data. Returns null if not found. */
   readText(path: string): Promise<string | null>;
-}
-
-export interface OSSConfig {
-  region: string;
-  bucket: string;
-  accessKeyId: string;
-  accessKeySecret: string;
-  endpoint?: string;
-}
-
-export interface COSConfig {
-  region: string;
-  bucket: string;
-  secretId: string;
-  secretKey: string;
 }
 
 export interface SupabaseStorageConfig {

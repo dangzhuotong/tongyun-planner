@@ -665,6 +665,9 @@ const zhCN: Translations = {
     outsideStrip: "滑条外",
     addTodo: "每天日记加入待办",
     addTodoHint: "开启后，每一天的日记都会加入当日待办，出现在日历与待办列表",
+    addImage: "添加图片",
+    pasteImage: "粘贴图片到此处",
+    images: "图片",
   },
 };
 

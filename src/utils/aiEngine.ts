@@ -26,28 +26,37 @@ export async function callAI(
   systemPrompt: string,
   userPrompt: string
 ): Promise<string> {
+  const provider = config.aiProvider || "openai";
+
+  // OpenCode / Ollama 可不用 API Key
   const apiKey = config.aiApiKey;
-  if (!apiKey) {
+  const noKeyProviders = ["opencode", "ollama"];
+  if (!apiKey && !noKeyProviders.includes(provider)) {
     throw new Error("API_KEY_MISSING");
   }
 
-  const provider = config.aiProvider || "openai";
+  const temperature = config.aiTemperature ?? 0.3;
+  const maxTokens = config.aiMaxTokens ?? 1024;
 
   if (provider === "anthropic") {
     // Anthropic Claude 原生 API
     const endpoint = config.aiEndpoint || "https://api.anthropic.com/v1/messages";
     const model = config.aiModel || "claude-3-5-sonnet-20241022";
 
+    const anthropicHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      "anthropic-version": "2023-06-01",
+    };
+    if (apiKey) {
+      anthropicHeaders["x-api-key"] = apiKey;
+    }
+
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
+      headers: anthropicHeaders,
       body: JSON.stringify({
         model: model,
-        max_tokens: 1024,
+        max_tokens: maxTokens,
         system: systemPrompt,
         messages: [
           {
@@ -55,7 +64,7 @@ export async function callAI(
             content: userPrompt,
           },
         ],
-        temperature: 0.3,
+        temperature: temperature,
       }),
     });
 
@@ -67,17 +76,21 @@ export async function callAI(
     const data = await response.json();
     return data.content?.[0]?.text?.trim() || "";
   } else {
-    // OpenAI / DeepSeek / 兼容格式 API
+    // OpenAI / DeepSeek / OpenCode / 兼容格式 API
     const endpoint = config.aiEndpoint || "https://api.openai.com/v1";
     const model = config.aiModel || "gpt-4o";
     const url = endpoint.endsWith("/") ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`;
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
         model: model,
         messages: [
@@ -90,7 +103,8 @@ export async function callAI(
             content: userPrompt,
           },
         ],
-        temperature: 0.3,
+        temperature: temperature,
+        max_tokens: maxTokens,
       }),
     });
 
@@ -493,4 +507,27 @@ export async function generateReport(
   const userPrompt = `请为以下数据生成一份${dateRange}的效率报告（100字以内，Markdown格式）：\n完成待办: ${data.completedTasks}项\n番茄专注: ${data.pomodoroCount}次 (${data.pomodoroMinutes}分钟)\n任务分类: ${JSON.stringify(data.taskCategories)}`;
 
   return await callAI(config, systemPrompt, userPrompt);
+}
+
+/** 从兼容 OpenAI 的 API 端点获取可用模型列表 */
+export async function fetchAvailableModels(baseUrl: string, apiKey?: string): Promise<string[]> {
+  const url = baseUrl.endsWith("/") ? `${baseUrl}models` : `${baseUrl}/models`;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  }
+
+  const data = await res.json();
+  if (data.data && Array.isArray(data.data)) {
+    return data.data.map((m: any) => m.id).sort();
+  }
+  if (data.models && Array.isArray(data.models)) {
+    return data.models.map((m: any) => m.name || m.model || m.id).sort();
+  }
+  return [];
 }

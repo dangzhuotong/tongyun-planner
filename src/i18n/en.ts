@@ -665,6 +665,9 @@ const en: Translations = {
     outsideStrip: "Off strip",
     addTodo: "Add daily journals to todo",
     addTodoHint: "When on, every day's journal becomes a task for that day in calendar & lists",
+    addImage: "Add image",
+    pasteImage: "Paste image here",
+    images: "Images",
   },
 };
 
