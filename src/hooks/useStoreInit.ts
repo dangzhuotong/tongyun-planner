@@ -38,7 +38,7 @@ export function useStoreInit(
     let label = "main";
     try {
       label = getCurrentWebviewWindow().label;
-    } catch (e) {}
+    } catch (_) { /* non-Tauri environment */ }
     setWindowLabel(label);
     windowLabelRef.current = label;
     if (label !== "main") {

@@ -48,7 +48,7 @@ async function run() {
     const releaseId = release.id;
     console.log(`Gitee Release created successfully. Release ID: ${releaseId}`);
 
-    // 2. Upload assets/files
+    // 2. Upload assets/files with retry
     for (const file of files) {
       const filePath = path.resolve(file);
       if (!fs.existsSync(filePath)) {
@@ -56,27 +56,50 @@ async function run() {
         continue;
       }
 
-      console.log(`Uploading ${path.basename(filePath)} (${(fs.statSync(filePath).size / (1024 * 1024)).toFixed(2)} MB) to Gitee...`);
+      const fileName = path.basename(filePath);
+      const fileSize = (fs.statSync(filePath).size / (1024 * 1024)).toFixed(2);
+      console.log(`Uploading ${fileName} (${fileSize} MB) to Gitee...`);
+
       const fileBuffer = fs.readFileSync(filePath);
-      
-      const formData = new FormData();
-      formData.append('access_token', token);
-      
-      // Wrap file in a Blob to pass it to fetch via FormData
       const fileBlob = new Blob([fileBuffer], { type: 'application/octet-stream' });
-      formData.append('file', fileBlob, path.basename(filePath));
 
-      const uploadRes = await fetch(`https://gitee.com/api/v5/repos/${owner}/${repo}/releases/${releaseId}/attach_files`, {
-        method: 'POST',
-        body: formData
-      });
+      // Retry up to 2 times
+      let lastErr = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        if (attempt > 1) {
+          console.log(`Retry ${attempt}/3 for ${fileName}...`);
+          await new Promise(r => setTimeout(r, 2000));
+        }
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 60000);
 
-      if (!uploadRes.ok) {
-        const errText = await uploadRes.text();
-        console.error(`Failed to upload ${path.basename(filePath)} to Gitee: ${uploadRes.status} - ${errText}`);
-      } else {
-        const uploadResult = await uploadRes.json();
-        console.log(`Successfully uploaded ${path.basename(filePath)}. URL: ${uploadResult.download_url}`);
+          const formData = new FormData();
+          formData.append('file', fileBlob, fileName);
+
+          const uploadRes = await fetch(
+            `https://gitee.com/api/v5/repos/${owner}/${repo}/releases/${releaseId}/attach_files?access_token=${token}`,
+            { method: 'POST', body: formData, signal: controller.signal }
+          );
+          clearTimeout(timeout);
+
+          if (!uploadRes.ok) {
+            const errText = await uploadRes.text();
+            throw new Error(`HTTP ${uploadRes.status} - ${errText}`);
+          }
+
+          const uploadResult = await uploadRes.json();
+          console.log(`Successfully uploaded ${fileName}. URL: ${uploadResult.download_url}`);
+          lastErr = null;
+          break; // success
+        } catch (err) {
+          lastErr = err;
+          console.error(`Attempt ${attempt}/3 failed: ${err.message}`);
+        }
+      }
+
+      if (lastErr) {
+        console.error(`Failed to upload ${fileName} after 3 attempts: ${lastErr.message}`);
       }
     }
 

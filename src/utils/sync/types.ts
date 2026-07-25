@@ -131,39 +131,104 @@ export function isEffectivelyEmptyCategory(cat: SyncCategory, payload: unknown):
 }
 
 /**
+ * 判断 tasks 是否「全是启动示例任务」。
+ * 真实任务 id 由 createId 生成（UUID / 时间戳随机串），示例任务 id 为纯短数字。
+ * 开发机/换机启动会塞入示例任务，它不是空数组，需单独识别，避免盖掉远端真实数据。
+ */
+export function isSampleTasksOnly(payload: unknown): boolean {
+  if (!Array.isArray(payload) || payload.length === 0) return false;
+  return payload.every(
+    (t) => t && typeof t === "object" && /^\d{1,3}$/.test(String((t as Task).id ?? ""))
+  );
+}
+
+/**
  * 本地空、远端非空时禁止覆盖。
- * 仅保护 journal / config（开发时空本地最容易误盖这两类）；
- * 任务等仍允许用户主动清空后同步。
- * config：本地无 Key 而远端有 Key 时，合并保留远端 ai 字段后再允许推送。
+ * - config：本地无 aiApiKey 而远端有 → 合并保留远端 Key 后再推（始终生效，避免误清密钥）。
+ * - journal：始终保护（清空整本日记极少且高风险）。
+ * - 其余数组分类（tasks/completedTasks/stickyNotes/pomodoroLogs/countdowns）：
+ *   仅当「非用户主动改动」时保护。用户主动清空（isUserDirty）允许同步删除；
+ *   而启动期版本戳错乱导致的空/示例本地不得盖掉远端真实数据。
  */
 export function protectAgainstEmptyOverwrite(
   cat: SyncCategory,
   localPayload: unknown,
-  remotePayload: unknown
+  remotePayload: unknown,
+  isUserDirty = false
 ): { skip: boolean; mergedLocal?: unknown } {
-  if (cat !== "journal" && cat !== "config") {
+  if (cat === "config") {
+    if (!isEffectivelyEmptyCategory(cat, localPayload)) return { skip: false };
+    if (isEffectivelyEmptyCategory(cat, remotePayload)) return { skip: false };
+    if (localPayload && typeof localPayload === "object" && remotePayload && typeof remotePayload === "object") {
+      const local = localPayload as CustomizationConfig;
+      const remote = remotePayload as CustomizationConfig;
+      const merged: CustomizationConfig = {
+        ...remote,
+        ...local,
+        aiApiKey: local.aiApiKey?.trim() ? local.aiApiKey : remote.aiApiKey,
+        aiEndpoint: local.aiEndpoint || remote.aiEndpoint,
+        aiModel: local.aiModel || remote.aiModel,
+        aiProvider: local.aiProvider || remote.aiProvider,
+      };
+      return { skip: false, mergedLocal: merged };
+    }
+    return { skip: true };
+  }
+
+  // 用户主动改动的分类（含主动清空）尊重本地，允许同步删除
+  if (cat !== "journal" && isUserDirty) {
     return { skip: false };
   }
-  if (!isEffectivelyEmptyCategory(cat, localPayload)) {
+
+  // 本地「空」或「仅含启动示例任务」都视为无真实数据，不得盖远端
+  const localBlank =
+    isEffectivelyEmptyCategory(cat, localPayload) ||
+    (cat === "tasks" && isSampleTasksOnly(localPayload));
+  if (!localBlank) {
     return { skip: false };
   }
   if (isEffectivelyEmptyCategory(cat, remotePayload)) {
     return { skip: false }; // 两边都空，推不推都行
   }
-  if (cat === "config" && localPayload && typeof localPayload === "object" && remotePayload && typeof remotePayload === "object") {
-    const local = localPayload as CustomizationConfig;
-    const remote = remotePayload as CustomizationConfig;
-    const merged: CustomizationConfig = {
-      ...remote,
-      ...local,
-      aiApiKey: local.aiApiKey?.trim() ? local.aiApiKey : remote.aiApiKey,
-      aiEndpoint: local.aiEndpoint || remote.aiEndpoint,
-      aiModel: local.aiModel || remote.aiModel,
-      aiProvider: local.aiProvider || remote.aiProvider,
-    };
-    return { skip: false, mergedLocal: merged };
-  }
   return { skip: true };
+}
+
+/**
+ * 远程优先 + 本地补充 合并。
+ * 核心策略：远端有的条目直接覆盖本地同 id；
+ * 远端没有但本地有的条目保留（push 时自然会推上去）。
+ * config 特殊处理：按字段级合并，优先保留本地 aiApiKey。
+ */
+export function mergeRemoteIntoLocal(
+  cat: SyncCategory,
+  remotePayload: unknown,
+  localPayload: unknown
+): unknown {
+  if (cat === "config") {
+    const remote = remotePayload ? (remotePayload as Record<string, unknown>) : null;
+    const local = localPayload ? (localPayload as Record<string, unknown>) : null;
+    if (!remote) return local;
+    if (!local) return remote;
+    // config 按字段合并：远端为主，但本地 aiApiKey 优先
+    return { ...remote, ...local, aiApiKey: local.aiApiKey || remote.aiApiKey };
+  }
+
+  // 数组分类：按 id 合并
+  type HasId = { id: string };
+  const remoteArr = (remotePayload as HasId[]) || [];
+  const localArr = (localPayload as HasId[]) || [];
+
+  const merged = new Map<string, unknown>();
+  // 先放本地（保证本地独有的条目保留）
+  for (const item of localArr) {
+    if (item && item.id) merged.set(item.id, item);
+  }
+  // 远端覆盖同 id（远端优先）
+  for (const item of remoteArr) {
+    if (item && item.id) merged.set(item.id, item);
+  }
+
+  return Array.from(merged.values());
 }
 
 /** Apply a single category's payload into localStorage */

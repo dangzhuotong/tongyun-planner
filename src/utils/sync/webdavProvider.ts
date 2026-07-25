@@ -5,6 +5,7 @@ import {
   getLocalManifest,
   getCategoryPayload,
   applyCategoryPayload,
+  mergeRemoteIntoLocal,
   normalizeSyncData,
   getLocalSyncData,
   reconcileTasksAndCompleted,
@@ -195,7 +196,7 @@ export class WebDAVProvider implements SyncProvider {
           remotePayload = null;
         }
       }
-      const guard = protectAgainstEmptyOverwrite(cat, payload, remotePayload);
+      const guard = protectAgainstEmptyOverwrite(cat, payload, remotePayload, dirtyOnly?.has(cat) ?? false);
       if (guard.skip) {
         console.warn(`[sync] skip empty overwrite for ${cat}`);
         if (remotePayload != null) {
@@ -243,30 +244,27 @@ export class WebDAVProvider implements SyncProvider {
 
   private async pullMultiFile(remoteManifest: SyncManifest): Promise<SyncData | null> {
     if (!this.config) return null;
-    const localManifest = getLocalManifest();
-
-    // Download only categories where remote is newer
     const localData = getLocalSyncData();
     let anyUpdated = false;
 
     for (const cat of ALL_SYNC_CATEGORIES) {
       const remoteVer = remoteManifest[cat]?.version || 0;
-      const localVer = localManifest[cat]?.version || 0;
+      if (remoteVer === 0) continue; // 远端不存在该分类文件
 
-      if (remoteVer > localVer) {
-        const json = await tryDownload(this.config!, REMOTE_DIR + SYNC_CATEGORY_FILES[cat]);
-        if (json) {
-          const payload = JSON.parse(json);
-          applyCategoryPayload(cat, payload);
-          // Update local category version to match remote
-          localStorage.setItem("tongyun_cat_ver_" + cat, String(remoteVer));
-          anyUpdated = true;
-        }
-      }
+      const json = await tryDownload(this.config!, REMOTE_DIR + SYNC_CATEGORY_FILES[cat]);
+      if (!json) continue;
+
+      const remotePayload = JSON.parse(json);
+      const localPayload = getCategoryPayload(localData, cat);
+
+      // 远端为主 + 本地补充合并
+      const merged = mergeRemoteIntoLocal(cat, remotePayload, localPayload);
+      applyCategoryPayload(cat, merged);
+      localStorage.setItem("tongyun_cat_ver_" + cat, String(remoteVer));
+      anyUpdated = true;
     }
 
     if (anyUpdated) {
-      // 交叉去重后再读：防止只更新 tasks 或 completed 一侧时脏数据落盘
       reconcileTasksAndCompleted();
       return getLocalSyncData();
     }

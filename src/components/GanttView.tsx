@@ -73,7 +73,7 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
       try {
         e.dataTransfer.setData("text/plain", taskId);
         e.dataTransfer.setData("text", taskId);
-      } catch {}
+      } catch { /* dataTransfer not supported */ }
       e.dataTransfer.effectAllowed = "move";
     };
 

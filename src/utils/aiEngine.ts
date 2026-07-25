@@ -138,7 +138,7 @@ export async function classifyCategory(
   try {
     const result = await callAI(config, systemPrompt, userPrompt);
     // 清洗结果：转小写，去除引号、括号、多余标点
-    const cleaned = result.trim().toLowerCase().replace(/[`'"'\[\]\.\#\*]/g, "");
+    const cleaned = result.trim().toLowerCase().replace(/[`'"'[\]\.#*]/g, "");
 
     // 映射中文分类到英文标识符
     const chineseMapping: Record<string, Task["category"]> = {

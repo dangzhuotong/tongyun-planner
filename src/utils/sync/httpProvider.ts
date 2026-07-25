@@ -4,6 +4,7 @@ import {
   getLocalManifest,
   getCategoryPayload,
   applyCategoryPayload,
+  mergeRemoteIntoLocal,
   getLocalSyncData,
   reconcileTasksAndCompleted,
   protectAgainstEmptyOverwrite,
@@ -144,7 +145,7 @@ export class HttpSyncProvider implements SyncProvider {
       const remote = await this.fetchCategory(cat);
       const baseVersion = remote?.version ?? 0;
       let payload = getCategoryPayload(data, cat);
-      const guard = protectAgainstEmptyOverwrite(cat, payload, remote?.data);
+      const guard = protectAgainstEmptyOverwrite(cat, payload, remote?.data, dirtyOnly?.has(cat) ?? false);
       if (guard.skip) {
         console.warn(`[sync] skip empty overwrite for ${cat}`);
         if (remote?.data != null) {
@@ -190,17 +191,19 @@ export class HttpSyncProvider implements SyncProvider {
     const remoteManifest = await this.getRemoteManifest();
     if (!remoteManifest) return getLocalSyncData();
 
-    const localManifest = getLocalManifest();
+    const localData = getLocalSyncData();
     let anyUpdated = false;
 
     for (const cat of ALL_SYNC_CATEGORIES) {
       const remoteVer = remoteManifest[cat]?.version || 0;
-      const localVer = localManifest[cat]?.version || 0;
-      if (remoteVer <= localVer) continue;
+      if (remoteVer === 0) continue; // 远端不存在该分类
 
       const doc = await this.fetchCategory(cat);
-      if (!doc) continue;
-      applyCategoryPayload(cat, doc.data);
+      if (!doc || doc.data == null) continue;
+
+      const localPayload = getCategoryPayload(localData, cat);
+      const merged = mergeRemoteIntoLocal(cat, doc.data, localPayload);
+      applyCategoryPayload(cat, merged);
       localStorage.setItem("tongyun_cat_ver_" + cat, String(doc.version));
       anyUpdated = true;
     }

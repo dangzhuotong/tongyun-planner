@@ -35,7 +35,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
   const [reportContent, setReportContent] = useState<string | null>(() => {
     const cached = localStorage.getItem("tongyun_analytics_report");
     if (cached) {
-      try { const parsed = JSON.parse(cached); if (parsed.date === getLocalDateString()) return parsed.content; } catch {}
+      try { const parsed = JSON.parse(cached); if (parsed.date === getLocalDateString()) return parsed.content; } catch { /* ignore */ }
     }
     return null;
   });

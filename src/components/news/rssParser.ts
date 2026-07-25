@@ -7,7 +7,7 @@ export function parseRSSXML(xmlText: string): Article[] {
   try {
     const doc = parser.parseFromString(xmlText, "text/xml");
 
-    let items = doc.querySelectorAll("item");
+    const items = doc.querySelectorAll("item");
     if (items && items.length > 0) {
       return Array.from(items).slice(0, 20).map((item) => {
         const title = item.querySelector("title")?.textContent || "无题";

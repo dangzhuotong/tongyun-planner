@@ -1,38 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "../i18n/LanguageContext";
-import { Sparkles, History, Circle, CheckCircle2, ListTodo, CloudSun, CalendarDays, Clock, PenLine, TrendingUp, RefreshCw, BookOpen, Timer } from "lucide-react";
+import { Sparkles, History, Circle, CheckCircle2, ListTodo, CloudSun, CalendarDays, Clock, TrendingUp, RefreshCw, BookOpen, Timer } from "lucide-react";
 import type { Task, CustomizationConfig, PomodoroLog } from "../types";
 import { getLocalDateString, filterHomeActionableTasks, getHomeTaskKind } from "../utils/date";
-import { generateProse, generateDailySuggestion } from "../utils/aiEngine";
-import { safeJsonParse } from "../utils/json";
+import { generateDailySuggestion } from "../utils/aiEngine";
+import { readDailyCache, writeDailyCache } from "../utils/dailyCache";
 import { usePersonal } from "../context/PersonalContext";
 import { computeDailyReview } from "../utils/dailyReview";
-
-// ============ 每日缓存工具 ============
-// 用 localStorage 做当天缓存，进 Dashboard 只在\"今天还没生成过\"时才调 AI。
-// 跨天自动过期。
-interface DailyCache<T> {
-  date: string;    // YYYY-MM-DD
-  locale?: string; // 语言切换要重新生成
-  data: T;
-}
-function readDailyCache<T>(key: string, today: string, locale: string): T | null {
-  const raw = localStorage.getItem(key);
-  if (!raw) return null;
-  const parsed = safeJsonParse<DailyCache<T> | null>(raw, null);
-  if (!parsed) return null;
-  if (parsed.date !== today) return null;
-  if (parsed.locale && parsed.locale !== locale) return null;
-  return parsed.data;
-}
-function writeDailyCache<T>(key: string, today: string, locale: string, data: T) {
-  const payload: DailyCache<T> = { date: today, locale, data };
-  try {
-    localStorage.setItem(key, JSON.stringify(payload));
-  } catch {
-    // 忽略配额错误
-  }
-}
 
 interface DashboardViewProps {
   tasks: Task[];
@@ -263,49 +237,6 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.aiApiKey, today, localeKey]);
 
-  // Prose —— 当日缓存；进页只读缓存，不自动打 AI；按钮手动生成/重生成
-  const PROSE_CACHE_KEY = "tongyun_ai_daily_prose";
-  const [prose, setProse] = useState<string | null>(() =>
-    readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey)
-  );
-  const [proseLoading, setProseLoading] = useState(false);
-  const [proseError, setProseError] = useState(false);
-
-  const handleGenerateProse = async () => {
-    if (!config.aiApiKey) {
-      setProseError(true);
-      return;
-    }
-    setProseLoading(true);
-    setProseError(false);
-    try {
-      const contextHints = tasks
-        .filter((t) => t.dueDate === today)
-        .map((t) => t.title)
-        .filter(Boolean)
-        .slice(0, 3);
-      const result = await generateProse(config, localeKey, {
-        avoidSnippet: prose || undefined,
-        contextHints,
-      });
-      if (result) {
-        setProse(result);
-        writeDailyCache(PROSE_CACHE_KEY, today, localeKey, result);
-      } else {
-        setProseError(true);
-      }
-    } catch {
-      setProseError(true);
-    }
-    setProseLoading(false);
-  };
-
-  // 跨天/切语言时刷新缓存展示（不发请求）
-  useEffect(() => {
-    setProse(readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey));
-    setProseError(false);
-  }, [today, localeKey]);
-
   // Format local date elegantly
   const localDateStr = new Date().toLocaleDateString(
     config.locale === "en" ? "en-US" : "zh-CN",
@@ -513,85 +444,6 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
           )}
         </div>
       )}
-
-      {/* AI Prose */}
-      <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-4.5 shadow-2xs hover:shadow-xs card-hover-lift ">
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-[9px] font-black text-[#8B6E3C] tracking-widest uppercase flex items-center gap-1.5">
-            <PenLine className="w-3.5 h-3.5" /> {t.prose?.title || "AI 散文"}
-          </span>
-          <button
-            onClick={() => handleGenerateProse()}
-            disabled={proseLoading}
-            className={`text-[9px] font-black flex items-center gap-1 px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
-              proseLoading
-                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                : "bg-[#4D7C5D]/10 text-[#4D7C5D] hover:bg-[#4D7C5D]/20 hover:scale-105"
-            }`}
-          >
-            <Sparkles className={`w-3 h-3 ${proseLoading ? "animate-spin" : ""}`} />
-            {proseLoading
-              ? (t.prose?.generating || "生成中...")
-              : prose
-                ? (t.prose?.regenerate || "换一篇")
-                : (t.prose?.generate || "生成散文")}
-          </button>
-        </div>
-        <div className="min-h-[60px]">
-          {proseLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <div className="w-5 h-5 border-2 border-[#4D7C5D]/30 border-t-[#4D7C5D] rounded-full animate-spin" />
-            </div>
-          ) : proseError ? (
-            <p className="text-[10px] text-red-400 font-bold text-center py-4">{t.prose?.error || "生成失败，请检查 AI 配置"}</p>
-          ) : prose ? (
-            (() => {
-              const titleMatch = prose.match(/^(.+?)\n\n([\s\S]*)$/);
-              const proseTitle = titleMatch?.[1]?.trim() ?? null;
-              const proseBody = titleMatch?.[2] ?? prose;
-              return (
-                <>
-                  {proseTitle && (
-                    <h4 className="text-sm font-bold text-slate-800 mb-3 tracking-wide leading-snug">
-                      {proseTitle}
-                    </h4>
-                  )}
-                  <div className="prose-body space-y-3">
-                    {proseBody.split(/\n{2,}/).map((paragraph, idx, arr) => {
-                      const trimmed = paragraph.replace(/\n/g, "").trim();
-                      if (!trimmed) return null;
-                      const isFirst = idx === 0 && !proseTitle;
-                      return (
-                        <div key={`prose-${idx}`} className="relative">
-                          {arr.length > 1 && idx > 0 && (
-                            <div className="flex items-center gap-2 my-2.5 opacity-30">
-                              <span className="h-px flex-grow bg-[#DEEAE2]" />
-                              <span className="text-[#B8D4C1] text-[6px]">✦</span>
-                              <span className="h-px flex-grow bg-[#DEEAE2]" />
-                            </div>
-                          )}
-                          <p className="text-[11px] text-slate-700 leading-[1.9] tracking-wide font-medium">
-                            {isFirst && (
-                              <span className="float-left text-[2.6em] leading-[0.85] font-bold text-[#4D7C5D] mr-2 mt-0.5 font-serif">
-                                {trimmed.charAt(0)}
-                              </span>
-                            )}
-                            {isFirst ? trimmed.slice(1) : trimmed}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              );
-            })()
-          ) : (
-            <p className="text-[10px] text-slate-400 font-bold text-center py-4">
-              {t.prose?.empty || "点击上方按钮，让 AI 为你写一篇散文 ✨"}
-            </p>
-          )}
-        </div>
-      </div>
 
       {/* Today's Tasks — 含今日 / 逾期 / 未设日期 */}
       <div className="rounded-3xl bg-white/90 border border-[#EFEBE4] shadow-2xs overflow-hidden">

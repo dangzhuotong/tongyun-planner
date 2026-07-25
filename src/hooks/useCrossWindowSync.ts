@@ -119,19 +119,19 @@ export function useCrossWindowSync(
             pH.setPomodoroTaskId(data.taskId || null);
             pH.setPomodoroTaskTitle(data.taskTitle || null);
             pH.setPomodoroEndTime(data.endTime);
-          } catch (e) {}
+          } catch (_) { /* invalid pomodoro sync payload */ }
           break;
         case "add_pomodoro_log":
           try {
             const log = JSON.parse(p.title);
             pH.setPomodoroLogs((prev: any[]) => [log, ...prev.filter((l: any) => l.id !== log.id)]);
-          } catch (e) {}
+          } catch (_) { /* invalid pomodoro log sync payload */ }
           break;
         case "add_note":
           try {
             const note = JSON.parse(p.title);
             nH.setStickyNotes((prev: any[]) => [note, ...prev.filter((n: any) => n.id !== note.id)]);
-          } catch (e) {}
+          } catch (_) { /* invalid note sync payload */ }
           break;
         case "edit_note_text":
           nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, text: p.title } : n));
@@ -149,7 +149,7 @@ export function useCrossWindowSync(
           try {
             const config = JSON.parse(p.title);
             cH.setCustomizationConfig(config);
-          } catch (e) {}
+          } catch (_) { /* invalid settings sync payload */ }
           break;
         case "restore_sync":
           try {
@@ -165,7 +165,7 @@ export function useCrossWindowSync(
             setJournal(restored.journal || []);
             localStorage.setItem("tongyun_journal", JSON.stringify(restored.journal || []));
             cH.setCustomizationConfig(restored.customizationConfig || cH.DEFAULT_CUSTOMIZATION_CONFIG);
-          } catch (e) {}
+          } catch (_) { /* invalid restore sync payload */ }
           break;
       }
     };

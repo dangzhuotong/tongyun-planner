@@ -112,7 +112,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(({
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {tags.map((tag, i) => (
-                <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-md bg-[#F0F5F1] border border-[#DEEAE2] text-[#4D7C5D] font-bold flex items-center gap-1">
+                <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-md bg-[#F0F5F1] border border-[#DEEAE2] text-[#4D7C5D] font-bold flex items-center gap-1">
                   {tag}
                   <button type="button" onClick={() => {
                     const next = tags.filter((_, j) => j !== i);

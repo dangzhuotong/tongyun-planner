@@ -53,7 +53,7 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
                       setAiPraiseList(updated);
                       localStorage.setItem("tongyun_ai_praise", JSON.stringify(updated));
                     }
-                  } catch {}
+                  } catch { /* ignore praise generation error */ }
                   setGeneratingPraise(false);
                 }}
                 disabled={generatingPraise}

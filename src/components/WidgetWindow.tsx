@@ -146,7 +146,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
       try {
         const raw = localStorage.getItem("aero_customization_config");
         if (raw) mode = JSON.parse(raw).darkMode || "light";
-      } catch {}
+      } catch { /* ignore parse error */ }
     }
     mode = mode || "light";
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");

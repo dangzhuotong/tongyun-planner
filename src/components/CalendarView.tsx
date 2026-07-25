@@ -61,7 +61,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(({
         setHolidayData(safeJsonParse(cached, {}));
         return;
       }
-    } catch {}
+    } catch { /* ignore cache error */ }
     fetch(`https://timor.tech/api/holiday/year/${calendarYear}`)
       .then((r) => r.json())
       .then((data: any) => {

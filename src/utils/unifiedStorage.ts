@@ -88,7 +88,7 @@ class UnifiedStorage {
                 'INSERT OR IGNORE INTO storage (key, value) VALUES ($1, $2)',
                 [key, local]
               );
-            } catch { }
+            } catch { /* ignore DB insert error */ }
           }
         }
       }
@@ -103,26 +103,27 @@ class UnifiedStorage {
     if (this.overridden) return;
     this.overridden = true;
 
-    const self = this;
     const _getItem = this.origGetItem!;
     const _setItem = this.origSetItem!;
     const _removeItem = this.origRemoveItem!;
+    const _dirtyKeys = this.dirtyKeys;
+    const _scheduleFlush = this.scheduleFlush.bind(this);
 
-    localStorage.getItem = function (key: string): string | null {
+    localStorage.getItem = ((key: string): string | null => {
       return _getItem(key);
-    } as typeof localStorage.getItem;
+    }) as typeof localStorage.getItem;
 
-    localStorage.setItem = function (key: string, value: string): void {
+    localStorage.setItem = ((key: string, value: string): void => {
       _setItem(key, value);
-      self.dirtyKeys.add(key);
-      self.scheduleFlush();
-    } as typeof localStorage.setItem;
+      _dirtyKeys.add(key);
+      _scheduleFlush();
+    }) as typeof localStorage.setItem;
 
-    localStorage.removeItem = function (key: string): void {
+    localStorage.removeItem = ((key: string): void => {
       _removeItem(key);
-      self.dirtyKeys.add(key);
-      self.scheduleFlush();
-    } as typeof localStorage.removeItem;
+      _dirtyKeys.add(key);
+      _scheduleFlush();
+    }) as typeof localStorage.removeItem;
   }
 
   private scheduleFlush(): void {

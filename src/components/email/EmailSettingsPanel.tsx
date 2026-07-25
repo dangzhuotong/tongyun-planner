@@ -54,7 +54,7 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
   const [emailConfig, setEmailConfig] = useState<EmailConfig>(() => {
     const saved = localStorage.getItem("tongyun_email_config");
     if (saved) {
-      try { return JSON.parse(saved); } catch {}
+      try { return JSON.parse(saved); } catch { /* ignore invalid JSON */ }
     }
     return {
       smtpProvider: "qq" as const,

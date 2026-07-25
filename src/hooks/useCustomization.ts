@@ -54,12 +54,9 @@ export function useCustomization() {
       const start = customizationConfig.sunsetStartHour ?? 18;
       const end = customizationConfig.sunsetEndHour ?? 6;
 
-      let isSunset = false;
-      if (start > end) {
-        isSunset = currentHour >= start || currentHour < end;
-      } else {
-        isSunset = currentHour >= start && currentHour < end;
-      }
+      const isSunset = start > end
+        ? currentHour >= start || currentHour < end
+        : currentHour >= start && currentHour < end;
 
       if (isSunset) {
         document.documentElement.classList.add("theme-sunset");

@@ -199,7 +199,7 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
 
                       <div className="flex items-center gap-0.5">
                         <button
-                          onClick={(e) => { e.stopPropagation(); onPinNoteToDesktop && onPinNoteToDesktop(note.id); }}
+                          onClick={(e) => { e.stopPropagation(); if (onPinNoteToDesktop) onPinNoteToDesktop(note.id); }}
                           className="p-1 rounded-md hover:bg-black/8 text-[#8a7350] hover:text-[#4D7C5D] transition-all cursor-pointer"
                           title={t.floatingNote.expand}
                         >
@@ -277,7 +277,7 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => { onPinNoteToDesktop && onPinNoteToDesktop(expandedNote.id); }}
+                    onClick={() => { if (onPinNoteToDesktop) onPinNoteToDesktop(expandedNote.id); }}
                     className={`p-1.5 rounded-lg hover:bg-black/8 ${theme.text} opacity-50 hover:opacity-100 transition-all cursor-pointer`}
                     title={t.floatingNote.expand}
                   >

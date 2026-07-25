@@ -339,7 +339,7 @@ const NLPDateInput: React.FC<{ onParse: (date?: string, time?: string) => void }
             {/* Tags */}
             <div className="flex flex-wrap items-center gap-1.5">
               {tags.map((tag, i) => (
-                <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-md bg-[#F0F5F1] dark:bg-[#232924] border border-[#DEEAE2] dark:border-[#38433B] text-[#4D7C5D] dark:text-[#6FAD84] font-bold flex items-center gap-1">
+                <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-md bg-[#F0F5F1] dark:bg-[#232924] border border-[#DEEAE2] dark:border-[#38433B] text-[#4D7C5D] dark:text-[#6FAD84] font-bold flex items-center gap-1">
                   {tag}
                   <button type="button" onClick={() => setTags(tags.filter((_, j) => j !== i))} className="cursor-pointer hover:text-red-500">×</button>
                 </span>

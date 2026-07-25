@@ -15,7 +15,7 @@ function formatDate(year: number, month: number, day: number): string {
 }
 
 function parseTime(text: string): string | null {
-  const m = text.match(/(\d{1,2})[：:点\.](\d{1,2})[分]?/);
+  const m = text.match(/(\d{1,2})[：:点.](\d{1,2})[分]?/);
   if (m) {
     const h = parseInt(m[1]), min = parseInt(m[2]);
     if (h >= 0 && h <= 23 && min >= 0 && min <= 59) return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;

@@ -20,7 +20,7 @@ export function usePomodoroTimer({
   onCelebration,
 }: UsePomodoroTimerOptions) {
   const windowLabelRef = useRef(windowLabel);
-  windowLabelRef.current = windowLabel;
+  useEffect(() => { windowLabelRef.current = windowLabel; }, [windowLabel]);
 
   const pomodoroStateRef = useRef({
     isBreak: pomodoroHook.pomodoroIsBreak,

@@ -171,11 +171,9 @@ export class SyncEngine {
   /** Multi-file incremental sync for WebDAV */
   private async syncWebDAV(): Promise<void> {
     await this.webdavProvider.pull();
-    const freshData = getLocalSyncData();
     if (this.dirtyCategories.size > 0) {
+      const freshData = getLocalSyncData();
       await this.webdavProvider.push(freshData, this.dirtyCategories);
-    } else {
-      await this.webdavProvider.push(freshData);
     }
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
@@ -185,11 +183,9 @@ export class SyncEngine {
   /** Category incremental sync against self-hosted TongYun Sync Server */
   private async syncHttp(): Promise<void> {
     await this.httpProvider.pull();
-    const freshData = getLocalSyncData();
     if (this.dirtyCategories.size > 0) {
+      const freshData = getLocalSyncData();
       await this.httpProvider.push(freshData, this.dirtyCategories);
-    } else {
-      await this.httpProvider.push(freshData);
     }
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
