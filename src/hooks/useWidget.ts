@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { useSync } from "./useSync";
@@ -29,10 +29,10 @@ export function useWidget() {
     syncState("widget_lock", nextState ? "lock_widget" : "unlock_widget");
   }, [syncState]);
 
-  return {
+  return useMemo(() => ({
     isWidgetLocked,
     setIsWidgetLocked,
     handleToggleWidget,
     handleToggleWidgetLock,
-  };
+  }), [isWidgetLocked, handleToggleWidget, handleToggleWidgetLock]);
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import type { CustomizationConfig } from "../types";
 import { extractTasksFromNote, classifyCategory } from "../utils/aiEngine";
 import type { ExtractedTask } from "../utils/aiEngine";
@@ -61,7 +61,7 @@ export function useAI(customizationConfig: CustomizationConfig) {
     }
   }, [aiInputMessage]);
 
-  return {
+  return useMemo(() => ({
     searchQuery,
     setSearchQuery,
     categoryFilter,
@@ -79,5 +79,5 @@ export function useAI(customizationConfig: CustomizationConfig) {
     setShowAiInbox,
     handleAiBatchInput,
     aiAutoCategorize,
-  };
+  }), [searchQuery, categoryFilter, tagFilter, aiInputText, aiInputLoading, aiInputMessage, aiPreviewTasks, showAiInbox, handleAiBatchInput, aiAutoCategorize]);
 }

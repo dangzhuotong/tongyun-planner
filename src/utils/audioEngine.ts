@@ -75,6 +75,22 @@ export class AudioEngine {
       clearInterval((this as any)._crackleInterval);
       (this as any)._crackleInterval = null;
     }
+    if ((this as any)._bellInterval) {
+      clearInterval((this as any)._bellInterval);
+      (this as any)._bellInterval = null;
+    }
+    if ((this as any)._pendulumInterval) {
+      clearInterval((this as any)._pendulumInterval);
+      (this as any)._pendulumInterval = null;
+    }
+    if ((this as any)._ringInterval) {
+      clearInterval((this as any)._ringInterval);
+      (this as any)._ringInterval = null;
+    }
+    if ((this as any)._thunderInterval) {
+      clearInterval((this as any)._thunderInterval);
+      (this as any)._thunderInterval = null;
+    }
     if (this.source) {
       try {
         this.source.stop();
@@ -261,6 +277,190 @@ export class AudioEngine {
         this.source.connect(windLp);
         windLp.connect(this.gain);
         this.lfo = windLfo;
+      } else if (type === "bell") {
+        // Deep temple bell - silent background with periodic strikes
+        this.source.buffer = this.getBrownBuffer(ctx);
+        const bellLp = ctx.createBiquadFilter();
+        bellLp.type = "lowpass";
+        bellLp.frequency.setValueAtTime(100, ctx.currentTime);
+        this.source.connect(bellLp);
+        const bellBgGain = ctx.createGain();
+        bellBgGain.gain.setValueAtTime(0.04, ctx.currentTime);
+        bellLp.connect(bellBgGain);
+        bellBgGain.connect(this.gain);
+
+        const strikeBell = () => {
+          if (!this.ctx || !this.gain) return;
+          const bCtx = this.ctx;
+          const now = bCtx.currentTime;
+          // Fundamental + 3 harmonics
+          const harmonics = [1, 2.01, 3.02, 4.05];
+          harmonics.forEach((ratio, i) => {
+            const osc = bCtx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(90 * ratio, now);
+            const oGain = bCtx.createGain();
+            const vol = i === 0 ? 0.15 : 0.06 / i;
+            oGain.gain.setValueAtTime(vol, now);
+            oGain.gain.exponentialRampToValueAtTime(0.001, now + 2.5 + i * 0.8);
+            osc.connect(oGain);
+            oGain.connect(this.gain!);
+            osc.start(now);
+            osc.stop(now + 2.5 + i * 0.8);
+          });
+        };
+        strikeBell();
+        (this as any)._bellInterval = setInterval(strikeBell, 12000 + Math.random() * 8000);
+      } else if (type === "pendulum") {
+        // Pendulum clock - very quiet brown noise + regular tick-tock
+        this.source.buffer = this.getBrownBuffer(ctx);
+        const pendLp = ctx.createBiquadFilter();
+        pendLp.type = "lowpass";
+        pendLp.frequency.setValueAtTime(80, ctx.currentTime);
+        this.source.connect(pendLp);
+        const pendBgGain = ctx.createGain();
+        pendBgGain.gain.setValueAtTime(0.02, ctx.currentTime);
+        pendLp.connect(pendBgGain);
+        pendBgGain.connect(this.gain);
+
+        let tickHigh = true;
+        (this as any)._pendulumInterval = setInterval(() => {
+          if (!this.ctx || !this.gain) return;
+          const pCtx = this.ctx;
+          const now = pCtx.currentTime;
+          const osc = pCtx.createOscillator();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(tickHigh ? 900 : 700, now);
+          const pGain = pCtx.createGain();
+          pGain.gain.setValueAtTime(0.12, now);
+          pGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+          const pFilter = pCtx.createBiquadFilter();
+          pFilter.type = "bandpass";
+          pFilter.frequency.setValueAtTime(tickHigh ? 900 : 700, now);
+          pFilter.Q.setValueAtTime(3, now);
+          osc.connect(pFilter);
+          pFilter.connect(pGain);
+          pGain.connect(this.gain!);
+          osc.start(now);
+          osc.stop(now + 0.04);
+          tickHigh = !tickHigh;
+        }, 1000);
+      } else if (type === "ring") {
+        // Bright bell ring - periodic ringing
+        this.source.buffer = this.getPinkBuffer(ctx);
+        const ringBp = ctx.createBiquadFilter();
+        ringBp.type = "bandpass";
+        ringBp.frequency.setValueAtTime(1200, ctx.currentTime);
+        ringBp.Q.setValueAtTime(2, ctx.currentTime);
+        this.source.connect(ringBp);
+        const ringBgGain = ctx.createGain();
+        ringBgGain.gain.setValueAtTime(0.025, ctx.currentTime);
+        ringBp.connect(ringBgGain);
+        ringBgGain.connect(this.gain);
+
+        const doRing = () => {
+          if (!this.ctx || !this.gain) return;
+          const rCtx = this.ctx;
+          const now = rCtx.currentTime;
+          [1, 2.5, 4.2].forEach((ratio, i) => {
+            const osc = rCtx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(520 * ratio, now + i * 0.12);
+            const rGain = rCtx.createGain();
+            rGain.gain.setValueAtTime(0.08 / (i + 1), now + i * 0.12);
+            rGain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.6);
+            const rFilter = rCtx.createBiquadFilter();
+            rFilter.type = "bandpass";
+            rFilter.frequency.setValueAtTime(520 * ratio, now + i * 0.12);
+            rFilter.Q.setValueAtTime(4, now);
+            osc.connect(rFilter);
+            rFilter.connect(rGain);
+            rGain.connect(this.gain!);
+            osc.start(now + i * 0.12);
+            osc.stop(now + i * 0.12 + 0.6);
+          });
+        };
+        doRing();
+        (this as any)._ringInterval = setInterval(doRing, 5000);
+      } else if (type === "fan") {
+        // Steady fan / AC hum — pink noise with narrow band + soft volume LFO
+        this.source.buffer = this.getPinkBuffer(ctx);
+
+        const fanBp = ctx.createBiquadFilter();
+        fanBp.type = "bandpass";
+        fanBp.frequency.setValueAtTime(280, ctx.currentTime);
+        fanBp.Q.setValueAtTime(0.8, ctx.currentTime);
+
+        const fanLp = ctx.createBiquadFilter();
+        fanLp.type = "lowpass";
+        fanLp.frequency.setValueAtTime(900, ctx.currentTime);
+
+        const fanMod = ctx.createGain();
+        fanMod.gain.setValueAtTime(0.75, ctx.currentTime);
+
+        this.lfo = ctx.createOscillator();
+        this.lfo.type = "sine";
+        this.lfo.frequency.setValueAtTime(0.12, ctx.currentTime);
+        const fanLfoGain = ctx.createGain();
+        fanLfoGain.gain.setValueAtTime(0.12, ctx.currentTime);
+        this.lfo.connect(fanLfoGain);
+        fanLfoGain.connect(fanMod.gain);
+        this.lfo.start();
+
+        this.source.connect(fanBp);
+        fanBp.connect(fanLp);
+        fanLp.connect(fanMod);
+        fanMod.connect(this.gain);
+      } else if (type === "thunder") {
+        // Gentle rain base + occasional distant thunder rumbles
+        this.source.buffer = this.getPinkBuffer(ctx);
+
+        const rainHp = ctx.createBiquadFilter();
+        rainHp.type = "highpass";
+        rainHp.frequency.setValueAtTime(700, ctx.currentTime);
+
+        const rainBp = ctx.createBiquadFilter();
+        rainBp.type = "bandpass";
+        rainBp.frequency.setValueAtTime(1300, ctx.currentTime);
+        rainBp.Q.setValueAtTime(0.6, ctx.currentTime);
+
+        const rainGain = ctx.createGain();
+        rainGain.gain.setValueAtTime(0.55, ctx.currentTime);
+
+        this.source.connect(rainHp);
+        rainHp.connect(rainBp);
+        rainBp.connect(rainGain);
+        rainGain.connect(this.gain);
+
+        const rumble = () => {
+          if (!this.ctx || !this.gain) return;
+          const tCtx = this.ctx;
+          const now = tCtx.currentTime;
+          const rumbleSrc = tCtx.createBufferSource();
+          rumbleSrc.buffer = this.getBrownBuffer(tCtx);
+          rumbleSrc.loop = false;
+
+          const rumbleLp = tCtx.createBiquadFilter();
+          rumbleLp.type = "lowpass";
+          rumbleLp.frequency.setValueAtTime(120, now);
+          rumbleLp.frequency.exponentialRampToValueAtTime(60, now + 2.5);
+
+          const rumbleGain = tCtx.createGain();
+          const peak = 0.35 + Math.random() * 0.25;
+          rumbleGain.gain.setValueAtTime(0.001, now);
+          rumbleGain.gain.linearRampToValueAtTime(peak, now + 0.15);
+          rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 2.8);
+
+          rumbleSrc.connect(rumbleLp);
+          rumbleLp.connect(rumbleGain);
+          rumbleGain.connect(this.gain!);
+          rumbleSrc.start(now);
+          rumbleSrc.stop(now + 3);
+        };
+
+        (this as any)._thunderInterval = setInterval(() => {
+          if (Math.random() > 0.35) rumble();
+        }, 8000 + Math.random() * 12000);
       }
       
       this.source.start();
@@ -296,6 +496,13 @@ export class AudioEngine {
       }
 
       this.fadeTimeoutId = setTimeout(() => {
+        // Clear periodic sound intervals (bell/pendulum/ring/thunder)
+        if ((this as any)._crackleInterval) { clearInterval((this as any)._crackleInterval); (this as any)._crackleInterval = null; }
+        if ((this as any)._bellInterval) { clearInterval((this as any)._bellInterval); (this as any)._bellInterval = null; }
+        if ((this as any)._pendulumInterval) { clearInterval((this as any)._pendulumInterval); (this as any)._pendulumInterval = null; }
+        if ((this as any)._ringInterval) { clearInterval((this as any)._ringInterval); (this as any)._ringInterval = null; }
+        if ((this as any)._thunderInterval) { clearInterval((this as any)._thunderInterval); (this as any)._thunderInterval = null; }
+
         try {
           sourceNode?.stop();
         } catch (e) {
@@ -379,7 +586,114 @@ export class AudioEngine {
 
         osc.start(now);
         osc.stop(now + 0.42);
+      } else if (soundType === "chime") {
+        // Gentle ascending wind chime (C5, E5, G5, C6)
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + i * 0.12);
+          g.gain.setValueAtTime(0.3, now + i * 0.12);
+          g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.6);
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.start(now + i * 0.12);
+          osc.stop(now + i * 0.12 + 0.7);
+        });
+      } else if (soundType === "ding") {
+        // Two-tone ascending doorbell
+        const osc1 = ctx.createOscillator();
+        const g1 = ctx.createGain();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(660, now);
+        g1.gain.setValueAtTime(0.4, now);
+        g1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc1.connect(g1);
+        g1.connect(ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.35);
+
+        const osc2 = ctx.createOscillator();
+        const g2 = ctx.createGain();
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(880, now + 0.2);
+        g2.gain.setValueAtTime(0.35, now + 0.2);
+        g2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+        osc2.connect(g2);
+        g2.connect(ctx.destination);
+        osc2.start(now + 0.2);
+        osc2.stop(now + 0.6);
+      } else if (soundType === "phone") {
+        // Classic telephone ring pattern (two rings)
+        for (let r = 0; r < 2; r++) {
+          const offset = r * 0.5;
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(440, now + offset);
+          osc.frequency.setValueAtTime(480, now + offset + 0.15);
+          g.gain.setValueAtTime(0.3, now + offset);
+          g.gain.setValueAtTime(0.3, now + offset + 0.15);
+          g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.3);
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.35);
+        }
+      } else if (soundType === "marimba") {
+        // Cheerful descending wooden marimba-like (C6, G5, E5, C5)
+        [1046.50, 783.99, 659.25, 523.25].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(freq, now + i * 0.08);
+          g.gain.setValueAtTime(0.35, now + i * 0.08);
+          g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.25);
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.start(now + i * 0.08);
+          osc.stop(now + i * 0.08 + 0.3);
+        });
+      } else if (soundType === "bells") {
+        // Cascade of bell-like tones with harmonics
+        [[523.25, 0], [659.25, 0.15], [783.99, 0.3], [1046.50, 0.45]].forEach(([freq, t]) => {
+          const tNum = t as number;
+          const fNum = freq as number;
+          [1, 2.5, 4.2].forEach((ratio) => {
+            const osc = ctx.createOscillator();
+            const g = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(fNum * ratio, now + tNum);
+            g.gain.setValueAtTime(0.06 / ratio, now + tNum);
+            g.gain.exponentialRampToValueAtTime(0.001, now + tNum + 0.5);
+            const bp = ctx.createBiquadFilter();
+            bp.type = "bandpass";
+            bp.frequency.setValueAtTime(fNum * ratio, now + tNum);
+            bp.Q.setValueAtTime(5, now);
+            osc.connect(bp);
+            bp.connect(g);
+            g.connect(ctx.destination);
+            osc.start(now + tNum);
+            osc.stop(now + tNum + 0.6);
+          });
+        });
+      } else if (soundType === "alarm") {
+        // Urgent repeating alarm (fast beeps)
+        for (let i = 0; i < 6; i++) {
+          const offset = i * 0.12;
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = "square";
+          osc.frequency.setValueAtTime(880, now + offset);
+          g.gain.setValueAtTime(0.2, now + offset);
+          g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.07);
+          osc.connect(g);
+          g.connect(ctx.destination);
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.08);
+        }
       } else {
+        // Default: short electronic beep
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = "sine";

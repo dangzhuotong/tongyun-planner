@@ -1,0 +1,12 @@
+# TongYun Sync Server local secrets (never commit)
+sync-server/.env
+sync-server/.venv/
+sync-server/**/__pycache__/
+sync-server/**/*.pyc
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+!sync-server/.env.example

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { StickyNote } from "../types";
 import { useSync } from "./useSync";
 import { createId } from "../utils/id";
@@ -6,11 +6,6 @@ import { createId } from "../utils/id";
 export function useStickyNotes() {
   const { syncState } = useSync();
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>([]);
-
-  const saveStickyNotes = useCallback((updatedNotes: StickyNote[]) => {
-    setStickyNotes(updatedNotes);
-    localStorage.setItem("aero_sticky_notes", JSON.stringify(updatedNotes));
-  }, []);
 
   const handleAddNote = useCallback(() => {
     const newNote = {
@@ -31,6 +26,11 @@ export function useStickyNotes() {
     syncState(id, "edit_note_text", text);
   }, [syncState]);
 
+  const handleEditNoteTitle = useCallback((id: string, title: string) => {
+    setStickyNotes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)));
+    syncState(id, "edit_note_title", title);
+  }, [syncState]);
+
   const handleChangeNoteColor = useCallback((id: string, color: string) => {
     setStickyNotes((prev) => prev.map((n) => (n.id === id ? { ...n, color } : n)));
     syncState(id, "change_note_color", color);
@@ -41,13 +41,13 @@ export function useStickyNotes() {
     syncState(id, "delete_note");
   }, [syncState]);
 
-  return {
+  return useMemo(() => ({
     stickyNotes,
     setStickyNotes,
-    saveStickyNotes,
     handleAddNote,
     handleEditNoteText,
+    handleEditNoteTitle,
     handleChangeNoteColor,
     handleDeleteNote,
-  };
+  }), [stickyNotes, handleAddNote, handleEditNoteText, handleEditNoteTitle, handleChangeNoteColor, handleDeleteNote]);
 }

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "../i18n/LanguageContext";
-import { Sparkles, History, Circle, CheckCircle2, ListTodo, CloudSun, CalendarDays, Award, Clock, PenLine, TrendingUp, RefreshCw } from "lucide-react";
-import type { Task, CustomizationConfig } from "../types";
-import { getLocalDateString } from "../utils/date";
+import { Sparkles, History, Circle, CheckCircle2, ListTodo, CloudSun, CalendarDays, Clock, PenLine, TrendingUp, RefreshCw, BookOpen, Timer } from "lucide-react";
+import type { Task, CustomizationConfig, PomodoroLog } from "../types";
+import { getLocalDateString, filterHomeActionableTasks, getHomeTaskKind } from "../utils/date";
 import { generateProse, generateDailySuggestion } from "../utils/aiEngine";
 import { safeJsonParse } from "../utils/json";
-
+import { usePersonal } from "../context/PersonalContext";
+import { computeDailyReview } from "../utils/dailyReview";
 
 // ============ 每日缓存工具 ============
 // 用 localStorage 做当天缓存，进 Dashboard 只在\"今天还没生成过\"时才调 AI。
@@ -36,24 +37,41 @@ function writeDailyCache<T>(key: string, today: string, locale: string, data: T)
 interface DashboardViewProps {
   tasks: Task[];
   completedTasks: Task[];
+  pomodoroLogs: PomodoroLog[];
   handleComplete: (id: string) => void;
   onTaskClick: (task: Task) => void;
+  onOpenJournal?: () => void;
   config: CustomizationConfig;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
   tasks,
   completedTasks,
+  pomodoroLogs,
   handleComplete,
   onTaskClick,
+  onOpenJournal,
   config,
 }) => {
   const { t } = useTranslation();
   const d = t.dashboard;
+  const { journal } = usePersonal();
 
   const [nickname] = useState(() => localStorage.getItem("tongyun_nickname") || "");
   const today = getLocalDateString();
   const localeKey = config.locale || "zh-CN";
+
+  const review = useMemo(
+    () =>
+      computeDailyReview({
+        date: today,
+        tasks,
+        completedTasks,
+        pomodoroLogs,
+        journal,
+      }),
+    [today, tasks, completedTasks, pomodoroLogs, journal]
+  );
 
   const hour = new Date().getHours();
   let greetKey: string;
@@ -80,9 +98,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 
   const greeting = `${d[greetKey]}${nickname ? `, ${nickname}` : ""}!`;
 
-  const todayTasks = useMemo(() => tasks.filter((t) => t.dueDate === today), [tasks, today]);
-  const totalCount = tasks.length + completedTasks.length;
-  const progressPct = totalCount === 0 ? 0 : Math.round((completedTasks.length / totalCount) * 100);
+  const todayTasks = useMemo(() => filterHomeActionableTasks(tasks, today), [tasks, today]);
 
   // Weather
   const [weather, setWeather] = useState<{
@@ -197,6 +213,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     readDailyCache<string>(SUGGESTION_CACHE_KEY, today, localeKey)
   );
   const [suggestionLoading, setSuggestionLoading] = useState(false);
+  const [suggestionError, setSuggestionError] = useState(false);
 
   const generateSuggestion = async (force: boolean = false) => {
     if (!config.aiApiKey) return;
@@ -204,19 +221,31 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
       const cached = readDailyCache<string>(SUGGESTION_CACHE_KEY, today, localeKey);
       if (cached) {
         setDailySuggestion(cached);
+        setSuggestionError(false);
         return;
       }
     }
     setSuggestionLoading(true);
+    setSuggestionError(false);
     try {
       const todayTasksBrief = tasks
         .filter((t) => t.dueDate === today)
         .map((t) => ({ title: t.title, category: t.category, dueTime: t.dueTime, description: t.description }));
-      const result = await generateDailySuggestion(config, todayTasksBrief, localeKey);
+      const dayStart = new Date(today + "T00:00:00").getTime();
+      const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+      const todayPomos = pomodoroLogs.filter((l) => l.timestamp >= dayStart && l.timestamp < dayEnd);
+      const pomodoroMinutes = Math.round(todayPomos.reduce((s, l) => s + (l.duration || 0), 0) / 60);
+      const result = await generateDailySuggestion(config, todayTasksBrief, localeKey, {
+        pomodoroCount: todayPomos.length,
+        pomodoroMinutes,
+        unfinishedCount: todayTasksBrief.length,
+      });
       if (result) {
         setDailySuggestion(result);
         writeDailyCache(SUGGESTION_CACHE_KEY, today, localeKey, result);
       }
+    } catch {
+      setSuggestionError(true);
     } finally {
       setSuggestionLoading(false);
     }
@@ -287,17 +316,6 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     }
   );
 
-  // Year progress
-  const nowYear = new Date().getFullYear();
-  const yearStart = new Date(nowYear, 0, 1);
-  const yearEnd = new Date(nowYear + 1, 0, 1);
-  const yearPct = Math.round(((Date.now() - yearStart.getTime()) / (yearEnd.getTime() - yearStart.getTime())) * 100);
-
-  // SVG circular progress parameters
-  const radius = 16;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (progressPct / 100) * circumference;
-
   return (
     <div className="animate-fade-in-up flex flex-col gap-5 flex-grow z-10 relative select-none max-w-3xl mx-auto w-full pt-2">
       
@@ -340,122 +358,42 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         ) : null}
       </div>
 
-      {/* 独立精致的 4 个统计小卡片 */}
-      <div className="grid grid-cols-4 gap-4">
-        {/* 卡片 1: 待办任务 */}
-        <div className="stat-card-todo rounded-2xl border border-[#EFEBE4] p-3.5 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.sidebar.remaining}</span>
-            <div className="text-xl font-black text-slate-800 animate-count-up">{tasks.length}</div>
-          </div>
-          <div className="w-9 h-9 rounded-xl bg-white border border-[#EFEBE4] flex items-center justify-center shadow-3xs">
-            <ListTodo className="w-4.5 h-4.5 text-[#5B99B0]" />
-          </div>
+      {/* 今日回顾：任务 × 日记 × 番茄 */}
+      <button
+        type="button"
+        onClick={() => onOpenJournal?.()}
+        className="w-full text-left rounded-2xl bg-white/90 border border-[#EFEBE4] p-4 shadow-2xs hover:shadow-xs card-hover-lift cursor-pointer transition-all"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[9px] font-black text-[#4D7C5D] tracking-widest uppercase flex items-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5" /> {d.reviewTitle || "今日回顾"}
+          </span>
+          <span className="text-[9px] font-bold text-[#8B6E3C] opacity-80">
+            {d.reviewOpenJournal || "去写日记"} →
+          </span>
         </div>
-
-        {/* 卡片 2: 已完成任务 */}
-        <div className="stat-card-done rounded-2xl border border-[#EFEBE4] p-3.5 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.sidebar.completed}</span>
-            <div className="text-xl font-black text-slate-800 animate-count-up">{completedTasks.length}</div>
-          </div>
-          <div className="w-9 h-9 rounded-xl bg-white border border-[#EFEBE4] flex items-center justify-center shadow-3xs">
-            <Award className="w-4.5 h-4.5 text-[#4D7C5D]" />
-          </div>
-        </div>
-
-        {/* 卡片 3: 今日进度率 */}
-        <div className="stat-card-rate rounded-2xl border border-[#EFEBE4] p-3.5 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t.sidebar.progress}</span>
-            <div className="text-xl font-black text-slate-800 animate-count-up">{progressPct}%</div>
-          </div>
-          
-          {/* Circular Progress Ring */}
-          <div className="relative w-9 h-9 flex items-center justify-center">
-            <svg className="progress-ring w-9 h-9">
-              {/* Background circle */}
-              <circle
-                className="text-slate-100"
-                strokeWidth="3.5"
-                stroke="currentColor"
-                fill="transparent"
-                r={radius}
-                cx="18"
-                cy="18"
-              />
-              {/* Progress circle */}
-              <circle
-                className="progress-ring-circle text-[#E8A0BF]"
-                strokeWidth="3.5"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="transparent"
-                r={radius}
-                cx="18"
-                cy="18"
-              />
-            </svg>
-          </div>
-        </div>
-
-        {/* 卡片 4: 年度进度 */}
-        <div className="rounded-2xl border border-[#EFEBE4] p-3.5 shadow-2xs hover:shadow-xs hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between bg-white/40">
-          <div className="space-y-0.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{nowYear}</span>
-            <div className="text-xl font-black text-slate-800 animate-count-up">{yearPct}%</div>
-          </div>
-          <div className="relative w-9 h-9 flex items-center justify-center">
-            <svg className="w-9 h-9" viewBox="0 0 36 36">
-              <circle className="text-slate-100" strokeWidth="3.5" stroke="currentColor" fill="transparent" r={radius} cx="18" cy="18" />
-              <circle
-                className="text-[#B2C8DF]"
-                strokeWidth="3.5"
-                strokeDasharray={circumference}
-                strokeDashoffset={circumference - (yearPct / 100) * circumference}
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="transparent"
-                r={radius}
-                cx="18"
-                cy="18"
-                transform="rotate(-90 18 18)"
-              />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      {/* 本周回顾 */}
-      {(() => {
-        const now = new Date();
-        const weekAgo = new Date(now);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        const weekCompleted = completedTasks.filter((t) => {
-          if (!t.dueDate) return false;
-          const d = new Date(t.dueDate);
-          return d >= weekAgo && d <= now;
-        });
-        const weekCompletedCount = weekCompleted.length;
-        const todayCount = completedTasks.filter((t) => t.dueDate === today).length;
-        if (weekCompletedCount === 0) return null;
-        return (
-          <div className="rounded-2xl bg-gradient-to-r from-[#FAF5ED] to-[#FFF9F5] border border-[#EFE5D3] p-3.5 flex items-center gap-3 shadow-2xs">
-            <TrendingUp className="w-5 h-5 text-[#8B6E3C]" />
-            <div className="flex-grow">
-              <span className="text-[10px] font-bold text-[#8B6E3C] tracking-wide">
-                本周回顾
-              </span>
-              <p className="text-[11px] text-slate-600 font-medium mt-0.5">
-                本周已完成 {weekCompletedCount} 项任务{todayCount > 0 ? `，今天已完成 ${todayCount} 项` : ""}
-              </p>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { icon: <CheckCircle2 className="w-3.5 h-3.5" />, label: d.reviewDone || "完成", value: String(review.completedCount), tone: "text-[#4D7C5D] bg-[#F0F5F1]" },
+            { icon: <ListTodo className="w-3.5 h-3.5" />, label: d.reviewOpen || "待办", value: String(review.openDueCount), tone: "text-[#8B6E3C] bg-[#FAF8F5]" },
+            { icon: <Timer className="w-3.5 h-3.5" />, label: d.reviewFocus || "专注", value: `${review.focusMinutes}${d.reviewMinutes || "分"}`, tone: "text-[#A64424] bg-[#FBECE5]" },
+          ].map((cell) => (
+            <div key={cell.label} className={`rounded-xl px-2.5 py-2.5 ${cell.tone}`}>
+              <div className="flex items-center gap-1 opacity-70 mb-1">{cell.icon}<span className="text-[9px] font-bold">{cell.label}</span></div>
+              <div className="text-sm font-black tracking-tight">{cell.value}</div>
             </div>
-            <span className="text-lg">📊</span>
-          </div>
-        );
-      })()}
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-500 font-medium">
+          <BookOpen className="w-3.5 h-3.5 text-[#4D7C5D] flex-shrink-0" />
+          <span className="truncate">
+            {d.reviewJournal || "日记"}：
+            {review.hasJournal
+              ? (review.journalPreview || (d.reviewJournalDone || "已记录"))
+              : (d.reviewJournalEmpty || "还没写")}
+          </span>
+        </div>
+      </button>
 
       {/* Quote + History in 2-column on wide screens */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -482,7 +420,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
               <Sparkles className="w-3 h-3 text-[#4D7C5D]" /> Daily Inspiration
             </span>
             <button onClick={() => fetchHitokoto(true)} className="text-[9px] font-black text-[#4D7C5D] hover:underline cursor-pointer">
-              换一句
+              {d.quoteRefresh || "换一句"}
             </button>
           </div>
         </div>
@@ -536,12 +474,12 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 
 
       {/* AI 每日建议 —— 当日缓存，进入即用；右上角提供手动重新生成 */}
-      {config.aiApiKey && (dailySuggestion || suggestionLoading) && (
+      {config.aiApiKey && (dailySuggestion || suggestionLoading || suggestionError) && (
         <div className="rounded-2xl bg-gradient-to-r from-[#F0F5F1] to-[#EBF3F6] border border-[#DEEAE2] p-4.5 shadow-2xs">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[#4D7C5D]" />
-              <span className="text-[9px] font-black text-[#4D7C5D] tracking-widest uppercase">AI 今日建议</span>
+              <span className="text-[9px] font-black text-[#4D7C5D] tracking-widest uppercase">{d.aiSuggestionTitle || "AI 今日建议"}</span>
             </div>
             <button
               onClick={() => generateSuggestion(true)}
@@ -551,17 +489,25 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                   ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                   : "bg-white/60 text-[#4D7C5D] hover:bg-white hover:scale-105 border border-[#DEEAE2]"
               }`}
-              title="重新生成今日建议"
+              title={d.aiSuggestionRegenTitle || "重新生成今日建议"}
             >
               <RefreshCw className={`w-2.5 h-2.5 ${suggestionLoading ? "animate-spin" : ""}`} />
-              换一条
+              {d.aiSuggestionRefresh || "换一条"}
             </button>
           </div>
           {suggestionLoading ? (
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 border-2 border-[#4D7C5D]/30 border-t-[#4D7C5D] rounded-full animate-spin" />
-              <span className="text-[10px] text-slate-400 font-medium">为你思考今日计划...</span>
+              <span className="text-[10px] text-slate-400 font-medium">{d.aiSuggestionThinking || "为你思考今日计划..."}</span>
             </div>
+          ) : suggestionError && !dailySuggestion ? (
+            <button
+              type="button"
+              onClick={() => generateSuggestion(true)}
+              className="text-[11px] text-[#A34E36] font-medium hover:underline cursor-pointer"
+            >
+              {d.aiSuggestionRetry || "生成失败，点击重试"}
+            </button>
           ) : (
             <p className="text-[11px] text-slate-700 leading-relaxed font-medium">{dailySuggestion}</p>
           )}
@@ -647,7 +593,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         </div>
       </div>
 
-      {/* Today's Tasks */}
+      {/* Today's Tasks — 含今日 / 逾期 / 未设日期 */}
       <div className="rounded-3xl bg-white/90 border border-[#EFEBE4] shadow-2xs overflow-hidden">
         <div className="px-5 py-3.5 border-b border-[#EFEBE4]/60 flex items-center justify-between">
           <h3 className="text-xs font-black text-[#8B6E3C] tracking-wider flex items-center gap-1.5 uppercase">
@@ -662,10 +608,9 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
           {todayTasks.length > 0 ? (
             <div className="space-y-1.5">
               {todayTasks.map((task) => {
-                // Determine priority bar color from category
+                const kind = getHomeTaskKind(task, today);
                 const priorityBarClass = `task-bar-${task.category || "urgent-important"}`;
                 
-                // Get quad number label
                 let quadLabel = "I";
                 let quadColor = "text-[#E8A0BF] bg-[#FCF2F0] border-[#F5DFDB]";
                 if (task.category === "important-not-urgent") {
@@ -678,6 +623,13 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                   quadLabel = "IV";
                   quadColor = "text-[#A08B30] bg-[#FBF8EC] border-[#EDE5C8]";
                 }
+
+                const dueBadge =
+                  kind === "overdue"
+                    ? { text: d.overdue || "已逾期", cls: "text-[#A34E36] bg-[#FCF2F0] border-[#F5DFDB]" }
+                    : kind === "undated"
+                      ? { text: d.noDueDate || "未设日期", cls: "text-slate-400 bg-[#FAF8F5] border-[#EFEBE4]" }
+                      : { text: d.dueToday, cls: "text-slate-400 bg-[#FAF8F5] border-[#EFEBE4]" };
 
                 return (
                   <div
@@ -697,7 +649,6 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                       <CheckCircle2 className="w-4 h-4 hidden group-hover:block text-[#4D7C5D]" />
                     </button>
                     
-                    {/* Priority badge indicator */}
                     <span className={`text-[8px] font-black border px-1.5 py-0.5 rounded-md ${quadColor} shrink-0`}>
                       {quadLabel}
                     </span>
@@ -709,8 +660,8 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
                       )}
                     </div>
 
-                    <span className="text-[8.5px] text-slate-400 font-black bg-[#FAF8F5] border border-[#EFEBE4]/60 px-2 py-0.5 rounded-lg shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {d.dueToday}
+                    <span className={`text-[8.5px] font-black border px-2 py-0.5 rounded-lg shrink-0 ${dueBadge.cls} ${kind === "overdue" ? "" : "opacity-0 group-hover:opacity-100 transition-opacity"}`}>
+                      {dueBadge.text}
                     </span>
                   </div>
                 );

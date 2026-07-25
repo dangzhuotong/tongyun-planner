@@ -25,6 +25,7 @@ import type { AppTab, AlertSoundType } from "../types";
 import { audioEngine } from "../utils/audioEngine";
 import { useTranslation } from "../i18n/LanguageContext";
 import { usePomodoroContext } from "../context/PomodoroContext";
+import { NOISE_DEFINITIONS, getVisibleNoises } from "../constants";
 import logo from "../assets/logo.png";
 
 interface SidebarProps {
@@ -35,7 +36,6 @@ interface SidebarProps {
   tasksCount: number;
   stickyNotesCount: number;
   countdownCount: number;
-  habitsCount: number;
   syncStatus: "synced" | "syncing" | "error";
   lastBackupTime: number | null;
 
@@ -49,8 +49,8 @@ interface SidebarProps {
 
 // Map old tab values to new grouped structure for active detection
 const TASKS_GROUP: AppTab[] = ["matrix", "list", "calendar"];
-const FOCUS_GROUP: AppTab[] = ["analytics", "habits"];
-const ARCHIVE_GROUP: AppTab[] = ["completed", "countdown"];
+const FOCUS_GROUP: AppTab[] = ["analytics"];
+const ARCHIVE_GROUP: AppTab[] = ["completed", "countdown", "memory"];
 
 
 export const Sidebar: React.FC<SidebarProps> = React.memo(({
@@ -61,7 +61,6 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
   tasksCount,
   stickyNotesCount,
   countdownCount,
-  habitsCount,
   syncStatus,
   lastBackupTime,
   handleToggleWidget,
@@ -83,24 +82,36 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
     setBreakDuration,
     alertSoundType,
     setAlertSoundType,
+    randomBreakEnabled,
+    setRandomBreakEnabled,
+    autoNoiseEnabled,
+    setAutoNoiseEnabled,
     syncPomodoro,
     pomodoroTaskId,
     pomodoroTaskTitle,
     setPomodoroTaskId,
     setPomodoroTaskTitle,
     isPlayingNoise,
-    setIsPlayingNoise,
     selectedNoiseType,
     setSelectedNoiseType,
     noiseVolume,
     setNoiseVolume,
     startNoise,
     stopNoise,
+    applyAutoNoise,
   } = usePomodoroContext();
   const { t } = useTranslation();
   const s = t.sidebar;
   const [hasWebdavUrl] = useState(() => !!localStorage.getItem("tongyun_webdav_url"));
   const [editingMinutes, setEditingMinutes] = useState<string | null>(null);
+
+  // Sidebar 随番茄钟每秒重渲染，噪音可见列表只读一次 localStorage，避免每秒 JSON.parse
+  const [visibleNoiseDefs] = useState(() => {
+    const visibleIds = getVisibleNoises();
+    return NOISE_DEFINITIONS
+      .filter((def) => visibleIds.includes(def.id))
+      .map((def) => ({ id: def.id, labelKey: def.labelKey, titleKey: def.titleKey }));
+  });
 
   // Sidebar collapse state
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -288,7 +299,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
             )}
           </div>
 
-          {/* 3. Focus (expandable: Analytics / Habits) */}
+          {/* 3. Focus (expandable: Analytics) */}
           <div>
             <GroupHeader
               icon={<Timer className="w-4 h-4" />}
@@ -308,7 +319,6 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
             {!isCollapsed && focusExpanded && (
               <div className="mt-0.5 space-y-0.5">
                 <SubNavButton tab="analytics" label={s.analytics || "统计"} />
-                <SubNavButton tab="habits" label={s.habits || "习惯"} count={habitsCount} />
               </div>
             )}
           </div>
@@ -343,6 +353,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
             {!isCollapsed && archiveExpanded && (
               <div className="mt-0.5 space-y-0.5">
                 <SubNavButton tab="completed" label={s.history || "已完成"} count={completedTasksCount} />
+                <SubNavButton tab="memory" label={s.memory || "时光长廊"} />
                 <SubNavButton tab="countdown" label={s.countdown || "倒计时"} count={countdownCount} />
               </div>
             )}
@@ -372,6 +383,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
                 const nextActive = !pomodoroIsActive;
                 setPomodoroIsActive(nextActive);
                 syncPomodoro(nextActive, pomodoroTimeLeft, pomodoroIsBreak, focusDuration, breakDuration, pomodoroSessionCount);
+                applyAutoNoise(nextActive, pomodoroIsBreak);
               }}
               className={`w-9 h-9 rounded-xl border border-[#EFEBE4] bg-white/60 flex items-center justify-center text-[#4D7C5D] hover:bg-white transition-all cursor-pointer relative ${
                 pomodoroIsActive ? "pomodoro-active-glow ring-2 ring-[#4D7C5D]/20" : ""
@@ -484,6 +496,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
                   const nextActive = !pomodoroIsActive;
                   setPomodoroIsActive(nextActive);
                   syncPomodoro(nextActive, pomodoroTimeLeft, pomodoroIsBreak, focusDuration, breakDuration, pomodoroSessionCount);
+                  applyAutoNoise(nextActive, pomodoroIsBreak);
                 }}
                 className="p-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
                 title={pomodoroIsActive ? s.pause : s.startFocus}
@@ -506,6 +519,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
                   setPomodoroTaskId(null);
                   setPomodoroTaskTitle(null);
                   syncPomodoro(false, nextTime, pomodoroIsBreak, focusDuration, breakDuration, pomodoroSessionCount, null, null);
+                  applyAutoNoise(false, pomodoroIsBreak);
                 }}
                 className="p-1 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                 title={s.resetTimer}
@@ -531,6 +545,59 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
             />
           </div>
 
+          {/* Random Micro-Break Toggle */}
+          <div className="flex items-center justify-between pt-1.5 text-[9px] text-slate-400 font-medium">
+            <span className="flex items-center gap-1.5">
+              <Timer className="w-3 h-3 text-slate-400" />
+              <span>{s.randomBreak}</span>
+            </span>
+            <button
+              onClick={() => {
+                const next = !randomBreakEnabled;
+                setRandomBreakEnabled(next);
+                localStorage.setItem("tongyun_random_break", String(next));
+              }}
+              className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer ${
+                randomBreakEnabled ? "bg-[#4D7C5D]" : "bg-slate-200"
+              }`}
+              title={s.randomBreakDesc}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-transform ${
+                  randomBreakEnabled ? "translate-x-3.5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Auto Noise on Focus */}
+          <div className="flex items-center justify-between text-[9px] text-slate-400 font-medium">
+            <span className="flex items-center gap-1.5">
+              <Coffee className="w-3 h-3 text-slate-400" />
+              <span>{s.autoNoise}</span>
+            </span>
+            <button
+              onClick={() => {
+                const next = !autoNoiseEnabled;
+                setAutoNoiseEnabled(next);
+                localStorage.setItem("tongyun_auto_noise", String(next));
+                if (next && pomodoroIsActive && !pomodoroIsBreak) {
+                  startNoise(selectedNoiseType, noiseVolume);
+                }
+              }}
+              className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer ${
+                autoNoiseEnabled ? "bg-[#4D7C5D]" : "bg-slate-200"
+              }`}
+              title={s.autoNoiseDesc}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-transform ${
+                  autoNoiseEnabled ? "translate-x-3.5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+
           {/* White Noise — collapsed by default */}
           <div className="pt-1.5 border-t border-slate-100 space-y-1.5">
             <div className="flex justify-between items-center text-[10px] font-semibold text-slate-500">
@@ -542,10 +609,8 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
                 onClick={() => {
                   if (isPlayingNoise) {
                     stopNoise();
-                    setIsPlayingNoise(false);
                   } else {
                     startNoise(selectedNoiseType, noiseVolume);
-                    setIsPlayingNoise(true);
                   }
                 }}
                 className={`px-2 py-0.5 rounded-md border text-[9px] font-semibold transition-all cursor-pointer ${
@@ -559,16 +624,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
             </div>
 
             <div className="grid grid-cols-4 gap-1">
-              {[
-                { id: "brown", label: s.brown, title: s.brownTitle },
-                { id: "pink", label: s.pink, title: s.pinkTitle },
-                { id: "ocean", label: s.ocean, title: s.oceanTitle },
-                { id: "rain", label: s.rain, title: s.rainTitle },
-                { id: "white", label: s.white, title: s.whiteTitle },
-                { id: "fire", label: s.fire, title: s.fireTitle },
-                { id: "stream", label: s.stream, title: s.streamTitle },
-                { id: "wind", label: s.wind, title: s.windTitle },
-              ].map((sound) => (
+              {visibleNoiseDefs.map((sound) => (
                 <button
                   key={sound.id}
                   onClick={() => {
@@ -580,9 +636,9 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
                       ? "bg-[#4D7C5D]/10 text-[#4D7C5D] font-semibold"
                       : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
                   }`}
-                  title={sound.title}
+                  title={(s as any)[sound.titleKey]}
                 >
-                  {sound.label}
+                  {(s as any)[sound.labelKey]}
                 </button>
               ))}
             </div>
@@ -608,30 +664,30 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
 
             <div className="flex items-center justify-between pt-0.5 text-[9px] text-slate-400 font-medium">
               <span>{s.soundSelect}</span>
-              <div className="flex gap-1">
+              <select
+                value={alertSoundType}
+                onChange={(e) => {
+                  const val = e.target.value as AlertSoundType;
+                  setAlertSoundType(val);
+                  localStorage.setItem("aero_alert_sound_type", val);
+                  setTimeout(() => audioEngine.playCompletionSound(val), 50);
+                }}
+                className="text-[9px] bg-white border border-slate-200 rounded-md px-1.5 py-0.5 text-slate-600 font-medium cursor-pointer outline-none focus:border-[#4D7C5D]/40"
+              >
                 {[
                   { id: "beep", label: s.beep },
                   { id: "cuckoo", label: s.cuckoo },
                   { id: "meow", label: s.meow },
+                  { id: "chime", label: s.chime },
+                  { id: "ding", label: s.ding },
+                  { id: "phone", label: s.phone },
+                  { id: "marimba", label: s.marimba },
+                  { id: "bells", label: s.bells },
+                  { id: "alarm", label: s.alarm },
                 ].map((snd) => (
-                  <button
-                    key={snd.id}
-                    onClick={() => {
-                      const newSound = snd.id as AlertSoundType;
-                      setAlertSoundType(newSound);
-                      localStorage.setItem("aero_alert_sound_type", newSound);
-                      setTimeout(() => audioEngine.playCompletionSound(newSound), 50);
-                    }}
-                    className={`px-1.5 py-0.5 rounded transition-all cursor-pointer ${
-                      alertSoundType === snd.id
-                        ? "bg-[#4D7C5D]/10 text-[#4D7C5D] font-semibold"
-                        : "hover:text-slate-600"
-                    }`}
-                  >
-                    {snd.label}
-                  </button>
+                  <option key={snd.id} value={snd.id}>{snd.label}</option>
                 ))}
-              </div>
+              </select>
             </div>
           </div>
         </div>

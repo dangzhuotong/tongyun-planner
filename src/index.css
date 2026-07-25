@@ -240,6 +240,97 @@ html.transparent-window body {
               #ffffff !important;
 }
 
+/* ── 手账稿纸便签页 ─────────────────────────────── */
+
+/* 暖纸底 + 淡格线（手账方格纸），与日记本 #FCFBF7 纸张同族 */
+.paperboard-bg {
+  background-color: #f6f1e4;
+  background-image:
+    radial-gradient(ellipse at 50% -20%, rgba(255, 252, 242, 0.9) 0%, transparent 55%),
+    linear-gradient(to right, rgba(176, 152, 108, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(176, 152, 108, 0.16) 1px, transparent 1px);
+  background-size: auto, 22px 22px, 22px 22px;
+}
+.dark .paperboard-bg {
+  background-color: #1e1f1d;
+  background-image:
+    radial-gradient(ellipse at 50% -20%, rgba(255, 245, 220, 0.05) 0%, transparent 55%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: auto, 22px 22px, 22px 22px;
+}
+
+/* 页边：亚麻暖边 + 纸页投影，像手账里撕下的一页 */
+.board-frame {
+  background: linear-gradient(160deg, #efe8d6 0%, #e4dac4 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 10px 28px -14px rgba(120, 100, 60, 0.4);
+}
+.dark .board-frame {
+  background: linear-gradient(160deg, #2a2b28 0%, #232421 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 28px -14px rgba(0, 0, 0, 0.65);
+}
+
+/* 和纸胶带贴角（便签页装饰） */
+.board-tape {
+  background: linear-gradient(100deg, rgba(240, 214, 130, 0.5), rgba(245, 225, 155, 0.38) 50%, rgba(238, 208, 120, 0.5));
+  box-shadow: 0 1px 3px rgba(120, 95, 45, 0.2);
+  backdrop-filter: blur(1px);
+}
+.dark .board-tape {
+  background: linear-gradient(100deg, rgba(200, 175, 100, 0.22), rgba(210, 185, 115, 0.15) 50%, rgba(195, 170, 95, 0.22));
+}
+
+/* 便签纸：右上角折角（浅色随主题色变量 --fold 变化） */
+.note-fold {
+  --fold: rgba(120, 90, 40, 0.14);
+  background-image:
+    linear-gradient(315deg, transparent 0px, transparent 12px, var(--fold) 12px, var(--fold) 13px, rgba(255, 255, 255, 0.65) 13px, rgba(255, 255, 255, 0.65) 26px, transparent 26px);
+}
+.dark .note-fold {
+  background-image:
+    linear-gradient(315deg, transparent 0px, transparent 12px, rgba(0, 0, 0, 0.35) 12px, rgba(0, 0, 0, 0.35) 13px, rgba(255, 255, 255, 0.08) 13px, rgba(255, 255, 255, 0.08) 26px, transparent 26px);
+}
+
+/* 便签正文横线（与 leading-6 = 24px 对齐） */
+.note-ruled {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 23px,
+    rgba(120, 90, 40, 0.1) 23px,
+    rgba(120, 90, 40, 0.1) 24px
+  );
+}
+
+/* 便签入场：从上方落下并轻微回弹（rotate 由 JS 变量控制，动画只动 translateY/opacity） */
+@keyframes noteDrop {
+  0% { opacity: 0; transform: translateY(-18px) scale(0.96); }
+  60% { opacity: 1; transform: translateY(3px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.note-drop-in {
+  animation: noteDrop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 弹窗便签纸：从图钉处轻轻展开 */
+@keyframes noteUnpin {
+  0% { opacity: 0; transform: scale(0.92) translateY(10px) rotate(-1.5deg); }
+  100% { opacity: 1; transform: scale(1) translateY(0) rotate(0deg); }
+}
+.note-unpin-in {
+  animation: noteUnpin 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top center;
+}
+
+/* 手写体标题（便签专用，区别于全局衬线） */
+.note-hand {
+  font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", "KaiTi", "楷体", cursive;
+}
+
 /* 简笔画手账背景色 */
 .bg-doodle-pattern {
   background-color: #FAF9F6 !important;
@@ -409,15 +500,6 @@ html.transparent-window body {
   background-clip: text;
 }
 
-/* 环形进度条 (Circular Progress Ring) */
-.progress-ring {
-  transform: rotate(-90deg);
-}
-.progress-ring-circle {
-  transition: stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-  stroke-linecap: round;
-}
-
 /* 柔和呼吸脉冲 (Soft Pulse) */
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
@@ -435,15 +517,6 @@ html.transparent-window body {
 }
 .animate-bounce-gentle {
   animation: bounce-gentle 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* 计数器翻动效果 (Count Up) */
-@keyframes count-up {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-.animate-count-up {
-  animation: count-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* 侧边栏导航活跃色条 (Nav Active Indicator) */
@@ -546,11 +619,6 @@ html.transparent-window body {
   transform: rotate(-8deg);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-/* 统计卡片背景色 */
-.stat-card-todo { background: linear-gradient(135deg, rgba(178, 200, 223, 0.15), rgba(178, 200, 223, 0.05)); }
-.stat-card-done { background: linear-gradient(135deg, rgba(196, 215, 178, 0.15), rgba(196, 215, 178, 0.05)); }
-.stat-card-rate { background: linear-gradient(135deg, rgba(232, 160, 191, 0.15), rgba(232, 160, 191, 0.05)); }
 
 /* 交错入场动画 */
 .stagger-1 { animation-delay: 0.05s; }
@@ -962,20 +1030,6 @@ html.transparent-window body {
 .dark input[type="time"]::placeholder,
 .dark input[type="search"]::placeholder {
   color: #5C5E66 !important;
-}
-
-/* stat-card 统计卡片深色背景 */
-.dark .stat-card-todo {
-  background: rgba(25, 35, 45, 0.35) !important;
-  border-color: rgba(178, 200, 223, 0.15) !important;
-}
-.dark .stat-card-done {
-  background: rgba(25, 45, 30, 0.35) !important;
-  border-color: rgba(196, 215, 178, 0.15) !important;
-}
-.dark .stat-card-rate {
-  background: rgba(45, 25, 30, 0.35) !important;
-  border-color: rgba(232, 160, 191, 0.15) !important;
 }
 
 /* 杂项 border-slate 补充 */

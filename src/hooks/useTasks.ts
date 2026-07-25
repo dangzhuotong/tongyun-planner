@@ -1,6 +1,5 @@
-import { useState, useCallback, useRef } from "react";
-import { load } from "@tauri-apps/plugin-store";
-import type { Task, SubTask, RepeatType } from "../types";
+import { useState, useCallback } from "react";
+import type { Task, SubTask } from "../types";
 import { useSync } from "./useSync";
 import { createId } from "../utils/id";
 import { addLocalDays, addLocalMonths, getLocalDateString } from "../utils/date";
@@ -18,7 +17,7 @@ function createInitialTasks(): Task[] {
 
 const INITIAL_TASKS = createInitialTasks();
 
-function getNextDueDate(currentDue: string | undefined, repeat: RepeatType): string | undefined {
+function getNextDueDate(currentDue: string | undefined, repeat: string): string | undefined {
   if (!repeat || repeat === "none") return undefined;
   if (repeat === "daily") return addLocalDays(currentDue, 1);
   if (repeat === "weekly") return addLocalDays(currentDue, 7);
@@ -33,74 +32,26 @@ export function useTasks() {
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [editingNotes, setEditingNotes] = useState("");
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const [lastDeleted, setLastDeleted] = useState<{ task: Task; wasCompleted: boolean } | null>(null);
 
-  const storeRef = useRef<Awaited<ReturnType<typeof load>> | null>(null);
-
-  // ============ 统一持久化(debounce + latest-wins)============
-  // 之前 saveTasks / saveCompleted 都是每次调用就同步写 localStorage + await store.save()
-  // 快速操作下(complete 同时改 tasks/completedTasks)两个 async store.save 会竞争,
-  // 且 App.tsx 顶层还有 6 个"状态一变就写 localStorage"的 effect,写 3 次 IO。
-  // 现在:localStorage 立刻写(便于 FloatingNoteWindow 读),tauri-store 用 250ms debounce
-  // 合并多次改动为一次落盘;并保留最新值防止过期覆盖。
-  const pendingTasksRef = useRef<Task[] | null>(null);
-  const pendingCompletedRef = useRef<Task[] | null>(null);
-  const flushTimerRef = useRef<number | null>(null);
-  const flushingRef = useRef(false);
-
-  const flushToStore = useCallback(async () => {
-    if (!storeRef.current) return;
-    if (flushingRef.current) return;
-    flushingRef.current = true;
-    try {
-      // 循环刷:落盘期间又来了新的写请求就再刷一次,直到没有 pending
-      while (pendingTasksRef.current !== null || pendingCompletedRef.current !== null) {
-        const t = pendingTasksRef.current;
-        const c = pendingCompletedRef.current;
-        pendingTasksRef.current = null;
-        pendingCompletedRef.current = null;
-        if (t !== null) await storeRef.current!.set("tasks", t);
-        if (c !== null) await storeRef.current!.set("completedTasks", c);
-        await storeRef.current!.set("last_updated", Date.now());
-        await storeRef.current!.save();
-      }
-    } catch (e) {
-      console.error("保存到 tauri-store 失败", e);
-    } finally {
-      flushingRef.current = false;
-    }
-  }, []);
-
-  const scheduleFlush = useCallback(() => {
-    if (flushTimerRef.current !== null) {
-      clearTimeout(flushTimerRef.current);
-    }
-    flushTimerRef.current = window.setTimeout(() => {
-      flushTimerRef.current = null;
-      flushToStore();
-    }, 250);
-  }, [flushToStore]);
-
+  // 持久化只写 localStorage；unifiedStorage 会自动 debounce 同步到 SQLite。
   const saveTasks = useCallback(async (updatedTasks: Task[]) => {
     try {
       localStorage.setItem("aero_todos", JSON.stringify(updatedTasks));
       localStorage.setItem("tongyun_last_updated", String(Date.now()));
-      pendingTasksRef.current = updatedTasks;
-      scheduleFlush();
     } catch (e) {
       console.error("保存任务失败", e);
     }
-  }, [scheduleFlush]);
+  }, []);
 
   const saveCompleted = useCallback(async (updatedCompleted: Task[]) => {
     try {
       localStorage.setItem("aero_completed_todos", JSON.stringify(updatedCompleted));
       localStorage.setItem("tongyun_last_updated", String(Date.now()));
-      pendingCompletedRef.current = updatedCompleted;
-      scheduleFlush();
     } catch (e) {
       console.error("保存已完成任务失败", e);
     }
-  }, [scheduleFlush]);
+  }, []);
 
   const totalCount = tasks.length + completedTasks.length;
   const progressPercentage = totalCount === 0 ? 0 : Math.round((completedTasks.length / totalCount) * 100);
@@ -116,18 +67,21 @@ export function useTasks() {
       if (!allCompleted) return;
     }
 
+    const completed: Task = { ...task, completedAt: Date.now() };
     let updatedTasks: Task[];
     if (task.repeat && task.repeat !== "none") {
+      const { completedAt: _drop, ...base } = task;
       const nextDue = getNextDueDate(task.dueDate, task.repeat);
-      updatedTasks = [{ ...task, id: createId("task"), dueDate: nextDue }, ...tasks.filter(t => t.id !== id)];
+      updatedTasks = [{ ...base, id: createId("task"), dueDate: nextDue }, ...tasks.filter(t => t.id !== id)];
     } else {
       updatedTasks = tasks.filter(t => t.id !== id);
     }
 
+    const nextCompleted = [completed, ...completedTasks.filter(t => t.id !== id)];
     setTasks(updatedTasks);
-    setCompletedTasks(prev => [task, ...prev.filter(t => t.id !== id)]);
+    setCompletedTasks(nextCompleted);
     saveTasks(updatedTasks);
-    saveCompleted([task, ...completedTasks.filter(t => t.id !== id)]);
+    saveCompleted(nextCompleted);
 
     if (shouldSync) syncState(id, "complete");
   }, [tasks, completedTasks, saveTasks, saveCompleted, syncState]);
@@ -142,8 +96,9 @@ export function useTasks() {
     });
 
     if (restoredItem) {
+      const { completedAt: _drop, ...restored } = restoredItem;
       setTasks((prev) => {
-        const updated = [restoredItem!, ...prev];
+        const updated = [restored, ...prev];
         saveTasks(updated);
         return updated;
       });
@@ -180,6 +135,16 @@ export function useTasks() {
   }, [saveTasks, syncState]);
 
   const handleDeleteTask = useCallback((id: string, shouldSync: boolean = true) => {
+    const fromActive = tasks.find((t) => t.id === id);
+    const fromCompleted = !fromActive ? completedTasks.find((t) => t.id === id) : undefined;
+    if (fromActive) {
+      setLastDeleted({ task: fromActive, wasCompleted: false });
+    } else if (fromCompleted) {
+      setLastDeleted({ task: fromCompleted, wasCompleted: true });
+    } else {
+      setLastDeleted(null);
+    }
+
     setTasks((prev) => {
       const updated = prev.filter((t) => t.id !== id);
       saveTasks(updated);
@@ -190,8 +155,44 @@ export function useTasks() {
       saveCompleted(updated);
       return updated;
     });
+    setDetailTaskId((prev) => (prev === id ? null : prev));
     if (shouldSync) syncState(id, "delete");
-  }, [saveTasks, saveCompleted, syncState]);
+  }, [tasks, completedTasks, saveTasks, saveCompleted, syncState]);
+
+  const handleUndoDelete = useCallback((shouldSync: boolean = true) => {
+    if (!lastDeleted) return;
+    const { task, wasCompleted } = lastDeleted;
+    setLastDeleted(null);
+
+    if (wasCompleted) {
+      setCompletedTasks((prev) => {
+        if (prev.some((t) => t.id === task.id)) return prev;
+        const updated = [task, ...prev];
+        saveCompleted(updated);
+        return updated;
+      });
+      if (shouldSync) syncState(task.id, "complete");
+    } else {
+      setTasks((prev) => {
+        if (prev.some((t) => t.id === task.id)) return prev;
+        const updated = [task, ...prev];
+        saveTasks(updated);
+        return updated;
+      });
+      if (shouldSync) {
+        syncState(
+          task.id,
+          "add",
+          task.title,
+          task.description || "",
+          task.category,
+          task.notes || "",
+          task.dueDate,
+          task.dueTime
+        );
+      }
+    }
+  }, [lastDeleted, saveTasks, saveCompleted, syncState]);
 
   const handleTaskClick = useCallback((task: Task) => {
     setDetailTaskId(task.id);
@@ -202,25 +203,41 @@ export function useTasks() {
   }, []);
 
   const handleToggleSubtask = useCallback((taskId: string, subtaskId: string) => {
+    let matchedInActive = false;
     setTasks((prev) => {
       const task = prev.find((t) => t.id === taskId);
       if (!task) return prev;
+      matchedInActive = true;
       const subtasks = (task.subtasks || []).map((s) =>
         s.id === subtaskId ? { ...s, completed: !s.completed } : s
       );
       const nextTask = { ...task, subtasks };
       const updated = prev.map((t) => (t.id === taskId ? nextTask : t));
       saveTasks(updated);
-      // 子任务变化不改文本字段:未变字段传 undefined,避免误清空
       queueMicrotask(() => syncState(taskId, "update", nextTask.title, nextTask.description, nextTask.category, nextTask.notes, nextTask.dueDate, nextTask.dueTime));
       return updated;
     });
-  }, [saveTasks, syncState]);
+    if (!matchedInActive) {
+      setCompletedTasks((prev) => {
+        const task = prev.find((t) => t.id === taskId);
+        if (!task) return prev;
+        const subtasks = (task.subtasks || []).map((s) =>
+          s.id === subtaskId ? { ...s, completed: !s.completed } : s
+        );
+        const nextTask = { ...task, subtasks };
+        const updated = prev.map((t) => (t.id === taskId ? nextTask : t));
+        saveCompleted(updated);
+        return updated;
+      });
+    }
+  }, [saveTasks, saveCompleted, syncState]);
 
   const handleAddSubtask = useCallback((taskId: string, title: string) => {
+    let matchedInActive = false;
     setTasks((prev) => {
       const task = prev.find((t) => t.id === taskId);
       if (!task) return prev;
+      matchedInActive = true;
       const newSub: SubTask = { id: createId("subtask"), title, completed: false };
       const nextTask = { ...task, subtasks: [...(task.subtasks || []), newSub] };
       const updated = prev.map((t) => (t.id === taskId ? nextTask : t));
@@ -228,7 +245,18 @@ export function useTasks() {
       queueMicrotask(() => syncState(taskId, "update", nextTask.title, nextTask.description, nextTask.category, nextTask.notes, nextTask.dueDate, nextTask.dueTime));
       return updated;
     });
-  }, [saveTasks, syncState]);
+    if (!matchedInActive) {
+      setCompletedTasks((prev) => {
+        const task = prev.find((t) => t.id === taskId);
+        if (!task) return prev;
+        const newSub: SubTask = { id: createId("subtask"), title, completed: false };
+        const nextTask = { ...task, subtasks: [...(task.subtasks || []), newSub] };
+        const updated = prev.map((t) => (t.id === taskId ? nextTask : t));
+        saveCompleted(updated);
+        return updated;
+      });
+    }
+  }, [saveTasks, saveCompleted, syncState]);
 
   const handleSnooze = useCallback((id: string, shouldSync: boolean = true) => {
     setTasks((prev) => {
@@ -251,7 +279,7 @@ export function useTasks() {
     dueDate: string;
     dueTime?: string;
     isExplicit?: boolean;
-    repeat?: RepeatType;
+    repeat?: string;
     tags?: string[];
     priority?: Task["priority"];
   }) => {
@@ -293,31 +321,30 @@ export function useTasks() {
   }, [saveTasks, syncState]);
 
   const handleEditTask = useCallback((id: string, updates: Partial<Task>) => {
+    let matchedInActive = false;
     setTasks((prev) => {
       const task = prev.find((t) => t.id === id);
       if (!task) return prev;
+      matchedInActive = true;
       const nextTask = { ...task, ...updates };
-
-      // 广播用 queueMicrotask,不再 setTimeout(0):
-      // 好处是同一 tick 内先落盘再广播,顺序更可预测,避免 favorite+update 快速连续时错乱
       queueMicrotask(() => {
-        syncState(
-          id,
-          "update",
-          nextTask.title,
-          nextTask.description,
-          nextTask.category,
-          nextTask.notes,
-          nextTask.dueDate,
-          nextTask.dueTime
-        );
+        syncState(id, "update", nextTask.title, nextTask.description, nextTask.category, nextTask.notes, nextTask.dueDate, nextTask.dueTime);
       });
-
       const updated = prev.map((t) => (t.id === id ? nextTask : t));
       saveTasks(updated);
       return updated;
     });
-  }, [saveTasks, syncState]);
+    if (!matchedInActive) {
+      setCompletedTasks((prev) => {
+        const task = prev.find((t) => t.id === id);
+        if (!task) return prev;
+        const nextTask = { ...task, ...updates };
+        const updated = prev.map((t) => (t.id === id ? nextTask : t));
+        saveCompleted(updated);
+        return updated;
+      });
+    }
+  }, [saveTasks, saveCompleted, syncState]);
 
   const handleSaveNotes = useCallback((id: string, notes: string) => {
     handleEditTask(id, { notes: notes || undefined });
@@ -354,7 +381,6 @@ export function useTasks() {
     setEditingNotes,
     detailTaskId,
     setDetailTaskId,
-    storeRef,
     saveTasks,
     saveCompleted,
     progressPercentage,
@@ -363,6 +389,8 @@ export function useTasks() {
     handleToggleFavorite,
     handleTogglePin,
     handleDeleteTask,
+    handleUndoDelete,
+    lastDeleted,
     handleTaskClick,
     handleCloseDetail,
     handleToggleSubtask,

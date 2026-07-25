@@ -1,8 +1,6 @@
 import type { StorageProvider, StorageBackendType } from "./types";
 import { LocalStorageProvider } from "./localProvider";
 import { WebDAVStorageProvider } from "./webdavProvider";
-import { OSSStorageProvider } from "./ossProvider";
-import { COSStorageProvider } from "./cosProvider";
 import { SupabaseStorageProvider } from "./supabaseProvider";
 
 export type StorageStatus = "idle" | "busy" | "error";
@@ -18,21 +16,15 @@ export class StorageManager {
 
   readonly local: LocalStorageProvider;
   readonly webdav: WebDAVStorageProvider;
-  readonly oss: OSSStorageProvider;
-  readonly cos: COSStorageProvider;
   readonly supabase: SupabaseStorageProvider;
 
   constructor() {
     this.local = new LocalStorageProvider();
     this.webdav = new WebDAVStorageProvider();
-    this.oss = new OSSStorageProvider();
-    this.cos = new COSStorageProvider();
     this.supabase = new SupabaseStorageProvider();
 
     this.providers.set("local", this.local);
     this.providers.set("webdav", this.webdav);
-    this.providers.set("oss", this.oss);
-    this.providers.set("cos", this.cos);
     this.providers.set("supabase", this.supabase);
 
     this.loadPreference();

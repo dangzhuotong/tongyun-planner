@@ -244,6 +244,40 @@ export function extractJournalTags(content: string): string[] {
   return [...tags];
 }
 
+export interface NoiseDefinition {
+  id: string;
+  labelKey: string;    // i18n key suffix for short label (e.g. "brown" -> s.brown)
+  titleKey: string;    // i18n key suffix for hover title (e.g. "brownTitle" -> s.brownTitle)
+}
+
+export const NOISE_DEFINITIONS: NoiseDefinition[] = [
+  { id: "brown", labelKey: "brown", titleKey: "brownTitle" },
+  { id: "pink", labelKey: "pink", titleKey: "pinkTitle" },
+  { id: "ocean", labelKey: "ocean", titleKey: "oceanTitle" },
+  { id: "rain", labelKey: "rain", titleKey: "rainTitle" },
+  { id: "white", labelKey: "white", titleKey: "whiteTitle" },
+  { id: "fire", labelKey: "fire", titleKey: "fireTitle" },
+  { id: "stream", labelKey: "stream", titleKey: "streamTitle" },
+  { id: "wind", labelKey: "wind", titleKey: "windTitle" },
+  { id: "bell", labelKey: "bell", titleKey: "bellTitle" },
+  { id: "pendulum", labelKey: "pendulum", titleKey: "pendulumTitle" },
+  { id: "ring", labelKey: "ring", titleKey: "ringTitle" },
+  { id: "fan", labelKey: "fan", titleKey: "fanTitle" },
+  { id: "thunder", labelKey: "thunder", titleKey: "thunderTitle" },
+];
+
+export function getVisibleNoises(): string[] {
+  const stored = localStorage.getItem("tongyun_visible_noises");
+  if (stored) {
+    try { return JSON.parse(stored); } catch { /* fall through */ }
+  }
+  return NOISE_DEFINITIONS.map((n) => n.id);
+}
+
+export function setVisibleNoises(ids: string[]): void {
+  localStorage.setItem("tongyun_visible_noises", JSON.stringify(ids));
+}
+
 /** AI 象限分类默认 System Prompt */
 export const DEFAULT_AI_CLASSIFY_PROMPT =
   "你是一个日程管理专家。你的任务是根据任务标题和细节描述，推断并返回适合的艾森豪威尔象限类别。请只返回以下四个英文标识符之一，不要包含任何标点符号、Markdown 格式、解释或多余的空格：\n- urgent-important\n- important-not-urgent\n- urgent-not-important\n- not-urgent-not-important";

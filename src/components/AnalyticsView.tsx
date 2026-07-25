@@ -1,9 +1,10 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { Clock, CheckCircle2, Heart, Coffee, BarChart3, Sun, Moon, Sunrise, Target, Sparkles, Tags, BrainCircuit } from "lucide-react";
+import { Clock, CheckCircle2, Heart, Coffee, Sun, Moon, Sunrise, Target, Sparkles, Tags, BrainCircuit } from "lucide-react";
 import type { Task, PomodoroLog, CustomizationConfig } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
 import { getLocalDateString } from "../utils/date";
 import { callAI, generateReport } from "../utils/aiEngine";
+import { FocusHeatmap } from "./FocusHeatmap";
 
 interface AnalyticsViewProps {
   pomodoroLogs: PomodoroLog[];
@@ -84,15 +85,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
     return { totalHours: hours, totalMinutes: minutes, todayPomodoros: todayPomos, avgDuration: avgDur };
   }, [pomodoroLogs]);
 
-  const pomodoroCountsByDate = useMemo(() => {
-    const counts: Record<string, number> = {};
-    pomodoroLogs.forEach((log) => {
-      const logDate = getLocalDateString(new Date(log.timestamp));
-      counts[logDate] = (counts[logDate] || 0) + 1;
-    });
-    return counts;
-  }, [pomodoroLogs]);
-
   const { taskStatsList, maxDuration } = useMemo(() => {
     interface TaskStats { taskId: string; taskTitle: string; tomatoCount: number; totalDuration: number; }
     const taskStatsMap: { [key: string]: TaskStats } = {};
@@ -124,8 +116,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
   }, [pomodoroLogs]);
 
   const maxSlot = Math.max(...timeSlots.map((s) => s.count), 1);
-
-
 
   const goalStats = useMemo(() => {
     const perDay = new Map<string, number>();
@@ -222,108 +212,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
     }
   }, [customizationConfig, pomodoroLogs, a]);
 
-  const renderHeatmap = () => {
-    const CELL = 12, GAP = 2, STEP = CELL + GAP;
-    const MONTH_H = 14, LABEL_W = 18;
-    const LEVELS = [
-      "fill-[#ebedf0]",
-      "fill-[#9be9a8]",
-      "fill-[#40c463]",
-      "fill-[#30a14e]",
-      "fill-[#216e39]",
-    ];
-    const level = (c: number) => c === 0 ? 0 : c <= 2 ? 1 : c <= 4 ? 2 : c <= 6 ? 3 : 4;
-
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const dow = today.getDay();
-    const lastSunday = new Date(today);
-    lastSunday.setDate(lastSunday.getDate() - (dow === 0 ? 0 : dow));
-
-    const grid: { date: string; count: number; isToday: boolean }[][] = [];
-    const monthLabels: { col: number; label: string }[] = [];
-    let prevMonth = -1, colIdx = 0;
-
-    for (let col = 17; col >= 0; col--) {
-      const cs = new Date(lastSunday); cs.setDate(cs.getDate() - col * 7);
-      const cm = new Date(cs); cm.setDate(cm.getDate() - 6);
-      const colData: typeof grid[number] = [];
-      for (let r = 0; r < 7; r++) {
-        const d = new Date(cm); d.setDate(d.getDate() + r); d.setHours(0, 0, 0, 0);
-        const ds = getLocalDateString(d);
-        colData.push({ date: ds, count: pomodoroCountsByDate[ds] || 0, isToday: ds === getLocalDateString(today) });
-        if (r === 0) { const m = d.getMonth(); if (m !== prevMonth) { monthLabels.push({ col: colIdx, label: `${m+1}月` }); prevMonth = m; } }
-      }
-      grid.push(colData); colIdx++;
-    }
-    if (dow !== 0) {
-      const monday = new Date(today); monday.setDate(monday.getDate() - (dow - 1));
-      const pc: typeof grid[number] = [];
-      for (let r = 0; r < dow; r++) {
-        const d = new Date(monday); d.setDate(d.getDate() + r); d.setHours(0, 0, 0, 0);
-        const ds = getLocalDateString(d);
-        pc.push({ date: ds, count: pomodoroCountsByDate[ds] || 0, isToday: ds === getLocalDateString(today) });
-        if (r === 0) { const m = d.getMonth(); if (m !== prevMonth) { monthLabels.push({ col: colIdx, label: `${m+1}月` }); prevMonth = m; } }
-      }
-      grid.push(pc);
-    }
-
-    const gw = grid.length * STEP, gh = 7 * STEP;
-    const sw = LABEL_W + gw, sh = MONTH_H + gh;
-    const dayLabels = [{ l: "一", o: 0 }, { l: "三", o: 2 }, { l: "五", o: 4 }];
-
-    // Weekly totals for trend
-    const weeklyTotals = grid.map(col => col.reduce((s, c) => s + c.count, 0));
-    const maxW = Math.max(...weeklyTotals, 1);
-    const tw = 160, th = 64, tp = { t: 4, r: 4, b: 14, l: 4 };
-    const cw = tw - tp.l - tp.r, che = th - tp.t - tp.b;
-    const pts = weeklyTotals.map((v, i) => ({
-      x: tp.l + (i / Math.max(weeklyTotals.length - 1, 1)) * cw,
-      y: tp.t + che - (v / maxW) * che,
-    }));
-    const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-    const area = `${line} L${pts[pts.length-1].x},${tp.t+che} L${pts[0].x},${tp.t+che} Z`;
-
-    return (
-      <div className="flex gap-5 items-start">
-        {/* GitHub-style heatmap */}
-        <svg width={sw} height={sh} className="overflow-visible shrink-0">
-          {monthLabels.map(m => (
-            <text key={m.col} x={LABEL_W + m.col * STEP + CELL/2} y={8}
-              textAnchor="middle" className="fill-slate-400 font-bold" fontSize={8}>{m.label}</text>
-          ))}
-          {dayLabels.map(d => (
-            <text key={d.o} x={6} y={MONTH_H + d.o * STEP + CELL - 2}
-              textAnchor="end" className="fill-slate-400 font-bold" fontSize={8}>{d.l}</text>
-          ))}
-          {grid.map((col, ci) => col.map((cell, ri) => (
-            <rect key={`${ci}-${ri}`}
-              x={LABEL_W + ci * STEP} y={MONTH_H + ri * STEP}
-              width={CELL} height={CELL} rx={2} ry={2}
-              className={`${LEVELS[level(cell.count)]} transition-all duration-200 hover:brightness-110 cursor-help ${cell.isToday ? "stroke-[#A34E36] stroke-[2.5]" : ""}`}
-            >
-              <title>{`${cell.date} · ${cell.count} 个番茄`}</title>
-            </rect>
-          )))}
-        </svg>
-
-        {/* Mini trend chart */}
-        <svg width={tw} height={th} viewBox={`0 0 ${tw} ${th}`} className="overflow-visible shrink-0">
-          <defs>
-            <linearGradient id="aGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#4D7C5D" stopOpacity="0.3"/>
-              <stop offset="100%" stopColor="#4D7C5D" stopOpacity="0.02"/>
-            </linearGradient>
-          </defs>
-          <path d={area} fill="url(#aGrad)"/>
-          <path d={line} fill="none" stroke="#4D7C5D" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
-          {pts.map((p, i) => (
-            <circle key={i} cx={p.x} cy={p.y} r="2" fill="#4D7C5D"/>
-          ))}
-        </svg>
-      </div>
-    );
-  };
-
   const categories = [
     { id: "urgent-important", label: "I. " + m.urgentImportant, color: "bg-[#E8A0BF]", textColor: "text-[#A34E36]", bgClass: "bg-[#FCF2F0]" },
     { id: "important-not-urgent", label: "II. " + m.importantNotUrgent, color: "bg-[#C4D7B2]", textColor: "text-[#4D7C5D]", bgClass: "bg-[#F0F5F1]" },
@@ -408,23 +296,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(({
 
       {/* Heatmap & Time Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
-          <div className="flex items-center justify-between pb-3.5 border-b border-[#EFEBE4] mb-4">
-            <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
-              <BarChart3 className="w-4 h-4 text-[#4D7C5D]" />
-              <span>{a.heatmapTitle}</span>
-            </h3>
-            <div className="flex items-center gap-1 text-[8px] text-slate-400 font-bold uppercase tracking-wider">
-              <span>{a.low}</span>
-              <div className="w-[10px] h-[10px] rounded bg-[#ebedf0]" />
-              <div className="w-[10px] h-[10px] rounded bg-[#9be9a8]" />
-              <div className="w-[10px] h-[10px] rounded bg-[#40c463]" />
-              <div className="w-[10px] h-[10px] rounded bg-[#30a14e]" />
-              <div className="w-[10px] h-[10px] rounded bg-[#216e39]" />
-              <span>{a.high}</span>
-            </div>
-          </div>
-          {renderHeatmap()}
+        <div className="lg:col-span-2">
+          <FocusHeatmap pomodoroLogs={pomodoroLogs} weeks={26} showStatsGlance={true} />
         </div>
 
         {/* 1. Time-of-day distribution */}

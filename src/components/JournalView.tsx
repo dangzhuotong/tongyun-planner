@@ -1,13 +1,22 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { BookOpen, StickyNote as NoteIcon, Trash2, Search, ListChecks, Image as ImageIcon, X, SmilePlus, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus } from "lucide-react";
-import type { JournalEntry, Task, Attachment, CustomizationConfig } from "../types";
+import { Trash2, Search, ListChecks, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus, Camera, X } from "lucide-react";
+import type { JournalEntry, Task, CustomizationConfig, PomodoroLog, Attachment } from "../types";
 import { extractJournalTags } from "../constants";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
+import { pomodoroStatsOn, taskCompletedOn } from "../utils/dailyReview";
 import { useTranslation } from "../i18n/LanguageContext";
-import { storageManager, getAttachmentPath } from "../utils/storage";
 import { callAI } from "../utils/aiEngine";
 import { usePersonal } from "../context/PersonalContext";
+
+/** 日记页心情：五级，存为 emoji 字符串 */
+const JOURNAL_MOODS = [
+  { emoji: "😞", label: "很差" },
+  { emoji: "😔", label: "不好" },
+  { emoji: "😐", label: "一般" },
+  { emoji: "😊", label: "不错" },
+  { emoji: "😄", label: "很棒" },
+] as const;
 
 /** 「暖评」内置默认系统提示词：先深度思考，再写一段克制而真诚的温暖回应 */
 export function buildDefaultCommentPrompt(lang: string): string {
@@ -28,213 +37,23 @@ export function buildDefaultCommentPrompt(lang: string): string {
 - 只返回回应文本本身，不要任何前缀、标题、引号或解释`;
 }
 
-const MOOD_EMOJIS: { value: number; emoji: string; label: string }[] = [
-  { value: 1, emoji: "😞", label: "很差" },
-  { value: 2, emoji: "😔", label: "不好" },
-  { value: 3, emoji: "😐", label: "一般" },
-  { value: 4, emoji: "😊", label: "不错" },
-  { value: 5, emoji: "😄", label: "很棒" },
-];
-
-interface MoodPanelProps {
-  date: string;
-  mood?: number;
-  note: string;
-  attachments: Attachment[];
-  moods: Record<string, number>;
-  onSetMood: (date: string, mood: number) => void;
-  onSetMoodNote: (date: string, note: string) => void;
-  onSetMoodAttachments: (date: string, attachments: Attachment[]) => void;
-}
-
-/** 与心情记录共享同一份按日期的数据，日记里可直接记录/查看 */
-function MoodPanel({ date, mood, note, attachments, moods, onSetMood, onSetMoodNote, onSetMoodAttachments }: MoodPanelProps) {
-  const { t } = useTranslation();
-  const j = t.journal as Record<string, string>;
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(note);
-  const [imgUrls, setImgUrls] = useState<Record<string, string>>({});
-  const [preview, setPreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const blobUrls = useRef<string[]>([]);
-
-  useEffect(() => { setDraft(note); }, [note, date]);
-  useEffect(() => {
-    blobUrls.current.forEach((u) => URL.revokeObjectURL(u));
-    blobUrls.current = [];
-    const load = async () => {
-      const map: Record<string, string> = {};
-      for (const att of attachments) {
-        if (!att.type.startsWith("image/")) continue;
-        try {
-          const url = await storageManager.getFileUrl(att.path, att.type);
-          map[att.id] = url;
-          blobUrls.current.push(url);
-        } catch { /* ignore */ }
-      }
-      setImgUrls(map);
-    };
-    load();
-    return () => { blobUrls.current.forEach((u) => URL.revokeObjectURL(u)); };
-  }, [attachments]);
-
-  const trend = useMemo(() => {
-    let streak = 0;
-    const d = new Date();
-    while (true) {
-      const ds = getLocalDateString(d);
-      if (moods[ds] !== undefined) { streak++; d.setDate(d.getDate() - 1); } else break;
-    }
-    const now = new Date();
-    const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const entries = Object.entries(moods).filter(([k]) => k.startsWith(prefix));
-    if (entries.length === 0) return { streak, count: 0, avg: 0, dist: [0, 0, 0, 0, 0] as number[] };
-    const avg = entries.reduce((s, [, v]) => s + v, 0) / entries.length;
-    const dist = [0, 0, 0, 0, 0];
-    entries.forEach(([, v]) => { dist[v - 1]++; });
-    return { streak, count: entries.length, avg, dist };
-  }, [moods]);
-
-  const saveNote = () => { onSetMoodNote(date, draft); setEditing(false); };
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true); setError(null);
-    try {
-      const buffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      const attId = createId("mood");
-      // Sanitize filename: keep only extension, use attId as base to avoid path issues
-      const ext = file.name.includes(".") ? file.name.split(".").pop()! : "bin";
-      const safeName = `${attId}.${ext}`;
-      const path = getAttachmentPath("diary-" + date, attId, safeName);
-      const savedPath = await storageManager.uploadFile(path, bytes, file.type);
-      const att: Attachment = { id: attId, name: file.name, path: savedPath, type: file.type, size: file.size, createdAt: new Date().toISOString() };
-      onSetMoodAttachments(date, [...attachments, att]);
-      if (file.type.startsWith("image/")) {
-        const url = await storageManager.getFileUrl(att.path, att.type);
-        setImgUrls((prev) => ({ ...prev, [att.id]: url }));
-      }
-    } catch (err: any) {
-      // Tauri invoke errors are plain strings, not Error objects
-      const msg = typeof err === "string" ? err : (err?.message || JSON.stringify(err));
-      setError(`上传失败：${msg}`);
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  };
-
-  return (
-    <div>
-      <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#E8A0BF] mb-2">
-        <SmilePlus className="w-3.5 h-3.5" />{j.moodTitle || "今日心情"}
-        <span className="text-[9px] font-normal text-slate-400 ml-auto">{date}</span>
-      </div>
-      <div className="flex items-center gap-1 mb-2 flex-wrap">
-        {MOOD_EMOJIS.map((m) => (
-          <button
-            key={m.value}
-            onClick={() => onSetMood(date, m.value)}
-            className={`flex flex-col items-center gap-0.5 px-1.5 py-1 rounded-lg transition-all cursor-pointer border ${
-              mood === m.value ? "border-[#E8A0BF] bg-[#FCEFF4] scale-110" : "border-transparent hover:bg-[#FAF8F5]"
-            }`}
-            title={m.label}
-          >
-            <span className="text-lg leading-none">{m.emoji}</span>
-          </button>
-        ))}
-      </div>
-      <div className="mb-2">
-        {editing ? (
-          <div className="space-y-1.5">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={j.moodPlaceholder || "今天心情如何？写点什么..."}
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-lg text-[11px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] resize-y min-h-[52px]"
-              autoFocus
-            />
-            <div className="flex gap-1.5">
-              <button onClick={saveNote} className="text-[10px] px-2.5 py-1 rounded-lg bg-[#4D7C5D] text-white font-bold hover:bg-[#3F684C] transition-colors cursor-pointer">{j.save || "保存"}</button>
-              <button onClick={() => { setEditing(false); setDraft(note); }} className="text-[10px] px-2.5 py-1 rounded-lg border border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] transition-colors cursor-pointer">{j.cancel || "取消"}</button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => { setDraft(note); setEditing(true); }}
-            className="w-full text-left text-[11px] text-slate-500 hover:text-slate-700 bg-[#FAF8F5] border border-[#EFEBE4] px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer min-h-[34px]"
-          >
-            {note || (j.moodPlaceholder || "今天心情如何？写点什么...")}
-          </button>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {attachments.filter((a) => a.type.startsWith("image/")).map((att) => (
-          <div key={att.id} className="relative group">
-            <button onClick={() => setPreview(imgUrls[att.id] || null)} className="w-12 h-12 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
-              {imgUrls[att.id] ? <img src={imgUrls[att.id]} alt={att.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-100" />}
-            </button>
-            <button
-              onClick={() => onSetMoodAttachments(date, attachments.filter((a) => a.id !== att.id))}
-              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        ))}
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading || !storageManager.isConfigured()}
-          className="w-12 h-12 rounded-lg border-2 border-dashed border-[#EFEBE4] flex items-center justify-center text-slate-300 hover:text-[#4D7C5D] hover:border-[#4D7C5D] transition-all cursor-pointer disabled:opacity-40"
-        >
-          {uploading ? <div className="w-3.5 h-3.5 border-2 border-[#4D7C5D] border-t-transparent rounded-full animate-spin" /> : <ImageIcon className="w-4 h-4" />}
-        </button>
-        {error && <p className="text-[9px] text-red-500 w-full">{error}</p>}
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-      </div>
-      {(trend.streak > 0 || trend.count > 0) && (
-        <div className="mt-2 pt-2 border-t border-[#FCEFF4] flex items-center gap-2 text-[9px] text-slate-400">
-          <span className="text-[#E8A0BF] font-bold">🔥 {trend.streak}</span>
-          <span>本月 {trend.count} 天</span>
-          <span className="ml-auto flex items-center gap-0.5 opacity-70">
-            {MOOD_EMOJIS.map((m) => <span key={m.value}>{m.emoji}</span>)}
-          </span>
-        </div>
-      )}
-      {preview && (
-        <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-8" onClick={() => setPreview(null)}>
-          <button onClick={() => setPreview(null)} className="absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors cursor-pointer z-10"><X className="w-5 h-5" /></button>
-          <img src={preview} alt="preview" className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface JournalViewProps {
   tasks: Task[];
-  pomodoroLogs: { id: string; timestamp: number; duration: number }[];
+  completedTasks: Task[];
+  pomodoroLogs: Pick<PomodoroLog, "id" | "timestamp" | "duration">[];
   aiConfig: CustomizationConfig;
 }
 
-export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps) {
+export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: JournalViewProps) {
   const {
     journal, handleUpsertJournal: onUpsert, handleDeleteJournal: onDelete,
     journalAddTodo: addTodoEnabled, handleToggleJournalAddTodo: onToggleAddTodo,
-    habits, habitLogs, moods, moodNotes, moodAttachments,
-    handleSetMood: onSetMood, handleSetMoodNote: onSetMoodNote, handleSetMoodAttachments: onSetMoodAttachments,
   } = usePersonal();
   const { t, locale } = useTranslation();
   const j = t.journal as Record<string, string>;
   const today = getLocalDateString();
 
-  const [mode, setMode] = useState<"diary" | "note">("diary");
   const [currentDate, setCurrentDate] = useState<string>(today);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tagOpen, setTagOpen] = useState(false);
@@ -249,25 +68,72 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
     return m;
   }, [journal]);
 
-  const notes = useMemo(
-    () => journal.filter((e) => !e.isDaily).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)),
-    [journal]
-  );
+  const selected = useMemo(() => dailyEntryMap.get(currentDate) || null, [currentDate, dailyEntryMap]);
 
-  const selected = useMemo(() => {
-    if (mode === "diary") return dailyEntryMap.get(currentDate) || null;
-    return notes.find((n) => n.id === selectedNoteId) || null;
-  }, [mode, currentDate, dailyEntryMap, notes, selectedNoteId]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handlePickImage = () => fileInputRef.current?.click();
 
-  const viewDate = mode === "diary" ? currentDate : (selected?.date || today);
-  const activeMoodDate = viewDate;
+  const handleFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    if (!file.type.startsWith("image/")) return;
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const att: Attachment = {
+      id: createId("att"),
+      name: file.name,
+      path: dataUrl,
+      type: file.type,
+      size: file.size,
+      createdAt: new Date().toISOString(),
+    };
+    commit({ attachments: [...(selected?.attachments || []), att] });
+  };
+
+  const handleImagePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith("image/")) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (!file) continue;
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        const att: Attachment = {
+          id: createId("att"),
+          name: file.name || `pasted-${Date.now()}.png`,
+          path: dataUrl,
+          type: file.type,
+          size: file.size,
+          createdAt: new Date().toISOString(),
+        };
+        commit({ attachments: [...(selected?.attachments || []), att] });
+        break;
+      }
+    }
+  };
+
+  const handleRemoveImage = (attId: string) => {
+    const existing = selected?.attachments || [];
+    commit({ attachments: existing.filter((a) => a.id !== attId) });
+  };
+
+  const viewDate = currentDate;
 
   // 本地草稿，避免每次按键都触发父级重渲染造成的光标跳动
-  const [draftTitle, setDraftTitle] = useState("");
   const [draftContent, setDraftContent] = useState("");
 
   useEffect(() => {
-    setDraftTitle(selected?.title || "");
     setDraftContent(selected?.content || "");
     setConfirmDelete(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -280,7 +146,7 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
       title: viewDate,
       content: "",
       date: viewDate,
-      isDaily: mode === "diary",
+      isDaily: true,
       createdAt: Date.now(),
     } as JournalEntry);
     const next: JournalEntry = {
@@ -289,35 +155,29 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
       updatedAt: Date.now(),
     };
     onUpsert(next);
-  }, [selected, onUpsert, viewDate, mode]);
+  }, [selected, onUpsert, viewDate]);
 
   const handleContentChange = (v: string) => {
     setDraftContent(v);
     commit({ content: v });
   };
-  const handleTitleChange = (v: string) => {
-    setDraftTitle(v);
-    const linkKey = selected?.isDaily ? selected.linkKey : v.trim() || createId("journal");
-    commit({ title: v, linkKey });
-  };
-
-  const newDaily = () => { setMode("diary"); setCurrentDate(today); };
-  const newNote = () => {
-    const title = window.prompt(j.newNoteTitle || "笔记标题", "")?.trim();
-    if (!title) return;
-    const entry: JournalEntry = {
+  const handleMoodPick = (emoji: string) => {
+    const base = selected || ({
       id: createId("journal"),
-      linkKey: title,
-      title,
+      linkKey: viewDate,
+      title: viewDate,
       content: "",
-      date: today,
-      isDaily: false,
+      date: viewDate,
+      isDaily: true,
       createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    onUpsert(entry);
-    setMode("note");
-    setSelectedNoteId(entry.id);
+    } as JournalEntry);
+    const next: JournalEntry = { ...base, updatedAt: Date.now() };
+    if (selected?.mood === emoji) {
+      delete next.mood;
+    } else {
+      next.mood = emoji;
+    }
+    onUpsert(next);
   };
 
   const shiftDate = (delta: number) => {
@@ -333,16 +193,15 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
     handleContentChange(next);
   };
 
-  const viewFocus = useMemo(() => {
-    const start = new Date(viewDate + "T00:00:00").getTime();
-    const end = start + 86400000;
-    let minutes = 0;
-    let count = 0;
-    for (const log of pomodoroLogs) {
-      if (log.timestamp >= start && log.timestamp < end) { minutes += log.duration || 0; count++; }
-    }
-    return { minutes, count };
-  }, [pomodoroLogs, viewDate]);
+  const viewFocus = useMemo(
+    () => pomodoroStatsOn(pomodoroLogs, viewDate),
+    [pomodoroLogs, viewDate]
+  );
+
+  const viewDone = useMemo(
+    () => completedTasks.filter((task) => taskCompletedOn(task, viewDate)),
+    [completedTasks, viewDate]
+  );
 
   // 温柔的 AI 评语
   const [aiLoading, setAiLoading] = useState(false);
@@ -366,6 +225,62 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
     }
   }, [aiConfig, draftContent, commit, locale, j]);
 
+  // 导出
+  const entryToMarkdown = useCallback((entry: JournalEntry): string => {
+    const lines: string[] = [];
+    lines.push(`# ${entry.title}`);
+    lines.push(`日期：${entry.date}`);
+    if (entry.mood) lines.push(`心情：${entry.mood}`);
+    lines.push("");
+    if (entry.content.trim()) lines.push(entry.content);
+    if ((entry.attachments?.length ?? 0) > 0) {
+      lines.push("");
+      for (const att of entry.attachments!) {
+        lines.push(`![${att.name}](${att.path})`);
+      }
+    }
+    if (entry.aiComment) {
+      lines.push("");
+      lines.push("---");
+      lines.push(entry.aiComment);
+    }
+    return lines.join("\n");
+  }, []);
+
+  const downloadMarkdown = useCallback((filename: string, content: string) => {
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const handleExportCurrent = useCallback(() => {
+    const entry = selected || dailyEntryMap.get(currentDate);
+    if (!entry) return;
+    const md = entryToMarkdown(entry);
+    downloadMarkdown(`journal-${currentDate}.md`, md);
+  }, [selected, currentDate, dailyEntryMap, entryToMarkdown, downloadMarkdown]);
+
+  const handleExportAll = useCallback(() => {
+    const dailies = journal.filter((e) => e.isDaily).sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt);
+    const parts = dailies.map(entryToMarkdown);
+    const md = parts.join("\n\n---\n\n");
+    downloadMarkdown(`tongyun-journal-all-${today}.md`, md);
+  }, [journal, entryToMarkdown, downloadMarkdown, today]);
+
+  const [flipTick, setFlipTick] = useState(0);
+  const prevFlipDate = useRef(currentDate);
+  useEffect(() => {
+    if (prevFlipDate.current === currentDate) return;
+    prevFlipDate.current = currentDate;
+    setFlipTick((n) => n + 1);
+  }, [currentDate]);
+
   // 顶部日期滑条：过去 60 天 ~ 未来 7 天
   const dateStrip = useMemo(() => {
     const days: string[] = [];
@@ -379,26 +294,46 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
     return days;
   }, [today]);
 
+  const stripStart = dateStrip[0];
+  const stripEnd = dateStrip[dateStrip.length - 1];
+  const earliestDaily = useMemo(() => {
+    let min: string | null = null;
+    for (const e of journal) {
+      if (!e.isDaily) continue;
+      if (!min || e.date < min) min = e.date;
+    }
+    return min;
+  }, [journal]);
+
+  const jumpEarlier = () => {
+    if (earliestDaily && earliestDaily < stripStart) {
+      setCurrentDate(earliestDaily);
+      return;
+    }
+    const base = currentDate < stripStart ? currentDate : stripStart;
+    const [y, m, d] = base.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() - 1);
+    setCurrentDate(getLocalDateString(dt));
+  };
+
+  const jumpLater = () => {
+    const base = currentDate > stripEnd ? currentDate : stripEnd;
+    const [y, m, d] = base.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + 1);
+    setCurrentDate(getLocalDateString(dt));
+  };
+
   // 日期滑条自动居中定位到当前选中日期
   useEffect(() => {
-    if (mode !== "diary") return;
     activeDateRef.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [currentDate, mode]);
+  }, [currentDate]);
 
-  const filteredNotes = useMemo(() => {
-    let list = notes;
-    if (activeTag) list = list.filter((e) => extractJournalTags(e.content).includes(activeTag));
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((e) => e.content.toLowerCase().includes(q) || e.title.toLowerCase().includes(q));
-    }
-    return list;
-  }, [notes, search, activeTag]);
-
-  // 全部日记/笔记中出现过的标签（去重排序），用于侧栏标签筛选
+  // 全部日记中出现过的标签（去重排序），用于标签筛选
   const allTags = useMemo(() => {
     const set = new Set<string>();
-    journal.forEach((e) => extractJournalTags(e.content).forEach((tag) => set.add(tag)));
+    journal.forEach((e) => { if (e.isDaily) extractJournalTags(e.content).forEach((tag) => set.add(tag)); });
     return [...set].sort((a, b) => a.localeCompare(b, locale === "zh-CN" ? "zh" : "en"));
   }, [journal, locale]);
 
@@ -406,14 +341,12 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
     () => tasks.filter((task) => task.dueDate === viewDate),
     [tasks, viewDate]
   );
-  const viewHabits = habitLogs[viewDate] || [];
 
   const tags = useMemo(() => extractJournalTags(draftContent), [draftContent]);
 
   // 农历（装饰，动态加载 lunar-javascript，失败则忽略）
   const [lunarText, setLunarText] = useState("");
   useEffect(() => {
-    if (mode !== "diary") { setLunarText(""); return; }
     let cancelled = false;
     import("lunar-javascript").then((mod: any) => {
       try {
@@ -425,7 +358,7 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
       } catch { /* ignore */ }
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [currentDate, mode]);
+  }, [currentDate]);
 
   const weekdayNames = locale === "zh-CN" ? ["日", "一", "二", "三", "四", "五", "六"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const fmtDate = (ds: string) => {
@@ -444,20 +377,12 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
   const editorInner = (
     <>
       <div className="flex items-center gap-2 flex-wrap">
-        {mode === "note" && (
-          <input
-            value={draftTitle}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            placeholder={j.titlePlaceholder}
-            className="flex-grow min-w-[160px] bg-transparent text-lg font-bold text-[#2D323A] focus:outline-none placeholder-slate-300 border-b border-transparent focus:border-[#EFEBE4] transition-colors"
-          />
-        )}
         {selected && (
           confirmDelete ? (
             <div className="ml-auto flex items-center gap-1.5">
               <span className="text-[10px] text-[#A34E36]">{j.confirmDelete || "确定删除？"}</span>
               <button
-                onClick={() => { onDelete(selected.id); setConfirmDelete(false); if (mode === "diary") setCurrentDate(currentDate); else setSelectedNoteId(null); }}
+                onClick={() => { onDelete(selected.id); setConfirmDelete(false); }}
                 className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#A34E36] text-white hover:bg-[#8A4029] cursor-pointer transition-colors"
               >
                 {j.delete}
@@ -489,15 +414,55 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
         </div>
       )}
 
+      <div className="flex items-center gap-2">
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChosen} />
+        <button
+          onClick={handlePickImage}
+          className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] text-slate-500 hover:text-[#4D7C5D] hover:border-[#4D7C5D] hover:bg-[#F0F5F1] cursor-pointer transition-colors dark:border-[#3A3A3A] dark:text-slate-400 dark:hover:text-[#6FAD84] dark:hover:border-[#6FAD84] dark:hover:bg-[#232924]"
+          title={j.addImage}
+        >
+          <Camera className="w-3 h-3" />
+          {j.addImage}
+        </button>
+      </div>
+
       <textarea
         ref={textareaRef}
         value={draftContent}
         onChange={(e) => handleContentChange(e.target.value)}
-        placeholder={mode === "diary" ? (j.diaryPlaceholder || "写点什么，记下今天…") : "写点什么…"}
-        className="flex-grow min-h-0 w-full resize-none rounded-xl p-4 text-[14px] leading-relaxed text-slate-700 dark:text-slate-200 font-serif focus:outline-none focus:border-[#4D7C5D] custom-scrollbar bg-transparent border-transparent"
-        style={mode === "diary" ? { lineHeight: "32px", backgroundImage: "repeating-linear-gradient(transparent, transparent 31px, #ECE4D2 32px)", backgroundAttachment: "local" } : undefined}
+        onPaste={handleImagePaste}
+        placeholder={j.diaryPlaceholder || "写点什么，记下今天…"}
+        className="flex-grow min-h-0 w-full resize-none rounded-xl text-[15px] text-slate-700 dark:text-slate-200 font-serif focus:outline-none custom-scrollbar bg-transparent border-transparent"
+        style={{
+          padding: "6px 16px 16px 16px",
+          lineHeight: "32px",
+          backgroundImage: "linear-gradient(transparent 31px, #EADFC9 31px)",
+          backgroundSize: "100% 32px",
+          backgroundPosition: "0 0",
+          backgroundAttachment: "local",
+        }}
         spellCheck={false}
       />
+
+      {(selected?.attachments?.length ?? 0) > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {selected!.attachments!.map((att) => (
+            <div key={att.id} className="relative group">
+              <img
+                src={att.path}
+                alt={att.name}
+                className="w-28 h-28 object-cover rounded-xl border border-[#EFEBE4] dark:border-[#3A3A3A] shadow-sm"
+              />
+              <button
+                onClick={() => handleRemoveImage(att.id)}
+                className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-md hover:bg-red-600"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="rounded-xl bg-gradient-to-br from-[#F0F5F1] to-[#FCEFF4] dark:from-[#232924] dark:to-[#2B2125] border border-[#E4EEE6] dark:border-[#33353A] p-4">
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#E8A0BF] dark:text-[#E8A0BF]/80 mb-2">
@@ -527,33 +492,14 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
 
   return (
     <div className="flex flex-col gap-3 h-full min-h-0">
-      {/* 顶部：模式 + 日期滑条 + 工具 */}
+      {/* 顶部：日期滑条 + 工具 */}
       <header className="flex items-center gap-3 flex-shrink-0">
-        <div className="flex gap-1.5">
-          <button
-            onClick={newDaily}
-            className={`flex items-center gap-1 text-[11px] font-bold rounded-xl px-3 py-1.5 cursor-pointer transition-colors ${
-              mode === "diary" ? "text-white bg-[#4D7C5D] hover:bg-[#3F684C]" : "text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EEE6] border border-[#C4D7B2]"
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />{j.dailyNotes}
-          </button>
-          <button
-            onClick={newNote}
-            className={`flex items-center gap-1 text-[11px] font-bold rounded-xl px-3 py-1.5 cursor-pointer transition-colors ${
-              mode === "note" ? "text-white bg-[#4D7C5D] hover:bg-[#3F684C]" : "text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EEE6] border border-[#C4D7B2]"
-            }`}
-          >
-            <NoteIcon className="w-3.5 h-3.5" />{j.notes}
-          </button>
-        </div>
-
         <button
           onClick={() => onToggleAddTodo(!addTodoEnabled)}
           className={`flex items-center gap-1.5 text-[11px] font-bold rounded-xl px-3 py-1.5 cursor-pointer transition-colors border ${
             addTodoEnabled
               ? "text-white bg-[#4D7C5D] hover:bg-[#3F684C] border-[#4D7C5D]"
-              : "text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EEE6] border-[#C4D7B2]"
+              : "text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EEE6] border border-[#C4D7B2]"
           }`}
           title={j.addTodoHint || "开启后，每一天的日记都会加入当日待办"}
         >
@@ -561,12 +507,34 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
           {addTodoEnabled ? "✓ " : ""}{j.addTodo}
         </button>
 
-        {mode === "diary" && (
-          <div ref={stripRef} className="flex-1 overflow-x-auto custom-scrollbar flex items-center gap-1.5 pb-1">
+        <div ref={stripRef} className="flex-1 overflow-x-auto custom-scrollbar flex items-center gap-1.5 pb-1">
+            <button
+              type="button"
+              onClick={jumpEarlier}
+              className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 border border-[#EFEBE4] bg-white hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer"
+              title={j.jumpEarlier || "更早"}
+            >
+              ‹ {j.jumpEarlier || "更早"}
+            </button>
+            {(currentDate < stripStart || currentDate > stripEnd) && (
+              <button
+                type="button"
+                ref={activeDateRef}
+                onClick={() => {}}
+                className="flex-shrink-0 flex flex-col items-center px-2.5 py-1 rounded-xl bg-[#4D7C5D] text-white border border-[#4D7C5D]"
+                title={currentDate}
+              >
+                <span className="text-[11px] font-bold leading-none">
+                  {(() => { const [, m, d] = currentDate.split("-"); return `${Number(m)}/${Number(d)}`; })()}
+                </span>
+                <span className="text-[9px] mt-0.5 leading-none">{j.outsideStrip || "滑条外"}</span>
+              </button>
+            )}
             {dateStrip.map((ds) => {
               const [y, m, d] = ds.split("-").map(Number);
               const wd = weekdayNames[new Date(y, m - 1, d).getDay()];
-              const has = dailyEntryMap.has(ds);
+              const entry = dailyEntryMap.get(ds);
+              const has = !!entry && !!(entry.content?.trim() || entry.mood);
               const active = ds === currentDate;
               return (
                 <button
@@ -584,12 +552,23 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
                 >
                   <span className="text-[11px] font-bold leading-none">{m}/{d}</span>
                   <span className="text-[9px] mt-0.5 leading-none">{wd}</span>
-                  {has && <span className={`w-1 h-1 rounded-full mt-1 ${active ? "bg-white" : "bg-[#C4D7B2]"}`} />}
+                  {entry?.mood ? (
+                    <span className="text-[10px] mt-0.5 leading-none">{entry.mood}</span>
+                  ) : has ? (
+                    <span className={`w-1 h-1 rounded-full mt-1 ${active ? "bg-white" : "bg-[#C4D7B2]"}`} />
+                  ) : null}
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={jumpLater}
+              className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 border border-[#EFEBE4] bg-white hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer"
+              title={j.jumpLater || "更晚"}
+            >
+              {j.jumpLater || "更晚"} ›
+            </button>
           </div>
-        )}
 
         <div className="ml-auto flex items-center gap-2 flex-shrink-0 relative">
           <div className="relative">
@@ -635,9 +614,23 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
             </div>
           )}
           <button
-            onClick={mode === "diary" ? newDaily : newNote}
+            onClick={handleExportCurrent}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer transition-colors"
+            title={j.exportCurrent}
+          >
+            <span className="text-[10px] font-bold">↓1</span>
+          </button>
+          <button
+            onClick={handleExportAll}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer transition-colors"
+            title={j.exportAll}
+          >
+            <span className="text-[10px] font-bold">↓*</span>
+          </button>
+          <button
+            onClick={goToday}
             className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#4D7C5D] hover:bg-[#3F684C] text-white cursor-pointer transition-colors"
-            title={mode === "diary" ? j.newDaily : j.newNote}
+            title={j.goToday || "今天"}
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -647,12 +640,14 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
       {/* 主体：日记本 + 右侧关联 */}
       <div className="flex flex-grow min-h-0 gap-4">
         <section className="flex-grow min-w-0 flex flex-col gap-3">
-          {mode === "diary" ? (
-            <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] dark:bg-[#1C1D21] shadow-[0_2px_14px_rgba(120,100,70,0.10)] dark:shadow-none border border-[#ECE3D2] dark:border-[#383A42] relative">
+          <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] dark:bg-[#1C1D21] shadow-[0_2px_14px_rgba(120,100,70,0.10)] dark:shadow-none border border-[#ECE3D2] dark:border-[#383A42] relative">
               {/* 书脊 */}
               <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6] dark:from-[#25272D] dark:via-[#1F2025] dark:to-[#25272D]" />
               <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70 dark:bg-[#383A42]" />
-              <div className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0">
+              <div
+                key={`page-${currentDate}-${flipTick}`}
+                className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0 animate-fade-in-up"
+              >
                 {/* 页眉：大日期 + 翻页 */}
                 <div className="flex items-center gap-2">
                   <button
@@ -675,9 +670,6 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
                   </button>
                 </div>
                 <div className="flex items-center justify-center gap-2 -mt-1">
-                  {moods[currentDate] !== undefined && (
-                    <span className="text-lg leading-none">{MOOD_EMOJIS[moods[currentDate] - 1]?.emoji}</span>
-                  )}
                   {!isToday && (
                     <button
                       onClick={goToday}
@@ -687,57 +679,35 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
                     </button>
                   )}
                   {isFuture && <span className="text-[10px] text-slate-400">· {j.futureDay}</span>}
+                  {/* 今日心情：与「回到今天」同行，省一行 */}
+                  <span className="mx-1 text-[#E5D9C2]">|</span>
+                  {JOURNAL_MOODS.map((m) => {
+                    const active = selected?.mood === m.emoji;
+                    return (
+                      <button
+                        key={m.emoji}
+                        type="button"
+                        onClick={() => handleMoodPick(m.emoji)}
+                        title={m.label}
+                        className={`w-7 h-7 flex items-center justify-center rounded-full text-sm transition-all cursor-pointer border ${
+                          active
+                            ? "bg-[#F0F5F1] border-[#4D7C5D] scale-110 shadow-sm"
+                            : "bg-transparent border-transparent hover:bg-[#F3ECDF]/80 opacity-60 hover:opacity-100"
+                        }`}
+                      >
+                        {m.emoji}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {editorInner}
               </div>
             </div>
-          ) : (
-            <div className="flex-grow min-h-0 flex flex-col gap-3">
-              {!selected ? (
-                <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {filteredNotes.map((e) => (
-                    <button
-                      key={e.id}
-                      onClick={() => { setSelectedNoteId(e.id); }}
-                      className="text-left p-3 rounded-xl bg-[#FCFBF7] dark:bg-[#1C1D21] border border-[#ECE3D2] dark:border-[#383A42] hover:border-[#4D7C5D] dark:hover:border-[#4D7C5D] shadow-[0_2px_10px_rgba(120,100,70,0.08)] dark:shadow-none cursor-pointer transition-colors min-h-[88px] flex flex-col"
-                    >
-                      <span className="text-[13px] font-bold text-[#2D323A] truncate">{e.title || "(无标题)"}</span>
-                      <span className="text-[10px] text-slate-400 mt-1 line-clamp-3 flex-grow overflow-hidden">{e.content.replace(/[#*`\[\]]/g, "").slice(0, 80)}</span>
-                    </button>
-                  ))}
-                  {filteredNotes.length === 0 && (
-                    <div className="col-span-full flex flex-col items-center justify-center text-slate-400 gap-3 select-none h-full">
-                      <BookOpen className="w-12 h-12 opacity-40" />
-                      <p className="text-sm font-medium">{j.noEntry}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] dark:bg-[#1C1D21] shadow-[0_2px_14px_rgba(120,100,70,0.10)] dark:shadow-none border border-[#ECE3D2] dark:border-[#383A42] relative">
-                  <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6] dark:from-[#25272D] dark:via-[#1F2025] dark:to-[#25272D]" />
-                  <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70 dark:bg-[#383A42]" />
-                  <div className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0">
-                    {editorInner}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </section>
 
         {/* 右：今日关联 */}
         <aside className="w-56 flex-shrink-0 flex flex-col gap-4 border-l border-[#EFEBE4] pl-3 overflow-y-auto custom-scrollbar">
-          <MoodPanel
-            date={activeMoodDate}
-            mood={moods[activeMoodDate]}
-            note={moodNotes[activeMoodDate] || ""}
-            attachments={moodAttachments[activeMoodDate] || []}
-            moods={moods}
-            onSetMood={onSetMood}
-            onSetMoodNote={onSetMoodNote}
-            onSetMoodAttachments={onSetMoodAttachments}
-          />
           <div>
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] mb-2">
               <ListChecks className="w-3.5 h-3.5" />{j.todayLinks}
@@ -756,23 +726,19 @@ export function JournalView({ tasks, pomodoroLogs, aiConfig }: JournalViewProps)
                 </button>
               ))}
             </div>
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{j.todayHabits}</div>
-            <div className="space-y-1">
-              {habits.length === 0 && <div className="text-[11px] text-slate-300">{j.noHabits}</div>}
-              {habits.map((h) => {
-                const done = viewHabits.includes(h.id);
-                return (
-                  <button
-                    key={h.id}
-                    onClick={() => insertLine(`${h.emoji} ${h.title}`)}
-                    className={`w-full text-left text-[11px] rounded-lg px-2 py-1.5 cursor-pointer transition-colors border ${
-                      done ? "bg-[#F0F5F1] border-[#C4D7B2] text-[#4D7C5D]" : "bg-white border-[#EFEBE4] text-slate-600 hover:border-[#4D7C5D]"
-                    }`}
-                  >
-                    {h.emoji} {h.title} {done && "✓"}
-                  </button>
-                );
-              })}
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{j.todayDone || "今日完成"}</div>
+            <div className="space-y-1 mb-3">
+              {viewDone.length === 0 && <div className="text-[11px] text-slate-300">{j.noDone || "今天还没有完成任务"}</div>}
+              {viewDone.slice(0, 8).map((task) => (
+                <button
+                  key={task.id}
+                  onClick={() => insertLine(`✓ ${task.title}`)}
+                  className="w-full text-left text-[11px] text-[#4D7C5D] bg-[#F0F5F1] border border-[#C4D7B2]/60 hover:border-[#4D7C5D] rounded-lg px-2 py-1.5 cursor-pointer transition-colors truncate"
+                  title={task.title}
+                >
+                  ✓ {task.title}
+                </button>
+              ))}
             </div>
             {viewFocus.count > 0 && (
               <button

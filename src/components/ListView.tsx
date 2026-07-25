@@ -149,7 +149,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(({
       <div className="w-full">
         <QuickAddTask
           handleAddTask={handleAddTask}
-          defaultCategory={categoryFilter !== "all" ? (categoryFilter as Task["category"]) : "urgent-important"}
+          defaultCategory={categoryFilter !== "all" ? (categoryFilter as Task["category"]) : undefined}
           placeholder={lv.addPlaceholder}
         />
       </div>

@@ -9,6 +9,7 @@ import {
 } from "./types";
 import { WebDAVProvider } from "./webdavProvider";
 import { SupabaseProvider } from "./supabaseProvider";
+import { HttpSyncProvider } from "./httpProvider";
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error";
 
@@ -24,6 +25,7 @@ type SyncListener = (state: SyncState) => void;
 export class SyncEngine {
   readonly webdavProvider: WebDAVProvider;
   readonly supabaseProvider: SupabaseProvider;
+  readonly httpProvider: HttpSyncProvider;
   private _currentBackend: SyncBackendType = "none";
   private _status: SyncStatus = "idle";
   private _lastSyncTime: number | null = null;
@@ -36,14 +38,16 @@ export class SyncEngine {
   constructor() {
     this.webdavProvider = new WebDAVProvider();
     this.supabaseProvider = new SupabaseProvider();
+    this.httpProvider = new HttpSyncProvider();
     this.loadPreferences();
   }
 
   private loadPreferences(): void {
     this.webdavProvider.loadFromStorage();
     this.supabaseProvider.loadFromStorage();
+    this.httpProvider.loadFromStorage();
     const saved = localStorage.getItem("tongyun_sync_backend") as SyncBackendType | null;
-    if (saved === "webdav" || saved === "supabase") {
+    if (saved === "webdav" || saved === "supabase" || saved === "http") {
       this._currentBackend = saved;
     } else {
       // 有 WebDAV 凭据但未选后端时，自动启用 WebDAV
@@ -51,6 +55,8 @@ export class SyncEngine {
       const user = localStorage.getItem("tongyun_webdav_user");
       if (url && user) {
         this._currentBackend = "webdav";
+      } else if (localStorage.getItem("tongyun_http_sync_url") && localStorage.getItem("tongyun_http_sync_key")) {
+        this._currentBackend = "http";
       }
     }
     const lastSync = localStorage.getItem("tongyun_last_sync_time");
@@ -111,6 +117,7 @@ export class SyncEngine {
   private getProvider(): SyncProvider | null {
     if (this._currentBackend === "webdav") return this.webdavProvider;
     if (this._currentBackend === "supabase") return this.supabaseProvider;
+    if (this._currentBackend === "http") return this.httpProvider;
     return null;
   }
 
@@ -141,6 +148,8 @@ export class SyncEngine {
     try {
       if (this._currentBackend === "webdav") {
         await this.syncWebDAV();
+      } else if (this._currentBackend === "http") {
+        await this.syncHttp();
       } else {
         // Supabase still uses single-file approach
         await this.syncSingleFile(provider);
@@ -161,21 +170,27 @@ export class SyncEngine {
 
   /** Multi-file incremental sync for WebDAV */
   private async syncWebDAV(): Promise<void> {
-    // Pull first: apply any remote-newer categories
     await this.webdavProvider.pull();
-
-    // Then push dirty categories
+    const freshData = getLocalSyncData();
     if (this.dirtyCategories.size > 0) {
-      // Re-read local data after pull might have updated some categories
-      const freshData = getLocalSyncData();
       await this.webdavProvider.push(freshData, this.dirtyCategories);
     } else {
-      // No explicit dirty set — push will compare manifests
-      const freshData = getLocalSyncData();
       await this.webdavProvider.push(freshData);
     }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
+    }
+  }
 
-    // Fire event so UI updates
+  /** Category incremental sync against self-hosted TongYun Sync Server */
+  private async syncHttp(): Promise<void> {
+    await this.httpProvider.pull();
+    const freshData = getLocalSyncData();
+    if (this.dirtyCategories.size > 0) {
+      await this.httpProvider.push(freshData, this.dirtyCategories);
+    } else {
+      await this.httpProvider.push(freshData);
+    }
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
     }

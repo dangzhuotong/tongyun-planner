@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Sync server secrets / venv
+sync-server/.env
+sync-server/.venv/
+**/__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+!sync-server/.env.example

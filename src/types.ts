@@ -4,7 +4,7 @@ export type TaskCategory =
   | "important-not-urgent"
   | "not-urgent-not-important";
 
-export type RepeatType = "daily" | "weekly" | "monthly" | "none" | string;
+export type RepeatType = "daily" | "weekly" | "monthly" | "none";
 
 export type TaskPriority = "high" | "medium" | "low";
 
@@ -33,13 +33,15 @@ export interface Task {
   dueTime?: string; // HH:mm (e.g. "14:30")
   isFavorite?: boolean;
   isPinned?: boolean;
-  repeat?: RepeatType;
+  repeat?: string;
   priority?: TaskPriority;
   subtasks?: SubTask[];
   tags?: string[];
   dependsOn?: string[];  // task IDs that must be completed first
   attachments?: Attachment[];
   journalId?: string;    // 关联自某篇日记（addToTodo 时创建）
+  /** 完成时刻（ms）；撤销完成时清除。旧数据可能缺失 */
+  completedAt?: number;
 }
 
 export interface PomodoroLog {
@@ -52,6 +54,7 @@ export interface PomodoroLog {
 
 export interface StickyNote {
   id: string;
+  title?: string;
   text: string;
   color: string;
   rotate: number;
@@ -62,11 +65,15 @@ export interface JournalEntry {
   /** Wikilink target key：日记为日期 YYYY-MM-DD，笔记为标题原文（[[key]] 引用） */
   linkKey: string;
   title: string;
-  content: string;       // markdown 源文，支持 [[双向链接]] 与 #标签
+  content: string;
   date: string;          // YYYY-MM-DD（日记 = linkKey；笔记 = 创建日期）
   isDaily: boolean;      // 是否为日期日记（自动按日归档）
   templateId?: string;
+  /** 当日心情 emoji（仅日记常用），如 😊 */
+  mood?: string;
   aiComment?: string;    // AI 生成的温柔评语
+  /** 附件（图片等） */
+  attachments?: Attachment[];
   createdAt: number;
   updatedAt: number;
 }
@@ -77,9 +84,9 @@ export interface JournalTemplate {
   content: string;
 }
 
-export type AlertSoundType = "beep" | "cuckoo" | "meow";
+export type AlertSoundType = "beep" | "cuckoo" | "meow" | "chime" | "ding" | "phone" | "marimba" | "bells" | "alarm";
 
-export type AppTab = "home" | "matrix" | "list" | "calendar" | "notes" | "analytics" | "completed" | "countdown" | "habits" | "settings" | "tasks" | "focus" | "archive" | "news" | "gantt" | "journal";
+export type AppTab = "home" | "matrix" | "list" | "calendar" | "notes" | "analytics" | "completed" | "countdown" | "settings" | "tasks" | "focus" | "archive" | "news" | "gantt" | "journal" | "memory";
 
 export interface CountdownEvent {
   id: string;
@@ -87,6 +94,7 @@ export interface CountdownEvent {
   targetDate: string; // YYYY-MM-DD
   emoji?: string;
   color?: string;
+  isLunar?: boolean;   // 是否为农历生日/农历倒计时
 }
 
 export type Locale = "zh-CN" | "en";
@@ -125,11 +133,13 @@ export interface CustomizationConfig {
   darkMode?: "light" | "dark" | "auto";
 
   // AI Agent settings
-  aiProvider?: "openai" | "anthropic";
+  aiProvider?: "openai" | "anthropic" | "opencode" | "deepseek" | "ollama";
   aiApiKey?: string;
   aiEndpoint?: string;
   aiModel?: string;
   aiAutoCategorize?: boolean;
+  aiTemperature?: number;    // 0-2, default 0.3
+  aiMaxTokens?: number;      // default 1024
   journalCommentPrompt?: string; // 暖评自定义系统提示词（留空则用内置默认）
   enableAutoBackup?: boolean;
   syncInterval?: number; // seconds: 15, 30, 60, 300, 900, 1800, 3600, 0(manual)

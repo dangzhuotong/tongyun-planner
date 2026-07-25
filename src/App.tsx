@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { listen } from "@tauri-apps/api/event";
-import { load } from "@tauri-apps/plugin-store";
-import type { Task, AppTab, CustomizationConfig } from "./types";
+import type { Task, AppTab } from "./types";
 import { TitleBar } from "./components/TitleBar";
 import { Sidebar } from "./components/Sidebar";
 import { DashboardView } from "./components/DashboardView";
@@ -21,9 +19,9 @@ const SettingsView = React.lazy(() => import("./components/SettingsView").then((
 import { FloatingNoteWindow } from "./components/FloatingNoteWindow";
 const CountdownView = React.lazy(() => import("./components/CountdownView").then((m) => ({ default: m.CountdownView })));
 const FlowMode = React.lazy(() => import("./components/FlowMode").then((m) => ({ default: m.FlowMode })));
-const HabitsView = React.lazy(() => import("./components/HabitsView").then((m) => ({ default: m.HabitsView })));
 const GanttView = React.lazy(() => import("./components/GanttView").then((m) => ({ default: m.GanttView })));
 const JournalView = React.lazy(() => import("./components/JournalView").then((m) => ({ default: m.JournalView })));
+const MemoryView = React.lazy(() => import("./components/MemoryView").then((m) => ({ default: m.MemoryView })));
 
 const viewFallback = (
   <div className="flex-grow flex items-center justify-center text-slate-400 text-sm py-20">
@@ -42,15 +40,19 @@ import { useAI } from "./hooks/useAI";
 import { useWidget } from "./hooks/useWidget";
 import { useDebouncedPersistence } from "./hooks/useDebouncedPersistence";
 import type { JournalEntry } from "./types";
-import { useSync, subscribeDevSync } from "./hooks/useSync";
+import { useSync } from "./hooks/useSync";
 import { PomodoroContext } from "./context/PomodoroContext";
 import { PersonalProvider, usePersonal } from "./context/PersonalContext";
 import { createId } from "./utils/id";
 import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
-import { storage } from "./utils/unifiedStorage";
 import { syncEngine } from "./utils/sync/engine";
 import { SYNC_APPLIED_EVENT, bumpSyncVersion, bumpCategoryVersion, dedupeActiveTasks, type SyncCategory, type SyncData } from "./utils/sync/types";
+import { beginSyncApply, endSyncApply, isSyncApplying } from "./utils/sync/syncApplyGuard";
+import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
+import { useDueNotifications } from "./hooks/useDueNotifications";
+import { useCrossWindowSync } from "./hooks/useCrossWindowSync";
+import { useStoreInit } from "./hooks/useStoreInit";
 
 function AppInner() {
   return (
@@ -84,6 +86,8 @@ function AppBody() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   const [celebrationMessage, setCelebrationMessage] = useState<string | null>(null);
+  const [deleteUndoToast, setDeleteUndoToast] = useState<string | null>(null);
+  const deleteUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [flowMode, setFlowMode] = useState(false);
@@ -113,7 +117,7 @@ function AppBody() {
     }
   }, [customizationHook.customizationConfig.locale, locale, setLocale]);
 
-  const { journal, journalAddTodo, handleUpsertJournal, setJournal, setHabits, setHabitLogs } = usePersonal();
+  const { journal, journalAddTodo, handleUpsertJournal, setJournal } = usePersonal();
 
   // 全局开关：是否把每一天的日记加入当日待办 → 同步生成/移除关联任务
   const journalTodoTitle = useCallback((entry: JournalEntry) => {
@@ -176,285 +180,11 @@ function AppBody() {
   });
 
   // ============ Store Initialization ============
-  // StrictMode guard：dev 模式下 effect 会跑两次，避免 initStore 重复执行导致数据回滚 (#13)
-  const initStartedRef = useRef(false);
   const windowLabelRef = useRef("main");
-  useEffect(() => {
-    if (initStartedRef.current) return;
-    initStartedRef.current = true;
+  useStoreInit(handlersRef, setWindowLabel, windowLabelRef, setIsHydrated);
 
-    // 提前启动 SQLite 初始化（initStore 内部 await 等待完成）
-    const initPromise = storage.init().catch((e) => console.error("SQLite 初始化失败", e));
-
-    let label = "main";
-    try {
-      label = getCurrentWebviewWindow().label;
-    } catch (e) {}
-    setWindowLabel(label);
-    windowLabelRef.current = label;
-    if (label !== "main") {
-      document.documentElement.classList.add("transparent-window");
-    }
-
-    if (typeof Notification !== "undefined" && Notification.permission !== "granted" && Notification.permission !== "denied") {
-      Notification.requestPermission();
-    }
-
-    const savedCustomization = localStorage.getItem("aero_customization_config");
-    if (savedCustomization) {
-      const parsed = safeJsonParse<CustomizationConfig | null>(savedCustomization, null);
-      if (parsed) {
-        handlersRef.current.customizationHook.setCustomizationConfig(parsed);
-        if (parsed.locale) handlersRef.current.setLocale(parsed.locale);
-      }
-    }
-
-    const savedSound = localStorage.getItem("aero_alert_sound_type");
-    if (savedSound) handlersRef.current.pomodoroHook.setAlertSoundType(savedSound as any);
-
-    const savedFocus = localStorage.getItem("pomodoro_focus_duration");
-    const savedBreak = localStorage.getItem("pomodoro_break_duration");
-    if (savedFocus) {
-      const f = parseInt(savedFocus, 10);
-      handlersRef.current.pomodoroHook.setFocusDuration(f);
-      handlersRef.current.pomodoroHook.setPomodoroTimeLeft(f * 60);
-    }
-    if (savedBreak) handlersRef.current.pomodoroHook.setBreakDuration(parseInt(savedBreak, 10));
-
-    const initStore = async () => {
-      // 等待 SQLite 初始化完成，确保 localStorage 已有 SQLite 数据
-      await initPromise;
-
-      try {
-        const store = await load("tongyun_planner_data.json", { defaults: {}, autoSave: false });
-        handlersRef.current.tasksHook.storeRef.current = store;
-
-        // 番茄日志：仅从 localStorage 读取，不再生成 mock 数据
-        const localLogs = localStorage.getItem("aero_pomodoro_logs");
-        if (localLogs) {
-          handlersRef.current.pomodoroHook.setPomodoroLogs(safeJsonParse(localLogs, []));
-        }
-
-        // 便签：仅从 localStorage 读取，不再自动写入示例便签
-        const localNotes = localStorage.getItem("aero_sticky_notes");
-        if (localNotes) {
-          handlersRef.current.notesHook.setStickyNotes(safeJsonParse(localNotes, []));
-        }
-
-        const localCountdowns = localStorage.getItem("tongyun_countdowns");
-        if (localCountdowns) handlersRef.current.countdownHook.setCountdowns(safeJsonParse(localCountdowns, []));
-
-        // ============ 基于 timestamp 的合并策略 (#7) ============
-        // 以往：localStorage 非空就用 local，把 tauri-store 里可能更新的数据反写覆盖。
-        // 现在：tauri-store 存 last_updated，localStorage 存 tongyun_last_updated，谁新用谁。
-        const storedTasks = await store.get<Task[]>("tasks");
-        const storedCompleted = await store.get<Task[]>("completedTasks");
-        const storeLastUpdated = (await store.get<number>("last_updated")) || 0;
-        const localLastUpdated = parseInt(localStorage.getItem("tongyun_last_updated") || "0", 10);
-        const localTasks = localStorage.getItem("aero_todos");
-        const localCompleted = localStorage.getItem("aero_completed_todos");
-
-        const bothEmpty = (!storedTasks || storedTasks.length === 0) && (!localTasks || safeJsonParse<Task[]>(localTasks, []).length === 0);
-
-        let resolvedTasks: Task[];
-        let resolvedCompleted: Task[];
-
-        if (bothEmpty) {
-          resolvedTasks = handlersRef.current.tasksHook.INITIAL_TASKS;
-          resolvedCompleted = [];
-        } else if (storeLastUpdated >= localLastUpdated && storedTasks) {
-          // store 更新或时间戳齐平 → 采用 store
-          resolvedTasks = storedTasks;
-          resolvedCompleted = storedCompleted || [];
-        } else {
-          // localStorage 更新 → 采用 local
-          resolvedTasks = safeJsonParse<Task[]>(localTasks, storedTasks || handlersRef.current.tasksHook.INITIAL_TASKS);
-          resolvedCompleted = safeJsonParse<Task[]>(localCompleted, storedCompleted || []);
-        }
-        // 已完成任务不应出现在活动列表（修复「点完成又出现在列表」的云端 pull 回写问题）
-        resolvedTasks = dedupeActiveTasks(resolvedTasks, resolvedCompleted);
-
-        handlersRef.current.tasksHook.setTasks(resolvedTasks);
-        handlersRef.current.tasksHook.setCompletedTasks(resolvedCompleted);
-
-        if (localLastUpdated > storeLastUpdated) {
-          // 把较新的 local 回写 store，并对齐 last_updated
-          await store.set("tasks", resolvedTasks);
-          await store.set("completedTasks", resolvedCompleted);
-          await store.set("last_updated", localLastUpdated);
-          await store.save();
-        } else {
-          // 反过来：把较新的 store 同步到 localStorage 缓存，并对齐 last_updated
-          localStorage.setItem("aero_todos", JSON.stringify(resolvedTasks));
-          localStorage.setItem("aero_completed_todos", JSON.stringify(resolvedCompleted));
-          localStorage.setItem("tongyun_last_updated", String(storeLastUpdated));
-        }
-      } catch (e) {
-        console.warn("Store 加载失败，回退到 localStorage", e);
-        const local = localStorage.getItem("aero_todos");
-        const localCompleted = localStorage.getItem("aero_completed_todos");
-        handlersRef.current.tasksHook.setTasks(dedupeActiveTasks(safeJsonParse<Task[]>(local, handlersRef.current.tasksHook.INITIAL_TASKS), safeJsonParse<Task[]>(localCompleted, [])));
-        handlersRef.current.tasksHook.setCompletedTasks(safeJsonParse(localCompleted, []));
-      } finally {
-        setIsHydrated(true);
-      }
-    };
-    initStore();
-  }, []);
-
-  // ============ 跨窗口 event listener（独立 useEffect，避免 StrictMode 双挂载丢失监听器）============
-  useEffect(() => {
-    const handleSyncPayload = (p: any) => {
-      if (p.source_window && p.source_window === windowLabelRef.current) return;
-      const { tasksHook: tH, pomodoroHook: pH, notesHook: nH, widgetHook: wH, customizationHook: cH } = handlersRef.current;
-      switch (p.action) {
-        case "complete":
-          tH.handleComplete(p.task_id, false);
-          break;
-        case "undo_complete":
-          tH.handleUndoComplete(p.task_id, false);
-          break;
-        case "delete":
-          tH.handleDeleteTask(p.task_id, false);
-          break;
-        case "snooze":
-          tH.handleSnooze(p.task_id, false);
-          break;
-        case "add": {
-          const newTask: Task = {
-            id: p.task_id,
-            title: p.title || "无题任务",
-            notes: p.notes || undefined,
-            description: p.description || undefined,
-            category: p.category || "urgent-important",
-            dueDate: p.due_date || undefined,
-            dueTime: p.due_time || undefined,
-          };
-          tH.setTasks((prev: Task[]) => {
-            const updated = [newTask, ...prev.filter((t: Task) => t.id !== newTask.id)];
-            tH.saveTasks(updated);
-            return updated;
-          });
-          break;
-        }
-        case "favorite_sync":
-          tH.setTasks((prev: Task[]) => {
-            const updated = prev.map((t) => t.id === p.task_id ? { ...t, isFavorite: p.title === "true" } : t);
-            tH.saveTasks(updated);
-            return updated;
-          });
-          break;
-        case "pin_sync":
-          tH.setTasks((prev: Task[]) => {
-            const updated = prev.map((t) => t.id === p.task_id ? { ...t, isPinned: p.title === "true" } : t);
-            tH.saveTasks(updated);
-            return updated;
-          });
-          break;
-        case "update":
-          tH.setTasks((prev: Task[]) => {
-            const updated = prev.map((t) => {
-              if (t.id !== p.task_id) return t;
-              const next: Task = { ...t };
-              if (p.title != null && p.title !== "") next.title = p.title;
-              if (p.description != null) next.description = p.description || undefined;
-              if (p.category != null && p.category !== "") next.category = p.category as Task["category"];
-              if (p.notes != null) next.notes = p.notes || undefined;
-              if (p.due_date != null) next.dueDate = p.due_date || undefined;
-              if (p.due_time != null) next.dueTime = p.due_time || undefined;
-              return next;
-            });
-            tH.saveTasks(updated);
-            return updated;
-          });
-          break;
-        case "reset":
-          tH.setTasks(tH.INITIAL_TASKS);
-          tH.setCompletedTasks([]);
-          tH.saveTasks(tH.INITIAL_TASKS);
-          tH.saveCompleted([]);
-          break;
-        case "clear_completed":
-          tH.setCompletedTasks([]);
-          tH.saveCompleted([]);
-          break;
-        case "lock_widget":
-          wH.setIsWidgetLocked(true);
-          break;
-        case "unlock_widget":
-          wH.setIsWidgetLocked(false);
-          break;
-        case "toggle_lock_from_tray":
-          if (windowLabelRef.current === "main") wH.handleToggleWidgetLock();
-          break;
-        case "pomodoro_sync":
-          try {
-            const data = JSON.parse(p.title);
-            pH.setPomodoroIsActive(data.active);
-            pH.setPomodoroTimeLeft(data.timeLeft);
-            pH.setPomodoroIsBreak(data.isBreak);
-            pH.setFocusDuration(data.focusDuration);
-            pH.setBreakDuration(data.breakDuration);
-            pH.setPomodoroSessionCount(data.sessionCount);
-            pH.setPomodoroTaskId(data.taskId || null);
-            pH.setPomodoroTaskTitle(data.taskTitle || null);
-            pH.setPomodoroEndTime(data.endTime);
-          } catch (e) {}
-          break;
-        case "add_pomodoro_log":
-          try {
-            const log = JSON.parse(p.title);
-            pH.setPomodoroLogs((prev: any[]) => [log, ...prev.filter((l: any) => l.id !== log.id)]);
-          } catch (e) {}
-          break;
-        case "add_note":
-          try {
-            const note = JSON.parse(p.title);
-            nH.setStickyNotes((prev: any[]) => [note, ...prev.filter((n: any) => n.id !== note.id)]);
-          } catch (e) {}
-          break;
-        case "edit_note_text":
-          nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, text: p.title } : n));
-          break;
-        case "change_note_color":
-          nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, color: p.title } : n));
-          break;
-        case "delete_note":
-          nH.setStickyNotes((prev: any[]) => prev.filter((n) => n.id !== p.task_id));
-          break;
-        case "settings_sync":
-          try {
-            const config = JSON.parse(p.title);
-            cH.setCustomizationConfig(config);
-          } catch (e) {}
-          break;
-        case "restore_sync":
-          try {
-            const restored = JSON.parse(p.title);
-            const tasks = restored.tasks || [];
-            const completed = restored.completedTasks || [];
-            const notes = restored.stickyNotes || [];
-            tH.setTasks(tasks);
-            tH.saveTasks(tasks);
-            tH.setCompletedTasks(completed);
-            tH.saveCompleted(completed);
-            nH.setStickyNotes(notes);
-            setJournal(restored.journal || []);
-            localStorage.setItem("tongyun_journal", JSON.stringify(restored.journal || []));
-            cH.setCustomizationConfig(restored.customizationConfig || cH.DEFAULT_CUSTOMIZATION_CONFIG);
-          } catch (e) {}
-          break;
-      }
-    };
-
-    const unlistenPromise = listen("todo-sync-event", (event: any) => handleSyncPayload(event.payload)).catch(() => undefined);
-    const unsubDev = subscribeDevSync((event) => handleSyncPayload(event.payload));
-
-    return () => {
-      unlistenPromise.then((unlisten) => { if (typeof unlisten === "function") unlisten(); }).catch(() => {});
-      unsubDev();
-    };
-  }, []);
+  // ============ 跨窗口 event listener ============
+  useCrossWindowSync(handlersRef, windowLabelRef, setJournal);
 
   // ============ State Persistence (#2) ============
   // 之前有 6 个「状态一变就写 localStorage」的 effect，与 useTasks 内部持久化重叠，
@@ -465,164 +195,35 @@ function AppBody() {
   useDebouncedPersistence(pomodoroHook.pomodoroLogs, "aero_pomodoro_logs", 250, isHydrated);
   useDebouncedPersistence(countdownHook.countdowns, "tongyun_countdowns", 250, isHydrated);
 
-  // ============ Pomodoro Timer Effect (stable interval, ref-based state machine) ============
-  // 用 ref 转发"随时可能变"的字段。effect 依赖只保留 active + endTime，避免每次
-  // session/duration/taskId 变化都 clear+rebuild interval 引起秒表跳变或重复触发完成分支。
-  const pomodoroStateRef = useRef({
-    isBreak: pomodoroHook.pomodoroIsBreak,
-    focusDuration: pomodoroHook.focusDuration,
-    breakDuration: pomodoroHook.breakDuration,
-    sessionCount: pomodoroHook.pomodoroSessionCount,
-    taskId: pomodoroHook.pomodoroTaskId,
-    taskTitle: pomodoroHook.pomodoroTaskTitle,
+  // ============ Pomodoro Timer Effect ============
+  usePomodoroTimer({
+    pomodoroHook,
     locale,
     windowLabel,
-    syncPomodoro: pomodoroHook.syncPomodoro,
-    focusTime: t.notification.focusTime,
-    focusTimeBody: t.notification.focusTimeBody,
-    pomodoroTime: t.notification.pomodoroTime,
-    pomodoroTimeBody: t.notification.pomodoroTimeBody,
+    t,
+    onCelebration: setCelebrationMessage,
   });
-  useEffect(() => {
-    pomodoroStateRef.current = {
-      isBreak: pomodoroHook.pomodoroIsBreak,
-      focusDuration: pomodoroHook.focusDuration,
-      breakDuration: pomodoroHook.breakDuration,
-      sessionCount: pomodoroHook.pomodoroSessionCount,
-      taskId: pomodoroHook.pomodoroTaskId,
-      taskTitle: pomodoroHook.pomodoroTaskTitle,
-      locale,
-      windowLabel,
-      syncPomodoro: pomodoroHook.syncPomodoro,
-      focusTime: t.notification.focusTime,
-      focusTimeBody: t.notification.focusTimeBody,
-      pomodoroTime: t.notification.pomodoroTime,
-      pomodoroTimeBody: t.notification.pomodoroTimeBody,
-    };
-  });
-
-  useEffect(() => {
-    if (!pomodoroHook.pomodoroIsActive || !pomodoroHook.pomodoroEndTime) return;
-    const endTime = pomodoroHook.pomodoroEndTime;
-    let fired = false;
-
-    const tick = () => {
-      const now = Date.now();
-      const diff = Math.max(0, Math.round((endTime - now) / 1000));
-      pomodoroHook.setPomodoroTimeLeft(diff);
-
-      if (diff <= 0 && !fired) {
-        fired = true;
-        clearInterval(intervalId);
-
-        const s = pomodoroStateRef.current;
-        if (s.windowLabel !== "main") return;
-
-        pomodoroHook.playCompletionSound();
-
-        if (s.isBreak) {
-          pomodoroHook.setPomodoroIsBreak(false);
-          pomodoroHook.setPomodoroIsActive(false);
-          pomodoroHook.setPomodoroEndTime(null);
-          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-            new Notification(s.focusTime, { body: s.focusTimeBody });
-          }
-          const nextTime = s.focusDuration * 60;
-          pomodoroHook.setPomodoroTimeLeft(nextTime);
-          setTimeout(() => {
-            s.syncPomodoro(false, nextTime, false, s.focusDuration, s.breakDuration, s.sessionCount, null, null);
-          }, 50);
-        } else {
-          pomodoroHook.setPomodoroIsBreak(true);
-          pomodoroHook.setPomodoroIsActive(false);
-          pomodoroHook.setPomodoroEndTime(null);
-          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-            new Notification(s.pomodoroTime, { body: s.pomodoroTimeBody });
-          }
-          const nextSession = s.sessionCount + 1;
-          pomodoroHook.setPomodoroSessionCount(nextSession);
-          const nextTime = s.breakDuration * 60;
-          pomodoroHook.setPomodoroTimeLeft(nextTime);
-
-          const newLog = {
-            id: createId("pomodoro-log"),
-            timestamp: Date.now(),
-            duration: s.focusDuration,
-            taskId: s.taskId || undefined,
-            taskTitle: s.taskTitle || undefined,
-          };
-          pomodoroHook.setPomodoroLogs((prev: any[]) => [newLog, ...prev]);
-
-          setCelebrationMessage(s.locale === "en" ? "Focus session done! Keep going 💪" : "专注一关完成！继续加油 💪");
-
-          pomodoroHook.setPomodoroTaskId(null);
-          pomodoroHook.setPomodoroTaskTitle(null);
-
-          setTimeout(() => {
-            s.syncPomodoro(false, nextTime, true, s.focusDuration, s.breakDuration, nextSession, null, null);
-          }, 50);
-        }
-      }
-    };
-
-    tick();
-    const intervalId = setInterval(tick, 1000);
-    return () => clearInterval(intervalId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pomodoroHook.pomodoroIsActive, pomodoroHook.pomodoroEndTime]);
 
   // Audio cleanup
   useEffect(() => {
     return () => { audioEngine.close(); };
   }, []);
 
-  // ============ 任务到期系统通知（智能规划 C 补全）============
-  // 每分钟扫描：今日到期、有具体时间、未完成的任务；到期时刻与到期前 15 分钟各提醒一次。
-  // 仅 main 窗口触发，避免 widget/便签等多窗口重复弹通知；用 ref Set 防止同一任务重复通知。
-  const notifiedDueRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!isHydrated) return;
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-    if (windowLabelRef.current !== "main") return;
-
-    const REMIND_BEFORE = 15 * 60 * 1000;
-    const check = () => {
-      const now = new Date();
-      const todayStr = getLocalDateString(now);
-      const nowTs = now.getTime();
-      const isZh = locale === "zh-CN";
-      for (const task of tasksHook.tasks) {
-        if (task.dueDate !== todayStr || !task.dueTime) continue;
-        if (tasksHook.completedTasks.some((c) => c.id === task.id)) continue;
-        const [h, m] = task.dueTime.split(":").map(Number);
-        if (Number.isNaN(h) || Number.isNaN(m)) continue;
-        const dueTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0).getTime();
-        let notify = false;
-        let body = "";
-        if (nowTs >= dueTs && nowTs <= dueTs + 60 * 60 * 1000) {
-          notify = true;
-          body = isZh ? `已到截止时间 ${task.dueTime}` : `Due at ${task.dueTime}`;
-        } else if (nowTs >= dueTs - REMIND_BEFORE && nowTs < dueTs) {
-          notify = true;
-          const mins = Math.max(1, Math.round((dueTs - nowTs) / 60000));
-          body = isZh
-            ? (mins <= 1 ? `即将在 ${task.dueTime} 截止` : `还有 ${mins} 分钟（${task.dueTime}）截止`)
-            : (mins <= 1 ? `Due at ${task.dueTime}` : `${mins} min left (due ${task.dueTime})`);
-        }
-        if (notify && !notifiedDueRef.current.has(task.id)) {
-          notifiedDueRef.current.add(task.id);
-          try {
-            new Notification(isZh ? "⏰ 任务提醒" : "⏰ Task Reminder", {
-              body: `${task.title}\n${body}`,
-            });
-          } catch { /* ignore */ }
-        }
-      }
-    };
-    check();
-    const timer = setInterval(check, 60 * 1000);
-    return () => clearInterval(timer);
-  }, [isHydrated, locale, tasksHook.tasks, tasksHook.completedTasks]);
+  // ============ 任务到期系统通知 ============
+  useDueNotifications({
+    isHydrated,
+    locale,
+    tasks: tasksHook.tasks,
+    completedTasks: tasksHook.completedTasks,
+    onOpenTask: (taskId) => {
+      try {
+        getCurrentWebviewWindow().setFocus().catch(() => {});
+      } catch { /* browser / non-tauri */ }
+      setActiveTab("home");
+      setFlowMode(false);
+      tasksHook.setDetailTaskId(taskId);
+    },
+  });
 
   // ============ AI Confirm Tasks ============
   const handleConfirmAiTasks = useCallback(() => {
@@ -663,30 +264,53 @@ function AppBody() {
       const pool = [...fixedPool, ...aiPool];
       setCelebrationMessage(pool[Math.floor(Math.random() * pool.length)]);
     }
-  }, [originalHandleComplete, customizationHook.customizationConfig.enableCelebration]);
+  }, [originalHandleComplete, customizationHook.customizationConfig.enableCelebration, locale]);
+
+  const wrappedHandleDeleteTask = useCallback((id: string) => {
+    const victim =
+      tasksHook.tasks.find((t) => t.id === id) ||
+      tasksHook.completedTasks.find((t) => t.id === id);
+    tasksHook.handleDeleteTask(id);
+    if (!victim) return;
+    if (deleteUndoTimerRef.current) clearTimeout(deleteUndoTimerRef.current);
+    setDeleteUndoToast(victim.title);
+    deleteUndoTimerRef.current = setTimeout(() => {
+      setDeleteUndoToast(null);
+      deleteUndoTimerRef.current = null;
+    }, 5000);
+  }, [tasksHook.tasks, tasksHook.completedTasks, tasksHook.handleDeleteTask]);
+
+  const handleUndoDeleteClick = useCallback(() => {
+    if (deleteUndoTimerRef.current) {
+      clearTimeout(deleteUndoTimerRef.current);
+      deleteUndoTimerRef.current = null;
+    }
+    tasksHook.handleUndoDelete();
+    setDeleteUndoToast(null);
+  }, [tasksHook.handleUndoDelete]);
 
   // ============ 云端同步（统一走 syncEngine）============
   const applySyncDataToState = useCallback((data: SyncData) => {
+    beginSyncApply();
     isRestoringRef.current = true;
-    const tasks = dedupeActiveTasks(data.tasks, data.completedTasks);
-    tasksHook.setTasks(tasks);
-    tasksHook.saveTasks(tasks);
-    tasksHook.setCompletedTasks(data.completedTasks);
-    tasksHook.saveCompleted(data.completedTasks);
-    notesHook.setStickyNotes(data.stickyNotes);
-    pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
-    countdownHook.setCountdowns(data.countdowns);
-    setHabits(data.habits);
-    setHabitLogs(data.habitLogs);
-    setJournal(data.journal || []);
-    localStorage.setItem("tongyun_habits", JSON.stringify(data.habits));
-    localStorage.setItem("tongyun_habit_logs", JSON.stringify(data.habitLogs));
-    localStorage.setItem("tongyun_moods", JSON.stringify(data.moods));
-    localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
-    if (data.customizationConfig) {
-      customizationHook.setCustomizationConfig(data.customizationConfig);
+    try {
+      const tasks = dedupeActiveTasks(data.tasks, data.completedTasks);
+      tasksHook.setTasks(tasks);
+      tasksHook.saveTasks(tasks);
+      tasksHook.setCompletedTasks(data.completedTasks);
+      tasksHook.saveCompleted(data.completedTasks);
+      notesHook.setStickyNotes(data.stickyNotes);
+      pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
+      countdownHook.setCountdowns(data.countdowns);
+      setJournal(data.journal || []);
+      localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
+      if (data.customizationConfig) {
+        customizationHook.setCustomizationConfig(data.customizationConfig);
+      }
+    } finally {
+      endSyncApply();
     }
-  }, [tasksHook, notesHook, pomodoroHook, countdownHook, customizationHook]);
+  }, [tasksHook, notesHook, pomodoroHook, countdownHook, customizationHook, setJournal]);
 
   // 监听 syncEngine 拉取远程数据后刷新 UI
   useEffect(() => {
@@ -709,8 +333,9 @@ function AppBody() {
   }, []);
 
   // ============ 数据变更 → 按分类标记脏 + 递增版本号 ============
-  // 之前 markDirty() 无参会把所有分类都标记脏，导致「改一处心情 emoji 也全量上传所有分类文件」。
+  // 之前 markDirty() 无参会把所有分类都标记脏，导致「改一处也全量上传所有分类文件」。
   // 现在用 diff 比对，只把真正变化的分类标记脏，sync 时只上传变化的文件，减少无谓的全量上传。
+  // 云端 apply / isSyncApplying 期间不 bump，避免空本地被标脏后盖掉远端。
   const prevSyncDataRef = useRef<{
     tasks: Task[]; completedTasks: Task[]; stickyNotes: unknown; config: unknown;
     pomodoroLogs: unknown; countdowns: unknown;
@@ -718,7 +343,7 @@ function AppBody() {
 
   useEffect(() => {
     if (isFirstLoad.current) return;
-    if (isRestoringRef.current) {
+    if (isRestoringRef.current || isSyncApplying()) {
       isRestoringRef.current = false;
       prevSyncDataRef.current = {
         tasks: tasksHook.tasks, completedTasks: tasksHook.completedTasks,
@@ -755,7 +380,7 @@ function AppBody() {
     if (!isHydrated) return;
     const interval = (customizationHook.customizationConfig.syncInterval || 60) * 1000;
     syncEngine.setAutoSync(customizationHook.customizationConfig.enableAutoBackup !== false, interval);
-  }, [isHydrated, customizationHook.customizationConfig.enableAutoBackup]);
+  }, [isHydrated, customizationHook.customizationConfig.enableAutoBackup, customizationHook.customizationConfig.syncInterval]);
 
   useEffect(() => {
     isFirstLoad.current = false;
@@ -830,7 +455,7 @@ function AppBody() {
     handleUpsertJournal(entry);
   }, [handleUpsertJournal]);
 
-  const handlePinNoteToDesktop = async (id: string) => {
+  const handlePinNoteToDesktop = useCallback(async (id: string) => {
     try {
       const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
       const label = `note-${id}`;
@@ -852,7 +477,7 @@ function AppBody() {
     } catch (err) {
       console.error("创建桌面便签贴失败", err);
     }
-  };
+  }, []);
 
   // Watercolor blobs removed — clean background for calm precision design
 
@@ -919,9 +544,10 @@ function AppBody() {
     fontFamily={customizationHook.customizationConfig.fontFamily || "sans"}
     tasks={tasksHook.tasks}
     completedTasks={tasksHook.completedTasks}
+    journal={journal}
     progressPercentage={tasksHook.progressPercentage}
     wrappedHandleComplete={wrappedHandleComplete}
-    handleDeleteTask={tasksHook.handleDeleteTask}
+    handleDeleteTask={wrappedHandleDeleteTask}
     handleTaskClick={tasksHook.handleTaskClick}
     handleCloseDetail={tasksHook.handleCloseDetail}
     handleToggleSubtask={tasksHook.handleToggleSubtask}
@@ -947,6 +573,8 @@ function AppBody() {
         handlePinNoteToDesktop={handlePinNoteToDesktop}
         celebrationMessage={celebrationMessage}
     setCelebrationMessage={setCelebrationMessage}
+    deleteUndoToast={deleteUndoToast}
+    onUndoDelete={handleUndoDeleteClick}
     syncStatus={syncStatus}
     lastBackupTime={lastBackupTime}
     commandPaletteOpen={commandPaletteOpen}
@@ -972,6 +600,7 @@ interface MainLayoutProps {
   t: ReturnType<typeof useTranslation>["t"];
   fontFamily: string;
   tasks: Task[]; completedTasks: Task[];
+  journal: JournalEntry[];
   progressPercentage: number;
   wrappedHandleComplete: (id: string) => void;
   handleDeleteTask: (id: string) => void;
@@ -1007,6 +636,8 @@ interface MainLayoutProps {
   handlePinNoteToDesktop: (id: string) => void;
   celebrationMessage: string | null;
   setCelebrationMessage: (msg: string | null) => void;
+  deleteUndoToast: string | null;
+  onUndoDelete: () => void;
   syncStatus: "synced" | "syncing" | "error";
   lastBackupTime: number | null;
   commandPaletteOpen: boolean; setCommandPaletteOpen: (v: boolean) => void;
@@ -1019,7 +650,7 @@ interface MainLayoutProps {
 
 const MainLayout = React.memo(function MainLayout({
   flowMode, setFlowMode, activeTab, setActiveTab, t, fontFamily,
-  tasks, completedTasks, progressPercentage,
+  tasks, completedTasks, journal, progressPercentage,
   wrappedHandleComplete, handleDeleteTask, handleTaskClick,
   handleCloseDetail, handleToggleSubtask, handleAddSubtask,
   handleSaveNotes, handleUpdateTags, handleEditTask, handleUndoComplete,
@@ -1028,12 +659,12 @@ const MainLayout = React.memo(function MainLayout({
   notesHook, countdownHook, widgetHook, aiHook, customizationHook, pomodoroHandleStartFocus, pomodoroLogs, alertSoundType, setAlertSoundType,
   handlePinNoteToDesktop,
   celebrationMessage, setCelebrationMessage,
+  deleteUndoToast, onUndoDelete,
   syncStatus, lastBackupTime,
   commandPaletteOpen, setCommandPaletteOpen, windowLabel,
   resetTasks, handleClearCompleted,
   onNewsSaveTask, onNewsSaveJournal,
 }: MainLayoutProps) {
-  const { habits } = usePersonal();
   return (
     <>
       {flowMode ? (
@@ -1057,7 +688,6 @@ const MainLayout = React.memo(function MainLayout({
           tasksCount={tasks.length}
           stickyNotesCount={notesHook.stickyNotes.length}
           countdownCount={countdownHook.countdowns.length}
-          habitsCount={habits.length}
           handleToggleWidget={widgetHook.handleToggleWidget}
           handleToggleWidgetLock={widgetHook.handleToggleWidgetLock}
           isWidgetLocked={widgetHook.isWidgetLocked}
@@ -1071,9 +701,9 @@ const MainLayout = React.memo(function MainLayout({
         <main className="flex-grow p-6 overflow-y-auto flex flex-col gap-5 z-10 relative custom-scrollbar min-h-0">
           {activeTab !== "home" && (
             <>
-              <header className="flex justify-between items-center border-b border-[#EFEBE4] pb-4">
+              <header className="flex justify-between items-center border-b border-[#EFEBE4] dark:border-[#33353A] pb-4">
                 <div>
-                  <h2 className="text-xl font-bold tracking-wide text-[#2D323A]">
+                  <h2 className="text-xl font-bold tracking-wide text-[#2D323A] dark:text-slate-100">
                     {activeTab === "matrix" ? t.header.matrix
                       : activeTab === "list" ? t.header.list
                       : activeTab === "calendar" ? t.header.calendar
@@ -1082,16 +712,18 @@ const MainLayout = React.memo(function MainLayout({
                       : activeTab === "completed" ? t.header.completed
                       : activeTab === "countdown" ? t.header.countdown
                       : activeTab === "news" ? t.header.news
-                      : activeTab === "habits" ? (t.sidebar.habits || "习惯打卡")
                       : activeTab === "gantt" ? "甘特图"
                       : activeTab === "journal" ? (t.journal?.title || "日记手账")
+                      : activeTab === "memory" ? (t.sidebar?.memory || "时光长廊")
                       : t.header.completed}
                   </h2>
-                  <p className="text-xs text-slate-500 mt-1 font-medium">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                     {activeTab === "settings"
                       ? "自定义主题色调、材质滤镜与系统字体，个性化配置您的待办看板。"
                       : activeTab === "news"
                       ? "阅读纸质风骨的每日热点，或订阅您喜爱的 RSS 资讯源。"
+                      : activeTab === "memory"
+                      ? "回味每一篇手账、每一次专注与已完成的高光成果，感受时光的沉淀。"
                       : "规划今日待办，有条不紊地记录生活的每个瞬间。"}
                   </p>
                 </div>
@@ -1099,7 +731,9 @@ const MainLayout = React.memo(function MainLayout({
                   <button
                     onClick={() => aiHook.setShowAiInbox(!aiHook.showAiInbox)}
                     className={`text-xs px-3.5 py-2 rounded-xl font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-xs select-none ${
-                      aiHook.showAiInbox ? "bg-[#FCF2F0] text-[#A34E36] border-[#F5DFDB]" : "bg-white text-slate-500 border-[#EFEBE4] hover:bg-[#FAF8F5]"
+                      aiHook.showAiInbox 
+                        ? "bg-[#FCF2F0] dark:bg-[#3D2325] text-[#A34E36] dark:text-[#E06D53] border-[#F5DFDB] dark:border-[#422D30]" 
+                        : "bg-white dark:bg-[#1C1D21] text-slate-500 dark:text-slate-400 border-[#EFEBE4] dark:border-[#33353A] hover:bg-[#FAF8F5] dark:hover:bg-[#282A30]"
                     }`}
                     title={aiHook.showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}
                   >
@@ -1113,15 +747,15 @@ const MainLayout = React.memo(function MainLayout({
           )}
 
           {aiHook.showAiInbox && (activeTab === "matrix" || activeTab === "list") && (
-            <div className="bg-white/85 border border-[#EFEBE4] p-4 rounded-2xl shadow-sm z-10 relative flex flex-col gap-2.5 transition-all duration-300">
+            <div className="bg-white/90 dark:bg-[#1C1D21]/95 border border-[#EFEBE4] dark:border-[#33353A] p-4 rounded-2xl shadow-sm dark:shadow-md z-10 relative flex flex-col gap-2.5 transition-all duration-300">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#8B6E3C] tracking-wide flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#8B6E3C]" />
+                <span className="text-xs font-bold text-[#8B6E3C] dark:text-[#CBB182] tracking-wide flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[#8B6E3C] dark:text-[#CBB182]" />
                   <span>{t.quickAdd.aiInboxTitle}</span>
                 </span>
               </div>
               {aiHook.aiInputMessage && (
-                <div className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2 animate-fade-in-up ${aiHook.aiInputMessage.type === "success" ? "bg-[#E8F5E9] text-[#2E7D32] border border-[#C8E6C9]" : "bg-[#FFF3E0] text-[#E65100] border border-[#FFE0B2]"}`}>
+                <div className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2 animate-fade-in-up ${aiHook.aiInputMessage.type === "success" ? "bg-[#E8F5E9] dark:bg-[#1D2B22] text-[#2E7D32] dark:text-[#6FAD84] border border-[#C8E6C9] dark:border-[#2D3A31]" : "bg-[#FFF3E0] dark:bg-[#2D231B] text-[#E65100] dark:text-[#E06D53] border border-[#FFE0B2] dark:border-[#3E2D26]"}`}>
                   <span>{aiHook.aiInputMessage.text === "API_KEY_MISSING" ? t.quickAdd.apiKeyMissing : aiHook.aiInputMessage.text}</span>
                   {aiHook.aiInputMessage.text === "API_KEY_MISSING" && (
                     <button onClick={() => { setActiveTab("settings"); aiHook.setShowAiInbox(false); aiHook.setAiInputMessage(null); }} className="flex-shrink-0 px-3 py-1 rounded-lg bg-[#E65100] text-white text-[10px] font-bold hover:bg-[#BF360C] transition-colors cursor-pointer">
@@ -1132,15 +766,15 @@ const MainLayout = React.memo(function MainLayout({
               )}
               {aiHook.aiPreviewTasks.length > 0 ? (
                 <div className="flex flex-col gap-3 animate-fade-in-up">
-                  <div className="text-[10px] font-bold text-slate-500 mb-1 border-b border-[#EFEBE4] pb-1.5">{t.quickAdd.aiPreview}</div>
+                  <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 border-b border-[#EFEBE4] dark:border-[#33353A] pb-1.5">{t.quickAdd.aiPreview}</div>
                   <div className="space-y-3.5 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
                     {aiHook.aiPreviewTasks.map((item, idx) => (
-                      <div key={`ai-${item.title}-${idx}`} className="p-3 bg-[#FAF8F5]/85 border border-[#EFEBE4] rounded-xl flex flex-col gap-2 shadow-2xs">
+                      <div key={`ai-${item.title}-${idx}`} className="p-3 bg-[#FAF8F5]/85 dark:bg-[#23252B] border border-[#EFEBE4] dark:border-[#33353A] rounded-xl flex flex-col gap-2 shadow-2xs">
                         <div className="flex gap-2 items-center">
-                          <input type="text" value={item.title} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].title = e.target.value; aiHook.setAiPreviewTasks(u); }} className="flex-grow bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.taskTitle} />
-                          <input type="date" value={item.dueDate} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].dueDate = e.target.value; aiHook.setAiPreviewTasks(u); }} className="bg-white border border-[#EFEBE4] px-2 py-1 rounded-lg text-[10px] text-slate-700 font-bold focus:outline-none focus:border-[#4D7C5D] w-28 flex-shrink-0" />
-                          <input type="time" value={item.dueTime || ""} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].dueTime = e.target.value; aiHook.setAiPreviewTasks(u); }} className="bg-white border border-[#EFEBE4] px-2 py-1 rounded-lg text-[10px] text-slate-700 font-bold focus:outline-none focus:border-[#4D7C5D] w-16 flex-shrink-0" />
-                          <select value={item.category} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].category = e.target.value as Task["category"]; aiHook.setAiPreviewTasks(u); }} className="bg-white border border-[#EFEBE4] px-2 py-1 rounded-lg text-[10px] text-slate-700 font-semibold focus:outline-none focus:border-[#4D7C5D] w-32 flex-shrink-0">
+                          <input type="text" value={item.title} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].title = e.target.value; aiHook.setAiPreviewTasks(u); }} className="flex-grow bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.taskTitle} />
+                          <input type="date" value={item.dueDate} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].dueDate = e.target.value; aiHook.setAiPreviewTasks(u); }} className="bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:border-[#4D7C5D] w-28 flex-shrink-0" />
+                          <input type="time" value={item.dueTime || ""} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].dueTime = e.target.value; aiHook.setAiPreviewTasks(u); }} className="bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:border-[#4D7C5D] w-16 flex-shrink-0" />
+                          <select value={item.category} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].category = e.target.value as Task["category"]; aiHook.setAiPreviewTasks(u); }} className="bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 font-semibold focus:outline-none focus:border-[#4D7C5D] w-32 flex-shrink-0">
                             <option value="urgent-important">I. {t.matrix.urgentImportant}</option>
                             <option value="important-not-urgent">II. {t.matrix.importantNotUrgent}</option>
                             <option value="urgent-not-important">III. {t.matrix.urgentNotImportant}</option>
@@ -1149,26 +783,26 @@ const MainLayout = React.memo(function MainLayout({
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">任务说明/详情描述</label>
-                            <input type="text" value={item.description} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].description = e.target.value; aiHook.setAiPreviewTasks(u); }} className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1 rounded-lg text-[10px] text-slate-600 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.noDescription} />
+                            <label className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase block mb-0.5">任务说明/详情描述</label>
+                            <input type="text" value={item.description} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].description = e.target.value; aiHook.setAiPreviewTasks(u); }} className="w-full bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2.5 py-1 rounded-lg text-[10px] text-slate-600 dark:text-slate-300 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.noDescription} />
                           </div>
                           <div>
-                            <label className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">{t.quickAdd.techNotes}</label>
-                            <input type="text" value={item.notes} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].notes = e.target.value; aiHook.setAiPreviewTasks(u); }} className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1 rounded-lg text-[10px] text-slate-600 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.noNotes} />
+                            <label className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase block mb-0.5">{t.quickAdd.techNotes}</label>
+                            <input type="text" value={item.notes} onChange={(e) => { const u = [...aiHook.aiPreviewTasks]; u[idx].notes = e.target.value; aiHook.setAiPreviewTasks(u); }} className="w-full bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] px-2.5 py-1 rounded-lg text-[10px] text-slate-600 dark:text-slate-300 focus:outline-none focus:border-[#4D7C5D]" placeholder={t.quickAdd.noNotes} />
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2 justify-end pt-1.5 border-t border-[#EFEBE4]">
-                    <button onClick={() => aiHook.setAiPreviewTasks([])} className="text-[10px] text-slate-500 hover:text-slate-700 px-3.5 py-1.5 rounded-lg border border-[#EFEBE4] transition-colors cursor-pointer">{t.quickAdd.discard}</button>
-                    <button onClick={handleConfirmAiTasks} className="text-[10px] text-white bg-[#4D7C5D] hover:bg-[#3F684C] px-4.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shadow-xs">{t.quickAdd.confirmImport}</button>
+                  <div className="flex gap-2 justify-end pt-1.5 border-t border-[#EFEBE4] dark:border-[#33353A]">
+                    <button onClick={() => aiHook.setAiPreviewTasks([])} className="text-[10px] text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-3.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#383A42] bg-white dark:bg-[#1C1D21] transition-colors cursor-pointer">{t.quickAdd.discard}</button>
+                    <button onClick={handleConfirmAiTasks} className="text-[10px] text-white bg-[#4D7C5D] dark:bg-[#3F684C] hover:bg-[#3F684C] dark:hover:bg-[#33553C] px-4.5 py-1.5 rounded-lg font-bold transition-colors cursor-pointer shadow-xs">{t.quickAdd.confirmImport}</button>
                   </div>
                 </div>
               ) : (
                 <div className="flex gap-3">
-                  <textarea value={aiHook.aiInputText} onChange={(e) => aiHook.setAiInputText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); aiHook.handleAiBatchInput(); } }} onFocus={() => aiHook.aiInputMessage && aiHook.setAiInputMessage(null)} placeholder={t.quickAdd.aiPlaceholder} className="flex-grow bg-[#FAF8F5]/80 border border-[#EFEBE4] px-3.5 py-2 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] transition-colors resize-none h-14 custom-scrollbar font-semibold" disabled={aiHook.aiInputLoading} />
-                  <button onClick={aiHook.handleAiBatchInput} disabled={aiHook.aiInputLoading} className={`px-4.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all shadow-[0_2px_4px_rgba(77,124,93,0.1)] select-none ${aiHook.aiInputLoading ? "bg-slate-300 border-slate-300 cursor-not-allowed" : "bg-[#4D7C5D] hover:bg-[#3F684C] border-[#4D7C5D] cursor-pointer hover:scale-105"}`}>
+                  <textarea value={aiHook.aiInputText} onChange={(e) => aiHook.setAiInputText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); aiHook.handleAiBatchInput(); } }} onFocus={() => aiHook.aiInputMessage && aiHook.setAiInputMessage(null)} placeholder={t.quickAdd.aiPlaceholder} className="flex-grow bg-[#FAF8F5]/80 dark:bg-[#23252B] border border-[#EFEBE4] dark:border-[#383A42] px-3.5 py-2.5 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] transition-colors resize-none h-16 custom-scrollbar font-semibold" disabled={aiHook.aiInputLoading} />
+                  <button onClick={aiHook.handleAiBatchInput} disabled={aiHook.aiInputLoading} className={`px-4.5 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-all shadow-[0_2px_4px_rgba(77,124,93,0.1)] select-none ${aiHook.aiInputLoading ? "bg-slate-300 dark:bg-slate-700 border-slate-300 dark:border-slate-700 cursor-not-allowed" : "bg-[#4D7C5D] dark:bg-[#3F684C] hover:bg-[#3F684C] dark:hover:bg-[#33553C] border-[#4D7C5D] dark:border-[#3F684C] cursor-pointer hover:scale-105"}`}>
                     {aiHook.aiInputLoading ? (
                       <><Sparkles className="w-3.5 h-3.5 animate-spin" /><span>{t.quickAdd.aiProcessing}</span></>
                     ) : (
@@ -1181,10 +815,18 @@ const MainLayout = React.memo(function MainLayout({
           )}
 
           {activeTab === "home" && (
-            <DashboardView tasks={tasks} completedTasks={completedTasks} handleComplete={wrappedHandleComplete} onTaskClick={handleTaskClick} config={customizationHook.customizationConfig} />
+            <DashboardView
+              tasks={tasks}
+              completedTasks={completedTasks}
+              pomodoroLogs={pomodoroLogs}
+              handleComplete={wrappedHandleComplete}
+              onTaskClick={handleTaskClick}
+              onOpenJournal={() => setActiveTab("journal")}
+              config={customizationHook.customizationConfig}
+            />
           )}
           {activeTab === "matrix" && (
-            <MatrixView tasks={tasks} handleComplete={wrappedHandleComplete} qColors={customizationHook.customizationConfig.qColors} handleStartFocus={pomodoroHandleStartFocus} handleAddTask={handleAddTaskWithAI} handleToggleFavorite={handleToggleFavorite} handleTogglePin={handleTogglePin} onTaskClick={handleTaskClick} searchQuery={aiHook.searchQuery} setSearchQuery={aiHook.setSearchQuery} />
+            <MatrixView tasks={tasks} handleComplete={wrappedHandleComplete} qColors={customizationHook.customizationConfig.qColors} handleStartFocus={pomodoroHandleStartFocus} handleAddTask={handleAddTaskWithAI} handleToggleFavorite={handleToggleFavorite} handleTogglePin={handleTogglePin} onTaskClick={handleTaskClick} onEditTask={handleEditTask} searchQuery={aiHook.searchQuery} setSearchQuery={aiHook.setSearchQuery} />
           )}
           {activeTab === "list" && (
             <ListView tasks={tasks} searchQuery={aiHook.searchQuery} setSearchQuery={aiHook.setSearchQuery} categoryFilter={aiHook.categoryFilter} setCategoryFilter={aiHook.setCategoryFilter} tagFilter={aiHook.tagFilter} setTagFilter={aiHook.setTagFilter} handleComplete={wrappedHandleComplete} handleDeleteTask={handleDeleteTask} expandedNoteId={expandedNoteId} setExpandedNoteId={setExpandedNoteId} editingNotes={editingNotes} setEditingNotes={setEditingNotes} handleSaveNotes={handleSaveNotes} handleStartFocus={pomodoroHandleStartFocus} handleAddTask={handleAddTaskWithAI} handleToggleFavorite={handleToggleFavorite} handleTogglePin={handleTogglePin} onTaskClick={handleTaskClick} />
@@ -1193,7 +835,7 @@ const MainLayout = React.memo(function MainLayout({
             <CalendarView tasks={tasks} handleComplete={wrappedHandleComplete} handleAddTask={handleAddTaskWithAI} />
           )}
           {activeTab === "notes" && (
-            <StickyNotesView stickyNotes={notesHook.stickyNotes} handleAddNote={notesHook.handleAddNote} handleEditNoteText={notesHook.handleEditNoteText} handleChangeNoteColor={notesHook.handleChangeNoteColor} handleDeleteNote={notesHook.handleDeleteNote} pinType={customizationHook.customizationConfig.pinType} onPinNoteToDesktop={handlePinNoteToDesktop} />
+            <StickyNotesView stickyNotes={notesHook.stickyNotes} handleAddNote={notesHook.handleAddNote} handleEditNoteText={notesHook.handleEditNoteText} handleEditNoteTitle={notesHook.handleEditNoteTitle} handleChangeNoteColor={notesHook.handleChangeNoteColor} handleDeleteNote={notesHook.handleDeleteNote} pinType={customizationHook.customizationConfig.pinType} onPinNoteToDesktop={handlePinNoteToDesktop} />
           )}
           {activeTab === "news" && (
             <NewsView
@@ -1211,17 +853,26 @@ const MainLayout = React.memo(function MainLayout({
           {activeTab === "countdown" && (
             <CountdownView countdowns={countdownHook.countdowns} handleAddCountdown={countdownHook.handleAddCountdown} handleDeleteCountdown={countdownHook.handleDeleteCountdown} />
           )}
-          {activeTab === "habits" && (
-            <HabitsView />
-          )}
           {activeTab === "gantt" && (
-            <GanttView tasks={tasks} onTaskClick={handleTaskClick} />
+            <GanttView tasks={tasks} onTaskClick={handleTaskClick} onEditTask={handleEditTask} />
           )}
           {activeTab === "journal" && (
             <JournalView
               tasks={tasks}
+              completedTasks={completedTasks}
               pomodoroLogs={pomodoroLogs}
               aiConfig={customizationHook.customizationConfig}
+            />
+          )}
+          {activeTab === "memory" && (
+            <MemoryView
+              tasks={tasks}
+              completedTasks={completedTasks}
+              pomodoroLogs={pomodoroLogs}
+              journal={journal}
+              onOpenJournalDate={(_date) => {
+                setActiveTab("journal");
+              }}
             />
           )}
           {activeTab === "settings" && (
@@ -1229,7 +880,7 @@ const MainLayout = React.memo(function MainLayout({
           )}
         </main>
         ), [
-          activeTab, tasks, completedTasks,
+          activeTab, tasks, completedTasks, journal,
           t, fontFamily,
           wrappedHandleComplete, handleDeleteTask, handleTaskClick,
           handleCloseDetail, handleToggleSubtask, handleAddSubtask,
@@ -1260,17 +911,27 @@ const MainLayout = React.memo(function MainLayout({
         {celebrationMessage && (
           <CelebrationOverlay message={celebrationMessage} onDone={() => setCelebrationMessage(null)} />
         )}
+        {deleteUndoToast && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
+            <span className="max-w-[240px] truncate">
+              {(t.listView.deletedToast || "已删除「{title}」").replace("{title}", deleteUndoToast)}
+            </span>
+            <button
+              type="button"
+              onClick={onUndoDelete}
+              className="shrink-0 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-[#C4D7B2] cursor-pointer transition-colors"
+            >
+              {t.common.undoDelete || t.common.undo || "撤销"}
+            </button>
+          </div>
+        )}
         {detailTaskId && (() => {
           const activeTask = tasks.find((t: Task) => t.id === detailTaskId);
           const completedTask = !activeTask ? completedTasks.find((t: Task) => t.id === detailTaskId) : undefined;
           const task = activeTask || completedTask;
           if (!task) return null;
-          const isCompleted = !activeTask && !!completedTask;
-          const editHandler = isCompleted
-            ? (id: string, updates: Partial<Task>) => handleEditTask(id, updates)
-            : handleEditTask;
           return (
-            <TaskDetailModal key={task.id} task={task} onClose={handleCloseDetail} onToggleSubtask={handleToggleSubtask} onAddSubtask={handleAddSubtask} onSaveNotes={handleSaveNotes} onUpdateTags={handleUpdateTags} onEditTask={editHandler} allTasks={tasks} />
+            <TaskDetailModal key={task.id} task={task} onClose={handleCloseDetail} onToggleSubtask={handleToggleSubtask} onAddSubtask={handleAddSubtask} onSaveNotes={handleSaveNotes} onUpdateTags={handleUpdateTags} onEditTask={handleEditTask} allTasks={tasks} />
           );
         })()}
       </div>
@@ -1282,6 +943,7 @@ const MainLayout = React.memo(function MainLayout({
         onClose={() => setCommandPaletteOpen(false)}
         tasks={tasks}
         stickyNotes={notesHook.stickyNotes}
+        journal={journal}
         onTaskClick={(task) => { handleTaskClick(task); setCommandPaletteOpen(false); }}
         onNavigate={(tab) => { setActiveTab(tab); setFlowMode(false); }}
         onCreateTask={() => {}}

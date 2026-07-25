@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import type { CountdownEvent } from "../types";
 import { createId } from "../utils/id";
 import { safeJsonParse } from "../utils/json";
@@ -9,10 +9,6 @@ export function useCountdown() {
     safeJsonParse<CountdownEvent[]>(localStorage.getItem("tongyun_countdowns"), [])
   );
 
-  const saveCountdowns = useCallback((updated: CountdownEvent[]) => {
-    localStorage.setItem("tongyun_countdowns", JSON.stringify(updated));
-  }, []);
-
   const handleAddCountdown = useCallback((event: { title: string; targetDate: string; emoji?: string; color?: string }) => {
     const newEvent: CountdownEvent = {
       id: createId("countdown"),
@@ -21,25 +17,17 @@ export function useCountdown() {
       emoji: event.emoji || "🎯",
       color: event.color,
     };
-    setCountdowns((prev) => {
-      const updated = [...prev, newEvent];
-      saveCountdowns(updated);
-      return updated;
-    });
-  }, [saveCountdowns]);
+    setCountdowns((prev) => [...prev, newEvent]);
+  }, []);
 
   const handleDeleteCountdown = useCallback((id: string) => {
-    setCountdowns((prev) => {
-      const updated = prev.filter((c) => c.id !== id);
-      saveCountdowns(updated);
-      return updated;
-    });
-  }, [saveCountdowns]);
+    setCountdowns((prev) => prev.filter((c) => c.id !== id));
+  }, []);
 
-  return {
+  return useMemo(() => ({
     countdowns,
     setCountdowns,
     handleAddCountdown,
     handleDeleteCountdown,
-  };
+  }), [countdowns, handleAddCountdown, handleDeleteCountdown]);
 }

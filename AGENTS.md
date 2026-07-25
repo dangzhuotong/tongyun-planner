@@ -50,10 +50,10 @@
 ### 背景
 用户提出产品路线图 A-E，并确定「先做 A，之后立刻做 B」：
 - A. 资讯 → 行动联动：RSS / Trending / Explore 里一键「稍后读 / 存为任务 / 收藏到日记」
-- B. 全局剪贴板捕获（桌面端专属）：复制文字/链接时弹窗「存为任务 / 便签 / 日记」
+- B. 全局剪贴板捕获（桌面端专属）：复制文字/链接时弹窗「存为任务 / 便签 / 日记」——**已取消（2026-07-21）**
 - C. 智能规划：智能日计划编排 + 系统通知/到期提醒
 - D. 日记延续：#标签浏览 + 单篇/整本导出
-- E. 生活向：轻量记账 + 本地语音备忘
+- E. 生活向：轻量记账 + 本地语音备忘（用户确认不做）
 
 ### 完成项（Feature A）
 - **资讯→行动联动** 全量打通：每条资讯新增「稍后读 / 存为任务 / 收藏到日记」一键操作
@@ -79,10 +79,8 @@
 - `src/components/NewsView.tsx`
 - `src/App.tsx`
 
-### 待办（下一步 B）
-- B 依赖 Tauri 桌面 API：需确认 `src-tauri` 已启用 clipboard-plugin / global-shortcut 或监听系统剪贴板变更
-- 监听复制事件 → 弹出「存为任务 / 便签 / 日记」轻量窗或面板
-- 便签写入走 `useStickyNotes`（notesHook）；任务/日记复用 A 中已建 handler 思路
+### 待办
+- ~~下一步 B（剪贴板）~~ → **已取消**，不再实现
 
 ## Session 4 (2026-07-10)
 
@@ -112,8 +110,7 @@
 
 ### 待办（继续推进）
 - D 还可做：标签固定侧栏分组视图、按年/月归档导出、导出为 PDF/HTML
-- E 生活向（轻量记账 + 本地语音备忘）尚未开始
-- B 全局剪贴板捕获仍待做（见 Session 3 待办）
+- E / B 均已取消
 
 ## Session 5 (2026-07-10)
 
@@ -141,8 +138,8 @@
 - `npm run typecheck` 通过（零报错）
 
 ### 待办（下一步）
-- B 全局剪贴板捕获仍待做（桌面端专属，需 Tauri 原生剪贴板监听 + Rust 构建）
-- C 还可做：任务到期前提醒时间可配置化（接入设置项）、通知点击聚焦/完成任务
+- ~~B 全局剪贴板捕获~~ → **已取消**
+- C 还可做：无 `dueTime` 的今日任务提醒、通知点击聚焦/完成任务
 
 ## Session 6 (2026-07-10)
 
@@ -285,3 +282,169 @@
 ### 给用户的确认建议
 - 若症状仍存在，请在「设置 → 日记 → 日记自动加入待办」确认该开关状态；本修复保证：即便开启，删除/完成的日记任务也不会再自动复活
 - 普通（非日记生成）任务本就与 effect 无关，删除/完成逻辑此前已验证正常
+
+## Session 12 (2026-07-21)
+
+### 完成项
+- **移除习惯打卡**：删除 HabitsView / 侧栏入口 / 命令面板 / sync `habits` 分类
+- **移除结构化心情**：删除 MoodPanel、日历心情点、moods/moodNotes/moodAttachments 状态；心情写在日记正文即可
+- PersonalContext 仅保留日记 + 日历导航；同步 payload 不再含习惯/心情
+
+## Session 13 (2026-07-21)
+
+### 完成项
+- **主页去重**：有「今日回顾」后，删除下方四格统计卡（剩余待办 / 已完成 / 进度 / 年度）及对应 CSS
+- **专注统计**：番茄热力图旁的周趋势折线图改为「本周速览」（本周次数 / 活跃天数 / 对比上周），后改为热力图下方横排三格
+- **日记心情**：日记页页眉恢复五级 emoji 心情（😞😔😐😊😄），写入 `JournalEntry.mood`；再点同一项清除；日期滑条有心情时显示 emoji
+- **主页去重续**：删除「本周回顾」条（与今日回顾重复）；AI 建议/一言硬编码中文补 i18n
+- **日记心情排版**：心情选择器从独占一行压缩到「回到今天」同行，更紧凑
+
+### 相关文件
+- `src/components/DashboardView.tsx`
+- `src/components/AnalyticsView.tsx`
+- `src/components/JournalView.tsx`
+- `src/types.ts`
+- `src/i18n/zh-CN.ts`
+- `src/i18n/en.ts`
+- `src/index.css`
+- `.cursor/skills/tongyun-data/reference.md`
+
+## Session 14 (2026-07-22)
+
+### 完成项
+- **番茄专注热力图重构升级**：
+  - 时间跨度由 18 周扩展为 **26 周 (半年/182天)**
+  - 实现 **响应式自适应铺满 (Responsive viewBox)**：使热力图 100% 优雅填满大卡片宽度，彻底解决原来右侧空出大片空白的问题
+  - **4 维数据速览与连胜**：底部整合扩充为 4 维速览面板（本周番茄、活跃天数、对比上周、当前连续打卡 🔥 / 单日最高 🏆）
+  - **统一组件与代码重构**：将 AnalyticsView 原有的局部内联热力图和速览逻辑统一收拢到 `FocusHeatmap.tsx` 组件，实现样式与逻辑复用，包含暗黑模式色阶适配与 i18n
+  - **文档同步**：同步更新 `README.md` 与国际化语言包（zh-CN / en）
+
+### 相关文件
+- `src/components/FocusHeatmap.tsx`
+- `src/components/AnalyticsView.tsx`
+- `src/i18n/zh-CN.ts`
+- `src/i18n/en.ts`
+- `README.md`
+- `AGENTS.md`
+
+## Session 11 (2026-07-21)
+
+### 背景
+用户确认砍掉路线图 B（桌面剪贴板捕获）；其余体验加固按「降级诚实邮件 + 无时刻到期通知 + 同步完成态优先 + AI 建议加厚 + 日记小打磨」落地。
+
+### 完成项
+- **路线图 B**：正式取消（文档标注）
+- **邮件降级诚实**：保留 SMTP 测试；到期/每日汇总开关灰显并标明未实现
+- **无 dueTime 今日任务**：默认 09:00 系统通知
+- **同步加固**：tasks↔completed 完成态优先交叉去重
+- **AI 今日建议**：加厚习惯/番茄/心情上下文，失败可见
+- **附件轻量清理**：hydrate 丢弃 legacy `data:` 项
+- **日记**：翻页过渡 + 滑条外日期跳转
+
+## Session 15 (2026-07-23)
+
+### 完成项
+- **全新【时光长廊 · 岁月印记】展示页 (MemoryView)**：
+  - **月度记忆沉淀**：整合 `journal` 日记手帐、`completedTasks` 高光成果、`pomodoroLogs` 深度专注以及当日 Mood 心情。
+  - **高光速览面板**：顶部显示当月积累的手账篇数、已完成任务项、专注小时数与常见 Mood 趋势。
+  - **按月筛选与岁月时间轴 (Timeline Stream)**：自动解析所有记录月份，支持年月快速切换与全部/日记/高光/专注多分类筛选。
+  - **拟物拍立得抽卡 (Memory Card Drawer)**：提供“抽取记忆手牌”温故知新交互，伴随 3D 翻牌弹窗呈现历史上的某一天或精彩瞬间。
+  - **一键联动**：点击日记卡片可直接无缝跳转回日记手帐，查阅当日全文。
+- **导航与国际化**：`Sidebar` 归档组新增“时光长廊”入口，同步补全 `zh-CN` / `en` 国际化文案。
+
+### 相关文件
+- `src/components/MemoryView.tsx`
+- `src/components/Sidebar.tsx`
+- `src/App.tsx`
+- `src/types.ts`
+- `src/i18n/zh-CN.ts`
+- `src/i18n/en.ts`
+
+## Session 16 (2026-07-23)
+
+### 完成项
+- **甘特图交互升华 (GanttView)**：
+  - **拖拽排期**：支持直接按住甘特图中的任务区块拖拽放置到目标日期网格，自动更新截止日期 (`dueDate`)。
+  - **依赖与搜索**：增加 `dependsOn` 依赖提示标记与关键词实时筛选，带有今日醒目标线 (`Today line`)。
+- **倒数日农历支持 (CountdownView)**：
+  - **农历生日/节日重复**：新增 `isLunar` 勾选项，基于 `lunar-javascript` 自动推算今年或下一年的目标公历日期，实现农历倒计时准确计算。
+- **全局命令面板全搜 (CommandPalette / Cmd+K)**：
+  - **全文深度搜索**：命令面板打通对 `journal` 日记标题与正文摘要的模糊检索。
+  - **快捷新建指令**：增加快捷写日记、搜索“时光长廊”等指令。
+- **时光长廊暗黑模式修复 (MemoryView)**：
+  - 为顶部面板、月度概览卡片、时间轴流水卡片、抽卡弹窗补全全套 `dark:` 暗黑适配类，保证在暗黑模式下文本对比度与视觉柔和度。
+- **四象限看板交互与法则升级 (MatrixView)**：
+  - **跨象限拖拽放置**：实现按住任务卡片直接拖投至任意象限，即时更改任务分类。
+  - **容量占比与方法论指引**：增加象限任务比重百分比，内置“艾森豪威尔法则指引”展开卡片。
+
+### 相关文件
+- `src/components/MemoryView.tsx`
+- `src/components/MatrixView.tsx`
+- `src/components/GanttView.tsx`
+- `src/components/CountdownView.tsx`
+- `src/components/CommandPalette.tsx`
+- `src/App.tsx`
+- `src/types.ts`
+
+## Session 17 (2026-07-23)
+
+### 背景
+开发时日记 / AI 配置反复丢失。根因：① `tongyun_journal` 未进 SQLite 白名单；② 空本地被标脏后整包 push 盖掉远端；③ 同步回写 React 状态再次 markDirty。
+
+### 完成项
+- **SQLite 持久化**：`unifiedStorage` 白名单补 `tongyun_journal` / `tongyun_journal_add_todo` / 各 `tongyun_cat_ver_*`
+- **空包保护**：WebDAV / HTTP push 时，本地空 `journal` 且远端非空 → 跳过上传并拉回；本地无 `aiApiKey` 且远端有 → 合并保留远端 Key
+- **脏标记抑制**：`syncApplyGuard` + PersonalContext 等 SQLite hydrate 后再持久化/标脏；App applySync 期间不 bump
+
+- **四象限拖拽清理 (MatrixView)**：
+  - **彻底移除拖拽相关逻辑**：根据用户选择，彻底清除了四象限中繁琐且在 Windows WebView2 下体验不佳的拖拽事件 (`onDragOver/onDrop/draggable/dataTransfer`)、状态与提示文案，恢复极其干净简洁的四象限面板。
+
+### 相关文件
+- `src/utils/unifiedStorage.ts`
+- `src/utils/sync/types.ts`
+- `src/utils/sync/webdavProvider.ts`
+- `src/utils/sync/httpProvider.ts`
+- `src/utils/sync/syncApplyGuard.ts`
+- `src/context/PersonalContext.tsx`
+- `src/App.tsx`
+- `src/components/MatrixView.tsx`
+- `.cursor/skills/tongyun-data/SKILL.md`
+
+## Session 18 (2026-07-23)
+
+### 完成项
+- **RepeatType 类型修复**：移除 `| string` 尾缀，`Task.repeat` 扩为 `string`（兼容 rrule 字符串），清理 `useTasks` / `QuickAddTask` 中的 `RepeatType` 导入
+- **依赖清理**：移除未使用的 `sharp`、`ali-oss`、`@types/ali-oss`、`cos-js-sdk-v5`，删除 COS/OSS 存储 Provider 及类型、UI 配置入口
+- **App.tsx 拆分**（1,470 → 1,002 行，减少 32%）：
+  - `usePomodoroTimer`（100 行）— 番茄钟计时器 + 随机休息状态机
+  - `useDueNotifications`（92 行）— 任务到期系统通知
+  - `useCrossWindowSync`（100 行）— 跨窗口事件同步（18+ action）
+  - `useStoreInit`（100 行）— SQLite 初始化 + localStorage 回退
+- **ESLint + Prettier 配置**：新增 `eslint.config.js`、`.prettierrc`、`.prettierignore`，添加 `lint`/`format`/`format:check` npm scripts
+
+### 关键决策
+- `RepeatType` 保留为 clean union（`"daily" | "weekly" | "monthly" | "none"`），`Task.repeat` 用 `string` 以适应 rrule 字符串存储
+- console 语句均为有效错误处理（`.error`/`.warn`），保留不删
+- MainLayout/AIInbox 组件提取跳过（与 hook 状态深度耦合，收益不大）
+- SettingsView 拆分跳过（2,294 行纯改善可读性，不影响功能）
+- COS/OSS 存储后端从未实际使用，彻底移除减少构建体积
+
+### 相关文件
+- `src/types.ts`
+- `src/App.tsx`
+- `src/components/QuickAddTask.tsx`
+- `src/hooks/useTasks.ts`
+- `src/hooks/usePomodoroTimer.ts`（新增）
+- `src/hooks/useDueNotifications.ts`（新增）
+- `src/hooks/useCrossWindowSync.ts`（新增）
+- `src/hooks/useStoreInit.ts`（新增）
+- `src/utils/storage/types.ts`
+- `src/utils/storage/index.ts`
+- `src/utils/storage/manager.ts`
+- `src/utils/storage/ossProvider.ts`（删除）
+- `src/utils/storage/cosProvider.ts`（删除）
+- `src/types/cos-js-sdk-v5.d.ts`（删除）
+- `package.json`
+- `eslint.config.js`（新增）
+- `.prettierrc`（新增）
+- `.prettierignore`（新增）
