@@ -97,6 +97,27 @@ export interface CountdownEvent {
   isLunar?: boolean;   // 是否为农历生日/农历倒计时
 }
 
+export interface HabitItem {
+  id: string;
+  name: string;
+  emoji: string;
+  /** 今天是否已打卡（本地判定，跨天自动清除） */
+  doneToday: boolean;
+  /** 连续完成天数（不含今天） */
+  streak: number;
+  /** 最后打卡日期 YYYY-MM-DD */
+  lastDoneDate?: string;
+}
+
+/** 默认习惯模板 */
+export const DEFAULT_HABITS: Omit<HabitItem, "id" | "doneToday" | "streak">[] = [
+  { name: "锻炼", emoji: "💪" },
+  { name: "阅读", emoji: "📖" },
+  { name: "冥想", emoji: "🧘" },
+  { name: "早睡", emoji: "🌙" },
+  { name: "喝水", emoji: "💧" },
+];
+
 export type Locale = "zh-CN" | "en";
 
 export type WidgetView = "card" | "list" | "add" | "timer" | "notes";

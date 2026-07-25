@@ -448,3 +448,99 @@
 - `eslint.config.js`（新增）
 - `.prettierrc`（新增）
 - `.prettierignore`（新增）
+
+## Session 19 (2026-07-26)
+
+### 背景
+上一轮 commit `c651f51` 做了一轮 React 最佳实践和同步逻辑加固。在此之上：
+- 发现 10 个新增 i18n key 缺失 + 3 路硬编码中文
+- 按优化路线图执行 6 项功能增强
+
+### 完成项
+
+#### Bug 修复
+- **i18n 补齐**：为 `header` 新增 `matrixDesc / listDesc / calendarDesc / notesDesc / analyticsDesc / completedDesc / countdownDesc / settingsDesc / newsDesc / memoryDesc / homeDesc` 共 11 个 key，中英文双写
+- **硬编码中文消除**：App.tsx 中 settings/news/memory/home 四路描述从硬编码改为 `t.header.*Desc`
+
+#### 代码重构
+- **ProseCard 组件提取**：DashboardView 和 MemoryView 中完全重复的 AI 散文卡片逻辑（状态管理 + 缓存 + JSX 渲染共 ~100 行）提取为 `src/components/ProseCard.tsx`。MemoryView 改用 `<ProseCard config tasks />`，消除重复
+
+#### 新功能
+
+**AI 周报总结**（时光长廊底部）
+- 新增 `src/utils/aiEngine.ts` → `generateWeeklyReview(config, locale, ctx)`：本周回顾 AI 生成函数，聚合完成数/专注时间/日记天数/心情/日记片段
+- 新增 `src/components/WeeklyReviewCard.tsx`：底部卡片组件，内含「本周速览」三格仪表盘（已完成 / 专注分 / 日记篇）+ AI 回顾文案，当日 localStorage 缓存
+- MemoryView 底部挂载 `WeeklyReviewCard`
+
+**日记搜索增强**
+- 新增 `src/utils/textSearch.ts`：`tokenize` / `matchesSearch` / `findMatchRanges` 三函数，CJK 文本用 `Intl.Segmenter` 分词后逐词匹配（兼容旧浏览器无 Segmenter 的回退）
+- JournalView 日期滑条搜索接通：输入关键词 → 按日记正文+标签过滤日期滑条 → 仅显示命中日期；搜索框右侧显示命中计数 badge + 清除 × 按钮
+
+**倒数日时间分组**
+- CountdownView 原有全平铺卡片 → 改为「今天 / 本周 / 本月 / 更远 / 已过期」五组折叠分区，每组带标题行 + 计数，空组自动隐藏
+
+**子任务进度条**
+- MatrixView / ListView 的子任务 badge 从纯 `X/Y` 文字 → 改为 `X/Y ▓▓▓``` 微型进度条（w-8 h-1 圆角条，百分比颜色动画），暗黑模式适配
+
+### 关键决策
+- `Intl.Segmenter` 用 `(Intl as any).Segmenter` 绕过 TypeScript 类型缺失，加 try/catch 降级
+- 白噪音已在上一轮完整实现（棕噪/粉噪/海浪/雨声/白噪 + 自动启停 + 音量），本轮跳过不做
+- 周报总结复用 `dailyCache` 模块（当日 TTL），与散文缓存保持一致
+- 倒数日分组不增字段，按绝对天数（0 / 1-7 / 8-30 / >30 / 负）自然划分
+
+### 相关文件
+- `src/i18n/zh-CN.ts`、`src/i18n/en.ts`
+- `src/App.tsx`
+- `src/components/ProseCard.tsx`（新增）
+- `src/components/WeeklyReviewCard.tsx`（新增）
+- `src/components/MemoryView.tsx`
+- `src/utils/aiEngine.ts`
+- `src/utils/textSearch.ts`（新增）
+- `src/utils/dailyCache.ts`
+- `src/components/JournalView.tsx`
+- `src/components/CountdownView.tsx`
+- `src/components/MatrixView.tsx`
+- `src/components/ListView.tsx`
+
+## Session 20 (2026-07-26)
+
+### 背景
+用户要求恢复习惯打卡功能，但不要以前那样单开一个页面。决定嵌入为主：Dashboard 主页一张小卡片 + 日记页右侧关联区。
+
+### 完成项
+
+**数据结构与持久化**
+- `types.ts` 新增 `HabitItem` 接口：`{ id, name, emoji, doneToday, streak, lastDoneDate }`，含 `DEFAULT_HABITS` 默认模板
+- `hooks/useHabits.ts`：localStorage（key `tongyun_habits`）持久化 hook，含跨天自动重置、连续天数计算（打卡时检查昨天是否已卡）
+
+**Dashboard 嵌入**
+- `components/HabitCard.tsx`：今日习惯卡片，紧凑横向列表
+  - 点击圆形按钮打卡/取消，已完成划删除线
+  - 连续天数 🔥 streak 显示
+  - 新增习惯：emoji 预设选择 + 名称输入
+  - 删除按钮 hover 显隐
+  - 支持暗黑模式
+- DashboardView 中「今日回顾」旁并排展示（grid-cols-2）
+
+**日记页关联**
+- JournalView 右侧「今日关联」区底部显示今日习惯列表，点击可打卡/取消
+
+**i18n**
+- `zh-CN.ts` / `en.ts` 新增 `habits` 段：title / add / placeholder / empty / todayHabits
+- `types.ts` Translations 接口新增 `habits: Record<string, string>`
+
+### 关键决策
+- 不单开页面：Dashboard 主页自然位置（每天第一眼），日记页是关联入口
+- 不再存同步分类：习惯打卡纯本地，不需要云端同步
+- 连续天数：每天过凌晨自动清除 doneToday，streak 保持；打卡时根据 lastDoneDate 是否=昨天来 +1 或重置为 1
+- 删除了旧的 habit 分类/习惯打卡页面，全新轻量设计
+
+### 相关文件
+- `src/types.ts`
+- `src/hooks/useHabits.ts`（新增）
+- `src/components/HabitCard.tsx`（新增）
+- `src/components/DashboardView.tsx`
+- `src/components/JournalView.tsx`
+- `src/App.tsx`
+- `src/i18n/zh-CN.ts`、`src/i18n/en.ts`
+- `src/i18n/types.ts`

@@ -96,6 +96,17 @@ const zhCN: Translations = {
     completed: "已完成历史归档",
     countdown: "倒数日",
     memory: "时光长廊 · 岁月印记与记忆画廊",
+    matrixDesc: "四象限法则管理任务优先级，拖拽卡片即可调整分类",
+    listDesc: "按优先级顺序浏览全部待办，支持关键词实时搜索",
+    calendarDesc: "日历视角查看每日任务，直观安排时间节点",
+    notesDesc: "随时记录灵感碎片，便签随心拖放排列",
+    analyticsDesc: "专注度热力图与番茄趋势，了解你的工作节奏",
+    completedDesc: "已完成任务的归档仓库，支持撤销恢复",
+    countdownDesc: "重要日子倒计时，支持公历与农历日期",
+    settingsDesc: "自定义主题色调、材质滤镜与系统字体，个性化配置待办看板",
+    newsDesc: "阅读纸质风骨的每日热点，或订阅您喜爱的 RSS 资讯源",
+    memoryDesc: "回味每一篇手账、每一次专注与已完成的高光成果",
+    homeDesc: "规划今日待办，有条不紊地记录生活的每个瞬间",
   },
 
   matrix: {
@@ -596,6 +607,14 @@ const zhCN: Translations = {
     deleteConfirm: "确定删除「{title}」吗？",
     empty: "还没有倒数日，添加一个吧 🎯",
     daysLabel: "天",
+  },
+
+  habits: {
+    title: "今日习惯",
+    add: "添加",
+    placeholder: "习惯名称",
+    empty: "还没有习惯，点击「添加」开始",
+    todayHabits: "今日习惯",
   },
 
   journal: {

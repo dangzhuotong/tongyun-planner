@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Trash2, Search, ListChecks, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus, Camera, X } from "lucide-react";
-import type { JournalEntry, Task, CustomizationConfig, PomodoroLog, Attachment } from "../types";
+import type { JournalEntry, Task, CustomizationConfig, PomodoroLog, Attachment, HabitItem } from "../types";
 import { extractJournalTags } from "../constants";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
@@ -8,6 +8,7 @@ import { pomodoroStatsOn, taskCompletedOn } from "../utils/dailyReview";
 import { useTranslation } from "../i18n/LanguageContext";
 import { callAI } from "../utils/aiEngine";
 import { usePersonal } from "../context/PersonalContext";
+import { matchesSearch } from "../utils/textSearch";
 
 /** 日记页心情：五级，存为 emoji 字符串 */
 const JOURNAL_MOODS = [
@@ -42,9 +43,10 @@ interface JournalViewProps {
   completedTasks: Task[];
   pomodoroLogs: Pick<PomodoroLog, "id" | "timestamp" | "duration">[];
   aiConfig: CustomizationConfig;
+  habitsHook: { habits: HabitItem[]; toggleHabit: (id: string) => void };
 }
 
-export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: JournalViewProps) {
+export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, habitsHook }: JournalViewProps) {
   const {
     journal, handleUpsertJournal: onUpsert, handleDeleteJournal: onDelete,
     journalAddTodo: addTodoEnabled, handleToggleJournalAddTodo: onToggleAddTodo,
@@ -296,6 +298,26 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
 
   const stripStart = dateStrip[0];
   const stripEnd = dateStrip[dateStrip.length - 1];
+
+  // 搜索过滤：匹配日记正文或标签
+  const searchMatchedDates = useMemo(() => {
+    if (!search.trim()) return null;
+    const matched = new Set<string>();
+    journal.forEach((e) => {
+      if (!e.isDaily) return;
+      const haystack = [e.content || "", ...extractJournalTags(e.content)].join(" ");
+      if (matchesSearch(haystack, search)) matched.add(e.date);
+    });
+    return matched;
+  }, [journal, search]);
+
+  const searchMatchCount = searchMatchedDates?.size ?? 0;
+
+  const visibleDateStrip = useMemo(() => {
+    if (!searchMatchedDates) return dateStrip;
+    return dateStrip.filter((ds) => searchMatchedDates.has(ds));
+  }, [dateStrip, searchMatchedDates]);
+
   const earliestDaily = useMemo(() => {
     let min: string | null = null;
     for (const e of journal) {
@@ -530,7 +552,7 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
                 <span className="text-[9px] mt-0.5 leading-none">{j.outsideStrip || "滑条外"}</span>
               </button>
             )}
-            {dateStrip.map((ds) => {
+            {visibleDateStrip.map((ds) => {
               const [y, m, d] = ds.split("-").map(Number);
               const wd = weekdayNames[new Date(y, m - 1, d).getDay()];
               const entry = dailyEntryMap.get(ds);
@@ -577,8 +599,22 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={j.search}
-              className="w-36 bg-white border border-[#EFEBE4] pl-8 pr-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+              className="w-36 bg-white border border-[#EFEBE4] pl-8 pr-10 py-1.5 rounded-lg text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
             />
+            {search.trim() && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-8 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 hover:text-slate-500 cursor-pointer"
+                >×</button>
+                <span className={`absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-bold rounded-full px-1.5 py-0.5 ${
+                  searchMatchCount > 0 ? "bg-[#F0F5F1] text-[#4D7C5D]" : "bg-red-50 text-red-400"
+                }`}>
+                  {searchMatchCount}
+                </span>
+              </>
+            )}
           </div>
           {allTags.length > 0 && (
             <div className="relative">
@@ -750,6 +786,32 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig }: J
               </button>
             )}
           </div>
+
+          {/* 今日习惯 */}
+          {habitsHook.habits.length > 0 && (
+            <div>
+              <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                {(t.habits as Record<string, string>)?.todayHabits || "今日习惯"}
+              </div>
+              <div className="space-y-1">
+                {habitsHook.habits.map((h) => (
+                  <button
+                    key={h.id}
+                    onClick={() => habitsHook.toggleHabit(h.id)}
+                    className={`w-full text-left text-[11px] font-bold px-2 py-1.5 rounded-lg cursor-pointer transition-colors border flex items-center gap-1.5 ${
+                      h.doneToday
+                        ? "text-[#A34434] bg-[#FCF2F0] border-[#F5DFDB] dark:bg-[#3D2325] dark:border-[#422D30] dark:text-[#E06D53] line-through"
+                        : "text-slate-600 bg-[#FAF8F5] hover:bg-white border-transparent dark:bg-[#24262B] dark:text-slate-300 dark:hover:bg-[#282A30]"
+                    }`}
+                  >
+                    <span>{h.emoji}</span>
+                    <span>{h.name}</span>
+                    {h.doneToday && <span className="ml-auto text-[9px]">✓</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </aside>
       </div>
     </div>

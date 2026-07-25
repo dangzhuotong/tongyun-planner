@@ -166,6 +166,26 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
       });
     }, [countdowns]);
 
+    // 时间分组：今天 / 本周 / 本月 / 更远 / 已过期
+    const grouped = useMemo(() => {
+      const g: { key: string; label: string; events: typeof sorted }[] = [
+        { key: "today", label: (c as any).groupToday || "今天", events: [] },
+        { key: "thisWeek", label: (c as any).groupThisWeek || "本周", events: [] },
+        { key: "thisMonth", label: (c as any).groupThisMonth || "本月", events: [] },
+        { key: "later", label: (c as any).groupLater || "更远", events: [] },
+        { key: "overdue", label: (c as any).groupOverdue || "已过期", events: [] },
+      ];
+      sorted.forEach((e) => {
+        const info = getDaysInfo(e.targetDate, e.isLunar);
+        if (info.isToday) g[0].events.push(e);
+        else if (info.isOverdue) g[4].events.push(e);
+        else if (info.days <= 7) g[1].events.push(e);
+        else if (info.days <= 30) g[2].events.push(e);
+        else g[3].events.push(e);
+      });
+      return g.filter((grp) => grp.events.length > 0);
+    }, [sorted]);
+
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       if (!newTitle.trim() || !newDate) return;
@@ -290,12 +310,21 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
           </form>
         )}
 
-        {/* Card grid */}
+        {/* Card grid — grouped */}
         {sorted.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sorted.map((event, idx) => {
-              const info = getDaysInfo(event.targetDate, event.isLunar);
-              const color = CARD_COLORS[idx % CARD_COLORS.length];
+          grouped.map((grp) => (
+            <div key={grp.key} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {grp.label}
+                </h3>
+                <span className="text-[9px] text-slate-300 font-bold">{grp.events.length}</span>
+                <span className="flex-1 h-px bg-[#EFEBE4] dark:bg-[#33353A]" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {grp.events.map((event, idx) => {
+                  const info = getDaysInfo(event.targetDate, event.isLunar);
+                  const color = CARD_COLORS[idx % CARD_COLORS.length];
               return (
                 <div
                   key={event.id}
@@ -399,7 +428,9 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                 </div>
               );
             })}
-          </div>
+              </div>
+            </div>
+          ))
         ) : (
           <div className="rounded-2xl bg-white/60 border-2 border-dashed border-[#EFEBE4] p-12 flex flex-col items-center justify-center gap-3 text-center">
             <span className="text-5xl">⏳</span>

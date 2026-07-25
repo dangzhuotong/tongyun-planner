@@ -96,6 +96,17 @@ const en: Translations = {
     completed: "Completed Archive",
     countdown: "Countdown",
     memory: "Memory Wall · Life Footprints Gallery",
+    matrixDesc: "Eisenhower four-quadrant task management, drag to reclassify",
+    listDesc: "Browse all todos by priority, with real-time keyword search",
+    calendarDesc: "Daily task overview in calendar view, schedule at a glance",
+    notesDesc: "Capture ideas anytime, drag and arrange sticky notes freely",
+    analyticsDesc: "Focus heatmap and Pomodoro trends, understand your work rhythm",
+    completedDesc: "Archive of finished tasks, undo supported",
+    countdownDesc: "Important date countdowns, solar and lunar calendar support",
+    settingsDesc: "Customize theme colors, material filters, and system fonts",
+    newsDesc: "Daily hot topics in a newspaper style, or subscribe to your favorite RSS feeds",
+    memoryDesc: "Revisit every journal entry, deep focus session, and completed highlight",
+    homeDesc: "Plan today's tasks and capture every moment of life",
   },
 
   matrix: {
@@ -596,6 +607,14 @@ const en: Translations = {
     deleteConfirm: "Delete \"{title}\"?",
     empty: "No countdowns yet. Add one! 🎯",
     daysLabel: "d",
+  },
+
+  habits: {
+    title: "Today's Habits",
+    add: "Add",
+    placeholder: "Habit name",
+    empty: "No habits yet. Add one to start.",
+    todayHabits: "Today's Habits",
   },
 
   journal: {

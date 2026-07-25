@@ -509,6 +509,60 @@ export async function generateReport(
   return await callAI(config, systemPrompt, userPrompt);
 }
 
+/** 生成本周回顾（含日记/心情/任务/专注综合总结） */
+export interface WeeklyReviewContext {
+  completedCount: number;
+  pomodoroCount: number;
+  pomodoroMinutes: number;
+  journalDays: number;
+  journalSnippets: string[];
+  moodSummary: string;
+}
+
+export async function generateWeeklyReview(
+  config: CustomizationConfig,
+  locale: string,
+  ctx: WeeklyReviewContext
+): Promise<string> {
+  const isZh = locale === "zh-CN";
+
+  const statsLine = isZh
+    ? `完成了 ${ctx.completedCount} 个任务、专注 ${ctx.pomodoroCount} 次（共 ${ctx.pomodoroMinutes} 分钟）、写了 ${ctx.journalDays} 天日记`
+    : `Completed ${ctx.completedCount} tasks, focused ${ctx.pomodoroCount} times (${ctx.pomodoroMinutes} min), wrote ${ctx.journalDays} journal entries`;
+
+  const moodLine = ctx.moodSummary
+    ? (isZh ? `心情概要：${ctx.moodSummary}` : `Mood: ${ctx.moodSummary}`)
+    : "";
+
+  const snippetBlock = ctx.journalSnippets.length > 0
+    ? ctx.journalSnippets.map((s, i) => `${i + 1}. ${s}`).join("\n")
+    : "";
+
+  const systemPrompt = isZh
+    ? `你是一位温柔体贴的生活伙伴，擅长在数据中看见人的温度。请根据下面用户本周的时间与心力数据，写一段本周回顾（80-120 字）。
+要求：
+- 语气温暖、像翻看自己手账一样自然，不喊口号、不鸡汤
+- 提及具体的数字（如完成了几件事、专注了多久），轻轻带过，不列清单
+- 如果日记有片段，可在语气中隐约呼应
+- 长度 80-120 字，只返回回顾文本，不要标题`
+    : `You are a warm and thoughtful life companion. Write a weekly review (60-100 words) based on the user's time and energy data this week.
+Requirements:
+- Natural and warm tone, like flipping through a personal journal
+- Mention numbers lightly (tasks completed, minutes focused), without listing
+- If there are journal snippets, gently echo them in the tone
+- 60-100 words, return only the review text, no title`;
+
+  const userPrompt = isZh
+    ? `本周数据：\n${statsLine}\n${moodLine}${snippetBlock ? `\n\n日记片段：\n${snippetBlock}` : ""}\n\n请写一段本周回顾。`
+    : `This week's data:\n${statsLine}\n${moodLine}${snippetBlock ? `\n\nJournal snippets:\n${snippetBlock}` : ""}\n\nPlease write a weekly review.`;
+
+  try {
+    return await callAI(config, systemPrompt, userPrompt);
+  } catch {
+    return "";
+  }
+}
+
 /** 从兼容 OpenAI 的 API 端点获取可用模型列表 */
 export async function fetchAvailableModels(baseUrl: string, apiKey?: string): Promise<string[]> {
   const url = baseUrl.endsWith("/") ? `${baseUrl}models` : `${baseUrl}/models`;

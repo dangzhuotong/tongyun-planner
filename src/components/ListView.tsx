@@ -249,12 +249,20 @@ export const ListView: React.FC<ListViewProps> = React.memo(({
                           </span>
                         )}
 
-                        {task.subtasks && task.subtasks.length > 0 && (
-                          <span className="text-[8.5px] px-1.5 py-0.5 rounded-lg border bg-[#FAF5ED] border-[#EFE5D3] text-[#8B6E3C] font-bold flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
-                            <ListTodo className="w-2.5 h-2.5" />
-                            <span>{task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}</span>
-                          </span>
-                        )}
+                        {task.subtasks && task.subtasks.length > 0 && (() => {
+                          const done = task.subtasks.filter(s => s.completed).length;
+                          const total = task.subtasks.length;
+                          const pct = Math.round((done / total) * 100);
+                          return (
+                            <span className="text-[8.5px] px-1.5 py-0.5 rounded-lg border bg-[#FAF5ED] dark:bg-[#2B2721] border-[#EFE5D3] dark:border-[#3E372E] text-[#8B6E3C] dark:text-[#CBB182] font-bold flex items-center gap-1.5 flex-shrink-0 whitespace-nowrap">
+                              <ListTodo className="w-2.5 h-2.5" />
+                              <span>{done}/{total}</span>
+                              <span className="w-8 h-1 rounded-full bg-[#EFE5D3] dark:bg-[#3E372E] overflow-hidden">
+                                <span className="block h-full rounded-full bg-[#8B6E3C] dark:bg-[#CBB182] transition-all duration-300" style={{ width: `${pct}%` }} />
+                              </span>
+                            </span>
+                          );
+                        })()}
                         
                         {task.tags && task.tags.length > 0 && task.tags.map((tag) => (
                           <span key={tag} className="text-[8.5px] px-1.5 py-0.5 rounded-md bg-[#F0F5F1] border border-[#DEEAE2] text-[#4D7C5D] font-bold flex-shrink-0">

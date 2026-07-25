@@ -7,6 +7,15 @@ import { generateDailySuggestion } from "../utils/aiEngine";
 import { readDailyCache, writeDailyCache } from "../utils/dailyCache";
 import { usePersonal } from "../context/PersonalContext";
 import { computeDailyReview } from "../utils/dailyReview";
+import { HabitCard } from "./HabitCard";
+import type { HabitItem } from "../types";
+
+interface HabitsHookLike {
+  habits: HabitItem[];
+  addHabit: (name: string, emoji: string) => void;
+  removeHabit: (id: string) => void;
+  toggleHabit: (id: string) => void;
+}
 
 interface DashboardViewProps {
   tasks: Task[];
@@ -16,6 +25,7 @@ interface DashboardViewProps {
   onTaskClick: (task: Task) => void;
   onOpenJournal?: () => void;
   config: CustomizationConfig;
+  habitsHook: HabitsHookLike;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
@@ -26,6 +36,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
   onTaskClick,
   onOpenJournal,
   config,
+  habitsHook,
 }) => {
   const { t } = useTranslation();
   const d = t.dashboard;
@@ -289,7 +300,9 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         ) : null}
       </div>
 
-      {/* 今日回顾：任务 × 日记 × 番茄 */}
+      {/* 今日回顾 + 今日习惯 并排 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* 今日回顾：任务 × 日记 × 番茄 */}
       <button
         type="button"
         onClick={() => onOpenJournal?.()}
@@ -402,6 +415,14 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
         </div>
       </div>
 
+      {/* 今日习惯打卡 */}
+      <HabitCard
+        habits={habitsHook.habits}
+        onToggle={habitsHook.toggleHabit}
+        onAdd={habitsHook.addHabit}
+        onRemove={habitsHook.removeHabit}
+      />
+      </div>
 
 
       {/* AI 每日建议 —— 当日缓存，进入即用；右上角提供手动重新生成 */}

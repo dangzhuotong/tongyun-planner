@@ -38,6 +38,7 @@ import { useCountdown } from "./hooks/useCountdown";
 import { useCustomization } from "./hooks/useCustomization";
 import { useAI } from "./hooks/useAI";
 import { useWidget } from "./hooks/useWidget";
+import { useHabits } from "./hooks/useHabits";
 import { useDebouncedPersistence } from "./hooks/useDebouncedPersistence";
 import type { JournalEntry } from "./types";
 import { useSync } from "./hooks/useSync";
@@ -72,6 +73,7 @@ function AppBody() {
   const countdownHook = useCountdown();
   const customizationHook = useCustomization();
   const widgetHook = useWidget();
+  const habitsHook = useHabits();
   const { syncState } = useSync();
   const aiHook = useAI(customizationHook.customizationConfig);
 
@@ -579,6 +581,7 @@ function AppBody() {
     widgetHook={widgetHook}
     aiHook={aiHook}
     customizationHook={customizationHook}
+        habitsHook={habitsHook}
         handlePinNoteToDesktop={handlePinNoteToDesktop}
         celebrationMessage={celebrationMessage}
     setCelebrationMessage={setCelebrationMessage}
@@ -640,6 +643,7 @@ interface MainLayoutProps {
   alertSoundType: ReturnType<typeof usePomodoro>["alertSoundType"];
   setAlertSoundType: ReturnType<typeof usePomodoro>["setAlertSoundType"];
   widgetHook: ReturnType<typeof useWidget>;
+  habitsHook: ReturnType<typeof useHabits>;
   aiHook: ReturnType<typeof useAI>;
   customizationHook: ReturnType<typeof useCustomization>;
   handlePinNoteToDesktop: (id: string) => void;
@@ -665,7 +669,7 @@ const MainLayout = React.memo(function MainLayout({
   handleSaveNotes, handleUpdateTags, handleEditTask, handleUndoComplete,
   handleToggleFavorite, handleTogglePin, handleAddTaskWithAI, handleConfirmAiTasks,
   expandedNoteId, setExpandedNoteId, editingNotes, setEditingNotes, detailTaskId,
-  notesHook, countdownHook, widgetHook, aiHook, customizationHook, pomodoroHandleStartFocus, pomodoroLogs, alertSoundType, setAlertSoundType,
+  notesHook, countdownHook, widgetHook, habitsHook, aiHook, customizationHook, pomodoroHandleStartFocus, pomodoroLogs, alertSoundType, setAlertSoundType,
   handlePinNoteToDesktop,
   celebrationMessage, setCelebrationMessage,
   deleteUndoToast, onUndoDelete,
@@ -710,12 +714,12 @@ const MainLayout = React.memo(function MainLayout({
                       : activeTab === "countdown"
                       ? t.header.countdownDesc
                       : activeTab === "settings"
-                      ? "自定义主题色调、材质滤镜与系统字体，个性化配置您的待办看板。"
+                      ? t.header.settingsDesc
                       : activeTab === "news"
-                      ? "阅读纸质风骨的每日热点，或订阅您喜爱的 RSS 资讯源。"
+                      ? t.header.newsDesc
                       : activeTab === "memory"
-                      ? "回味每一篇手账、每一次专注与已完成的高光成果，感受时光的沉淀。"
-                      : "规划今日待办，有条不紊地记录生活的每个瞬间。"}
+                      ? t.header.memoryDesc
+                      : t.header.homeDesc}
                   </p>
                 </div>
                 {(activeTab === "matrix" || activeTab === "list") && (
@@ -814,6 +818,7 @@ const MainLayout = React.memo(function MainLayout({
               onTaskClick={handleTaskClick}
               onOpenJournal={() => setActiveTab("journal")}
               config={customizationHook.customizationConfig}
+              habitsHook={habitsHook}
             />
           )}
           {activeTab === "matrix" && (
@@ -853,6 +858,7 @@ const MainLayout = React.memo(function MainLayout({
               completedTasks={completedTasks}
               pomodoroLogs={pomodoroLogs}
               aiConfig={customizationHook.customizationConfig}
+              habitsHook={habitsHook}
             />
           )}
           {activeTab === "memory" && (
@@ -895,6 +901,7 @@ const MainLayout = React.memo(function MainLayout({
     notesHook.stickyNotes, notesHook.handleAddNote,
     notesHook.handleEditNoteText, notesHook.handleChangeNoteColor, notesHook.handleDeleteNote,
     countdownHook.countdowns, countdownHook.handleAddCountdown, countdownHook.handleDeleteCountdown,
+    habitsHook.habits,
     handlePinNoteToDesktop,
     resetTasks, handleClearCompleted,
   ]);
