@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { TrendingUp, GitFork, Rss, Bookmark, Search, Compass } from "lucide-react";
+import { TrendingUp, GitFork, Rss, Bookmark, Search, Compass, PenLine } from "lucide-react";
 import { callAI } from "../utils/aiEngine";
-import type { CustomizationConfig } from "../types";
+import type { CustomizationConfig, Task } from "../types";
 import { safeJsonParse } from "../utils/json";
+import { ProseCard } from "./ProseCard";
 import type { Article, BookmarkedArticle, ReadHistoryEntry } from "./news/types";
 import { TrendingView } from "./news/TrendingView";
 import { GitHubView } from "./news/GitHubView";
@@ -16,10 +17,11 @@ interface NewsViewProps {
   config: CustomizationConfig;
   onSaveTask: (ref: { title: string; url: string }) => void;
   onSaveJournal: (ref: { title: string; url: string; description?: string }) => void;
+  tasks: Task[];
 }
 
-export const NewsView: React.FC<NewsViewProps> = React.memo(({ config, onSaveTask, onSaveJournal }) => {
-  const [activeSubTab, setActiveSubTab] = useState<"trending" | "rss" | "bookmarks" | "github" | "explore">("trending");
+export const NewsView: React.FC<NewsViewProps> = React.memo(({ config, onSaveTask, onSaveJournal, tasks }) => {
+  const [activeSubTab, setActiveSubTab] = useState<"trending" | "rss" | "bookmarks" | "github" | "explore" | "prose">("trending");
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -142,6 +144,7 @@ export const NewsView: React.FC<NewsViewProps> = React.memo(({ config, onSaveTas
     { key: "rss" as const, icon: Rss, label: "RSS 阅览室" },
     { key: "explore" as const, icon: Compass, label: "视野" },
     { key: "bookmarks" as const, icon: Bookmark, label: "收藏夹" },
+    { key: "prose" as const, icon: PenLine, label: "散文" },
   ];
 
   return (
@@ -206,6 +209,7 @@ export const NewsView: React.FC<NewsViewProps> = React.memo(({ config, onSaveTas
           />
         )}
         {activeSubTab === "explore" && <ExploreView actions={actions} />}
+        {activeSubTab === "prose" && <ProseCard config={config} tasks={tasks} />}
       </div>
 
       {/* Reading Overlay */}

@@ -838,6 +838,7 @@ const MainLayout = React.memo(function MainLayout({
               config={customizationHook.customizationConfig}
               onSaveTask={onNewsSaveTask}
               onSaveJournal={onNewsSaveJournal}
+              tasks={tasks}
             />
           )}
           {activeTab === "analytics" && (
@@ -863,7 +864,6 @@ const MainLayout = React.memo(function MainLayout({
           )}
           {activeTab === "memory" && (
             <MemoryView
-              tasks={tasks}
               completedTasks={completedTasks}
               pomodoroLogs={pomodoroLogs}
               journal={journal}

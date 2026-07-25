@@ -19,11 +19,9 @@ import {
 } from "lucide-react";
 import type { Task, PomodoroLog, JournalEntry, CustomizationConfig } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
-import { ProseCard } from "./ProseCard";
 import { WeeklyReviewCard } from "./WeeklyReviewCard";
 
 interface MemoryViewProps {
-  tasks: Task[];
   completedTasks: Task[];
   pomodoroLogs: PomodoroLog[];
   journal: JournalEntry[];
@@ -34,7 +32,6 @@ interface MemoryViewProps {
 type MemoryCardType = "all" | "journal" | "task" | "focus";
 
 export const MemoryView: React.FC<MemoryViewProps> = ({
-  tasks,
   completedTasks,
   pomodoroLogs,
   journal,
@@ -375,9 +372,6 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           </div>
         </div>
       </div>
-
-      {/* AI 散文 */}
-      <ProseCard config={config} tasks={tasks} />
 
       {/* AI 本周回顾 */}
       <WeeklyReviewCard
