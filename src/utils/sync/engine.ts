@@ -170,7 +170,8 @@ export class SyncEngine {
 
   /** Multi-file incremental sync for WebDAV */
   private async syncWebDAV(): Promise<void> {
-    await this.webdavProvider.pull();
+    // pull 时跳过脏分类，避免远端数据覆盖用户本地的主动变更（如清空、完成等）
+    await this.webdavProvider.pull(this.dirtyCategories);
     if (this.dirtyCategories.size > 0) {
       const freshData = getLocalSyncData();
       await this.webdavProvider.push(freshData, this.dirtyCategories);
@@ -182,7 +183,8 @@ export class SyncEngine {
 
   /** Category incremental sync against self-hosted TongYun Sync Server */
   private async syncHttp(): Promise<void> {
-    await this.httpProvider.pull();
+    // pull 时跳过脏分类，避免远端数据覆盖用户本地的主动变更（如清空、完成等）
+    await this.httpProvider.pull(this.dirtyCategories);
     if (this.dirtyCategories.size > 0) {
       const freshData = getLocalSyncData();
       await this.httpProvider.push(freshData, this.dirtyCategories);

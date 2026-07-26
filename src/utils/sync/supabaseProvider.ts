@@ -1,4 +1,4 @@
-import type { SyncProvider, SyncData } from "./types";
+import type { SyncProvider, SyncData, SyncCategory } from "./types";
 
 interface SupabaseConfig {
   url: string;
@@ -76,7 +76,7 @@ export class SupabaseProvider implements SyncProvider {
     if (error) throw new Error(`Supabase push failed: ${error.message}`);
   }
 
-  async pull(): Promise<SyncData | null> {
+  async pull(_dirtyOnly?: Set<SyncCategory>): Promise<SyncData | null> {
     const client = await this.getClient();
     const { data, error } = await client.from("tongyun_planner_data")
       .select("data, version")

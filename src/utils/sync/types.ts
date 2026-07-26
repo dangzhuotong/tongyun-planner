@@ -28,6 +28,17 @@ export const ALL_SYNC_CATEGORIES: SyncCategory[] = [
   "countdowns", "journal", "config",
 ];
 
+/** Pull 时的处理顺序：completedTasks 必须在 tasks 之前，确保 tasks 去重时已完成列表已就位 */
+export const PULL_CATEGORY_ORDER: SyncCategory[] = [
+  "completedTasks",
+  "tasks",
+  "stickyNotes",
+  "pomodoroLogs",
+  "countdowns",
+  "journal",
+  "config",
+];
+
 /** Remote filename for each category */
 export const SYNC_CATEGORY_FILES: Record<SyncCategory, string> = {
   tasks: "tasks.json",
@@ -59,7 +70,7 @@ export interface SyncProvider {
   isConfigured(): boolean;
   test(): Promise<boolean>;
   push(data: SyncData): Promise<void>;
-  pull(): Promise<SyncData | null>;
+  pull(dirtyOnly?: Set<SyncCategory>): Promise<SyncData | null>;
 }
 
 export const SYNC_APPLIED_EVENT = "tongyun-sync-applied";

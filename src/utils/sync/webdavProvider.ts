@@ -1,8 +1,10 @@
 import type { SyncProvider, SyncData, SyncManifest, SyncCategory } from "./types";
 import {
   ALL_SYNC_CATEGORIES,
+  PULL_CATEGORY_ORDER,
   SYNC_CATEGORY_FILES,
   getLocalManifest,
+  getLocalCategoryVersion,
   getCategoryPayload,
   applyCategoryPayload,
   mergeRemoteIntoLocal,
@@ -228,28 +230,42 @@ export class WebDAVProvider implements SyncProvider {
 
   /* ── Multi-file incremental pull ── */
 
-  async pull(): Promise<SyncData | null> {
+  async pull(dirtyOnly?: Set<SyncCategory>): Promise<SyncData | null> {
     if (!this.config) throw new Error("WebDAV not configured");
 
     // Try new multi-file format first
     const remoteManifest = await this.getRemoteManifest();
 
     if (remoteManifest) {
-      return this.pullMultiFile(remoteManifest);
+      return this.pullMultiFile(remoteManifest, dirtyOnly);
     }
 
     // Fall back to legacy single-file format
     return this.pullLegacy();
   }
 
-  private async pullMultiFile(remoteManifest: SyncManifest): Promise<SyncData | null> {
+  private async pullMultiFile(remoteManifest: SyncManifest, dirtyOnly?: Set<SyncCategory>): Promise<SyncData | null> {
     if (!this.config) return null;
     const localData = getLocalSyncData();
     let anyUpdated = false;
 
-    for (const cat of ALL_SYNC_CATEGORIES) {
+    // 使用 PULL_CATEGORY_ORDER（completedTasks 优先），确保 tasks 去重时已完成列表已就位
+    for (const cat of PULL_CATEGORY_ORDER) {
+      // 跳过用户主动变更的脏分类，避免远端覆盖本地已清空/已完成的正确状态
+      if (dirtyOnly?.has(cat)) {
+        console.log(`[sync] pull skip dirty category: ${cat}`);
+        continue;
+      }
+
       const remoteVer = remoteManifest[cat]?.version || 0;
       if (remoteVer === 0) continue; // 远端不存在该分类文件
+
+      // 本地版本号 >= 远端 → 本地不旧于远端，不拉取（双重防线：dirty 标记丢失后版本号仍能保护）
+      const localVer = getLocalCategoryVersion(cat);
+      if (localVer >= remoteVer) {
+        console.log(`[sync] pull skip newer category: ${cat} (local ${localVer} >= remote ${remoteVer})`);
+        continue;
+      }
 
       const json = await tryDownload(this.config!, REMOTE_DIR + SYNC_CATEGORY_FILES[cat]);
       if (!json) continue;
