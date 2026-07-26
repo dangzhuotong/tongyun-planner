@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { Task } from "../types";
 import { getLocalDateString, addLocalDays } from "../utils/date";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 interface GanttViewProps {
   tasks: Task[];
@@ -25,13 +26,14 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
     const draggedTaskIdRef = useRef<string | null>(null);
     const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
     const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+    const debouncedQuery = useDebouncedValue(searchQuery, 200);
 
     const today = getLocalDateString();
 
     const ganttData = useMemo(() => {
       let withDates = tasks.filter((t) => t.dueDate);
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedQuery.trim()) {
+        const q = debouncedQuery.toLowerCase();
         withDates = withDates.filter(
           (t) =>
             t.title.toLowerCase().includes(q) ||
@@ -42,7 +44,7 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
         (a.dueDate || "").localeCompare(b.dueDate || "")
       );
       return sorted.slice(0, 100); // cap for performance
-    }, [tasks, searchQuery]);
+    }, [tasks, debouncedQuery]);
 
     const dayCount = zoom === "week" ? 28 : 14;
     const days: string[] = useMemo(() => {

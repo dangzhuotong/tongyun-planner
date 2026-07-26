@@ -392,6 +392,37 @@ fn fetch_rss(url: String) -> Result<String, String> {
     res.text().map_err(|e| e.to_string())
 }
 
+// 8. AI API 代理命令：异步 HTTP 请求到任意 AI 端点，不阻塞 UI
+#[tauri::command]
+async fn ai_proxy(url: String, method: String, headers: std::collections::HashMap<String, String>, body: Option<String>, timeout_secs: Option<u64>) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(timeout_secs.unwrap_or(30)))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let mut req = match method.to_uppercase().as_str() {
+        "GET" => client.get(&url),
+        _ => client.post(&url).header("Content-Type", "application/json"),
+    };
+
+    for (k, v) in &headers {
+        req = req.header(k.as_str(), v.as_str());
+    }
+
+    if let Some(b) = body {
+        req = req.body(b);
+    }
+
+    let res = req.send().await.map_err(|e| format!("E_NETWORK: {}", e))?;
+    let status = res.status().as_u16();
+    let text = res.text().await.map_err(|e| e.to_string())?;
+
+    if status < 200 || status >= 300 {
+        return Err(format!("E_HTTP_{}: {}", status, text));
+    }
+    Ok(text)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -419,6 +450,7 @@ pub fn run() {
             file_delete,
             file_list,
             fetch_rss,
+            ai_proxy,
             email::send_test_email
         ])
         // 6. 初始化系统托盘

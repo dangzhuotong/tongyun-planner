@@ -21,6 +21,29 @@ function getAllKnownKeys(): string[] {
     'tongyun_cat_ver_countdowns', 'tongyun_cat_ver_journal', 'tongyun_cat_ver_config',
     'tongyun_widget_split', 'tongyun_locale', 'tongyun_nickname',
     'pomodoro_focus_duration', 'pomodoro_break_duration',
+    // 侧栏 & 番茄
+    'tongyun_sidebar_collapsed', 'tongyun_random_break', 'tongyun_auto_noise',
+    // 资讯偏好
+    'tongyun_news_bookmarks', 'tongyun_news_history',
+    'tongyun_news_font_size', 'tongyun_news_font_family', 'tongyun_news_columns',
+    'tongyun_rss_feeds', 'tongyun_explore_feeds', 'tongyun_cors_proxy',
+    'tongyun_recollect_prose',
+    // 日历 & 白噪音
+    'tongyun_timeblocks', 'tongyun_visible_noises',
+    // 邮件 & Supabase 云端
+    'tongyun_email_config',
+    'tongyun_supabase_url', 'tongyun_supabase_anon_key', 'tongyun_supabase_user_id',
+    'tongyun_storage_backend',
+    // 分析 & 快速任务
+    'tongyun_daily_goal', 'tongyun_analytics_report', 'tongyun_last_quick_category',
+    // 习惯打卡
+    'tongyun_habits',
+    // 系统提醒
+    'tongyun_due_remind_enabled', 'tongyun_due_remind_before_min',
+    // AI 缓存（当日类，跨设备恢复有意义）
+    'tongyun_hitokoto_hourly', 'tongyun_history_today',
+    'tongyun_ai_daily_suggestion', 'tongyun_ai_daily_prose',
+    'tongyun_ai_weekly_review',
   ];
 }
 

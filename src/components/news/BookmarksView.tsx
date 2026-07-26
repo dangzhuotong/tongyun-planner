@@ -4,7 +4,7 @@ import type { Article, BookmarkedArticle, ReadHistoryEntry } from "./types";
 import type { CustomizationConfig } from "../../types";
 import { NewsItemActions } from "./NewsItemActions";
 import type { NewsActions } from "./newsActions";
-import { generateRecollection } from "../../utils/aiEngine";
+import { generateRecollection, getEffectiveApiKey } from "../../utils/aiEngine";
 import { getLocalDateString } from "../../utils/date";
 import { safeJsonParse } from "../../utils/json";
 
@@ -83,7 +83,7 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
   }, [bookmarks, readHistory]);
 
   const generateRecollect = async (force = false) => {
-    if (!config.aiApiKey) {
+    if (!getEffectiveApiKey(config)) {
       setRecollectError(true);
       return;
     }
@@ -112,12 +112,12 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
   };
 
   useEffect(() => {
-    if (subTab === "recollect" && config.aiApiKey && !recollect && !recollectLoading) {
+    if (subTab === "recollect" && getEffectiveApiKey(config) && !recollect && !recollectLoading) {
       generateRecollect(false);
     }
-  }, [subTab, config.aiApiKey, recollect, recollectLoading]);
+  }, [subTab, getEffectiveApiKey(config), recollect, recollectLoading]);
 
-  const hasAi = !!config.aiApiKey;
+  const hasAi = !!getEffectiveApiKey(config);
 
   return (
     <div className="space-y-4 flex-grow animate-[fadeIn_0.3s_ease-out]">

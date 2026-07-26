@@ -5,6 +5,7 @@ import { FILTER_OPTIONS, getDueDateCountdown, PRIORITY_META } from "../constants
 import { CustomSelect } from "./CustomSelect";
 import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 interface ListViewProps {
   tasks: Task[];
@@ -79,8 +80,9 @@ export const ListView: React.FC<ListViewProps> = React.memo(({
 
   // Filter tasks matching search query, category, and favorite filter
   // then sort so pinned tasks float to the top
+  const debouncedQuery = useDebouncedValue(searchQuery, 200);
   const filteredTasks = useMemo(() => {
-    const query = searchQuery.toLowerCase();
+    const query = debouncedQuery.toLowerCase();
 
     return tasks
       .filter((task) => {

@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import type { CustomizationConfig } from "../types";
-import { extractTasksFromNote, classifyCategory } from "../utils/aiEngine";
+import { extractTasksFromNote, classifyCategory, getEffectiveApiKey } from "../utils/aiEngine";
 import type { ExtractedTask } from "../utils/aiEngine";
+import { useDebouncedValue } from "./useDebouncedValue";
 
 export function useAI(customizationConfig: CustomizationConfig) {
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 200);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [tagFilter, setTagFilter] = useState<string>("all");
   const [aiInputText, setAiInputText] = useState("");
@@ -18,7 +20,7 @@ export function useAI(customizationConfig: CustomizationConfig) {
       setAiInputMessage({ type: "error", text: "⚠️ 请先在输入框中写入您的日程规划内容！" });
       return;
     }
-    if (!customizationConfig.aiApiKey) {
+    if (!getEffectiveApiKey(customizationConfig)) {
       setAiInputMessage({ type: "error", text: "API_KEY_MISSING" });
       return;
     }
@@ -47,7 +49,7 @@ export function useAI(customizationConfig: CustomizationConfig) {
   }, [aiInputText, customizationConfig]);
 
   const aiAutoCategorize = useCallback(async (title: string, description: string) => {
-    if (customizationConfig.aiAutoCategorize && customizationConfig.aiApiKey) {
+    if (customizationConfig.aiAutoCategorize && getEffectiveApiKey(customizationConfig)) {
       return await classifyCategory(customizationConfig, title, description);
     }
     return null;
@@ -63,6 +65,7 @@ export function useAI(customizationConfig: CustomizationConfig) {
 
   return useMemo(() => ({
     searchQuery,
+    debouncedSearchQuery,
     setSearchQuery,
     categoryFilter,
     setCategoryFilter,
@@ -79,5 +82,5 @@ export function useAI(customizationConfig: CustomizationConfig) {
     setShowAiInbox,
     handleAiBatchInput,
     aiAutoCategorize,
-  }), [searchQuery, categoryFilter, tagFilter, aiInputText, aiInputLoading, aiInputMessage, aiPreviewTasks, showAiInbox, handleAiBatchInput, aiAutoCategorize]);
+  }), [searchQuery, debouncedSearchQuery, categoryFilter, tagFilter, aiInputText, aiInputLoading, aiInputMessage, aiPreviewTasks, showAiInbox, handleAiBatchInput, aiAutoCategorize]);
 }

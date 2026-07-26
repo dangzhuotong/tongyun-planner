@@ -3,11 +3,12 @@ import { useTranslation } from "../i18n/LanguageContext";
 import { Sparkles, History, Circle, CheckCircle2, ListTodo, CloudSun, CalendarDays, Clock, TrendingUp, RefreshCw, BookOpen, Timer } from "lucide-react";
 import type { Task, CustomizationConfig, PomodoroLog } from "../types";
 import { getLocalDateString, filterHomeActionableTasks, getHomeTaskKind } from "../utils/date";
-import { generateDailySuggestion } from "../utils/aiEngine";
+import { generateDailySuggestion, getEffectiveApiKey } from "../utils/aiEngine";
 import { readDailyCache, writeDailyCache } from "../utils/dailyCache";
 import { usePersonal } from "../context/PersonalContext";
 import { computeDailyReview } from "../utils/dailyReview";
 import { HabitCard } from "./HabitCard";
+import { ProseCard } from "./ProseCard";
 import type { HabitItem } from "../types";
 
 interface HabitsHookLike {
@@ -201,7 +202,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
   const [suggestionError, setSuggestionError] = useState(false);
 
   const generateSuggestion = async (force: boolean = false) => {
-    if (!config.aiApiKey) return;
+    if (!getEffectiveApiKey(config)) return;
     if (!force) {
       const cached = readDailyCache<string>(SUGGESTION_CACHE_KEY, today, localeKey);
       if (cached) {
@@ -237,7 +238,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
   };
 
   useEffect(() => {
-    if (!config.aiApiKey) return;
+    if (!getEffectiveApiKey(config)) return;
     // 优先用缓存;跨天/切语言/未生成过时才调 API
     const cached = readDailyCache<string>(SUGGESTION_CACHE_KEY, today, localeKey);
     if (cached) {
@@ -246,7 +247,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
     }
     generateSuggestion(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.aiApiKey, today, localeKey]);
+  }, [getEffectiveApiKey(config), today, localeKey]);
 
   // Format local date elegantly
   const localDateStr = new Date().toLocaleDateString(
@@ -426,7 +427,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
 
 
       {/* AI 每日建议 —— 当日缓存，进入即用；右上角提供手动重新生成 */}
-      {config.aiApiKey && (dailySuggestion || suggestionLoading || suggestionError) && (
+      {getEffectiveApiKey(config) && (dailySuggestion || suggestionLoading || suggestionError) && (
         <div className="rounded-2xl bg-gradient-to-r from-[#F0F5F1] to-[#EBF3F6] border border-[#DEEAE2] p-4.5 shadow-2xs">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -465,6 +466,9 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(({
           )}
         </div>
       )}
+
+      {/* AI 散文 */}
+      <ProseCard config={config} tasks={tasks} />
 
       {/* Today's Tasks — 含今日 / 逾期 / 未设日期 */}
       <div className="rounded-3xl bg-white/90 border border-[#EFEBE4] shadow-2xs overflow-hidden">

@@ -1,8 +1,9 @@
 import React, { memo, useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Pin, Search, X, Maximize2, StickyNote as StickyNoteIcon } from "lucide-react";
+import { Plus, Trash2, Pin, Search, X, Maximize2, StickyNote as StickyNoteIcon, Grid3X3, Lock, Unlock } from "lucide-react";
 import type { StickyNote as StickyNoteType } from "../types";
 import { StickyPin } from "./StickyPin";
 import { useTranslation } from "../i18n/LanguageContext";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 export const NOTE_COLORS = {
   tea: {
@@ -71,10 +72,13 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
   const { t } = useTranslation();
   const sn = t.stickyNotes;
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(searchQuery, 200);
   const [expandedNote, setExpandedNote] = useState<StickyNoteType | null>(null);
+  const [isGridMode, setIsGridMode] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
   const filteredNotes = stickyNotes.filter((n) =>
-    (n.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-    n.text.toLowerCase().includes(searchQuery.toLowerCase())
+    (n.title || "").toLowerCase().includes(debouncedQuery.toLowerCase()) ||
+    n.text.toLowerCase().includes(debouncedQuery.toLowerCase())
   );
 
   const closeExpanded = useCallback(() => setExpandedNote(null), []);
@@ -110,6 +114,33 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
         </button>
 
         {stickyNotes.length > 0 && (
+          <>
+            <button
+              onClick={() => setIsGridMode((v) => !v)}
+              className={`p-2 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
+                isGridMode
+                  ? "bg-[#4D7C5D]/10 border-[#4D7C5D]/30 text-[#4D7C5D]"
+                  : "bg-white/80 dark:bg-[#26221c]/80 border-[#E8DFCE] dark:border-[#4a4033] text-[#5f4a2a] dark:text-[#a08a63] hover:border-[#C4A265]"
+              }`}
+              title={isGridMode ? sn.gridOff : sn.grid}
+            >
+              <Grid3X3 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setIsLocked((v) => !v)}
+              className={`p-2 rounded-lg border text-[10px] font-bold transition-all cursor-pointer ${
+                isLocked
+                  ? "bg-[#A34E36]/10 border-[#A34E36]/30 text-[#A34E36]"
+                  : "bg-white/80 dark:bg-[#26221c]/80 border-[#E8DFCE] dark:border-[#4a4033] text-[#5f4a2a] dark:text-[#a08a63] hover:border-[#C4A265]"
+              }`}
+              title={isLocked ? sn.unlock : sn.lock}
+            >
+              {isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+            </button>
+          </>
+        )}
+
+        {stickyNotes.length > 0 && (
           <div className="relative flex-1 min-w-[140px] max-w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#a08a63]" />
             <input
@@ -138,15 +169,13 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(({
                   <div
                     key={note.id}
                     style={{
-                      transform: `rotate(${note.rotate}deg)`,
+                      transform: isGridMode ? "none" : `rotate(${note.rotate}deg)`,
                       animationDelay: `${Math.min(i * 45, 400)}ms`,
                     }}
                     onClick={() => setExpandedNote(note)}
                     className={`note-drop-in group relative ${theme.bg} ${theme.border} note-fold rounded-[3px] px-5 pt-7 pb-4 min-h-[150px] flex flex-col cursor-pointer select-none
                       shadow-[2px_4px_10px_-2px_rgba(110,85,45,0.28),0_1px_2px_rgba(110,85,45,0.18)]
-                      hover:shadow-[5px_12px_24px_-4px_rgba(110,85,45,0.4),0_2px_4px_rgba(110,85,45,0.22)]
-                      hover:!rotate-0 hover:-translate-y-1.5 hover:scale-[1.02]
-                      transition-[transform,box-shadow] duration-300 ease-out`}
+                      ${!isLocked ? "hover:shadow-[5px_12px_24px_-4px_rgba(110,85,45,0.4),0_2px_4px_rgba(110,85,45,0.22)] hover:!rotate-0 hover:-translate-y-1.5 hover:scale-[1.02] transition-[transform,box-shadow] duration-300 ease-out" : ""}`}
                   >
                     <StickyPin type={pinType || "pin"} />
 

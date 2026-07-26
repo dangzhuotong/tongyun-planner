@@ -155,12 +155,13 @@ export interface CustomizationConfig {
 
   // AI Agent settings
   aiProvider?: "openai" | "anthropic" | "opencode" | "deepseek" | "ollama";
-  aiApiKey?: string;
+  providerApiKeys?: Record<string, string>;  // 每个 Provider 独立的 API Key
+  aiApiKey?: string;                          // 保留兼容旧版
   aiEndpoint?: string;
   aiModel?: string;
   aiAutoCategorize?: boolean;
   aiTemperature?: number;    // 0-2, default 0.3
-  aiMaxTokens?: number;      // default 1024
+  aiMaxTokens?: number;      // default 4096
   journalCommentPrompt?: string; // 暖评自定义系统提示词（留空则用内置默认）
   enableAutoBackup?: boolean;
   syncInterval?: number; // seconds: 15, 30, 60, 300, 900, 1800, 3600, 0(manual)

@@ -53,6 +53,17 @@ export function useTasks() {
     }
   }, []);
 
+  /** 原子写入 tasks + completedTasks，避免分开写各写一次 timestamp */
+  const saveAll = useCallback(async (updatedTasks: Task[], updatedCompleted: Task[]) => {
+    try {
+      localStorage.setItem("aero_todos", JSON.stringify(updatedTasks));
+      localStorage.setItem("aero_completed_todos", JSON.stringify(updatedCompleted));
+      localStorage.setItem("tongyun_last_updated", String(Date.now()));
+    } catch (e) {
+      console.error("批量保存失败", e);
+    }
+  }, []);
+
   const totalCount = tasks.length + completedTasks.length;
   const progressPercentage = totalCount === 0 ? 0 : Math.round((completedTasks.length / totalCount) * 100);
 
@@ -80,11 +91,10 @@ export function useTasks() {
     const nextCompleted = [completed, ...completedTasks.filter(t => t.id !== id)];
     setTasks(updatedTasks);
     setCompletedTasks(nextCompleted);
-    saveTasks(updatedTasks);
-    saveCompleted(nextCompleted);
+    saveAll(updatedTasks, nextCompleted);
 
     if (shouldSync) syncState(id, "complete");
-  }, [tasks, completedTasks, saveTasks, saveCompleted, syncState]);
+  }, [tasks, completedTasks, saveAll, syncState]);
 
   const handleUndoComplete = useCallback((id: string, shouldSync: boolean = true) => {
     let restoredItem: Task | undefined;
@@ -147,17 +157,19 @@ export function useTasks() {
 
     setTasks((prev) => {
       const updated = prev.filter((t) => t.id !== id);
-      saveTasks(updated);
       return updated;
     });
     setCompletedTasks((prev) => {
       const updated = prev.filter((t) => t.id !== id);
-      saveCompleted(updated);
       return updated;
     });
+    // 原子写入：del 后 tasks/completedTasks 都已更新，React 18 自动批处理
+    const filteredActive = tasks.filter((t) => t.id !== id);
+    const filteredCompleted = completedTasks.filter((t) => t.id !== id);
+    saveAll(filteredActive, filteredCompleted);
     setDetailTaskId((prev) => (prev === id ? null : prev));
     if (shouldSync) syncState(id, "delete");
-  }, [tasks, completedTasks, saveTasks, saveCompleted, syncState]);
+  }, [tasks, completedTasks, saveAll, syncState]);
 
   const handleUndoDelete = useCallback((shouldSync: boolean = true) => {
     if (!lastDeleted) return;
@@ -359,10 +371,9 @@ export function useTasks() {
     const freshTasks = createInitialTasks();
     setTasks(freshTasks);
     setCompletedTasks([]);
-    saveTasks(freshTasks);
-    saveCompleted([]);
+    saveAll(freshTasks, []);
     syncState("reset", "reset");
-  }, [saveTasks, saveCompleted, syncState]);
+  }, [saveAll, syncState]);
 
   const handleClearCompleted = useCallback(() => {
     setCompletedTasks([]);
@@ -383,6 +394,7 @@ export function useTasks() {
     setDetailTaskId,
     saveTasks,
     saveCompleted,
+    saveAll,
     progressPercentage,
     handleComplete,
     handleUndoComplete,

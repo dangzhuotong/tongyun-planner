@@ -9,6 +9,7 @@ import { useTranslation } from "../i18n/LanguageContext";
 import { callAI } from "../utils/aiEngine";
 import { usePersonal } from "../context/PersonalContext";
 import { matchesSearch } from "../utils/textSearch";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 /** 日记页心情：五级，存为 emoji 字符串 */
 const JOURNAL_MOODS = [
@@ -300,16 +301,17 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
   const stripEnd = dateStrip[dateStrip.length - 1];
 
   // 搜索过滤：匹配日记正文或标签
+  const debouncedSearch = useDebouncedValue(search, 200);
   const searchMatchedDates = useMemo(() => {
-    if (!search.trim()) return null;
+    if (!debouncedSearch.trim()) return null;
     const matched = new Set<string>();
     journal.forEach((e) => {
       if (!e.isDaily) return;
       const haystack = [e.content || "", ...extractJournalTags(e.content)].join(" ");
-      if (matchesSearch(haystack, search)) matched.add(e.date);
+      if (matchesSearch(haystack, debouncedSearch)) matched.add(e.date);
     });
     return matched;
-  }, [journal, search]);
+  }, [journal, debouncedSearch]);
 
   const searchMatchCount = searchMatchedDates?.size ?? 0;
 

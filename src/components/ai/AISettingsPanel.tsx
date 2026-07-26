@@ -28,6 +28,9 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ config, onChan
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [isFetchingModels, setIsFetchingModels] = useState(false);
 
+  const currentProvider = config.aiProvider || "openai";
+  const currentApiKey = config.providerApiKeys?.[currentProvider]?.trim() || config.aiApiKey?.trim() || "";
+
   const handleChange = <K extends keyof CustomizationConfig>(key: K, value: CustomizationConfig[K]) => {
     onChange({ ...config, [key]: value });
   };
@@ -38,7 +41,7 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ config, onChan
   };
 
   const handleTestAiConnection = async () => {
-    if (!config.aiApiKey?.trim() && config.aiProvider !== "opencode") {
+    if (!currentApiKey && config.aiProvider !== "opencode" && config.aiProvider !== "ollama") {
       triggerToast(s.aiFillKey, "error");
       return;
     }
@@ -92,9 +95,10 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ config, onChan
             return (
               <button key={preset.id}
                 onClick={() => {
-                  handleChange("aiProvider", preset.id as any);
-                  if (preset.endpoint) handleChange("aiEndpoint", preset.endpoint);
-                  if (preset.defaultModel) handleChange("aiModel", preset.defaultModel);
+                  const updates: Partial<CustomizationConfig> = { aiProvider: preset.id as any };
+                  if (preset.endpoint) updates.aiEndpoint = preset.endpoint;
+                  if (preset.defaultModel) updates.aiModel = preset.defaultModel;
+                  onChange({ ...config, ...updates });
                 }}
                 className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer hover:scale-105 active:scale-95 ${isSelected ? "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36] shadow-xs" : "bg-white border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:border-slate-300"}`}
               >
@@ -117,15 +121,18 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ config, onChan
       {/* API Key */}
       <div className="space-y-1">
         <label className="text-[10px] font-bold text-slate-500 uppercase block">
-          {s.aiApiKey}
+          {AI_PROVIDER_PRESETS.find(p => p.id === config.aiProvider)?.label || config.aiProvider} {s.aiApiKey}
           {!AI_PROVIDER_PRESETS.find(p => p.id === config.aiProvider)?.keyRequired && (
             <span className="text-[9px] text-slate-400 font-medium ml-1">(可选)</span>
           )}
         </label>
         <input type="password"
           placeholder={config.aiProvider === "opencode" || config.aiProvider === "ollama" ? "此提供商可不填 API Key" : "sk-..."}
-          value={config.aiApiKey || ""}
-          onChange={(e) => handleChange("aiApiKey", e.target.value)}
+          value={config.providerApiKeys?.[config.aiProvider || "openai"] || ""}
+          onChange={(e) => onChange({
+            ...config,
+            providerApiKeys: { ...config.providerApiKeys, [config.aiProvider || "openai"]: e.target.value }
+          })}
           className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
         />
       </div>
@@ -141,7 +148,7 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ config, onChan
           <button onClick={async () => {
               setIsFetchingModels(true);
               try {
-                const models = await fetchAvailableModels(config.aiEndpoint!, config.aiApiKey);
+                const models = await fetchAvailableModels(config.aiEndpoint!, currentApiKey);
                 setFetchedModels(models);
                 if (models.length > 0) triggerToast(`获取到 ${models.length} 个可用模型`, "success");
                 else triggerToast("未获取到模型列表", "error");
@@ -167,31 +174,6 @@ export const AISettingsPanel: React.FC<AISettingsPanelProps> = ({ config, onChan
         )}
       </div>
 
-      {/* 模型参数 */}
-      <div className="pt-3 border-t border-[#EFEBE4] space-y-3">
-        <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">模型参数</h4>
-        <div className="space-y-1">
-          <div className="flex justify-between items-center">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Temperature</label>
-            <span className="text-[10px] font-extrabold text-[#4D7C5D]">{config.aiTemperature ?? 0.3}</span>
-          </div>
-          <input type="range" min="0" max="2" step="0.1" value={config.aiTemperature ?? 0.3}
-            onChange={(e) => handleChange("aiTemperature", parseFloat(e.target.value))}
-            className="w-full cursor-pointer accent-[#4D7C5D]"
-          />
-          <div className="flex justify-between text-[8px] text-slate-400 font-extrabold uppercase">
-            <span>精确 (0)</span><span>平衡 (1)</span><span>创意 (2)</span>
-          </div>
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-500 uppercase block">Max Tokens</label>
-          <select value={config.aiMaxTokens ?? 1024} onChange={(e) => handleChange("aiMaxTokens", parseInt(e.target.value))}
-            className="bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-[10px] font-bold text-slate-700 focus:outline-none focus:border-[#4D7C5D] cursor-pointer"
-          >
-            <option value={512}>512</option><option value={1024}>1024</option><option value={2048}>2048</option><option value={4096}>4096</option>
-          </select>
-        </div>
-      </div>
 
       {/* 保存 & 测试连接 */}
       <div className="flex gap-3 pt-1 sticky bottom-0 bg-white/90 pb-1">

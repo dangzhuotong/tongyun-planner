@@ -135,8 +135,10 @@ export function getCategoryPayload(data: SyncData, cat: SyncCategory): unknown {
 export function isEffectivelyEmptyCategory(cat: SyncCategory, payload: unknown): boolean {
   if (cat === "config") {
     if (!payload || typeof payload !== "object") return true;
-    const key = (payload as CustomizationConfig).aiApiKey;
-    return !key || !String(key).trim();
+    const cfg = payload as CustomizationConfig;
+    const key = cfg.aiApiKey;
+    const anyProviderKey = cfg.providerApiKeys && Object.values(cfg.providerApiKeys).some(v => v?.trim());
+    return (!key || !String(key).trim()) && !anyProviderKey;
   }
   return !Array.isArray(payload) || payload.length === 0;
 }
@@ -176,6 +178,7 @@ export function protectAgainstEmptyOverwrite(
       const merged: CustomizationConfig = {
         ...remote,
         ...local,
+        providerApiKeys: { ...remote.providerApiKeys, ...local.providerApiKeys },
         aiApiKey: local.aiApiKey?.trim() ? local.aiApiKey : remote.aiApiKey,
         aiEndpoint: local.aiEndpoint || remote.aiEndpoint,
         aiModel: local.aiModel || remote.aiModel,
@@ -220,8 +223,13 @@ export function mergeRemoteIntoLocal(
     const local = localPayload ? (localPayload as Record<string, unknown>) : null;
     if (!remote) return local;
     if (!local) return remote;
-    // config 按字段合并：远端为主，但本地 aiApiKey 优先
-    return { ...remote, ...local, aiApiKey: local.aiApiKey || remote.aiApiKey };
+    // config 按字段合并：远端为主，但本地 Key 优先
+    return {
+      ...remote,
+      ...local,
+      providerApiKeys: { ...(remote.providerApiKeys as Record<string, string> || {}), ...(local.providerApiKeys as Record<string, string> || {}) },
+      aiApiKey: local.aiApiKey || remote.aiApiKey,
+    };
   }
 
   // 数组分类：按 id 合并

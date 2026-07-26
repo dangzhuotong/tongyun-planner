@@ -255,6 +255,10 @@ const zhCN: Translations = {
     search: "搜索便签...",
     searchEmpty: "没有匹配的便签",
     titlePlaceholder: "标题（可选）",
+    grid: "整理为网格",
+    gridOff: "自由摆放",
+    lock: "锁定位置",
+    unlock: "解锁位置",
   },
 
   analytics: {

@@ -255,6 +255,10 @@ const en: Translations = {
     search: "Search notes...",
     searchEmpty: "No matching notes",
     titlePlaceholder: "Title (optional)",
+    grid: "Arrange Grid",
+    gridOff: "Free Layout",
+    lock: "Lock Position",
+    unlock: "Unlock Position",
   },
 
   analytics: {

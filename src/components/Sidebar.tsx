@@ -76,6 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
     pomodoroSessionCount,
     pomodoroTimeLeft,
     setPomodoroTimeLeft,
+    setPomodoroEndTime,
     focusDuration,
     setFocusDuration,
     breakDuration,
@@ -415,30 +416,31 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
           {/* Timer & Controls */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1">
-              {!pomodoroIsActive && (
-                <button
-                  onClick={() => {
-                    const currentMins = Math.floor(pomodoroTimeLeft / 60);
-                    if (currentMins > 1) {
-                      const newTime = (currentMins - 1) * 60;
-                      setPomodoroTimeLeft(newTime);
-                      if (pomodoroIsBreak) {
-                        setBreakDuration(currentMins - 1);
-                        localStorage.setItem("pomodoro_break_duration", String(currentMins - 1));
-                        syncPomodoro(false, newTime, true, focusDuration, currentMins - 1, pomodoroSessionCount);
-                      } else {
-                        setFocusDuration(currentMins - 1);
-                        localStorage.setItem("pomodoro_focus_duration", String(currentMins - 1));
-                        syncPomodoro(false, newTime, false, currentMins - 1, breakDuration, pomodoroSessionCount);
-                      }
+              <button
+                onClick={() => {
+                  const currentMins = Math.floor(pomodoroTimeLeft / 60);
+                  if (currentMins > 1) {
+                    const newTime = (currentMins - 1) * 60;
+                    if (pomodoroIsActive) {
+                      setPomodoroEndTime(Date.now() + newTime * 1000);
                     }
-                  }}
-                  className="w-4 h-4 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-[10px] cursor-pointer transition-colors"
-                  title={s.decreaseMin}
-                >
-                  -
-                </button>
-              )}
+                    setPomodoroTimeLeft(newTime);
+                    if (pomodoroIsBreak) {
+                      setBreakDuration(currentMins - 1);
+                      localStorage.setItem("pomodoro_break_duration", String(currentMins - 1));
+                      syncPomodoro(pomodoroIsActive, newTime, true, focusDuration, currentMins - 1, pomodoroSessionCount);
+                    } else {
+                      setFocusDuration(currentMins - 1);
+                      localStorage.setItem("pomodoro_focus_duration", String(currentMins - 1));
+                      syncPomodoro(pomodoroIsActive, newTime, false, currentMins - 1, breakDuration, pomodoroSessionCount);
+                    }
+                  }
+                }}
+                className="w-4 h-4 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-[10px] cursor-pointer transition-colors"
+                title={s.decreaseMin}
+              >
+                -
+              </button>
               {editingMinutes !== null ? (
                 <input
                   type="number"
@@ -464,30 +466,31 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(({
                   {(pomodoroTimeLeft % 60).toString().padStart(2, "0")}
                 </span>
               )}
-              {!pomodoroIsActive && (
-                <button
-                  onClick={() => {
-                    const currentMins = Math.floor(pomodoroTimeLeft / 60);
-                    if (currentMins < 120) {
-                      const newTime = (currentMins + 1) * 60;
-                      setPomodoroTimeLeft(newTime);
-                      if (pomodoroIsBreak) {
-                        setBreakDuration(currentMins + 1);
-                        localStorage.setItem("pomodoro_break_duration", String(currentMins + 1));
-                        syncPomodoro(false, newTime, true, focusDuration, currentMins + 1, pomodoroSessionCount);
-                      } else {
-                        setFocusDuration(currentMins + 1);
-                        localStorage.setItem("pomodoro_focus_duration", String(currentMins + 1));
-                        syncPomodoro(false, newTime, false, currentMins + 1, breakDuration, pomodoroSessionCount);
-                      }
+              <button
+                onClick={() => {
+                  const currentMins = Math.floor(pomodoroTimeLeft / 60);
+                  if (currentMins < 120) {
+                    const newTime = (currentMins + 1) * 60;
+                    if (pomodoroIsActive) {
+                      setPomodoroEndTime(Date.now() + newTime * 1000);
                     }
-                  }}
-                  className="w-4 h-4 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-[10px] cursor-pointer transition-colors"
-                  title={s.increaseMin}
+                    setPomodoroTimeLeft(newTime);
+                    if (pomodoroIsBreak) {
+                      setBreakDuration(currentMins + 1);
+                      localStorage.setItem("pomodoro_break_duration", String(currentMins + 1));
+                      syncPomodoro(pomodoroIsActive, newTime, true, focusDuration, currentMins + 1, pomodoroSessionCount);
+                    } else {
+                      setFocusDuration(currentMins + 1);
+                      localStorage.setItem("pomodoro_focus_duration", String(currentMins + 1));
+                      syncPomodoro(pomodoroIsActive, newTime, false, currentMins + 1, breakDuration, pomodoroSessionCount);
+                    }
+                  }
+                }}
+                className="w-4 h-4 rounded-full bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 font-bold text-[10px] cursor-pointer transition-colors"
+                title={s.increaseMin}
                 >
                   +
                 </button>
-              )}
             </div>
 
             <div className="flex items-center gap-1.5">

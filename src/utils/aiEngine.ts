@@ -2,6 +2,19 @@ import type { CustomizationConfig, Task } from "../types";
 import { DEFAULT_AI_CLASSIFY_PROMPT } from "../constants";
 import { getLocalDateString } from "./date";
 
+import { invoke } from "@tauri-apps/api/core";
+
+/**
+ * 获取当前 Provider 对应的有效 API Key。
+ * 先从 providerApiKeys 按当前 Provider 取 → 回退旧版 aiApiKey。
+ */
+export function getEffectiveApiKey(config: CustomizationConfig): string | undefined {
+  const provider = config.aiProvider || "openai";
+  return config.providerApiKeys?.[provider]?.trim()
+    || config.aiApiKey?.trim()
+    || undefined;
+}
+
 /**
  * 辅助清洗 AI 返回的 JSON 字符串，防止 Markdown 代码块标记（```json）导致 JSON.parse 报错。
  */
@@ -28,93 +41,98 @@ export async function callAI(
 ): Promise<string> {
   const provider = config.aiProvider || "openai";
 
-  // OpenCode / Ollama 可不用 API Key
-  const apiKey = config.aiApiKey;
+  // 当前 Provider 的独立 Key → 回退到旧版兼容字段
+  const apiKey = getEffectiveApiKey(config);
   const noKeyProviders = ["opencode", "ollama"];
   if (!apiKey && !noKeyProviders.includes(provider)) {
     throw new Error("API_KEY_MISSING");
   }
 
   const temperature = config.aiTemperature ?? 0.3;
-  const maxTokens = config.aiMaxTokens ?? 1024;
+  const maxTokens = config.aiMaxTokens ?? 4096;
 
   if (provider === "anthropic") {
     // Anthropic Claude 原生 API
     const endpoint = config.aiEndpoint || "https://api.anthropic.com/v1/messages";
     const model = config.aiModel || "claude-3-5-sonnet-20241022";
 
-    const anthropicHeaders: Record<string, string> = {
-      "Content-Type": "application/json",
+    const headers: Record<string, string> = {
       "anthropic-version": "2023-06-01",
     };
     if (apiKey) {
-      anthropicHeaders["x-api-key"] = apiKey;
+      headers["x-api-key"] = apiKey;
     }
 
-    const response = await fetch(endpoint, {
+    const text = await invoke<string>("ai_proxy", {
+      url: endpoint,
       method: "POST",
-      headers: anthropicHeaders,
+      headers,
       body: JSON.stringify({
         model: model,
         max_tokens: maxTokens,
         system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: userPrompt,
-          },
-        ],
+        messages: [{ role: "user", content: userPrompt }],
         temperature: temperature,
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Claude API 错误 (HTTP ${response.status}): ${errorText}`);
+    const data = JSON.parse(text);
+    const claudeResult = data.content?.[0]?.text?.trim();
+    if (claudeResult) return claudeResult;
+    if (data.stop_reason === "max_tokens") {
+      throw new Error("E_TOKEN_LIMIT: max_tokens 不足，Claude 输出被截断。请调大 Max Tokens。");
     }
-
-    const data = await response.json();
-    return data.content?.[0]?.text?.trim() || "";
+    return "";
   } else {
     // OpenAI / DeepSeek / OpenCode / 兼容格式 API
     const endpoint = config.aiEndpoint || "https://api.openai.com/v1";
     const model = config.aiModel || "gpt-4o";
     const url = endpoint.endsWith("/") ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`;
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    const headers: Record<string, string> = {};
     if (apiKey) {
       headers["Authorization"] = `Bearer ${apiKey}`;
     }
 
-    const response = await fetch(url, {
+    const text = await invoke<string>("ai_proxy", {
+      url,
       method: "POST",
       headers,
       body: JSON.stringify({
         model: model,
         messages: [
-          {
-            role: "system",
-            content: systemPrompt,
-          },
-          {
-            role: "user",
-            content: userPrompt,
-          },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         temperature: temperature,
         max_tokens: maxTokens,
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenAI 兼容 API 错误 (HTTP ${response.status}): ${errorText}`);
+    const data = JSON.parse(text);
+
+    // 推理模型（deepseek-v4-flash-free 等）token 不足时 content 为空
+    const choice = data.choices?.[0];
+    const content = choice?.message?.content?.trim();
+    const finishReason = choice?.finish_reason;
+    const reasoning = choice?.message?.reasoning_content?.trim();
+
+    if (content) return content;
+
+    // finish_reason === "length" 说明 max_tokens 不够，模型被截断
+    if (finishReason === "length") {
+      throw new Error("E_TOKEN_LIMIT: max_tokens 不足，模型输出被截断。请在设置中调大 Max Tokens。");
     }
 
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || "";
+    // content 为空但有 reasoning_content，从推理内容里提取最后一段作容错
+    if (reasoning) {
+      // 推理内容是 AI 的内心独白，取最后 2 句相对完整的
+      const sentences = reasoning.split(/[。；]\s*/).filter(Boolean);
+      const fallback = sentences.slice(-2).join("；") + "。";
+      if (fallback.length > 10) return fallback;
+    }
+
+    return "";
   }
 }
 
@@ -566,17 +584,18 @@ Requirements:
 /** 从兼容 OpenAI 的 API 端点获取可用模型列表 */
 export async function fetchAvailableModels(baseUrl: string, apiKey?: string): Promise<string[]> {
   const url = baseUrl.endsWith("/") ? `${baseUrl}models` : `${baseUrl}/models`;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {};
   if (apiKey) {
     headers["Authorization"] = `Bearer ${apiKey}`;
   }
 
-  const res = await fetch(url, { headers });
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  }
+  const text = await invoke<string>("ai_proxy", {
+    url,
+    method: "GET",
+    headers,
+  });
 
-  const data = await res.json();
+  const data = JSON.parse(text);
   if (data.data && Array.isArray(data.data)) {
     return data.data.map((m: any) => m.id).sort();
   }

@@ -17,6 +17,7 @@ import type { Task, TaskCategory } from "../types";
 import { PLANNER_COLORS, getDueDateCountdown, PRIORITY_META } from "../constants";
 import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 
 interface MatrixViewProps {
   tasks: Task[];
@@ -128,10 +129,11 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
 
     const [localSearch, setLocalSearch] = useState("");
     const effectiveQuery = searchQuery !== undefined ? searchQuery : localSearch;
+    const debouncedQuery = useDebouncedValue(effectiveQuery, 200);
     const effectiveSetQuery = setSearchQuery || setLocalSearch;
 
     const tasksByQuadrant = useMemo(() => {
-      const query = effectiveQuery.toLowerCase();
+      const query = debouncedQuery.toLowerCase();
       const grouped: Record<TaskCategory, Task[]> = {
         "urgent-important": [],
         "important-not-urgent": [],
