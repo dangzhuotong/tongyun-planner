@@ -580,6 +580,29 @@
 - `src/utils/deferredStorage.ts`
 - `src/utils/aiEngine.ts`
 - `src/App.tsx`
+
+## Session 23 (2026-07-27)
+
+### 完成项（附件文件化）
+- 日记新增/粘贴图片不再存入 Base64 JSON；Tauri 端写入应用数据目录 `attachments/`，JournalEntry 仅保存文件路径与元数据。
+- Rust 新增 `save_local_attachment` / `delete_local_attachment`：文件名白名单、20 MB 上限、临时文件后原子重命名、删除范围固定在应用附件目录。
+- 新增 `journalAttachmentStorage.ts`：浏览器环境保留 Data URL 回退，桌面端使用本地文件与 `convertFileSrc`。
+- 启动时自动识别旧日记中的 `data:` 附件，逐个迁移；单个文件失败则保留原 Base64，不影响其他数据。
+- 删除日记图片时同步回收本地文件。
+- Tauri asset protocol 仅开放 `$APPDATA/attachments/**/*`，CSP 已包含 asset 图片来源。
+
+### 验证
+- TypeScript 通过。
+- Rust cargo check 通过。
+- Vite 生产构建通过。
+- Tauri debug build 已完成前端与 Rust 编译，最终覆盖 exe 时因正在运行的 `target/debug/tongyun-planner.exe` 被 Windows 锁定而终止；非代码/配置错误。
+
+### 相关文件
+- `src/utils/journalAttachmentStorage.ts`
+- `src/components/JournalView.tsx`
+- `src/context/PersonalContext.tsx`
+- `src-tauri/src/lib.rs`
+- `src-tauri/tauri.conf.json`
 - `vite.config.ts`
 - `index.html`
 

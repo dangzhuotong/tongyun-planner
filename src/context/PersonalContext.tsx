@@ -7,6 +7,7 @@ import { bumpSyncVersion, bumpCategoryVersion, type SyncCategory } from "../util
 import { isSyncApplying } from "../utils/sync/syncApplyGuard";
 import { storage } from "../utils/unifiedStorage";
 import { journalRepository } from "../data/repositories";
+import { migrateLegacyJournalAttachments } from "../utils/journalAttachmentStorage";
 
 interface PersonalState {
   // 日记
@@ -71,7 +72,9 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
       const fresh = await journalRepository.load()
         || safeJsonParse<JournalEntry[]>(localStorage.getItem("tongyun_journal") || "[]", []);
-      setJournal(fresh);
+      const migrated = await migrateLegacyJournalAttachments(fresh);
+      if (migrated !== fresh) journalRepository.syncSnapshot(migrated);
+      setJournal(migrated);
       setPersistReady(true);
     }).catch(() => {
       if (!cancelled) setPersistReady(true);

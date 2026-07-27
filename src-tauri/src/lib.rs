@@ -6,6 +6,38 @@ use std::path::PathBuf;
 
 mod email;
 
+#[tauri::command]
+fn save_local_attachment(app: AppHandle, file_name: String, bytes: Vec<u8>) -> Result<String, String> {
+    if bytes.len() > 20 * 1024 * 1024 {
+        return Err("E_ATTACHMENT_TOO_LARGE".to_string());
+    }
+    if file_name.is_empty() || !file_name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_')) {
+        return Err("E_INVALID_ATTACHMENT_NAME".to_string());
+    }
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("attachments");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let target = dir.join(&file_name);
+    let temporary = dir.join(format!("{}.tmp", file_name));
+    std::fs::write(&temporary, bytes).map_err(|e| e.to_string())?;
+    if target.exists() {
+        std::fs::remove_file(&target).map_err(|e| e.to_string())?;
+    }
+    std::fs::rename(&temporary, &target).map_err(|e| e.to_string())?;
+    Ok(target.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn delete_local_attachment(app: AppHandle, file_name: String) -> Result<(), String> {
+    if file_name.is_empty() || !file_name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_')) {
+        return Err("E_INVALID_ATTACHMENT_NAME".to_string());
+    }
+    let target = app.path().app_data_dir().map_err(|e| e.to_string())?.join("attachments").join(file_name);
+    if target.exists() {
+        std::fs::remove_file(target).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 // 1. 定义多窗口间传递的同步状态数据结构
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct TodoSyncPayload {
@@ -434,6 +466,8 @@ pub fn run() {
         .plugin(tauri_plugin_sql::Builder::default().build())
         // 挂载用于多窗口间状态交互及窗口显隐控制的命令
         .invoke_handler(tauri::generate_handler![
+            save_local_attachment,
+            delete_local_attachment,
             sync_todo_state,
             toggle_widget_window,
             set_widget_click_through,

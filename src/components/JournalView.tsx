@@ -10,6 +10,7 @@ import { callAI } from "../utils/aiEngine";
 import { usePersonal } from "../context/PersonalContext";
 import { matchesSearch } from "../utils/textSearch";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { deleteJournalAttachment, journalAttachmentSrc, saveJournalAttachment } from "../utils/journalAttachmentStorage";
 
 /** 日记页心情：五级，存为 emoji 字符串 */
 const JOURNAL_MOODS = [
@@ -81,16 +82,11 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
     if (!file) return;
     e.target.value = "";
     if (!file.type.startsWith("image/")) return;
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    const storedPath = await saveJournalAttachment(file, createId("att-file"));
     const att: Attachment = {
       id: createId("att"),
       name: file.name,
-      path: dataUrl,
+      path: storedPath,
       type: file.type,
       size: file.size,
       createdAt: new Date().toISOString(),
@@ -106,16 +102,11 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
         e.preventDefault();
         const file = items[i].getAsFile();
         if (!file) continue;
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
+        const storedPath = await saveJournalAttachment(file, createId("att-file"));
         const att: Attachment = {
           id: createId("att"),
           name: file.name || `pasted-${Date.now()}.png`,
-          path: dataUrl,
+          path: storedPath,
           type: file.type,
           size: file.size,
           createdAt: new Date().toISOString(),
@@ -128,7 +119,9 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
 
   const handleRemoveImage = (attId: string) => {
     const existing = selected?.attachments || [];
+    const removed = existing.find((attachment) => attachment.id === attId);
     commit({ attachments: existing.filter((a) => a.id !== attId) });
+    if (removed) void deleteJournalAttachment(removed.path);
   };
 
   const viewDate = currentDate;
@@ -528,7 +521,7 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
           {selected!.attachments!.map((att) => (
             <div key={att.id} className="relative group">
               <img
-                src={att.path}
+                src={journalAttachmentSrc(att.path)}
                 alt={att.name}
                 className="w-28 h-28 object-cover rounded-xl border border-[#EFEBE4] dark:border-[#3A3A3A] shadow-sm"
               />
