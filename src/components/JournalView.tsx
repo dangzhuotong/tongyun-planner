@@ -135,12 +135,52 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
 
   // 本地草稿，避免每次按键都触发父级重渲染造成的光标跳动
   const [draftContent, setDraftContent] = useState("");
+  const draftDirtyRef = useRef(false);
+  const draftContentRef = useRef("");
+  const selectedRef = useRef<JournalEntry | null>(null);
+  const viewDateRef = useRef(viewDate);
+  const onUpsertRef = useRef(onUpsert);
+
+  draftContentRef.current = draftContent;
+  selectedRef.current = selected;
+  viewDateRef.current = viewDate;
+  onUpsertRef.current = onUpsert;
 
   useEffect(() => {
     setDraftContent(selected?.content || "");
+    draftContentRef.current = selected?.content || "";
+    draftDirtyRef.current = false;
     setConfirmDelete(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
+
+  const flushDraft = useCallback(() => {
+    if (!draftDirtyRef.current) return;
+    draftDirtyRef.current = false;
+    const date = viewDateRef.current;
+    const base = selectedRef.current || ({
+      id: createId("journal"),
+      linkKey: date,
+      title: date,
+      content: "",
+      date,
+      isDaily: true,
+      createdAt: Date.now(),
+    } as JournalEntry);
+    onUpsertRef.current({
+      ...base,
+      content: draftContentRef.current,
+      updatedAt: Date.now(),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!draftDirtyRef.current) return;
+    const timer = window.setTimeout(flushDraft, 600);
+    return () => window.clearTimeout(timer);
+  }, [draftContent, flushDraft]);
+
+  useEffect(() => () => flushDraft(), [flushDraft]);
 
   const commit = useCallback((patch: Partial<JournalEntry>) => {
     const base = selected || ({
@@ -152,8 +192,11 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
       isDaily: true,
       createdAt: Date.now(),
     } as JournalEntry);
+    const pendingContent = draftDirtyRef.current ? draftContentRef.current : base.content;
+    draftDirtyRef.current = false;
     const next: JournalEntry = {
       ...base,
+      content: pendingContent,
       ...patch,
       updatedAt: Date.now(),
     };
@@ -161,9 +204,15 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
   }, [selected, onUpsert, viewDate]);
 
   const handleContentChange = (v: string) => {
+    draftDirtyRef.current = true;
+    draftContentRef.current = v;
     setDraftContent(v);
-    commit({ content: v });
   };
+
+  const navigateToDate = useCallback((date: string) => {
+    flushDraft();
+    setCurrentDate(date);
+  }, [flushDraft]);
   const handleMoodPick = (emoji: string) => {
     const base = selected || ({
       id: createId("journal"),
@@ -174,7 +223,12 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
       isDaily: true,
       createdAt: Date.now(),
     } as JournalEntry);
-    const next: JournalEntry = { ...base, updatedAt: Date.now() };
+    const next: JournalEntry = {
+      ...base,
+      content: draftDirtyRef.current ? draftContentRef.current : base.content,
+      updatedAt: Date.now(),
+    };
+    draftDirtyRef.current = false;
     if (selected?.mood === emoji) {
       delete next.mood;
     } else {
@@ -187,9 +241,9 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
     const [y, m, d] = currentDate.split("-").map(Number);
     const dt = new Date(y, m - 1, d);
     dt.setDate(dt.getDate() + delta);
-    setCurrentDate(getLocalDateString(dt));
+    navigateToDate(getLocalDateString(dt));
   };
-  const goToday = () => setCurrentDate(today);
+  const goToday = () => navigateToDate(today);
 
   const insertLine = (text: string) => {
     const next = draftContent ? `${draftContent}\n${text}` : text;
@@ -331,14 +385,14 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
 
   const jumpEarlier = () => {
     if (earliestDaily && earliestDaily < stripStart) {
-      setCurrentDate(earliestDaily);
+      navigateToDate(earliestDaily);
       return;
     }
     const base = currentDate < stripStart ? currentDate : stripStart;
     const [y, m, d] = base.split("-").map(Number);
     const dt = new Date(y, m - 1, d);
     dt.setDate(dt.getDate() - 1);
-    setCurrentDate(getLocalDateString(dt));
+    navigateToDate(getLocalDateString(dt));
   };
 
   const jumpLater = () => {
@@ -346,7 +400,7 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
     const [y, m, d] = base.split("-").map(Number);
     const dt = new Date(y, m - 1, d);
     dt.setDate(dt.getDate() + 1);
-    setCurrentDate(getLocalDateString(dt));
+    navigateToDate(getLocalDateString(dt));
   };
 
   // 日期滑条自动居中定位到当前选中日期
@@ -454,6 +508,7 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
         ref={textareaRef}
         value={draftContent}
         onChange={(e) => handleContentChange(e.target.value)}
+        onBlur={flushDraft}
         onPaste={handleImagePaste}
         placeholder={j.diaryPlaceholder || "写点什么，记下今天…"}
         className="flex-grow min-h-0 w-full resize-none rounded-xl text-[15px] text-slate-700 dark:text-slate-200 font-serif focus:outline-none custom-scrollbar bg-transparent border-transparent"
@@ -564,7 +619,7 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
                 <button
                   key={ds}
                   ref={active ? activeDateRef : undefined}
-                  onClick={() => setCurrentDate(ds)}
+                  onClick={() => navigateToDate(ds)}
                   className={`flex-shrink-0 flex flex-col items-center px-2.5 py-1 rounded-xl transition-colors cursor-pointer border ${
                     active
                       ? "bg-[#4D7C5D] text-white border-[#4D7C5D]"

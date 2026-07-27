@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Sparkles, PenLine } from "lucide-react";
 import type { Task, CustomizationConfig } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
-import { generateProse, getEffectiveApiKey } from "../utils/aiEngine";
+import { describeAIError, generateProse, getEffectiveApiKey } from "../utils/aiEngine";
 import { readDailyCache, writeDailyCache } from "../utils/dailyCache";
 import { getLocalDateString } from "../utils/date";
 
@@ -23,15 +23,15 @@ export const ProseCard: React.FC<ProseCardProps> = ({ config, tasks }) => {
     readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey)
   );
   const [proseLoading, setProseLoading] = useState(false);
-  const [proseError, setProseError] = useState(false);
+  const [proseError, setProseError] = useState<string | null>(null);
 
   const handleGenerateProse = async () => {
     if (!getEffectiveApiKey(config)) {
-      setProseError(true);
+      setProseError(describeAIError("API_KEY_MISSING", localeKey));
       return;
     }
     setProseLoading(true);
-    setProseError(false);
+    setProseError(null);
     try {
       const contextHints = tasks
         .filter((t) => t.dueDate === today)
@@ -46,17 +46,18 @@ export const ProseCard: React.FC<ProseCardProps> = ({ config, tasks }) => {
         setProse(result);
         writeDailyCache(PROSE_CACHE_KEY, today, localeKey, result);
       } else {
-        setProseError(true);
+        setProseError(isZh ? "AI 返回了空内容，请更换模型后重试。" : "The model returned an empty response. Try another model.");
       }
-    } catch {
-      setProseError(true);
+    } catch (error) {
+      console.error("AI prose generation failed", error);
+      setProseError(describeAIError(error, localeKey));
     }
     setProseLoading(false);
   };
 
   useEffect(() => {
     setProse(readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey));
-    setProseError(false);
+    setProseError(null);
   }, [today, localeKey]);
 
   const label = isZh ? "AI 散文" : "AI Prose";
@@ -90,8 +91,8 @@ export const ProseCard: React.FC<ProseCardProps> = ({ config, tasks }) => {
             <div className="w-5 h-5 border-2 border-[#4D7C5D]/30 border-t-[#4D7C5D] rounded-full animate-spin" />
           </div>
         ) : proseError ? (
-          <p className="text-[10px] text-red-400 font-bold text-center py-4">
-            {isZh ? "生成失败，请检查 AI 配置" : "Failed to generate. Check AI settings."}
+          <p className="text-[10px] text-red-400 font-bold text-center py-4 break-words" role="alert">
+            {proseError}
           </p>
         ) : prose ? (
           (() => {

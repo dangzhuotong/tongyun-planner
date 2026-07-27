@@ -544,3 +544,41 @@
 - `src/App.tsx`
 - `src/i18n/zh-CN.ts`、`src/i18n/en.ts`
 - `src/i18n/types.ts`
+
+## Session 21 (2026-07-27)
+
+### 背景
+- 用户反馈生产打包后的桌面 App 存在卡顿，并要求按长期单用户场景做深度性能优化。
+- AI 散文使用 OpenAI 时只显示笼统失败，无法看到真实原因。
+
+### 完成项
+- **日记输入降载**：正文改为局部草稿即时输入，停止输入 600ms、失焦、切换日期或卸载时再提交，避免逐字更新全局 journal。
+- **日记关联任务增量化**：用 entry signature 检测本次变化，只处理变化日记；任务按 journalId 建 Map，避免每次扫描日记 × 任务。
+- **任务持久化降频**：新增 `deferredStorage.ts`，把任务数组 JSON 序列化和 localStorage 写入移出点击同步路径，150ms 合并写入并在隐藏/关闭前 flush。
+- **Context 稳定化**：PersonalContext provider value 使用 useMemo，减少无关消费者更新。
+- **首屏拆包**：Dashboard / Matrix / List / Calendar / StickyNotes 改为动态导入；取消 calendar/motion 强制 manual chunk；移除 Google Fonts 启动网络依赖。
+- **长列表渲染**：List/Matrix 任务卡使用 `content-visibility: auto` 和 intrinsic size，跳过屏外卡片布局与绘制。
+- **OpenAI 散文修复**：
+  - 不再吞掉 generateProse 异常；ProseCard 展示具体可操作错误。
+  - Endpoint 兼容根地址和完整 `/chat/completions` 地址，避免重复拼接。
+  - o1/o3/o4/GPT-5 使用 `max_completion_tokens`；不支持自定义 temperature 的模型自动省略该参数。
+  - 区分 Key、额度/限流、模型、参数、网络和 token 上限错误。
+  - AI 请求超时扩为 60 秒。
+
+### 构建对比
+- 主 chunk：509.78 KB → 437.98 KB（约 -14%）。
+- 首屏 modulepreload 移除 307.64 KB 农历库与 132.80 KB motion chunk，仅保留 React 和 Tauri runtime。
+- 生产构建通过；TypeScript typecheck 通过；Rust cargo check 通过。
+
+### 相关文件
+- `src/components/JournalView.tsx`
+- `src/components/ProseCard.tsx`
+- `src/components/ListView.tsx`
+- `src/components/MatrixView.tsx`
+- `src/context/PersonalContext.tsx`
+- `src/hooks/useTasks.ts`
+- `src/utils/deferredStorage.ts`
+- `src/utils/aiEngine.ts`
+- `src/App.tsx`
+- `vite.config.ts`
+- `index.html`

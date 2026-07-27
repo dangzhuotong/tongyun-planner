@@ -3,12 +3,12 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Task, AppTab } from "./types";
 import { TitleBar } from "./components/TitleBar";
 import { Sidebar } from "./components/Sidebar";
-import { DashboardView } from "./components/DashboardView";
-import { MatrixView } from "./components/MatrixView";
-import { ListView } from "./components/ListView";
+const DashboardView = React.lazy(() => import("./components/DashboardView").then((m) => ({ default: m.DashboardView })));
+const MatrixView = React.lazy(() => import("./components/MatrixView").then((m) => ({ default: m.MatrixView })));
+const ListView = React.lazy(() => import("./components/ListView").then((m) => ({ default: m.ListView })));
 import { TaskDetailModal } from "./components/TaskDetailModal";
-import { CalendarView } from "./components/CalendarView";
-import { StickyNotesView } from "./components/StickyNotesView";
+const CalendarView = React.lazy(() => import("./components/CalendarView").then((m) => ({ default: m.CalendarView })));
+const StickyNotesView = React.lazy(() => import("./components/StickyNotesView").then((m) => ({ default: m.StickyNotesView })));
 const NewsView = React.lazy(() => import("./components/NewsView").then((m) => ({ default: m.NewsView })));
 import { CelebrationOverlay } from "./components/CelebrationOverlay";
 const AnalyticsView = React.lazy(() => import("./components/AnalyticsView").then((m) => ({ default: m.AnalyticsView })));
@@ -127,11 +127,30 @@ function AppBody() {
     return `日记 ${entry.date}`;
   }, []);
 
+  const previousJournalTodoStateRef = useRef<Map<string, string>>(new Map());
+  const previousJournalTodoToggleRef = useRef<boolean | null>(null);
+
   useEffect(() => {
     const currentTasks = tasksRef.current;
+    const currentByJournalId = new Map(
+      currentTasks.filter((task) => task.journalId).map((task) => [task.journalId!, task])
+    );
+    const previous = previousJournalTodoStateRef.current;
+    const toggleChanged = previousJournalTodoToggleRef.current !== journalAddTodo;
+    const nextState = new Map<string, string>();
+    const changedEntries: JournalEntry[] = [];
+
     for (const entry of journal) {
+      const signature = `${entry.updatedAt || 0}:${entry.date}:${entry.content.slice(0, 200)}`;
+      nextState.set(entry.id, signature);
+      if (toggleChanged || previous.get(entry.id) !== signature) changedEntries.push(entry);
+    }
+    previousJournalTodoStateRef.current = nextState;
+    previousJournalTodoToggleRef.current = journalAddTodo;
+
+    for (const entry of changedEntries) {
       if (!entry.isDaily) continue;
-      const existing = currentTasks.find((t) => t.journalId === entry.id);
+      const existing = currentByJournalId.get(entry.id);
       if (journalAddTodo) {
         const title = journalTodoTitle(entry);
         if (!existing) {

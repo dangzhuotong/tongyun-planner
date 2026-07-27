@@ -165,7 +165,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(({
             return (
               <div
                 key={task.id}
-                className="rounded-xl bg-white/80 border border-[#EFEBE4]/80 hover:border-[#C4D7B2] hover:bg-white hover:shadow-xs transition-all duration-200 group relative"
+                className="rounded-xl bg-white/80 border border-[#EFEBE4]/80 hover:border-[#C4D7B2] hover:bg-white hover:shadow-xs transition-colors duration-200 group relative [content-visibility:auto] [contain-intrinsic-size:0_96px]"
               >
                 <div className="px-4 py-2.5 flex justify-between items-center gap-3">
                   <div className="flex items-center gap-3 min-w-0 flex-grow">

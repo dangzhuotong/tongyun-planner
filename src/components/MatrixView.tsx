@@ -344,7 +344,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                       return (
                         <div
                           key={task.id}
-                          className={`p-3 rounded-xl ${cardBg} border ${cardBorder} hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-[#22242A] hover:shadow-xs transition-all duration-200 flex flex-col gap-1.5 relative overflow-hidden group`}
+                          className={`p-3 rounded-xl ${cardBg} border ${cardBorder} hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-[#22242A] hover:shadow-xs transition-colors duration-200 flex flex-col gap-1.5 relative overflow-hidden group [content-visibility:auto] [contain-intrinsic-size:0_120px]`}
                         >
                           {/* Row 1: Header (Title + Hover Actions) */}
                           <div className="flex items-center justify-between gap-2 min-w-0">

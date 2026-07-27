@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import type { JournalEntry } from "../types";
 import { safeJsonParse } from "../utils/json";
 import { useDebouncedPersistence } from "../hooks/useDebouncedPersistence";
@@ -98,13 +98,17 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
     }
   }, [journal, persistReady]);
 
-  const value: PersonalState = {
+  const value = useMemo<PersonalState>(() => ({
     journal, handleUpsertJournal, handleDeleteJournal,
     journalAddTodo, handleToggleJournalAddTodo,
     calendarYear, setCalendarYear, calendarMonth, setCalendarMonth,
     selectedCalendarDate, setSelectedCalendarDate,
     setJournal,
-  };
+  }), [
+    journal, handleUpsertJournal, handleDeleteJournal,
+    journalAddTodo, handleToggleJournalAddTodo,
+    calendarYear, calendarMonth, selectedCalendarDate,
+  ]);
 
   return <PersonalContext.Provider value={value}>{children}</PersonalContext.Provider>;
 }

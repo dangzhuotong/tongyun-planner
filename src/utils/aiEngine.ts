@@ -15,6 +15,33 @@ export function getEffectiveApiKey(config: CustomizationConfig): string | undefi
     || undefined;
 }
 
+function normalizeChatCompletionsUrl(endpoint: string): string {
+  const trimmed = endpoint.trim().replace(/\/+$/, "");
+  if (/\/chat\/completions$/i.test(trimmed)) return trimmed;
+  return `${trimmed}/chat/completions`;
+}
+
+function usesCompletionTokenParameter(model: string): boolean {
+  return /^(o1|o3|o4|gpt-5)(?:[-.]|$)/i.test(model);
+}
+
+function supportsTemperature(model: string): boolean {
+  return !/^(o1|o3|o4|gpt-5)(?:[-.]|$)/i.test(model);
+}
+
+export function describeAIError(error: unknown, locale = "zh-CN"): string {
+  const raw = error instanceof Error ? error.message : String(error || "");
+  const zh = locale === "zh-CN";
+  if (/API_KEY_MISSING/i.test(raw)) return zh ? "请先填写当前 AI 提供商的 API Key。" : "Add an API key for the current provider.";
+  if (/E_HTTP_401|invalid_api_key|incorrect api key/i.test(raw)) return zh ? "OpenAI API Key 无效或已失效，请重新填写。" : "The OpenAI API key is invalid or expired.";
+  if (/E_HTTP_429|insufficient_quota|quota|billing/i.test(raw)) return zh ? "OpenAI 额度不足或请求受限，请检查账单与用量限制。" : "OpenAI quota is exhausted or rate limited. Check billing and usage limits.";
+  if (/E_HTTP_404|model_not_found|does not exist/i.test(raw)) return zh ? "模型或接口地址不存在，请检查模型名与 Endpoint。" : "The model or endpoint was not found. Check both settings.";
+  if (/E_HTTP_400|unsupported_parameter|unknown parameter/i.test(raw)) return zh ? "当前模型不接受某个请求参数，请检查模型配置。" : "The selected model rejected a request parameter. Check its configuration.";
+  if (/E_NETWORK|timeout|timed out|connect/i.test(raw)) return zh ? "无法连接 AI 服务，请检查网络、代理或 Endpoint。" : "Could not reach the AI service. Check the network, proxy, or endpoint.";
+  if (/E_TOKEN_LIMIT|length/i.test(raw)) return zh ? "模型输出上限不足，请调大 Max Tokens。" : "The output token limit is too low. Increase Max Tokens.";
+  return zh ? `AI 请求失败：${raw.slice(0, 180) || "未知错误"}` : `AI request failed: ${raw.slice(0, 180) || "unknown error"}`;
+}
+
 /**
  * 辅助清洗 AI 返回的 JSON 字符串，防止 Markdown 代码块标记（```json）导致 JSON.parse 报错。
  */
@@ -87,26 +114,30 @@ export async function callAI(
     // OpenAI / DeepSeek / OpenCode / 兼容格式 API
     const endpoint = config.aiEndpoint || "https://api.openai.com/v1";
     const model = config.aiModel || "gpt-4o";
-    const url = endpoint.endsWith("/") ? `${endpoint}chat/completions` : `${endpoint}/chat/completions`;
+    const url = normalizeChatCompletionsUrl(endpoint);
 
     const headers: Record<string, string> = {};
     if (apiKey) {
       headers["Authorization"] = `Bearer ${apiKey}`;
     }
 
+    const tokenKey = usesCompletionTokenParameter(model) ? "max_completion_tokens" : "max_tokens";
+    const requestBody: Record<string, unknown> = {
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      [tokenKey]: maxTokens,
+    };
+    if (supportsTemperature(model)) requestBody.temperature = temperature;
+
     const text = await invoke<string>("ai_proxy", {
       url,
       method: "POST",
       headers,
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: temperature,
-        max_tokens: maxTokens,
-      }),
+      body: JSON.stringify(requestBody),
+      timeoutSecs: 60,
     });
 
     const data = JSON.parse(text);
@@ -335,11 +366,7 @@ export async function generateProse(
     parts.push(`请换一个完全不同的切入点，不要与下面这篇相似：\n${options.avoidSnippet.trim().slice(0, 120)}`);
   }
 
-  try {
-    return await callAI(config, systemPrompt, parts.join("\n"));
-  } catch {
-    return "";
-  }
+  return await callAI(config, systemPrompt, parts.join("\n"));
 }
 
 /**

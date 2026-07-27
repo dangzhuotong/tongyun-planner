@@ -4,6 +4,7 @@ import { useSync } from "./useSync";
 import { createId } from "../utils/id";
 import { addLocalDays, addLocalMonths, getLocalDateString } from "../utils/date";
 import { getNextRRuleDate } from "../utils/rrule";
+import { scheduleStorageWrite } from "../utils/deferredStorage";
 
 function createInitialTasks(): Task[] {
   const today = getLocalDateString();
@@ -37,8 +38,8 @@ export function useTasks() {
   // 持久化只写 localStorage；unifiedStorage 会自动 debounce 同步到 SQLite。
   const saveTasks = useCallback(async (updatedTasks: Task[]) => {
     try {
-      localStorage.setItem("aero_todos", JSON.stringify(updatedTasks));
-      localStorage.setItem("tongyun_last_updated", String(Date.now()));
+      scheduleStorageWrite("aero_todos", updatedTasks);
+      scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
     } catch (e) {
       console.error("保存任务失败", e);
     }
@@ -46,8 +47,8 @@ export function useTasks() {
 
   const saveCompleted = useCallback(async (updatedCompleted: Task[]) => {
     try {
-      localStorage.setItem("aero_completed_todos", JSON.stringify(updatedCompleted));
-      localStorage.setItem("tongyun_last_updated", String(Date.now()));
+      scheduleStorageWrite("aero_completed_todos", updatedCompleted);
+      scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
     } catch (e) {
       console.error("保存已完成任务失败", e);
     }
@@ -56,9 +57,9 @@ export function useTasks() {
   /** 原子写入 tasks + completedTasks，避免分开写各写一次 timestamp */
   const saveAll = useCallback(async (updatedTasks: Task[], updatedCompleted: Task[]) => {
     try {
-      localStorage.setItem("aero_todos", JSON.stringify(updatedTasks));
-      localStorage.setItem("aero_completed_todos", JSON.stringify(updatedCompleted));
-      localStorage.setItem("tongyun_last_updated", String(Date.now()));
+      scheduleStorageWrite("aero_todos", updatedTasks);
+      scheduleStorageWrite("aero_completed_todos", updatedCompleted);
+      scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
     } catch (e) {
       console.error("批量保存失败", e);
     }
