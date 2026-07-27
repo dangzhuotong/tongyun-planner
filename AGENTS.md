@@ -604,6 +604,11 @@
 - 移除 useHabits 重复的挂载期跨天 setState effect（初始化函数已完成同样归一化）。
 - 相关目标文件 ESLint 从 error 降为仅保留既有 console/依赖 warning。
 
+### 便签拆包
+- 将 `NOTE_COLORS` 从完整 `StickyNotesView` 抽到轻量 `noteThemes.ts`。
+- FloatingNoteWindow / WidgetWindow 不再为颜色常量静态拉入整个便签页面。
+- Vite 的“StickyNotesView 同时动态/静态导入”警告消失，主 chunk 从 445.29 KB 降至 434.76 KB。
+
 ### 验证
 - `npm run check` 通过（TypeScript + Rust）。
 - `npm run build` 通过。

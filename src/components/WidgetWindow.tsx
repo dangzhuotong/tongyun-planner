@@ -23,7 +23,7 @@ import { TaskDetailModal } from "./TaskDetailModal";
 import { CelebrationOverlay } from "./CelebrationOverlay";
 import { CustomSelect } from "./CustomSelect";
 import { PRIORITY_OPTIONS, PLANNER_COLORS } from "../constants";
-import { NOTE_COLORS } from "./StickyNotesView";
+import { NOTE_COLORS } from "./noteThemes";
 import { StickyPin } from "./StickyPin";
 import { useTranslation } from "../i18n/LanguageContext";
 import { createId } from "../utils/id";

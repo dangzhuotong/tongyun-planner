@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { NOTE_COLORS } from "./StickyNotesView";
+import { NOTE_COLORS } from "./noteThemes";
 import { StickyPin } from "./StickyPin";
 import { invoke } from "@tauri-apps/api/core";
 import { audioEngine } from "../utils/audioEngine";
