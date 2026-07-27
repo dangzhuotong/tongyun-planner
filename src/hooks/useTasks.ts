@@ -5,6 +5,7 @@ import { createId } from "../utils/id";
 import { addLocalDays, addLocalMonths, getLocalDateString } from "../utils/date";
 import { getNextRRuleDate } from "../utils/rrule";
 import { scheduleStorageWrite } from "../utils/deferredStorage";
+import { taskRepository } from "../data/repositories";
 
 function createInitialTasks(): Task[] {
   const today = getLocalDateString();
@@ -34,12 +35,12 @@ export function useTasks() {
   const [editingNotes, setEditingNotes] = useState("");
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
   const [lastDeleted, setLastDeleted] = useState<{ task: Task; wasCompleted: boolean } | null>(null);
-
   // 持久化只写 localStorage；unifiedStorage 会自动 debounce 同步到 SQLite。
   const saveTasks = useCallback(async (updatedTasks: Task[]) => {
     try {
       scheduleStorageWrite("aero_todos", updatedTasks);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
+      taskRepository.syncActive(updatedTasks);
     } catch (e) {
       console.error("保存任务失败", e);
     }
@@ -49,6 +50,7 @@ export function useTasks() {
     try {
       scheduleStorageWrite("aero_completed_todos", updatedCompleted);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
+      taskRepository.syncCompleted(updatedCompleted);
     } catch (e) {
       console.error("保存已完成任务失败", e);
     }
@@ -60,6 +62,7 @@ export function useTasks() {
       scheduleStorageWrite("aero_todos", updatedTasks);
       scheduleStorageWrite("aero_completed_todos", updatedCompleted);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
+      taskRepository.syncSnapshot(updatedTasks, updatedCompleted);
     } catch (e) {
       console.error("批量保存失败", e);
     }

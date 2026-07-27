@@ -989,7 +989,7 @@ const MainLayout = React.memo(function MainLayout({
       </div>
     </div>
     )}
-    {windowLabel === "main" && (
+    {windowLabel === "main" && commandPaletteOpen && (
       <CommandPalette
         open={commandPaletteOpen}
         onClose={() => setCommandPaletteOpen(false)}

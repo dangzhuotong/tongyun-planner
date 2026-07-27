@@ -6,6 +6,7 @@ import { syncEngine } from "../utils/sync/engine";
 import { bumpSyncVersion, bumpCategoryVersion, type SyncCategory } from "../utils/sync/types";
 import { isSyncApplying } from "../utils/sync/syncApplyGuard";
 import { storage } from "../utils/unifiedStorage";
+import { journalRepository } from "../data/repositories";
 
 interface PersonalState {
   // 日记
@@ -46,12 +47,14 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("tongyun_journal_add_todo", JSON.stringify(value));
   }, []);
   const handleUpsertJournal = useCallback((entry: JournalEntry) => {
+    journalRepository.upsert(entry);
     setJournal((prev) => {
       const idx = prev.findIndex((e) => e.id === entry.id);
       return idx >= 0 ? prev.map((e) => (e.id === entry.id ? entry : e)) : [entry, ...prev];
     });
   }, []);
   const handleDeleteJournal = useCallback((id: string) => {
+    journalRepository.delete(id);
     setJournal((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
@@ -64,9 +67,10 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
   // 等 SQLite 灌回 localStorage 后再持久化，避免开发启动时用空 [] 盖掉已有日记
   useEffect(() => {
     let cancelled = false;
-    storage.init().then(() => {
+    storage.init().then(async () => {
       if (cancelled) return;
-      const fresh = safeJsonParse<JournalEntry[]>(localStorage.getItem("tongyun_journal") || "[]", []);
+      const fresh = await journalRepository.load()
+        || safeJsonParse<JournalEntry[]>(localStorage.getItem("tongyun_journal") || "[]", []);
       setJournal(fresh);
       setPersistReady(true);
     }).catch(() => {
@@ -88,6 +92,7 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
     }
     if (prevJournal.current === journal) return;
     prevJournal.current = journal;
+    journalRepository.syncSnapshot(journal);
     // 云端回写不 bump / 不标脏，防止空本地再次推上去
     if (isSyncApplying()) return;
     const changed: SyncCategory[] = ["journal"];

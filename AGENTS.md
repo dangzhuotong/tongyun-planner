@@ -587,3 +587,34 @@
 - 新增统一 `canUseAI(config)`：OpenCode / Ollama 无 Key 可用，其余 Provider 仍要求当前 Provider Key。
 - 修复此前各 UI 入口直接以 `getEffectiveApiKey` 判断，导致 OpenCode 被错误禁用的问题。
 - 已覆盖 AI 散文、AI 今日建议、批量任务、自动分类、AI 周报、资讯总结、GitHub 解读、收藏回顾与夸夸词。
+
+## Session 22 (2026-07-27)
+
+### 完成项（SQLite 领域存储第一阶段）
+- 新增 `data/domainDatabase.ts`：版本化 schema、全局串行写队列和旧数据事务迁移。
+- 新增 `schema_migrations` / `migration_backups`，迁移前完整保存 tasks / completed / journal / pomodoro / habits 原 JSON。
+- 新增 `domain_tasks` / `domain_journal` / `domain_pomodoro_logs` / `domain_habits`，并为任务完成态、截止日期、日记日期、番茄时间建立索引。
+- 迁移在 `BEGIN IMMEDIATE` 事务内执行，失败自动 ROLLBACK；不删除旧 localStorage 键。
+- 新增 `data/repositories.ts`：任务按活动/完成分区做差异化增量镜像，日记支持单篇 upsert/delete 和全量同步差异校正。
+- App 启动优先从领域表恢复任务/日记；同时回写旧 JSON 兼容层，现有 WebDAV / HTTP / Supabase 同步格式不变。
+- Repository 写入通过全局队列串行化，避免任务、日记并发事务冲突。
+
+### React 19 清理
+- CommandPalette 仅在打开时挂载，去除 effect 内同步清空 query / active index；搜索输入时直接重置选中项。
+- 移除 useHabits 重复的挂载期跨天 setState effect（初始化函数已完成同样归一化）。
+- 相关目标文件 ESLint 从 error 降为仅保留既有 console/依赖 warning。
+
+### 验证
+- `npm run check` 通过（TypeScript + Rust）。
+- `npm run build` 通过。
+
+### 相关文件
+- `src/data/domainDatabase.ts`
+- `src/data/repositories.ts`
+- `src/utils/unifiedStorage.ts`
+- `src/hooks/useStoreInit.ts`
+- `src/hooks/useTasks.ts`
+- `src/context/PersonalContext.tsx`
+- `src/components/CommandPalette.tsx`
+- `src/hooks/useHabits.ts`
+- `src/App.tsx`

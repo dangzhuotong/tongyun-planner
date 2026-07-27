@@ -10,6 +10,7 @@ import type { useStickyNotes } from "./useStickyNotes";
 import type { useCountdown } from "./useCountdown";
 import type { useCustomization } from "./useCustomization";
 import type { useWidget } from "./useWidget";
+import { taskRepository } from "../data/repositories";
 
 interface Handlers {
   tasksHook: ReturnType<typeof useTasks>;
@@ -87,13 +88,17 @@ export function useStoreInit(
         const localCountdowns = localStorage.getItem("tongyun_countdowns");
         if (localCountdowns) handlersRef.current.countdownHook.setCountdowns(safeJsonParse(localCountdowns, []));
 
+        const repositoryData = await taskRepository.load();
         const localTasks = localStorage.getItem("aero_todos");
         const localCompleted = localStorage.getItem("aero_completed_todos");
 
         let resolvedTasks: Task[];
         let resolvedCompleted: Task[];
 
-        if (!localTasks || safeJsonParse<Task[]>(localTasks, []).length === 0) {
+        if (repositoryData) {
+          resolvedTasks = repositoryData.tasks;
+          resolvedCompleted = repositoryData.completed;
+        } else if (!localTasks || safeJsonParse<Task[]>(localTasks, []).length === 0) {
           resolvedTasks = handlersRef.current.tasksHook.INITIAL_TASKS;
           resolvedCompleted = [];
         } else {
@@ -104,6 +109,9 @@ export function useStoreInit(
 
         handlersRef.current.tasksHook.setTasks(resolvedTasks);
         handlersRef.current.tasksHook.setCompletedTasks(resolvedCompleted);
+        if (repositoryData) {
+          handlersRef.current.tasksHook.saveAll(resolvedTasks, resolvedCompleted);
+        }
       } catch (e) {
         console.warn("数据加载失败，使用初始任务", e);
         handlersRef.current.tasksHook.setTasks(handlersRef.current.tasksHook.INITIAL_TASKS);

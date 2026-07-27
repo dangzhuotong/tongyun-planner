@@ -66,8 +66,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   // 每次打开时清空 query、聚焦、重置高亮
   useEffect(() => {
     if (open) {
-      setQuery("");
-      setActiveIdx(0);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
@@ -302,10 +300,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return scored.slice(0, 50).map((s) => s.item);
   }, [query, allItems]);
 
-  useEffect(() => {
-    setActiveIdx(0);
-  }, [query]);
-
   const sectionLabel: Record<CommandItem["section"], string> = {
     navigation: "页面导航",
     actions: "快捷操作",
@@ -388,7 +382,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setActiveIdx(0);
+            }}
             placeholder="搜索任务、日记正文、便签，或输入命令..."
             className="flex-grow bg-transparent focus:outline-none text-sm font-medium text-slate-800 placeholder-slate-400"
           />

@@ -1,3 +1,5 @@
+import { initializeDomainDatabase } from '../data/domainDatabase';
+
 const isTauri = () =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -115,6 +117,8 @@ class UnifiedStorage {
           }
         }
       }
+
+      await initializeDomainDatabase();
 
       this.overrideLocalStorage();
     } catch (e) {

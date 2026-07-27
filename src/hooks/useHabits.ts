@@ -40,19 +40,6 @@ export function useHabits() {
     save(habits);
   }, [habits]);
 
-  // 跨天自动重置
-  useEffect(() => {
-    const today = getLocalDateString();
-    setHabits((prev) =>
-      prev.map((h) => {
-        if (h.doneToday && h.lastDoneDate !== today) {
-          return { ...h, doneToday: false };
-        }
-        return h;
-      })
-    );
-  }, []);
-
   /** 添加新习惯 */
   const addHabit = useCallback((name: string, emoji: string) => {
     const id = createId("habit");
