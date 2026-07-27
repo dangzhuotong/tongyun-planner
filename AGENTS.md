@@ -582,3 +582,8 @@
 - `src/App.tsx`
 - `vite.config.ts`
 - `index.html`
+
+### OpenCode 无 Key 兼容补充
+- 新增统一 `canUseAI(config)`：OpenCode / Ollama 无 Key 可用，其余 Provider 仍要求当前 Provider Key。
+- 修复此前各 UI 入口直接以 `getEffectiveApiKey` 判断，导致 OpenCode 被错误禁用的问题。
+- 已覆盖 AI 散文、AI 今日建议、批量任务、自动分类、AI 周报、资讯总结、GitHub 解读、收藏回顾与夸夸词。

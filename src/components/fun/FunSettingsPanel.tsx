@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Wand2, X } from "lucide-react";
 import type { CustomizationConfig } from "../../types";
-import { generatePraiseBatch, getEffectiveApiKey } from "../../utils/aiEngine";
+import { canUseAI, generatePraiseBatch } from "../../utils/aiEngine";
 import { safeJsonParse } from "../../utils/json";
 import { useTranslation } from "../../i18n/LanguageContext";
 
@@ -40,7 +40,7 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
             <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
               AI 夸夸词库（{aiPraiseList.length} 条）
             </span>
-            {getEffectiveApiKey(config) && (
+            {canUseAI(config) && (
               <button
                 onClick={async () => {
                   setGeneratingPraise(true);
@@ -84,7 +84,7 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
             </div>
           ) : (
             <p className="text-[10px] text-slate-400 italic">
-              {getEffectiveApiKey(config) ? "点击上方按钮用 AI 生成夸夸词" : "配置 AI API Key 后可自动生成更多夸夸词"}
+              {canUseAI(config) ? "点击上方按钮用 AI 生成夸夸词" : "配置 AI API Key 后可自动生成更多夸夸词"}
             </p>
           )}
         </div>

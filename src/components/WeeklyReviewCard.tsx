@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Sparkles, TrendingUp, Clock, BookOpen, CheckCircle2 } from "lucide-react";
 import type { Task, PomodoroLog, JournalEntry, CustomizationConfig } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
-import { generateWeeklyReview, getEffectiveApiKey, type WeeklyReviewContext } from "../utils/aiEngine";
+import { canUseAI, generateWeeklyReview, type WeeklyReviewContext } from "../utils/aiEngine";
 import { readDailyCache, writeDailyCache } from "../utils/dailyCache";
 import { getLocalDateString } from "../utils/date";
 
@@ -82,7 +82,7 @@ export const WeeklyReviewCard: React.FC<WeeklyReviewCardProps> = ({
   }, [completedTasks, pomodoroLogs, journal, start, end]);
 
   const handleGenerate = async () => {
-    if (!getEffectiveApiKey(config)) {
+    if (!canUseAI(config)) {
       setError(true);
       return;
     }

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import type { CustomizationConfig } from "../types";
-import { extractTasksFromNote, classifyCategory, getEffectiveApiKey } from "../utils/aiEngine";
+import { canUseAI, extractTasksFromNote, classifyCategory } from "../utils/aiEngine";
 import type { ExtractedTask } from "../utils/aiEngine";
 import { useDebouncedValue } from "./useDebouncedValue";
 
@@ -20,7 +20,7 @@ export function useAI(customizationConfig: CustomizationConfig) {
       setAiInputMessage({ type: "error", text: "⚠️ 请先在输入框中写入您的日程规划内容！" });
       return;
     }
-    if (!getEffectiveApiKey(customizationConfig)) {
+    if (!canUseAI(customizationConfig)) {
       setAiInputMessage({ type: "error", text: "API_KEY_MISSING" });
       return;
     }
@@ -49,7 +49,7 @@ export function useAI(customizationConfig: CustomizationConfig) {
   }, [aiInputText, customizationConfig]);
 
   const aiAutoCategorize = useCallback(async (title: string, description: string) => {
-    if (customizationConfig.aiAutoCategorize && getEffectiveApiKey(customizationConfig)) {
+    if (customizationConfig.aiAutoCategorize && canUseAI(customizationConfig)) {
       return await classifyCategory(customizationConfig, title, description);
     }
     return null;

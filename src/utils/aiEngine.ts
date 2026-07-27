@@ -15,6 +15,12 @@ export function getEffectiveApiKey(config: CustomizationConfig): string | undefi
     || undefined;
 }
 
+/** OpenCode / Ollama 可无 Key，其余 Provider 必须配置当前 Provider 的 Key。 */
+export function canUseAI(config: CustomizationConfig): boolean {
+  const provider = config.aiProvider || "openai";
+  return provider === "opencode" || provider === "ollama" || Boolean(getEffectiveApiKey(config));
+}
+
 function normalizeChatCompletionsUrl(endpoint: string): string {
   const trimmed = endpoint.trim().replace(/\/+$/, "");
   if (/\/chat\/completions$/i.test(trimmed)) return trimmed;
@@ -70,8 +76,7 @@ export async function callAI(
 
   // 当前 Provider 的独立 Key → 回退到旧版兼容字段
   const apiKey = getEffectiveApiKey(config);
-  const noKeyProviders = ["opencode", "ollama"];
-  if (!apiKey && !noKeyProviders.includes(provider)) {
+  if (!apiKey && !canUseAI(config)) {
     throw new Error("API_KEY_MISSING");
   }
 

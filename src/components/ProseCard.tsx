@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Sparkles, PenLine } from "lucide-react";
 import type { Task, CustomizationConfig } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
-import { describeAIError, generateProse, getEffectiveApiKey } from "../utils/aiEngine";
+import { canUseAI, describeAIError, generateProse } from "../utils/aiEngine";
 import { readDailyCache, writeDailyCache } from "../utils/dailyCache";
 import { getLocalDateString } from "../utils/date";
 
@@ -26,7 +26,7 @@ export const ProseCard: React.FC<ProseCardProps> = ({ config, tasks }) => {
   const [proseError, setProseError] = useState<string | null>(null);
 
   const handleGenerateProse = async () => {
-    if (!getEffectiveApiKey(config)) {
+    if (!canUseAI(config)) {
       setProseError(describeAIError("API_KEY_MISSING", localeKey));
       return;
     }

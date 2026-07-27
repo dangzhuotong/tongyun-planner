@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { TrendingUp, GitFork, Rss, Bookmark, Search, Compass } from "lucide-react";
-import { callAI, getEffectiveApiKey } from "../utils/aiEngine";
+import { callAI, canUseAI } from "../utils/aiEngine";
 import type { CustomizationConfig } from "../types";
 import { safeJsonParse } from "../utils/json";
 import type { Article, BookmarkedArticle, ReadHistoryEntry } from "./news/types";
@@ -115,7 +115,7 @@ export const NewsView: React.FC<NewsViewProps> = React.memo(({ config, onSaveTas
   };
 
   const handleGenerateAISummary = async (article: Article) => {
-    if (!getEffectiveApiKey(config)) {
+    if (!canUseAI(config)) {
       setAiLoading(true);
       setTimeout(() => { setAiSummary("【演示模式】请在设置中配置 AI API 密钥以启用智能摘要功能。"); setAiLoading(false); }, 600);
       return;

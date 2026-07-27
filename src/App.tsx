@@ -50,7 +50,7 @@ import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
 import { SYNC_APPLIED_EVENT, bumpSyncVersion, bumpCategoryVersion, dedupeActiveTasks, type SyncCategory, type SyncData } from "./utils/sync/types";
 import { beginSyncApply, endSyncApply, isSyncApplying } from "./utils/sync/syncApplyGuard";
-import { getEffectiveApiKey } from "./utils/aiEngine";
+import { canUseAI } from "./utils/aiEngine";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useDueNotifications } from "./hooks/useDueNotifications";
 import { useCrossWindowSync } from "./hooks/useCrossWindowSync";
@@ -447,7 +447,7 @@ function AppBody() {
   }) => {
     const { taskId } = await tasksHook.handleAddTask(taskData);
 
-    if (!taskData.isExplicit && customizationHook.customizationConfig.aiAutoCategorize && getEffectiveApiKey(customizationHook.customizationConfig)) {
+    if (!taskData.isExplicit && customizationHook.customizationConfig.aiAutoCategorize && canUseAI(customizationHook.customizationConfig)) {
       const aiCategory = await aiHook.aiAutoCategorize(taskData.title, taskData.description);
       if (aiCategory && aiCategory !== taskData.category) {
         tasksHook.setTasks((prev: Task[]) => {

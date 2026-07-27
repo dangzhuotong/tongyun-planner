@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { GitFork, RefreshCw, Sparkles, ExternalLink } from "lucide-react";
 import { openExternal } from "../../utils/openExternal";
-import { callAI, getEffectiveApiKey } from "../../utils/aiEngine";
+import { callAI, canUseAI } from "../../utils/aiEngine";
 import type { CustomizationConfig } from "../../types";
 import type { GitHubRepo } from "./types";
 import { NewsItemActions } from "./NewsItemActions";
@@ -46,7 +46,7 @@ export const GitHubView: React.FC<GitHubViewProps> = ({ config, actions }) => {
   }, [githubPeriod, fetchGitHubTrending]);
 
   const analyzeRepo = useCallback(async (repo: GitHubRepo) => {
-    if (!getEffectiveApiKey(config)) {
+    if (!canUseAI(config)) {
       setRepoAiAnalyses((prev) => ({ ...prev, [repo.id]: "【演示模式】请在设置中配置 AI API 密钥以启用智能分析。" }));
       return;
     }
