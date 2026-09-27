@@ -5,7 +5,8 @@
 ## [1.1.0] - 2026-09-27
 
 ### 新增
-- **软件自动更新**：接入 Tauri 2 官方更新器，启动时支持静默检测更新、手帐风格新版提示弹窗与一键下载重启；系统设置页新增手动「检查更新」操作。
+- **软件自动更新**：接入 Tauri 2 官方更新器，启动时支持静默检测更新、手帐风格新版提示弹窗与一键下载重启；系统设置页新增手动「检查更新」操作。更新源为 GitHub Release 的 `latest.json`。
+- **v1.0 无法应用内升到 v1.1**：更新公钥已更换（minisign `5D75A341756FAA3F`），`tauri-plugin-updater` 只支持一把公钥，v1.0.x 客户端无法校验 v1.1 签名包。请从 [Releases](https://github.com/yibingzhi/tongyun-planner/releases/latest) 手动安装一次；此后 v1.1 → 后续版本可自动更新。
 - **多平台安装包**：Release 工作流支持构建 macOS Universal 通用 DMG（兼容 Apple Silicon 与 Intel 架构）以及 Linux（Ubuntu 22.04 下生成 AppImage 与 deb 安装包）。
 - **反馈与沟通通道**：设置页新增一键前往 GitHub Issues「反馈问题」入口；仓库新增中文缺陷报告与功能建议模板。
 

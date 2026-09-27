@@ -62,6 +62,10 @@
   },
   "plugins": {
     "updater": {
+      // v1.1.0 起使用 minisign key id 5D75A341756FAA3F。
+      // tauri-plugin-updater 只支持单一 pubkey，无法内嵌 v1.0 的旧钥（2EF518C56CBB4006）。
+      // 因此已安装的 v1.0.x 无法校验 v1.1 签名包，不能走应用内自动更新，需手动下载安装一次。
+      // 私钥只放在 GitHub Secrets TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD。
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVENzVBMzQxNzU2RkFBM0YKUldRL3FtOTFRYU4xWFp1UkVhbGdudS90bEdXTjB4dUJjRFFkZHFPb0pzV3RQSFlDajJHRzQ0b1oK",
       "endpoints": [
         "https://github.com/yibingzhi/tongyun-planner/releases/latest/download/latest.json"

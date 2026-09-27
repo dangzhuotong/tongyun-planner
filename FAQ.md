@@ -3,7 +3,9 @@
 ## 安装和运行
 
 ### Q: 如何安装 TongYun Planner？
-A: 一般用户请到 [Releases 最新版](https://github.com/yibingzhi/tongyun-planner/releases/latest) 下载 Windows 安装包或 macOS Apple Silicon 的 dmg。安装包未签名，Windows 可能需要「仍要运行」，macOS 请右键「打开」。
+A: 一般用户请到 [Releases 最新版](https://github.com/yibingzhi/tongyun-planner/releases/latest) 下载 Windows、macOS Universal 或 Linux 安装包。安装包未签名，Windows 可能需要「仍要运行」，macOS 请右键「打开」。
+
+v1.0 用户请手动安装 v1.1：更新公钥已更换，应用内更新无法从 1.0 升到 1.1。
 
 从源码运行：
 1. 克隆项目：`git clone https://github.com/yibingzhi/tongyun-planner.git`
@@ -110,9 +112,8 @@ A: 尝试以下方法：
 ### Q: 支持哪些操作系统？
 A: 官方安装包：
 - Windows 10/11（x64 exe / msi）
-- macOS Apple Silicon（dmg）
-
-没有官方 Linux 或 Intel Mac 安装包。Linux / 其他架构可自行 `npm run tauri build`。
+- macOS Universal（Apple Silicon 与 Intel）
+- Linux（AppImage / deb，基于 Ubuntu 22.04 构建）
 
 ### Q: 数据可以在不同平台间同步吗？
 A: 可以，通过 WebDAV 同步功能实现跨平台数据同步。

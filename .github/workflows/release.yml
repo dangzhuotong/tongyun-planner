@@ -25,7 +25,6 @@ jobs:
           - platform: 'macos-latest'
             os: 'macos'
             arch: 'universal'
-            rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
             args: '--target universal-apple-darwin'
           - platform: 'ubuntu-22.04'
             os: 'linux'
@@ -44,8 +43,10 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust-targets || '' }}
+
+      - name: Add macOS universal targets
+        if: matrix.os == 'macos'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Install Linux dependencies
         if: matrix.os == 'linux'
@@ -82,11 +83,12 @@ jobs:
             > **macOS 提示**：若打开提示「文件已损坏」或无法打开，请在终端执行解除隔离属性：
             > `xattr -cr /Applications/TongyunPlanner.app`
 
-            已安装 v1.1.0 及以上版本会自动提示更新。
+            已安装 v1.1.0 及以上版本会自动提示更新。v1.0.x 因更新公钥更换，无法应用内升级，请手动下载安装一次。
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args || '' }}
-          includeUpdaterJson: true
+          # 仅 tag 发版时写入 latest.json；workflow_dispatch 只构建、不碰 Release
+          includeUpdaterJson: ${{ startsWith(github.ref, 'refs/tags/') }}
           updaterJsonPreferNsis: true
 
       - name: Upload bundle artifacts
@@ -94,7 +96,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tongyun-planner-${{ matrix.os }}-${{ matrix.arch }}
-          path: src-tauri/target/**/release/bundle/**
+          path: |
+            src-tauri/target/release/bundle/**
+            src-tauri/target/*/release/bundle/**
           if-no-files-found: error
           retention-days: 7
 
