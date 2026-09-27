@@ -1,34 +1,50 @@
 # 更新日志
 
-本文档记录 TongYun Planner 的所有重要变更。
+格式大致遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。应用版本号以 `package.json` / `src-tauri/tauri.conf.json` 为准，本文不负责发版。
 
-格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
-并且本项目遵循 [语义化版本控制](https://semver.org/lang/zh-CN/)。
+## [1.0.0] - 2026-07-27
+
+第一个正式安装包版本：Windows exe/msi、macOS Apple Silicon dmg。
+
+### 新增与加固
+- 日记附件改为本地文件（桌面端 `attachments/`），启动时迁移旧的 Base64
+- 领域 SQLite 表（任务 / 日记 / 番茄 / 习惯）与串行写队列
+- OpenCode / Ollama 无 Key 也可使用 AI 能力
+- 首屏拆包、日记输入防抖、任务延迟落盘等性能优化
+- AI 散文错误可定位（超时、额度、模型参数等）
+
+### 说明
+- 安装包未代码签名；Windows SmartScreen / macOS 未识别开发者属预期
+- 无官方 Linux 安装包
+
+## [0.2.1] - 2026-07-26
+
+小版本发布（安装包）。功能与 0.2.0 同一代：习惯卡片、周报、日记搜索、倒数日分组等。
+
+## [0.2.0] - 2026-07-26
+
+### 新增
+- 主页习惯打卡卡片；日记关联区可打卡
+- 时光长廊、AI 周报、日记分词搜索
+- 倒数日按「今天 / 本周 / 本月 / 更远 / 已过期」分组
+- 资讯 → 稍后读 / 存为任务 / 收藏到日记
+- 翻页日记本（去 Markdown 工具栏、日期滑条）
+- 任务到期系统通知
+- WebDAV / HTTP 空包保护，避免空本地盖掉远端日记与 AI Key
+
+### 修复
+- 完成任务被同步或「日记自动加入待办」写回活动列表
+- 四象限在 Windows WebView2 下去掉拖拽
 
 ## [0.1.0] - 2026-06-27
 
 ### 新增
-- 四象限任务管理功能
-- 多视图切换（矩阵、列表、日历）
-- 任务详情（标题、描述、备注、截止日期、收藏、置顶）
-- 快速添加任务，支持 AI 自动分类
-- 番茄钟计时器
-- 便签功能（浮动窗口，多种颜色）
-- 数据分析（任务完成统计和可视化）
-- 桌面小组件（卡片、列表、添加、计时、便签视图）
-- 个性化定制（主题颜色、卡片背景、图钉样式、字体、界面风格）
-- 日落模式（自动夜间模式）
-- AI 集成（OpenAI、Anthropic 等服务）
-- WebDAV 数据同步
-- 本地数据存储
+- 四象限任务（矩阵、列表、日历）
+- 番茄钟、便签、桌面小组件
+- 个性化主题与日落模式
+- AI 分类（需自行配置密钥）
+- WebDAV 同步与本地存储
 
 ### 技术栈
-- 前端：React 19 + TypeScript + Vite 7 + Tailwind CSS 4
-- 后端：Tauri 2 + Rust
-- 动画：Framer Motion
-- 图标：Lucide React
-
-### 已知问题
-- 初始版本，可能存在一些未知问题
-- AI 分类功能需要配置 API 密钥
-- WebDAV 同步需要配置服务器信息
+- React 19 + TypeScript + Vite + Tailwind CSS 4
+- Tauri 2 + Rust

@@ -1,21 +1,18 @@
-# 应用截图
+# 截图
 
-本目录用于存放 TongYun Planner 的界面截图，供 `README.md`「界面展示」章节引用。
+这些 PNG 供 README 引用。文件名与画面的对应关系：
 
-> 当前为占位目录。运行应用后，请按 `README.md`「界面展示」中的 10 条指引截图，并保存为：
->
-> | 文件名 | 对应视图 |
-> |:---|:---|
-> | `dashboard.png` | 智能仪表盘 |
-> | `matrix-view.png` | 四象限矩阵 |
-> | `calendar-view.png` | 日历视图 |
-> | `analytics.png` | 专注分析看板 |
-> | `sticky-notes.png` | 便签墙 |
-> | `widget.png` | 桌面小组件 |
-> | `pomodoro.png` | 番茄钟 + 白噪音 |
-> | `settings.png` | 个性化设置 |
-> | `list-view.png` | 列表视图 |
-> | `journal.png` | 翻页日记本（手账） |
-> | `news.png` | 资讯中心 |
+| 文件 | 画面 |
+|:---|:---|
+| `dashboard.png` | 主页仪表盘 |
+| `journal.png` | 翻页日记 |
+| `matrix-view.png` | 四象限看板 |
+| `calendar-view.png` | 日历 |
+| `list-view.png` | 待办列表 |
+| `sticky-notes.png` | 便签墙 |
+| `analytics.png` | 专注统计 |
+| `widget.png` | 桌面挂件 |
+| `pomodoro.png` | 番茄钟 / 白噪音（含挂件） |
+| `settings.png` | 个性化设置 |
 
-截图后可在 `README.md` 末尾的「相册布局」表格中引用这些文件。
+仓库里没有单独的资讯中心截图。社交预览图在 [`docs/social-preview.png`](../docs/social-preview.png)（1280×640）。
