@@ -42,6 +42,7 @@ export class SyncEngine {
   constructor() {
     this.webdavProvider = new WebDAVProvider();
     this.loadPreferences();
+    this.attachOnlineListener();
   }
 
   private loadPreferences(): void {
@@ -347,16 +348,17 @@ export class SyncEngine {
         this.sync();
       }
     }, 300000);
+  }
 
-    // 监听网络恢复事件
-    if (typeof window !== "undefined") {
-      this.onlineListener = () => {
-        if (this.dirty && this.isConfigured() && this._conflicts.length === 0) {
-          this.sync();
-        }
-      };
-      window.addEventListener("online", this.onlineListener);
-    }
+  /** 联网后补传待上传分类；与自动同步开关无关，脏标记本身已写入 localStorage。 */
+  private attachOnlineListener(): void {
+    if (typeof window === "undefined" || this.onlineListener !== null) return;
+    this.onlineListener = () => {
+      if (this.dirty && this.isConfigured() && this._conflicts.length === 0) {
+        this.sync();
+      }
+    };
+    window.addEventListener("online", this.onlineListener);
   }
 
   private stopAutoSync(): void {
@@ -367,10 +369,6 @@ export class SyncEngine {
     if (this.debounceTimer !== null) {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
-    }
-    if (this.onlineListener !== null && typeof window !== "undefined") {
-      window.removeEventListener("online", this.onlineListener);
-      this.onlineListener = null;
     }
   }
 }

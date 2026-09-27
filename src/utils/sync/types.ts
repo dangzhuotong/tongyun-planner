@@ -141,7 +141,7 @@ const SECRET_SUFFIXES = [
  * 注意：aiMaxTokens 以 "tokens" 结尾，不属于 secret。
  */
 export function isSecretConfigKey(key: string): boolean {
-  if (key === "aiApiKey" || key === "providerApiKeys") return true;
+  if (key === "aiApiKey" || key === "providerApiKeys" || key === "smtpPass") return true;
   const normalized = key.toLowerCase().replace(/[-_]/g, "");
   return SECRET_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
 }

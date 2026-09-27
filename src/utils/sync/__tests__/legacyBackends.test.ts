@@ -79,14 +79,14 @@ describe("legacyBackends", () => {
       expect(detectLegacySyncBackend()).toBe("http");
     });
 
-    it("returns null when only tongyun_http_sync_url is set but key is missing", () => {
+    it("returns 'http' when tongyun_http_sync_url is set even if key is missing", () => {
       localStorage.setItem("tongyun_http_sync_url", "http://127.0.0.1:8787");
-      expect(detectLegacySyncBackend()).toBeNull();
+      expect(detectLegacySyncBackend()).toBe("http");
     });
 
-    it("returns null when only tongyun_http_sync_key is set but url is missing", () => {
+    it("returns 'http' when tongyun_http_sync_key is set even if url is missing", () => {
       localStorage.setItem("tongyun_http_sync_key", "secret-key");
-      expect(detectLegacySyncBackend()).toBeNull();
+      expect(detectLegacySyncBackend()).toBe("http");
     });
 
     it("returns null when sync_backend is webdav and storage_backend is local with no legacy keys", () => {

@@ -18,7 +18,7 @@ export function detectLegacySyncBackend(): "supabase" | "http" | null {
 
   const httpUrl = localStorage.getItem("tongyun_http_sync_url")?.trim();
   const httpKey = localStorage.getItem("tongyun_http_sync_key")?.trim();
-  if (httpUrl && httpKey) return "http";
+  if (httpUrl || httpKey) return "http";
 
   return null;
 }

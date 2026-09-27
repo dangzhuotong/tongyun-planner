@@ -74,6 +74,7 @@ describe("localSnapshots", () => {
           aiApiKey: "sk-should-not-leak",
           providerApiKeys: { openai: "sk-x" },
           emailSmtpPassword: "p@ss",
+          smtpPass: "smtp-secret-pass",
         })
       );
       for (const snap of [buildSnapshotPayload(), buildSnapshotPayload(new Date(), "daily")]) {
@@ -83,6 +84,7 @@ describe("localSnapshots", () => {
         expect(json).not.toContain("sk-should-not-leak");
         expect(json).not.toContain("sk-x");
         expect(json).not.toContain("p@ss");
+        expect(json).not.toContain("smtp-secret-pass");
       }
     });
 

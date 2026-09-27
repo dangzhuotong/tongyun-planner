@@ -458,7 +458,7 @@ export class WebDAVProvider implements SyncProvider {
     }
 
     // Fall back to legacy single-file format
-    return this.pullLegacy();
+    return this.pullLegacy(dirtyOnly);
   }
 
   private async pullMultiFile(remoteManifest: SyncManifest, dirtyOnly?: Set<SyncCategory>): Promise<SyncData | null> {
@@ -533,17 +533,30 @@ export class WebDAVProvider implements SyncProvider {
     return localData;
   }
 
-  /** Legacy: read the old single tongyun_planner_backup.json */
-  private async pullLegacy(): Promise<SyncData | null> {
+  /** Legacy: read the old single tongyun_planner_backup.json and apply it locally. */
+  private async pullLegacy(dirtyOnly?: Set<SyncCategory>): Promise<SyncData | null> {
     if (!this.config) return null;
-    const json = await tryDownload(this.config, LEGACY_BACKUP_FILE);
-    if (!json) {
-      // Also try inside REMOTE_DIR
-      const json2 = await tryDownload(this.config, REMOTE_DIR + LEGACY_BACKUP_FILE);
-      if (!json2) return null;
-      return normalizeSyncData(JSON.parse(json2));
+    const json =
+      (await tryDownload(this.config, LEGACY_BACKUP_FILE)) ||
+      (await tryDownload(this.config, REMOTE_DIR + LEGACY_BACKUP_FILE));
+    if (!json) return null;
+    const data = normalizeSyncData(JSON.parse(json));
+    if (!data) return null;
+
+    const localData = getLocalSyncData();
+    let anyUpdated = false;
+    for (const cat of PULL_CATEGORY_ORDER) {
+      if (dirtyOnly?.has(cat)) continue;
+      const remotePayload = cat === "config" ? data.customizationConfig : getCategoryPayload(data, cat);
+      const localPayload = cat === "config" ? localData.customizationConfig : getCategoryPayload(localData, cat);
+      const merged = mergeRemoteIntoLocal(cat, remotePayload, localPayload);
+      applyCategoryPayload(cat, merged);
+      anyUpdated = true;
     }
-    return normalizeSyncData(JSON.parse(json));
+    if (anyUpdated) {
+      reconcileTasksAndCompleted();
+    }
+    return getLocalSyncData();
   }
 
   /* ── Conflict resolution methods ── */

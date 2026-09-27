@@ -97,6 +97,7 @@ describe("Sync Security & Sanitization", () => {
     it("identifies secret keys correctly (positives)", () => {
       expect(isSecretConfigKey("aiApiKey")).toBe(true);
       expect(isSecretConfigKey("providerApiKeys")).toBe(true);
+      expect(isSecretConfigKey("smtpPass")).toBe(true);
       expect(isSecretConfigKey("githubToken")).toBe(true);
       expect(isSecretConfigKey("smtp_password")).toBe(true);
       expect(isSecretConfigKey("access_token")).toBe(true);
