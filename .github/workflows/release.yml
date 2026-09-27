@@ -13,19 +13,24 @@ env:
 
 jobs:
   build-apps:
-    permissions: write-all
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: 'windows-latest'
             os: 'windows'
+            arch: 'x64'
           - platform: 'macos-latest'
             os: 'macos'
+            arch: 'universal'
             rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
             args: '--target universal-apple-darwin'
           - platform: 'ubuntu-22.04'
             os: 'linux'
+            arch: 'x64'
+            args: '--bundles appimage,deb'
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
@@ -46,7 +51,7 @@ jobs:
         if: matrix.os == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libayatana-appindicator3-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -63,17 +68,35 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'TongYun Planner v__VERSION__'
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/') && 'TongYun Planner v__VERSION__' || '' }}
+          # 非 tag 触发时 tagName/releaseName 为空，tauri-action 只构建不建 Release，releaseBody 会被忽略
           releaseBody: |
             TongYun Planner - 橦云手账 v__VERSION__ 发布啦！本产品纯 Vibe coding 产物。
 
+            下载指引：
+            - Windows 选 *_x64-setup.exe（推荐）或 .msi
+            - macOS 选 *_universal.dmg（Apple Silicon 与 Intel 通用）
+            - Linux 选 .AppImage 或 .deb
+
             > **macOS 提示**：若打开提示「文件已损坏」或无法打开，请在终端执行解除隔离属性：
             > `xattr -cr /Applications/TongyunPlanner.app`
+
+            已安装 v1.1.0 及以上版本会自动提示更新。
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args || '' }}
           includeUpdaterJson: true
+          updaterJsonPreferNsis: true
+
+      - name: Upload bundle artifacts
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: tongyun-planner-${{ matrix.os }}-${{ matrix.arch }}
+          path: src-tauri/target/**/release/bundle/**
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Mirror to Gitee Releases
         if: startsWith(github.ref, 'refs/tags/')
@@ -81,10 +104,10 @@ jobs:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         shell: bash
         run: |
-          RELEASE_BODY="TongYun Planner - 橦云手账 v${{ github.ref_name }} 发布啦！本产品纯 Vibe coding 产物。如在 macOS 遇到无法打开或提示文件损坏，请在终端执行：xattr -cr /Applications/TongyunPlanner.app"
+          RELEASE_BODY="TongYun Planner - 橦云手账 ${{ github.ref_name }} 发布啦！本产品纯 Vibe coding 产物。如在 macOS 遇到无法打开或提示文件损坏，请在终端执行：xattr -cr /Applications/TongyunPlanner.app"
           if [ "${{ matrix.os }}" = "windows" ]; then
-            MSI_FILE=$(find src-tauri/target -name "*.msi" | head -n 1)
-            EXE_FILE=$(find src-tauri/target -name "*.exe" | head -n 1)
+            MSI_FILE=$(find src-tauri/target -path "*bundle/msi/*" -name "*.msi" | head -n 1)
+            EXE_FILE=$(find src-tauri/target -path "*bundle/nsis/*" -name "*.exe" | head -n 1)
             echo "Found MSI: $MSI_FILE"
             echo "Found EXE: $EXE_FILE"
             node scripts/upload_to_gitee.js "${{ env.GITEE_OWNER }}" "${{ env.GITEE_REPO }}" "${{ github.ref_name }}" "TongYun Planner ${{ github.ref_name }}" "$RELEASE_BODY" "$MSI_FILE" "$EXE_FILE"
