@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
 import type { CustomizationConfig, AlertSoundType, Locale } from "../../types";
 import { NOISE_DEFINITIONS, getVisibleNoises, setVisibleNoises } from "../../constants";
 import { audioEngine } from "../../utils/audioEngine";
 import { CustomSelect } from "../CustomSelect";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { useSetting } from "../../hooks/useSetting";
+import { checkForAppUpdate } from "../../utils/updater";
 
 interface SystemSettingsPanelProps {
   config: CustomizationConfig;
@@ -44,6 +45,23 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
   const [dueRemindBeforeMinutes, setDueRemindBeforeMinutes] = useSetting("tongyun_due_remind_before_min", 15);
   const [visibleNoises, setVisibleNoisesState] = useState<string[]>(() => getVisibleNoises());
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  const handleManualCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    try {
+      const update = await checkForAppUpdate();
+      if (update && update.available) {
+        window.dispatchEvent(new CustomEvent("tongyun-show-update", { detail: update }));
+      } else {
+        triggerToast(s.alreadyLatest || "当前已是最新版本 ✨", "success");
+      }
+    } catch (err: any) {
+      triggerToast((s.checkUpdateError || "检查更新失败：") + (err?.message || err), "error");
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   const handleChange = <K extends keyof CustomizationConfig>(key: K, value: CustomizationConfig[K]) => {
     onChange({ ...config, [key]: value });
@@ -172,6 +190,40 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
             );
           })}
         </div>
+      </div>
+
+      {/* 软件更新 */}
+      <div className="space-y-3 pb-3 border-b border-[#EFEBE4]">
+        <h4 className="text-xs font-bold text-slate-700 flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <RefreshCw className="w-4 h-4 text-[#4D7C5D]" />
+            <span>{s.softwareUpdate || "软件更新"}</span>
+          </span>
+          <span className="text-[10px] font-mono text-slate-400 bg-[#FAF8F5] px-2 py-0.5 rounded-md border border-[#EFEBE4]">
+            v1.1.0
+          </span>
+        </h4>
+        <p className="text-[10px] text-slate-400 font-medium">
+          {s.softwareUpdateDesc || "支持在线自动检查新版本与一键安全热升级。"}
+        </p>
+        <button
+          type="button"
+          disabled={checkingUpdate}
+          onClick={handleManualCheckUpdate}
+          className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EDE6] border border-[#DEEAE2] px-3.5 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+        >
+          {checkingUpdate ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>{s.checkingUpdate || "正在检查更新..."}</span>
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>{s.checkUpdate || "检查更新"}</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* 清空及重置 */}

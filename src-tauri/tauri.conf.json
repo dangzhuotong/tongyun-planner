@@ -58,5 +58,13 @@
         "languages": ["SimpChinese", "English"]
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJFRjUxOEM1NkNCQjQwMDYKUldRR1FMdHN4UmoxTG1JMzhQNXlFNzFCU0ZmNGl2QkdGK2ZJS3dGTW9GaXVjZmpQZWpyYitEN0YK",
+      "endpoints": [
+        "https://github.com/yibingzhi/tongyun-planner/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

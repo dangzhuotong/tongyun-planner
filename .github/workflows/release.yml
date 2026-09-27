@@ -48,12 +48,15 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'TongYun Planner v__VERSION__'
           releaseBody: 'TongYun Planner - 橦云手账 v__VERSION__ 发布啦！本产品纯 Vibe coding 产物。'
           releaseDraft: false
           prerelease: false
+          includeUpdaterJson: true
 
       - name: Mirror to Gitee Releases
         if: startsWith(github.ref, 'refs/tags/')

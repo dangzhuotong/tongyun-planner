@@ -464,6 +464,10 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         // 注册 SQL 插件（SQLite 本地数据库）
         .plugin(tauri_plugin_sql::Builder::default().build())
+        // 注册 Process 插件
+        .plugin(tauri_plugin_process::init())
+        // 注册 Updater 插件
+        .plugin(tauri_plugin_updater::Builder::new().build())
         // 挂载用于多窗口间状态交互及窗口显隐控制的命令
         .invoke_handler(tauri::generate_handler![
             save_local_attachment,

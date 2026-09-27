@@ -22,6 +22,9 @@ const FlowMode = React.lazy(() => import("./components/FlowMode").then((m) => ({
 const GanttView = React.lazy(() => import("./components/GanttView").then((m) => ({ default: m.GanttView })));
 const JournalView = React.lazy(() => import("./components/JournalView").then((m) => ({ default: m.JournalView })));
 const MemoryView = React.lazy(() => import("./components/MemoryView").then((m) => ({ default: m.MemoryView })));
+import type { Update } from "@tauri-apps/plugin-updater";
+import { UpdateModal } from "./components/UpdateModal";
+import { checkForAppUpdate } from "./utils/updater";
 
 const viewFallback = (
   <div className="flex-grow flex items-center justify-center text-slate-400 text-sm py-20">
@@ -244,6 +247,35 @@ function AppBody() {
       tasksHook.setDetailTaskId(taskId);
     },
   });
+
+  // ============ 自动更新状态与启动静默检查 ============
+  const [activeUpdate, setActiveUpdate] = useState<Update | null>(null);
+
+  useEffect(() => {
+    const handleShowUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<Update>;
+      if (customEvent.detail) {
+        setActiveUpdate(customEvent.detail);
+      }
+    };
+    window.addEventListener("tongyun-show-update", handleShowUpdate);
+    return () => window.removeEventListener("tongyun-show-update", handleShowUpdate);
+  }, []);
+
+  useEffect(() => {
+    if (windowLabelRef.current !== "main") return;
+    const timer = setTimeout(async () => {
+      try {
+        const update = await checkForAppUpdate();
+        if (update && update.available) {
+          setActiveUpdate(update);
+        }
+      } catch (err) {
+        console.warn("[App] Silent update check skipped/failed:", err);
+      }
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // ============ AI Confirm Tasks ============
   const handleConfirmAiTasks = useCallback(() => {
@@ -621,6 +653,15 @@ function AppBody() {
     onNewsSaveTask={handleNewsSaveTask}
     onNewsSaveJournal={handleNewsSaveJournal}
       />
+      {activeUpdate && (
+        <UpdateModal
+          update={activeUpdate}
+          onClose={() => {
+            activeUpdate.close().catch(() => {});
+            setActiveUpdate(null);
+          }}
+        />
+      )}
     </PomodoroContext.Provider>
   );
 }
