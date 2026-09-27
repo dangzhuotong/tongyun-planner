@@ -3,17 +3,17 @@ name: tongyun-data
 description: >-
   TongYun Planner (通云清单) data model and sync transports. Use when reading or
   writing tasks, journal, notes, pomodoro, countdowns, or config via
-  WebDAV, self-hosted HTTP sync-server, or local JSON snapshot; when fixing
-  sync/manifest issues; or when an AI agent must manage TongYun backup data.
+  WebDAV or local JSON snapshot; when fixing sync/manifest issues; or when an
+  AI agent must manage TongYun backup data.
 ---
 
 # TongYun 数据与同步
 
-一份**数据模型**，三种**运输方式**。改字段只改模型；选通道看用户当前配置。
+一份**数据模型**。远程同步仅支持 WebDAV，另支持本地 JSON 快照。改字段只改模型；选通道看用户当前配置。
 
 ## 安全（必须）
 
-- **禁止**把 WebDAV 密码、HTTP `API_KEY`、MySQL 连接串写入回复、提交或提示词正文
+- **禁止**把 WebDAV 密码/应用密码、AI API Key（aiApiKey / providerApiKeys）、SMTP 密码（smtpPass）写入回复、提交或提示词正文
 - 凭据只从用户本机设置 / `.env` / 用户当场提供的环境读取
 - 写之前展示变更摘要，等用户确认（除非用户明确说「直接改」）
 
@@ -35,19 +35,9 @@ description: >-
 
 **永远整包读写**：GET 全量 → 改 → PUT 全量；禁止半截 PATCH 导致丢条目。
 
-## 通道 A — 自建 HTTP（`sync-server/`）
+## 远程同步 — WebDAV（坚果云）
 
-优先：用户启用了「自建 Sync 服务」时。
-
-- Base URL：用户提供（常见 `http://127.0.0.1:8787`）
-- 头：`X-API-Key` 或 `Authorization: Bearer …`（密钥本机配置，不写进 Skill）
-- `GET /health` · `GET /v1/manifest` · `GET|PUT /v1/categories/{category}` · `GET|PUT /v1/snapshot`
-- PUT 带 `base_version`；**409** 时用 `server_data` 合并再重试
-- 仓库说明：`sync-server/AI_PROMPT.md`、`sync-server/README.md`
-
-## 通道 B — 坚果云 WebDAV
-
-优先：用户启用了 WebDAV 时。
+远程同步仅支持 WebDAV（推荐坚果云 Jianguoyun，预设地址 `https://dav.jianguoyun.com/dav/`，使用坚果云“应用密码”；也支持自定义 WebDAV 地址）。
 
 - 目录：`{webdavUrl}TongYunPlanner/`
 - 文件名 ↔ category：`tasks.json`→`tasks`，`completed.json`→`completedTasks`，`notes.json`→`stickyNotes`，`pomodoro.json`→`pomodoroLogs`，`countdowns.json`→`countdowns`，`journal.json`→`journal`，`config.json`→`config`
@@ -55,11 +45,17 @@ description: >-
 - 写完数据后必须更新 `manifest.json` 对应键的 `version`（`Date.now()`），否则 App 不拉
 - Basic Auth；curl 示例见设置页「复制 AI 工具定义」（保留给外部助手用）
 
-## 通道 C — 本地快照 JSON
+## 本地快照 JSON
+
+本地 JSON 快照（导出/导入、本地每日快照，这不是远程同步）。
 
 - 设置里导出/导入；形状对齐 `SyncData`（含 `journal`）
 - 导入走 `normalizeSyncData` + `applySyncData`
 - 无远程 manifest；适合换机/离线备份
+
+## 旧版（legacy）说明
+
+旧版的自建 HTTP 同步与 Supabase 已在 v1.1 移除；App 检测到旧配置（只要有旧 URL 或旧 key 之一）会显示一次迁移提示，引导改用 WebDAV；Agent 不要再对 HTTP / Supabase 端点读写。
 
 ## 不在同步范围（勿臆造远程文件）
 
@@ -67,7 +63,7 @@ description: >-
 
 ## 工作流
 
-1. 问清用户用的通道（HTTP / WebDAV / 快照）
+1. 问清用户用的通道（WebDAV / 快照）
 2. 读 → 改 → 确认 → 写 →（WebDAV 还要 bump manifest）
 3. 冲突先展示，再合并
 
@@ -75,4 +71,4 @@ description: >-
 
 Push 时：本地 `journal` 为空且远端非空 → **跳过上传**并拉回远端；本地 `config` 无 `aiApiKey` 且远端有 → **合并保留远端 Key** 再推。防止开发时空本地盖掉云端。
 
-桌面设置里的「复制 AI 工具定义 / 复制 AI 接口说明」**仍然保留**，给 ChatGPT 等外部助手粘贴用；本仓库内 Agent 优先读本 Skill。
+桌面设置里的「复制 AI 工具定义 / 复制 AI 接口说明」**仍然保留**，给 ChatGPT 等外部助手粘贴用；复制出的内容不含 WebDAV 密码或任何密钥，用占位符 / 环境变量 `TONGYUN_WEBDAV_PASS` 代替，需用户自己在本机填写。本仓库内 Agent 优先读本 Skill。

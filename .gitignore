@@ -23,12 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Sync server secrets / venv
-sync-server/.env
-sync-server/.venv/
+# Secrets / venv
 **/__pycache__/
 *.pyc
 .env
 .env.*
 !.env.example
-!sync-server/.env.example
