@@ -10,6 +10,7 @@ import {
   getLocalSyncData,
   reconcileTasksAndCompleted,
   protectAgainstEmptyOverwrite,
+  sanitizeConfigForSync,
 } from "./types";
 
 export interface HttpSyncConfig {
@@ -159,6 +160,9 @@ export class HttpSyncProvider implements SyncProvider {
       if (guard.mergedLocal !== undefined) {
         payload = guard.mergedLocal;
         applyCategoryPayload(cat, payload);
+      }
+      if (cat === "config") {
+        payload = sanitizeConfigForSync(payload as any);
       }
       const version = Math.max(localManifest[cat].version || 0, Date.now());
       try {

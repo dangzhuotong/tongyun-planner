@@ -115,6 +115,18 @@ export function getLocalManifest(): SyncManifest {
   return m;
 }
 
+/**
+ * 从 CustomizationConfig 中剥离所有敏感的 API Key 字段。
+ * 密钥只保存在本机，不上传至任何云端存储（WebDAV / HTTP / Supabase）。
+ */
+export function sanitizeConfigForSync(config: CustomizationConfig | null): CustomizationConfig | null {
+  if (!config || typeof config !== "object") return config;
+  const sanitized = { ...config };
+  delete sanitized.aiApiKey;
+  delete sanitized.providerApiKeys;
+  return sanitized;
+}
+
 /** Extract a single category's payload from SyncData */
 export function getCategoryPayload(data: SyncData, cat: SyncCategory): unknown {
   switch (cat) {
@@ -124,21 +136,18 @@ export function getCategoryPayload(data: SyncData, cat: SyncCategory): unknown {
     case "pomodoroLogs":   return data.pomodoroLogs;
     case "countdowns":     return data.countdowns;
     case "journal":        return data.journal;
-    case "config":         return data.customizationConfig;
+    case "config":         return sanitizeConfigForSync(data.customizationConfig);
   }
 }
 
 /**
  * 判断某分类 payload 是否「空到不该盖远端」。
- * 数组：length===0；config：无对象或无 aiApiKey。
+ * 数组：length===0；config：无对象或键值为空。
  */
 export function isEffectivelyEmptyCategory(cat: SyncCategory, payload: unknown): boolean {
   if (cat === "config") {
     if (!payload || typeof payload !== "object") return true;
-    const cfg = payload as CustomizationConfig;
-    const key = cfg.aiApiKey;
-    const anyProviderKey = cfg.providerApiKeys && Object.values(cfg.providerApiKeys).some(v => v?.trim());
-    return (!key || !String(key).trim()) && !anyProviderKey;
+    return Object.keys(payload).length === 0;
   }
   return !Array.isArray(payload) || payload.length === 0;
 }
@@ -157,7 +166,7 @@ export function isSampleTasksOnly(payload: unknown): boolean {
 
 /**
  * 本地空、远端非空时禁止覆盖。
- * - config：本地无 aiApiKey 而远端有 → 合并保留远端 Key 后再推（始终生效，避免误清密钥）。
+ * - config：合并时剥离敏感 Key，远端与本地配置安全合并。
  * - journal：始终保护（清空整本日记极少且高风险）。
  * - 其余数组分类（tasks/completedTasks/stickyNotes/pomodoroLogs/countdowns）：
  *   仅当「非用户主动改动」时保护。用户主动清空（isUserDirty）允许同步删除；
@@ -178,13 +187,11 @@ export function protectAgainstEmptyOverwrite(
       const merged: CustomizationConfig = {
         ...remote,
         ...local,
-        providerApiKeys: { ...remote.providerApiKeys, ...local.providerApiKeys },
-        aiApiKey: local.aiApiKey?.trim() ? local.aiApiKey : remote.aiApiKey,
         aiEndpoint: local.aiEndpoint || remote.aiEndpoint,
         aiModel: local.aiModel || remote.aiModel,
         aiProvider: local.aiProvider || remote.aiProvider,
       };
-      return { skip: false, mergedLocal: merged };
+      return { skip: false, mergedLocal: sanitizeConfigForSync(merged) };
     }
     return { skip: true };
   }
@@ -211,7 +218,7 @@ export function protectAgainstEmptyOverwrite(
  * 远程优先 + 本地补充 合并。
  * 核心策略：远端有的条目直接覆盖本地同 id；
  * 远端没有但本地有的条目保留（push 时自然会推上去）。
- * config 特殊处理：按字段级合并，优先保留本地 aiApiKey。
+ * config 特殊处理：按字段级合并，保留本地 API Key 不被覆盖。
  */
 export function mergeRemoteIntoLocal(
   cat: SyncCategory,
@@ -223,12 +230,12 @@ export function mergeRemoteIntoLocal(
     const local = localPayload ? (localPayload as Record<string, unknown>) : null;
     if (!remote) return local;
     if (!local) return remote;
-    // config 按字段合并：远端为主，但本地 Key 优先
+    // config 按字段合并：远端为主，但本地 Key 优先保留
     return {
       ...remote,
       ...local,
-      providerApiKeys: { ...(remote.providerApiKeys as Record<string, string> || {}), ...(local.providerApiKeys as Record<string, string> || {}) },
-      aiApiKey: local.aiApiKey || remote.aiApiKey,
+      providerApiKeys: (local.providerApiKeys as Record<string, string>) || {},
+      aiApiKey: local.aiApiKey || "",
     };
   }
 
@@ -285,7 +292,15 @@ export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void 
       localStorage.setItem("tongyun_countdowns", JSON.stringify(payload));
       break;
     case "config":
-      if (payload) localStorage.setItem("aero_customization_config", JSON.stringify(payload));
+      if (payload && typeof payload === "object") {
+        const local = readJson<CustomizationConfig | null>("aero_customization_config", "null");
+        const merged: CustomizationConfig = {
+          ...(payload as CustomizationConfig),
+          aiApiKey: local?.aiApiKey || "",
+          providerApiKeys: local?.providerApiKeys || {},
+        };
+        localStorage.setItem("aero_customization_config", JSON.stringify(merged));
+      }
       break;
     case "journal":
       localStorage.setItem("tongyun_journal", JSON.stringify(payload || []));
@@ -398,7 +413,13 @@ export function applySyncData(data: SyncData): void {
   localStorage.setItem("aero_pomodoro_logs", JSON.stringify(data.pomodoroLogs));
   localStorage.setItem("tongyun_countdowns", JSON.stringify(data.countdowns));
   if (data.customizationConfig) {
-    localStorage.setItem("aero_customization_config", JSON.stringify(data.customizationConfig));
+    const local = readJson<CustomizationConfig | null>("aero_customization_config", "null");
+    const merged: CustomizationConfig = {
+      ...data.customizationConfig,
+      aiApiKey: local?.aiApiKey || "",
+      providerApiKeys: local?.providerApiKeys || {},
+    };
+    localStorage.setItem("aero_customization_config", JSON.stringify(merged));
   }
   localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
   localStorage.setItem("tongyun_sync_version", String(data.version));

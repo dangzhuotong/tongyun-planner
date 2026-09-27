@@ -381,6 +381,7 @@ const en: Translations = {
     aiFillKey: "Please fill in your API Key",
     aiFillModel: "Please select or enter a model name",
     syncDesc: "Configure WebDAV (e.g. Jianguoyun, Nextcloud) to backup your data to the cloud or restore on a new device.",
+    syncSecurityNote: "🔒 Security note: Cloud sync does not upload AI API keys or other secrets; keys are stored locally on this device only. Please configure your API keys separately on other devices.",
     syncUrl: "WebDAV Server URL",
     syncUser: "WebDAV Username / Email",
     syncPass: "App Password",

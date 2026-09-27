@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Cloud, RefreshCw, Server, Copy, HardDrive, CheckCircle2, AlertTriangle, Sparkles, Download, Upload } from "lucide-react";
+import { Cloud, RefreshCw, Server, Copy, HardDrive, CheckCircle2, AlertTriangle, Sparkles, Download, Upload, ShieldCheck } from "lucide-react";
 import type { CustomizationConfig } from "../../types";
 import type { SyncBackendType } from "../../utils/sync/types";
 import { storageManager, type StorageBackendType } from "../../utils/storage";
@@ -64,11 +64,17 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
 
   return (
     <div className="space-y-4 flex-grow overflow-y-auto max-h-[380px] pr-1 custom-scrollbar">
-      <div className="bg-[#FAF8F5] border border-[#EFEBE4] p-4 rounded-2xl flex items-start gap-3">
-        <Cloud className="w-5 h-5 text-[#8B6E3C] mt-0.5" />
-        <div className="text-xs text-slate-600 leading-relaxed font-medium">
-          <strong>☁️ {s.syncTitle || "数据同步"}</strong>
-          <p className="mt-1">{s.syncDesc}</p>
+      <div className="bg-[#FAF8F5] dark:bg-slate-800/40 border border-[#EFEBE4] dark:border-slate-700 p-4 rounded-2xl flex items-start gap-3">
+        <Cloud className="w-5 h-5 text-[#8B6E3C] mt-0.5 flex-shrink-0" />
+        <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium space-y-2">
+          <div>
+            <strong>☁️ {s.syncTitle || "数据同步"}</strong>
+            <p className="mt-1">{s.syncDesc}</p>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-[#4D7C5D] dark:text-[#6FAD84] font-semibold bg-[#F0F5F1] dark:bg-[#233527] px-2.5 py-1.5 rounded-xl border border-[#DEEAE2] dark:border-[#2D4533]">
+            <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>{s.syncSecurityNote || "🔒 安全说明：云端同步不会上传任何 AI API Key 等敏感密钥，密钥仅保存在本机。在其他设备使用 AI 功能时，请在设置中单独填写密钥。"}</span>
+          </div>
         </div>
       </div>
 
@@ -566,7 +572,6 @@ manifest 键：\`stickyNotes\`
   "weatherCity": "北京",
   "darkMode": "auto",
   "aiProvider": "openai",
-  "aiApiKey": "",
   "aiEndpoint": "",
   "aiModel": "",
   "aiAutoCategorize": false,
@@ -576,7 +581,7 @@ manifest 键：\`stickyNotes\`
 }
 \`\`\`
 - 修改配置前务必先 GET 再合并字段 PUT，勿用残缺对象覆盖
-- \`aiApiKey\` 等敏感字段若已有值，默认不要清空或回显给用户
+- \`aiApiKey\` 等敏感密钥仅保存在本机，不参与云端同步，各端需单独在设置中填写
 - \`syncInterval\`：秒，\`0\` 表示手动；常见 15/30/60/300/900/1800/3600
 - \`cardBackground\`：\`white\` | \`grid\` | \`lined\` | \`watercolor\` | \`doodle\`
 - \`darkMode\`：\`light\` | \`dark\` | \`auto\`；\`locale\`：\`zh-CN\` | \`en\`

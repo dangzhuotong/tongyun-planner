@@ -381,6 +381,7 @@ const zhCN: Translations = {
     aiFillKey: "请先填写 API Key",
     aiFillModel: "请先选择或填写模型名称",
     syncDesc: "配置坚果云、Nextcloud 等 WebDav 账户后，您可以一键上传加密存档，或在更换设备时随时拉取恢复。确保在进行恢复操作前保存好本地数据。",
+    syncSecurityNote: "🔒 安全说明：云端同步不会上传任何 AI API Key 等敏感密钥，密钥仅保存在本机。在其他设备使用 AI 功能时，请在设置中单独填写密钥。",
     syncUrl: "WebDav 服务器 URL",
     syncUser: "WebDav 账号 / 注册邮箱",
     syncPass: "应用授权码 / 密码",

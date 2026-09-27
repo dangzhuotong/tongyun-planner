@@ -357,7 +357,11 @@ function AppBody() {
       setJournal(data.journal || []);
       localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
       if (data.customizationConfig) {
-        customizationHook.setCustomizationConfig(data.customizationConfig);
+        customizationHook.setCustomizationConfig((prev) => ({
+          ...data.customizationConfig!,
+          aiApiKey: prev?.aiApiKey || "",
+          providerApiKeys: prev?.providerApiKeys || {},
+        }));
       }
     } finally {
       endSyncApply();

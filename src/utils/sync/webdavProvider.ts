@@ -12,6 +12,7 @@ import {
   getLocalSyncData,
   reconcileTasksAndCompleted,
   protectAgainstEmptyOverwrite,
+  sanitizeConfigForSync,
 } from "./types";
 import type { WebDavConfig } from "../../types";
 import { invoke } from "@tauri-apps/api/core";
@@ -215,6 +216,9 @@ export class WebDAVProvider implements SyncProvider {
       if (guard.mergedLocal !== undefined) {
         payload = guard.mergedLocal;
         applyCategoryPayload(cat, payload);
+      }
+      if (cat === "config") {
+        payload = sanitizeConfigForSync(payload as any);
       }
       const json = JSON.stringify(payload);
       await uploadFile(this.config, REMOTE_DIR + SYNC_CATEGORY_FILES[cat], json);

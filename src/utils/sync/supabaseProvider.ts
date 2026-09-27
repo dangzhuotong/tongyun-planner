@@ -1,4 +1,5 @@
 import type { SyncProvider, SyncData, SyncCategory } from "./types";
+import { sanitizeConfigForSync } from "./types";
 
 interface SupabaseConfig {
   url: string;
@@ -66,9 +67,13 @@ export class SupabaseProvider implements SyncProvider {
 
   async push(data: SyncData): Promise<void> {
     const client = await this.getClient();
+    const sanitizedData: SyncData = {
+      ...data,
+      customizationConfig: sanitizeConfigForSync(data.customizationConfig),
+    };
     const { error } = await client.from("tongyun_planner_data").upsert({
       user_id: this._userId,
-      data,
+      data: sanitizedData,
       version: data.version,
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
