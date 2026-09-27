@@ -3,8 +3,10 @@
 ## 安装和运行
 
 ### Q: 如何安装 TongYun Planner？
-A: 请按照以下步骤：
-1. 克隆项目：`git clone https://gitee.com/your-username/tongyun-planner.git`
+A: 一般用户请到 [Releases 最新版](https://github.com/yibingzhi/tongyun-planner/releases/latest) 下载 Windows 安装包或 macOS Apple Silicon 的 dmg。安装包未签名，Windows 可能需要「仍要运行」，macOS 请右键「打开」。
+
+从源码运行：
+1. 克隆项目：`git clone https://github.com/yibingzhi/tongyun-planner.git`
 2. 安装依赖：`npm install`
 3. 启动开发服务器：`npm run tauri dev`
 
@@ -68,13 +70,13 @@ A: 数据存储在本地：
 A: 有以下几种方式：
 1. 使用 WebDAV 同步
 2. 手动复制数据目录
-3. 导出 JSON 文件（计划中功能）
+3. 在设置里导出 JSON 快照
 
 ### Q: 如何恢复数据？
 A: 有以下几种方式：
 1. 从 WebDAV 同步恢复
 2. 手动恢复数据目录
-3. 导入 JSON 文件（计划中功能）
+3. 在设置里导入 JSON 快照
 
 ## 小组件
 
@@ -106,10 +108,11 @@ A: 尝试以下方法：
 ## 跨平台
 
 ### Q: 支持哪些操作系统？
-A: 支持：
-- Windows 10/11
-- macOS 12+
-- Linux（主流发行版）
+A: 官方安装包：
+- Windows 10/11（x64 exe / msi）
+- macOS Apple Silicon（dmg）
+
+没有官方 Linux 或 Intel Mac 安装包。Linux / 其他架构可自行 `npm run tauri build`。
 
 ### Q: 数据可以在不同平台间同步吗？
 A: 可以，通过 WebDAV 同步功能实现跨平台数据同步。
@@ -138,10 +141,7 @@ A: 请按照以下步骤：
 ## 其他问题
 
 ### Q: 如何联系开发者？
-A: 可以通过以下方式：
-1. 提交 Issue
-2. 发送邮件（如果提供）
-3. 社交媒体（如果提供）
+A: 请开 [GitHub Issue](https://github.com/yibingzhi/tongyun-planner/issues)。目前没有官方邮箱或社群。
 
 ### Q: 是否支持多语言？
 A: 目前支持中文和英文，计划添加更多语言支持。
