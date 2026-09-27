@@ -115,16 +115,78 @@ export function getLocalManifest(): SyncManifest {
   return m;
 }
 
+const SECRET_SUFFIXES = [
+  "apikey",
+  "apikeys",
+  "secret",
+  "secrets",
+  "password",
+  "passwd",
+  "token",
+  "accesstoken",
+  "refreshtoken",
+];
+
 /**
- * 从 CustomizationConfig 中剥离所有敏感的 API Key 字段。
- * 密钥只保存在本机，不上传至任何云端存储（WebDAV / HTTP / Supabase）。
+ * 判断配置字段键名是否为敏感密钥字段。
+ * 针对 aiApiKey、providerApiKeys，以及去除了 '-' 和 '_' 且小写化后以指定后缀结尾的字段。
+ * 注意：aiMaxTokens 以 "tokens" 结尾，不属于 secret。
  */
-export function sanitizeConfigForSync(config: CustomizationConfig | null): CustomizationConfig | null {
+export function isSecretConfigKey(key: string): boolean {
+  if (key === "aiApiKey" || key === "providerApiKeys") return true;
+  const normalized = key.toLowerCase().replace(/[-_]/g, "");
+  return SECRET_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
+}
+
+/**
+ * 从配置对象中剥离所有敏感的 API Key / Token / Password 字段。
+ * 返回浅拷贝，保留 null / undefined 直通行为。
+ * 密钥只保存在本机，不上传至任何云端存储（WebDAV / HTTP / Supabase），也不包含在快照导出文件中。
+ */
+export function sanitizeConfigForSync<T extends object | null | undefined>(config: T): T {
   if (!config || typeof config !== "object") return config;
-  const sanitized = { ...config };
-  delete sanitized.aiApiKey;
-  delete sanitized.providerApiKeys;
-  return sanitized;
+  const sanitized = { ...config } as Record<string, unknown>;
+  for (const key of Object.keys(sanitized)) {
+    if (isSecretConfigKey(key)) {
+      delete sanitized[key];
+    }
+  }
+  return sanitized as T;
+}
+
+/**
+ * 将传入的远端/导入配置与本地敏感密钥安全合并。
+ * 远端/导入配置中的所有 secret key 会被清除，若本地存在 secret key 则将其复制回来。
+ * 当本地没有时，aiApiKey 默认回退为 ""，providerApiKeys 默认回退为 {}，保持类型有效。
+ */
+export function withLocalSecrets<T extends object>(
+  incoming: T,
+  local: object | null | undefined
+): T {
+  const result = { ...incoming } as Record<string, unknown>;
+
+  // 1. 移除 incoming 中所有 secret key
+  for (const key of Object.keys(result)) {
+    if (isSecretConfigKey(key)) {
+      delete result[key];
+    }
+  }
+
+  // 2. 将 local 中的 secret key（若存在）复制回来
+  const localRecord = local && typeof local === "object" ? (local as Record<string, unknown>) : null;
+  if (localRecord) {
+    for (const key of Object.keys(localRecord)) {
+      if (isSecretConfigKey(key) && localRecord[key] !== undefined) {
+        result[key] = localRecord[key];
+      }
+    }
+  }
+
+  // 3. 保持现有默认行为：当 local 中没有时，aiApiKey 回退为空字符串，providerApiKeys 回退为空对象
+  result.aiApiKey = (localRecord?.aiApiKey as string) || "";
+  result.providerApiKeys = (localRecord?.providerApiKeys as Record<string, string>) || {};
+
+  return result as T;
 }
 
 /** Extract a single category's payload from SyncData */
@@ -229,14 +291,9 @@ export function mergeRemoteIntoLocal(
     const remote = remotePayload ? (remotePayload as Record<string, unknown>) : null;
     const local = localPayload ? (localPayload as Record<string, unknown>) : null;
     if (!remote) return local;
-    if (!local) return remote;
+    if (!local) return withLocalSecrets(remote, null);
     // config 按字段合并：远端为主，但本地 Key 优先保留
-    return {
-      ...local,
-      ...remote,
-      providerApiKeys: (local.providerApiKeys as Record<string, string>) || {},
-      aiApiKey: (local.aiApiKey as string) || "",
-    };
+    return withLocalSecrets({ ...local, ...remote }, local);
   }
 
   // 数组分类：按 id 合并
@@ -294,11 +351,7 @@ export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void 
     case "config":
       if (payload && typeof payload === "object") {
         const local = readJson<CustomizationConfig | null>("aero_customization_config", "null");
-        const merged: CustomizationConfig = {
-          ...(payload as CustomizationConfig),
-          aiApiKey: local?.aiApiKey || "",
-          providerApiKeys: local?.providerApiKeys || {},
-        };
+        const merged = withLocalSecrets(payload as CustomizationConfig, local);
         localStorage.setItem("aero_customization_config", JSON.stringify(merged));
       }
       break;
@@ -414,11 +467,7 @@ export function applySyncData(data: SyncData): void {
   localStorage.setItem("tongyun_countdowns", JSON.stringify(data.countdowns));
   if (data.customizationConfig) {
     const local = readJson<CustomizationConfig | null>("aero_customization_config", "null");
-    const merged: CustomizationConfig = {
-      ...data.customizationConfig,
-      aiApiKey: local?.aiApiKey || "",
-      providerApiKeys: local?.providerApiKeys || {},
-    };
+    const merged = withLocalSecrets(data.customizationConfig, local);
     localStorage.setItem("aero_customization_config", JSON.stringify(merged));
   }
   localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));

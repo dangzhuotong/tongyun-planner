@@ -51,7 +51,7 @@ import { createId } from "./utils/id";
 import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
-import { SYNC_APPLIED_EVENT, bumpSyncVersion, bumpCategoryVersion, dedupeActiveTasks, type SyncCategory, type SyncData } from "./utils/sync/types";
+import { SYNC_APPLIED_EVENT, bumpSyncVersion, bumpCategoryVersion, dedupeActiveTasks, withLocalSecrets, type SyncCategory, type SyncData } from "./utils/sync/types";
 import { beginSyncApply, endSyncApply, isSyncApplying } from "./utils/sync/syncApplyGuard";
 import { canUseAI } from "./utils/aiEngine";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
@@ -357,11 +357,9 @@ function AppBody() {
       setJournal(data.journal || []);
       localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
       if (data.customizationConfig) {
-        customizationHook.setCustomizationConfig((prev) => ({
-          ...data.customizationConfig!,
-          aiApiKey: prev?.aiApiKey || "",
-          providerApiKeys: prev?.providerApiKeys || {},
-        }));
+        customizationHook.setCustomizationConfig((prev) =>
+          withLocalSecrets(data.customizationConfig!, prev)
+        );
       }
     } finally {
       endSyncApply();

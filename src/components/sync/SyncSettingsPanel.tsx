@@ -4,7 +4,7 @@ import type { CustomizationConfig } from "../../types";
 import type { SyncBackendType } from "../../utils/sync/types";
 import { storageManager, type StorageBackendType } from "../../utils/storage";
 import { syncEngine } from "../../utils/sync/engine";
-import { normalizeSyncData, applySyncData, getLocalSyncData } from "../../utils/sync/types";
+import { normalizeSyncData, applySyncData, getLocalSyncData, sanitizeConfigForSync } from "../../utils/sync/types";
 import { openExternal } from "../../utils/openExternal";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { safeJsonParse } from "../../utils/json";
@@ -628,6 +628,7 @@ manifest 键：\`stickyNotes\`
               const sync = getLocalSyncData();
               const data = {
                 ...sync,
+                customizationConfig: sanitizeConfigForSync(sync.customizationConfig),
                 aiPraise: safeJsonParse(localStorage.getItem("tongyun_ai_praise"), []),
                 exportedAt: new Date().toISOString(),
               };
