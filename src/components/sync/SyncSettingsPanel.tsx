@@ -16,7 +16,18 @@ import {
 import { openExternal } from "../../utils/openExternal";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { safeJsonParse } from "../../utils/json";
-import { buildAiToolDoc } from "../../utils/sync/aiToolDoc";
+import { buildAiToolDocFromSettings } from "../../utils/sync/aiToolDoc";
+
+function readStoredSmtpPass(): string {
+  try {
+    const raw = localStorage.getItem("tongyun_email_config");
+    if (!raw) return "";
+    const parsed = JSON.parse(raw) as { smtpPass?: unknown };
+    return typeof parsed.smtpPass === "string" ? parsed.smtpPass : "";
+  } catch {
+    return "";
+  }
+}
 
 interface SyncSettingsPanelProps {
   config: CustomizationConfig;
@@ -427,7 +438,14 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
               <p className="text-[10px] text-slate-500 mb-2">将待办管理能力作为工具赋予你的 AI 助手，一键复制函数定义即可粘贴到 OpenAI/Claude 的 tools 参数中。</p>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(buildAiToolDoc({ webdavUrl, webdavUser }));
+                  navigator.clipboard.writeText(buildAiToolDocFromSettings({
+                    webdavUrl,
+                    webdavUser,
+                    webdavPass,
+                    aiApiKey: config.aiApiKey,
+                    providerApiKeys: config.providerApiKeys,
+                    smtpPass: readStoredSmtpPass(),
+                  }));
                   triggerToast("已复制 ✅ 完整技能定义，可直接粘贴给 AI", "success");
                 }}
                 className="w-full bg-white hover:bg-[#F5F1EA] border border-[#DEEAE2] text-[#4D7C5D] dark:text-[#6DAF7E] py-2 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all"

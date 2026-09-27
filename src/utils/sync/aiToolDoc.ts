@@ -1,10 +1,75 @@
 export interface BuildAiToolDocOptions {
   webdavUrl: string;
   webdavUser: string;
+  /**
+   * Secret values scrubbed out of the URL and username before interpolation.
+   * They are never written into the document themselves.
+   */
+  redact?: ReadonlyArray<string | null | undefined>;
+}
+
+export interface AiToolDocSettings {
+  webdavUrl: string;
+  webdavUser: string;
+  webdavPass?: string | null;
+  aiApiKey?: string | null;
+  providerApiKeys?: Record<string, string | null | undefined> | null;
+  smtpPass?: string | null;
+}
+
+/** Ignore very short strings so scrubbing cannot eat URL fragments like "https" or "json". */
+const SECRET_SCRUB_MIN_LEN = 8;
+
+function secretsToScrub(values: ReadonlyArray<string | null | undefined> | undefined): string[] {
+  const seen = new Set<string>();
+  const secrets: string[] = [];
+  for (const value of values ?? []) {
+    const secret = value?.trim();
+    if (!secret || secret.length < SECRET_SCRUB_MIN_LEN || seen.has(secret)) continue;
+    seen.add(secret);
+    secrets.push(secret);
+  }
+  secrets.sort((a, b) => b.length - a.length);
+  return secrets;
+}
+
+function scrubSecrets(value: string, secrets: readonly string[]): string {
+  let out = value;
+  for (const secret of secrets) {
+    if (out.includes(secret)) out = out.split(secret).join("");
+  }
+  return out;
+}
+
+/**
+ * WebDAV base URL safe to paste onto `TongYunPlanner/`.
+ * Drops userinfo, fragments, and the query string (it can carry secrets, and
+ * the client joins the directory onto the path, not onto `?...`).
+ * Adds a trailing slash so the join matches `build_target_url`.
+ */
+export function normalizeWebdavBaseUrl(rawUrl: string): string {
+  let url = rawUrl.trim().replace(/#[\s\S]*$/, "");
+  url = url.replace(/^([a-z][a-z0-9+.-]*:\/\/)[^/]*@/i, "$1");
+  const qIndex = url.indexOf("?");
+  if (qIndex !== -1) url = url.slice(0, qIndex);
+  url = url.replace(/([^:]\/)\/+/g, "$1");
+  if (url && !url.endsWith("/")) url += "/";
+  return url;
+}
+
+export function buildAiToolDocFromSettings(settings: AiToolDocSettings): string {
+  const providerValues = settings.providerApiKeys ? Object.values(settings.providerApiKeys) : [];
+  return buildAiToolDoc({
+    webdavUrl: settings.webdavUrl,
+    webdavUser: settings.webdavUser,
+    redact: [settings.webdavPass, settings.aiApiKey, settings.smtpPass, ...providerValues],
+  });
 }
 
 export function buildAiToolDoc(opts: BuildAiToolDocOptions): string {
-  const { webdavUrl, webdavUser } = opts;
+  const secrets = secretsToScrub(opts.redact);
+  const webdavUser = scrubSecrets(opts.webdavUser ?? "", secrets).trim();
+  const webdavUrl = normalizeWebdavBaseUrl(scrubSecrets(opts.webdavUrl ?? "", secrets));
 
   return `# 🎯 TongYun-List 数据管理工具集
 
