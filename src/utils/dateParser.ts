@@ -15,38 +15,50 @@ function formatDate(year: number, month: number, day: number): string {
 }
 
 function parseTime(text: string): string | null {
+  const isPM = /(下午|午后|晚上|傍晚|晚间|夜里|夜晚)/.test(text);
+  const isAM = /(早上|清晨|早晨|凌晨|上午|早[上晨])/.test(text);
+
+  const defaultPeriod = /(早上|清晨|早晨|凌晨)/.test(text) ? '06' :
+    /(上午|早[上晨])/.test(text) ? '08' :
+    /(中午|正午)/.test(text) ? '12' :
+    /(下午|午后)/.test(text) ? '14' :
+    /(晚上|傍晚|晚间|夜里|夜晚)/.test(text) ? '19' : null;
+
+  // 1. 匹配几点几分：如 3:20、3点20分
   const m = text.match(/(\d{1,2})[：:点.](\d{1,2})[分]?/);
   if (m) {
-    const h = parseInt(m[1]), min = parseInt(m[2]);
-    if (h >= 0 && h <= 23 && min >= 0 && min <= 59) return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    let h = parseInt(m[1]);
+    const min = parseInt(m[2]);
+    if (isPM && h < 12) h += 12;
+    if (isAM && h === 12) h = 0;
+    if (h >= 0 && h <= 23 && min >= 0 && min <= 59) {
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    }
   }
+
+  // 2. 匹配几点半：如 3点半
+  const m3 = text.match(/(\d{1,2})点半/);
+  if (m3) {
+    let h = parseInt(m3[1]);
+    if (isPM && h < 12) h += 12;
+    if (isAM && h === 12) h = 0;
+    if (h >= 0 && h <= 23) return `${String(h).padStart(2, '0')}:30`;
+  }
+
+  // 3. 匹配整点：如 3点、3:
   const m2 = text.match(/(\d{1,2})[：:点]/);
   if (m2) {
-    const h = parseInt(m2[1]);
+    let h = parseInt(m2[1]);
+    if (isPM && h < 12) h += 12;
+    if (isAM && h === 12) h = 0;
     if (h >= 0 && h <= 23) return `${String(h).padStart(2, '0')}:00`;
   }
-  const m3 = text.match(/点半/);
-  if (m3) {
-    const hMatch = text.match(/(\d{1,2})点半/);
-    if (hMatch) {
-      const h = parseInt(hMatch[1]);
-      if (h >= 0 && h <= 23) return `${String(h).padStart(2, '0')}:30`;
-    }
+
+  // 4. 仅有时间段（无具体钟点）
+  if (defaultPeriod) {
+    return `${defaultPeriod}:00`;
   }
-  const period = text.match(/(早上|清晨|早晨|凌晨)/) ? '06' :
-    text.match(/(上午|早[上晨])/) ? '08' :
-    text.match(/(中午|正午)/) ? '12' :
-    text.match(/(下午|午后)/) ? '14' :
-    text.match(/(晚上|傍晚|晚间|夜里|夜晚)/) ? '19' : null;
-  if (period) {
-    const hMatch = text.match(/(\d{1,2})[：:点]/);
-    if (hMatch) {
-      const h = parseInt(hMatch[1]);
-      if (period === '06' || period === '08') return `${String(h).padStart(2, '0')}:00`;
-      if (period === '14' || period === '19') return `${String(Math.min(h + 12, 23)).padStart(2, '0')}:00`;
-    }
-    return `${period}:00`;
-  }
+
   return null;
 }
 

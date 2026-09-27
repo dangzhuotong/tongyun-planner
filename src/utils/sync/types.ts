@@ -232,10 +232,10 @@ export function mergeRemoteIntoLocal(
     if (!local) return remote;
     // config 按字段合并：远端为主，但本地 Key 优先保留
     return {
-      ...remote,
       ...local,
+      ...remote,
       providerApiKeys: (local.providerApiKeys as Record<string, string>) || {},
-      aiApiKey: local.aiApiKey || "",
+      aiApiKey: (local.aiApiKey as string) || "",
     };
   }
 
