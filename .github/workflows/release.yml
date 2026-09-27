@@ -22,6 +22,10 @@ jobs:
             os: 'windows'
           - platform: 'macos-latest'
             os: 'macos'
+            rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
+            args: '--target universal-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            os: 'linux'
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
@@ -35,6 +39,14 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets || '' }}
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libayatana-appindicator3-dev
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -53,9 +65,14 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'TongYun Planner v__VERSION__'
-          releaseBody: 'TongYun Planner - 橦云手账 v__VERSION__ 发布啦！本产品纯 Vibe coding 产物。'
+          releaseBody: |
+            TongYun Planner - 橦云手账 v__VERSION__ 发布啦！本产品纯 Vibe coding 产物。
+
+            > **macOS 提示**：若打开提示「文件已损坏」或无法打开，请在终端执行解除隔离属性：
+            > `xattr -cr /Applications/TongyunPlanner.app`
           releaseDraft: false
           prerelease: false
+          args: ${{ matrix.args || '' }}
           includeUpdaterJson: true
 
       - name: Mirror to Gitee Releases
@@ -64,19 +81,25 @@ jobs:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         shell: bash
         run: |
+          RELEASE_BODY="TongYun Planner - 橦云手账 v${{ github.ref_name }} 发布啦！本产品纯 Vibe coding 产物。如在 macOS 遇到无法打开或提示文件损坏，请在终端执行：xattr -cr /Applications/TongyunPlanner.app"
           if [ "${{ matrix.os }}" = "windows" ]; then
-            # 查找 Windows 下生成的 .msi 和 .exe 安装包
-            MSI_FILE=$(find src-tauri/target/release/bundle/msi -name "*.msi" | head -n 1)
-            EXE_FILE=$(find src-tauri/target/release/bundle/nsis -name "*.exe" | head -n 1)
+            MSI_FILE=$(find src-tauri/target -name "*.msi" | head -n 1)
+            EXE_FILE=$(find src-tauri/target -name "*.exe" | head -n 1)
             echo "Found MSI: $MSI_FILE"
             echo "Found EXE: $EXE_FILE"
-            node scripts/upload_to_gitee.js "${{ env.GITEE_OWNER }}" "${{ env.GITEE_REPO }}" "${{ github.ref_name }}" "TongYun Planner ${{ github.ref_name }}" "TongYun Planner - 橦云手账 v${{ github.ref_name }} 发布啦！本产品纯 Vibe coding 产物。" "$MSI_FILE" "$EXE_FILE"
+            node scripts/upload_to_gitee.js "${{ env.GITEE_OWNER }}" "${{ env.GITEE_REPO }}" "${{ github.ref_name }}" "TongYun Planner ${{ github.ref_name }}" "$RELEASE_BODY" "$MSI_FILE" "$EXE_FILE"
           
           elif [ "${{ matrix.os }}" = "macos" ]; then
-            # 查找 macOS 下生成的 .dmg 和 .app.tar.gz 压缩包
-            DMG_FILE=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" | head -n 1)
-            APP_FILE=$(find src-tauri/target/release/bundle/macos -name "*.app.tar.gz" | head -n 1)
+            DMG_FILE=$(find src-tauri/target -name "*.dmg" | head -n 1)
+            APP_FILE=$(find src-tauri/target -name "*.app.tar.gz" | head -n 1)
             echo "Found DMG: $DMG_FILE"
             echo "Found APP bundle: $APP_FILE"
-            node scripts/upload_to_gitee.js "${{ env.GITEE_OWNER }}" "${{ env.GITEE_REPO }}" "${{ github.ref_name }}" "TongYun Planner ${{ github.ref_name }}" "TongYun Planner - 橦云手账 v${{ github.ref_name }} 发布啦！本产品纯 Vibe coding 产物。" "$DMG_FILE" "$APP_FILE"
+            node scripts/upload_to_gitee.js "${{ env.GITEE_OWNER }}" "${{ env.GITEE_REPO }}" "${{ github.ref_name }}" "TongYun Planner ${{ github.ref_name }}" "$RELEASE_BODY" "$DMG_FILE" "$APP_FILE"
+
+          elif [ "${{ matrix.os }}" = "linux" ]; then
+            APPIMAGE_FILE=$(find src-tauri/target -name "*.AppImage" | head -n 1)
+            DEB_FILE=$(find src-tauri/target -name "*.deb" | head -n 1)
+            echo "Found AppImage: $APPIMAGE_FILE"
+            echo "Found DEB: $DEB_FILE"
+            node scripts/upload_to_gitee.js "${{ env.GITEE_OWNER }}" "${{ env.GITEE_REPO }}" "${{ github.ref_name }}" "TongYun Planner ${{ github.ref_name }}" "$RELEASE_BODY" "$APPIMAGE_FILE" "$DEB_FILE"
           fi
