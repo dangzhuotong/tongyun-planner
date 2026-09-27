@@ -2,6 +2,19 @@
 
 格式大致遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。应用版本号以 `package.json` / `src-tauri/tauri.conf.json` 为准，本文不负责发版。
 
+## [1.1.0] - 2026-09-27
+
+### 新增
+- **软件自动更新**：接入 Tauri 2 官方更新器，启动时支持静默检测更新、手帐风格新版提示弹窗与一键下载重启；系统设置页新增手动「检查更新」操作。
+- **多平台安装包**：Release 工作流支持构建 macOS Universal 通用 DMG（兼容 Apple Silicon 与 Intel 架构）以及 Linux（Ubuntu 22.04 下生成 AppImage 与 deb 安装包）。
+- **反馈与沟通通道**：设置页新增一键前往 GitHub Issues「反馈问题」入口；仓库新增中文缺陷报告与功能建议模板。
+
+### 安全与加固
+- **敏感密钥脱敏同步**：WebDAV、自建 HTTP 及 Supabase 同步在上传前自动过滤 `aiApiKey` 与各厂商 API Key，仅保存在用户本地设备；从远端拉取合并时保护本地 Key 不被覆盖；同步设置页新增安全声明。
+
+### 优化
+- 统一更新应用描述为「橦云手帐：本地优先的 AI 手帐式桌面效率 App」，完善中英文国际化文本。
+
 ## [1.0.0] - 2026-07-27
 
 第一个正式安装包版本：Windows exe/msi、macOS Apple Silicon dmg。

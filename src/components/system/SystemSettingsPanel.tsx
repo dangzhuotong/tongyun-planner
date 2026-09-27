@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
+import { AlertTriangle, RefreshCw, Loader2, ExternalLink } from "lucide-react";
 import type { CustomizationConfig, AlertSoundType, Locale } from "../../types";
 import { NOISE_DEFINITIONS, getVisibleNoises, setVisibleNoises } from "../../constants";
 import { audioEngine } from "../../utils/audioEngine";
@@ -7,6 +7,7 @@ import { CustomSelect } from "../CustomSelect";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { useSetting } from "../../hooks/useSetting";
 import { checkForAppUpdate } from "../../utils/updater";
+import { openExternal } from "../../utils/openExternal";
 
 interface SystemSettingsPanelProps {
   config: CustomizationConfig;
@@ -206,24 +207,34 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
         <p className="text-[10px] text-slate-400 font-medium">
           {s.softwareUpdateDesc || "支持在线自动检查新版本与一键安全热升级。"}
         </p>
-        <button
-          type="button"
-          disabled={checkingUpdate}
-          onClick={handleManualCheckUpdate}
-          className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EDE6] border border-[#DEEAE2] px-3.5 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-50"
-        >
-          {checkingUpdate ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>{s.checkingUpdate || "正在检查更新..."}</span>
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>{s.checkUpdate || "检查更新"}</span>
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            disabled={checkingUpdate}
+            onClick={handleManualCheckUpdate}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EDE6] border border-[#DEEAE2] px-3.5 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+          >
+            {checkingUpdate ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>{s.checkingUpdate || "正在检查更新..."}</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>{s.checkUpdate || "检查更新"}</span>
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => openExternal("https://github.com/yibingzhi/tongyun-planner/issues/new/choose")}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-[#EFEBE4] dark:border-slate-700 px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs"
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+            <span>{s.reportIssue || "反馈问题"}</span>
+          </button>
+        </div>
       </div>
 
       {/* 清空及重置 */}

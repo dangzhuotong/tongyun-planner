@@ -471,6 +471,7 @@ const en: Translations = {
     updateLater: "Later",
     updatingProgress: "Downloading and installing update...",
     updateFailed: "Update failed: ",
+    reportIssue: "Report Issue",
   },
 
   floatingNote: {

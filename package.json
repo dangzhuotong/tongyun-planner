@@ -1,7 +1,8 @@
 {
   "name": "tongyun-planner",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "description": "橦云手帐：本地优先的 AI 手帐式桌面效率 App",
   "type": "module",
   "scripts": {
     "dev": "vite",

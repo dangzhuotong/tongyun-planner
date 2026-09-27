@@ -1,7 +1,7 @@
 [package]
 name = "tongyun-planner"
-version = "0.1.0"
-description = "TongYun Planner - Eisenhower matrix todo desktop app"
+version = "1.1.0"
+description = "橦云手帐：本地优先的 AI 手帐式桌面效率 App"
 authors = ["TongYun Planner contributors"]
 edition = "2021"
 

@@ -471,6 +471,7 @@ const zhCN: Translations = {
     updateLater: "稍后",
     updatingProgress: "正在下载并安装更新...",
     updateFailed: "更新失败：",
+    reportIssue: "反馈问题",
   },
 
   floatingNote: {
