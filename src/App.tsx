@@ -267,7 +267,7 @@ function AppBody() {
     const timer = setTimeout(async () => {
       try {
         const update = await checkForAppUpdate();
-        if (update && update.available) {
+        if (update) {
           setActiveUpdate(update);
         }
       } catch (err) {

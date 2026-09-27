@@ -46,6 +46,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -61,7 +62,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJFRjUxOEM1NkNCQjQwMDYKUldRR1FMdHN4UmoxTG1JMzhQNXlFNzFCU0ZmNGl2QkdGK2ZJS3dGTW9GaXVjZmpQZWpyYitEN0YK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVENzVBMzQxNzU2RkFBM0YKUldRL3FtOTFRYU4xWFp1UkVhbGdudS90bEdXTjB4dUJjRFFkZHFPb0pzV3RQSFlDajJHRzQ0b1oK",
       "endpoints": [
         "https://github.com/yibingzhi/tongyun-planner/releases/latest/download/latest.json"
       ]

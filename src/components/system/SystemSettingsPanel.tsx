@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AlertTriangle, RefreshCw, Loader2, ExternalLink } from "lucide-react";
 import type { CustomizationConfig, AlertSoundType, Locale } from "../../types";
 import { NOISE_DEFINITIONS, getVisibleNoises, setVisibleNoises } from "../../constants";
@@ -8,6 +8,7 @@ import { useTranslation } from "../../i18n/LanguageContext";
 import { useSetting } from "../../hooks/useSetting";
 import { checkForAppUpdate } from "../../utils/updater";
 import { openExternal } from "../../utils/openExternal";
+import { getVersion } from "@tauri-apps/api/app";
 
 interface SystemSettingsPanelProps {
   config: CustomizationConfig;
@@ -47,12 +48,19 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
   const [visibleNoises, setVisibleNoisesState] = useState<string[]>(() => getVisibleNoises());
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+      getVersion().then(setAppVersion).catch(() => {});
+    }
+  }, []);
 
   const handleManualCheckUpdate = async () => {
     setCheckingUpdate(true);
     try {
       const update = await checkForAppUpdate();
-      if (update && update.available) {
+      if (update) {
         window.dispatchEvent(new CustomEvent("tongyun-show-update", { detail: update }));
       } else {
         triggerToast(s.alreadyLatest || "当前已是最新版本 ✨", "success");
@@ -200,9 +208,11 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
             <RefreshCw className="w-4 h-4 text-[#4D7C5D]" />
             <span>{s.softwareUpdate || "软件更新"}</span>
           </span>
-          <span className="text-[10px] font-mono text-slate-400 bg-[#FAF8F5] px-2 py-0.5 rounded-md border border-[#EFEBE4]">
-            v1.1.0
-          </span>
+          {appVersion && (
+            <span className="text-[10px] font-mono text-slate-400 bg-[#FAF8F5] px-2 py-0.5 rounded-md border border-[#EFEBE4]">
+              v{appVersion.replace(/^v/, "")}
+            </span>
+          )}
         </h4>
         <p className="text-[10px] text-slate-400 font-medium">
           {s.softwareUpdateDesc || "支持在线自动检查新版本与一键安全热升级。"}
