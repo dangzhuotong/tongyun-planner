@@ -646,3 +646,34 @@
 - `src/components/CommandPalette.tsx`
 - `src/hooks/useHabits.ts`
 - `src/App.tsx`
+
+## Session 23 (2026-09-27)
+
+### 目标
+发布 v1.1.0：自动更新 + 多平台安装包构建 + 云同步敏感密钥隔离 + 发布收尾。
+
+### 完成项
+- **任务 1：自动更新 (Commit `0902fc2`)**：
+  - 集成 `tauri-plugin-updater` 与 `tauri-plugin-process`，在 `capabilities/default.json` 开启权限。
+  - 配置更新源 `https://github.com/yibingzhi/tongyun-planner/releases/latest/download/latest.json` 与 Minisign 公钥。
+  - 启动 3 秒静默检查（仅 main 窗口），手帐质感更新提示弹窗 `UpdateModal.tsx`（更新日志展示、进度条与重启）。
+  - 设置页添加手动「检查更新」按钮与加载反馈。
+  - `.github/workflows/release.yml` 启用 updater 产物与签名私钥配置。
+- **任务 2：多平台安装包 (Commit `ceaab6c`)**：
+  - `release.yml` 矩阵支持 `windows-latest`、`macos-latest`（Universal 通用包兼顾 M 系列与 Intel Mac）与 `ubuntu-22.04`（安装 webkit2gtk 依赖，产出 AppImage / deb）。
+  - Release 说明添加 macOS 隔离属性移除指令：`xattr -cr /Applications/TongyunPlanner.app`。
+  - 兼容 Gitee 镜像发布脚本。
+- **任务 3：云同步安全隔离 (Commit `1b4ce05`)**：
+  - WebDAV / 自建 HTTP / Supabase 上传前调用 `sanitizeConfigForSync` 剔除 `aiApiKey` 与 `providerApiKeys`。
+  - 云端拉取合并时保护本地设备现有密钥不被覆盖；调整空包保护逻辑。
+  - 同步设置面板增加安全提示。
+- **任务 4：版本发布收尾 (Commit `9202796`)**：
+  - 统一版本号至 `1.1.0`，应用描述更新为「橦云手帐：本地优先的 AI 手帐式桌面效率 App」。
+  - 设置页新增一键前往 GitHub Issues 的「反馈问题」入口。
+  - 增加 `.github/ISSUE_TEMPLATE/` 中文 Bug 报告与功能建议模板。
+  - 更新 `CHANGELOG.md` 补全 1.1.0 更新日志。
+
+### 验证
+- `npm run typecheck` 零错误。
+- `cargo check` 零错误。
+
