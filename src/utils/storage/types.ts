@@ -1,4 +1,4 @@
-export type StorageBackendType = "local" | "webdav" | "supabase";
+export type StorageBackendType = "local" | "webdav";
 
 export interface StorageProvider {
   readonly type: StorageBackendType;
@@ -21,7 +21,6 @@ export interface StorageProvider {
 
   /**
    * Get a displayable URL for a stored file.
-   * For public-url backends (OSS/COS/Supabase) returns the public URL directly.
    * For private backends (Local/WebDAV) downloads the file and creates a blob URL.
    * The caller should revoke the blob URL when done.
    */
@@ -31,12 +30,6 @@ export interface StorageProvider {
   writeText(path: string, content: string): Promise<void>;
   /** Read text data. Returns null if not found. */
   readText(path: string): Promise<string | null>;
-}
-
-export interface SupabaseStorageConfig {
-  url: string;
-  anonKey: string;
-  bucket: string;
 }
 
 /* ── Path helpers ── */

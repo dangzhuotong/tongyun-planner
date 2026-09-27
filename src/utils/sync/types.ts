@@ -11,7 +11,7 @@ export interface SyncData {
   journal: JournalEntry[];
 }
 
-export type SyncBackendType = "webdav" | "supabase" | "http" | "none";
+export type SyncBackendType = "webdav" | "none";
 
 /** Keys matching each slice of SyncData that gets its own file on WebDAV */
 export type SyncCategory =
@@ -60,8 +60,16 @@ export type SyncManifest = Record<SyncCategory, SyncManifestEntry>;
 export interface SyncBackendConfig {
   type: SyncBackendType;
   webdav?: { url: string; username: string; password?: string };
-  supabase?: { url: string; anonKey: string; userId?: string };
-  http?: { baseUrl: string; apiKey: string };
+}
+
+export interface SyncConflict {
+  category: SyncCategory;
+  fileName: string;
+  remoteContent: string;
+  remotePayload: unknown;
+  remoteFingerprint: string | null;
+  remoteManifestVersion: number;
+  backupPaths: string[];
 }
 
 export interface SyncProvider {
@@ -69,7 +77,7 @@ export interface SyncProvider {
   readonly displayName: string;
   isConfigured(): boolean;
   test(): Promise<boolean>;
-  push(data: SyncData): Promise<void>;
+  push(data: SyncData, dirtyOnly?: Set<SyncCategory>): Promise<{ conflicts: SyncConflict[] } | void>;
   pull(dirtyOnly?: Set<SyncCategory>): Promise<SyncData | null>;
 }
 
@@ -141,7 +149,7 @@ export function isSecretConfigKey(key: string): boolean {
 /**
  * 从配置对象中剥离所有敏感的 API Key / Token / Password 字段。
  * 返回浅拷贝，保留 null / undefined 直通行为。
- * 密钥只保存在本机，不上传至任何云端存储（WebDAV / HTTP / Supabase），也不包含在快照导出文件中。
+ * 密钥只保存在本机，不上传至任何云端存储（如 WebDAV），也不包含在快照导出文件中。
  */
 export function sanitizeConfigForSync<T extends object | null | undefined>(config: T): T {
   if (!config || typeof config !== "object") return config;

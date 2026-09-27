@@ -1,10 +1,18 @@
-import { useState, useEffect, useRef } from "react";
-import { Cloud, RefreshCw, Server, Copy, HardDrive, CheckCircle2, AlertTriangle, Sparkles, Download, Upload, ShieldCheck } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Cloud, RefreshCw, Server, Copy, HardDrive, CheckCircle2, AlertTriangle, Sparkles, Download, Upload, ShieldCheck, RotateCcw } from "lucide-react";
 import type { CustomizationConfig } from "../../types";
 import type { SyncBackendType } from "../../utils/sync/types";
 import { storageManager, type StorageBackendType } from "../../utils/storage";
 import { syncEngine } from "../../utils/sync/engine";
-import { normalizeSyncData, applySyncData, getLocalSyncData, sanitizeConfigForSync } from "../../utils/sync/types";
+import { normalizeSyncData, applySyncData, bumpCategoryVersion, ALL_SYNC_CATEGORIES } from "../../utils/sync/types";
+import {
+  buildSnapshotPayload,
+  ensureDailySnapshot,
+  listDailySnapshots,
+  readDailySnapshot,
+  getBackupDir,
+  type DailySnapshotItem,
+} from "../../utils/sync/localSnapshots";
 import { openExternal } from "../../utils/openExternal";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { safeJsonParse } from "../../utils/json";
@@ -19,14 +27,20 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
   const { t } = useTranslation();
   const s = t.settings;
 
-  const [webdavUrl, setWebdavUrl] = useState(() => localStorage.getItem("tongyun_webdav_url") || "");
+  const JIANGUOYUN_URL = "https://dav.jianguoyun.com/dav/";
+
+  const [webdavUrl, setWebdavUrl] = useState(() => {
+    const saved = localStorage.getItem("tongyun_webdav_url");
+    if (!saved) return JIANGUOYUN_URL;
+    return saved;
+  });
   const [webdavUser, setWebdavUser] = useState(() => localStorage.getItem("tongyun_webdav_user") || "");
   const [webdavPass, setWebdavPass] = useState(() => localStorage.getItem("tongyun_webdav_pass") || "");
   const [syncBackend, setSyncBackend] = useState<SyncBackendType>(() => syncEngine.currentBackend);
-  const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem("tongyun_supabase_url") || "");
-  const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem("tongyun_supabase_anon_key") || "");
-  const [httpSyncUrl, setHttpSyncUrl] = useState(() => localStorage.getItem("tongyun_http_sync_url") || "http://127.0.0.1:8787");
-  const [httpSyncKey, setHttpSyncKey] = useState(() => localStorage.getItem("tongyun_http_sync_key") || "");
+  const [webdavPreset, setWebdavPreset] = useState<"jianguoyun" | "custom">(() => {
+    const saved = localStorage.getItem("tongyun_webdav_url") || "";
+    return !saved || saved.startsWith("https://dav.jianguoyun.com") ? "jianguoyun" : "custom";
+  });
 
   const [storageBackend, setStorageBackend] = useState<StorageBackendType>(() => storageManager.current);
   const [syncStatus, setSyncStatus] = useState(syncEngine.status);
@@ -34,6 +48,104 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
   const [isLoading, setIsLoading] = useState(false);
 
   const snapshotFileRef = useRef<HTMLInputElement>(null);
+  const isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI_INTERNALS__);
+  const [backupDir, setBackupDir] = useState<string | null>(null);
+  const [dailySnapshots, setDailySnapshots] = useState<DailySnapshotItem[]>([]);
+  const [isBackingUpDaily, setIsBackingUpDaily] = useState(false);
+
+  const loadDailySnapshots = useCallback(async () => {
+    if (!isTauri) return;
+    try {
+      const [dir, list] = await Promise.all([
+        getBackupDir(),
+        listDailySnapshots(),
+      ]);
+      setBackupDir(dir);
+      setDailySnapshots(list);
+    } catch (err) {
+      console.warn("[SyncSettingsPanel] Failed to load daily snapshots:", err);
+    }
+  }, [isTauri]);
+
+  useEffect(() => {
+    if (!isTauri) return;
+    let alive = true;
+    Promise.all([getBackupDir(), listDailySnapshots()]).then(([dir, list]) => {
+      if (!alive) return;
+      setBackupDir(dir);
+      setDailySnapshots(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [isTauri]);
+
+  const handleImmediateDailyBackup = async () => {
+    setIsBackingUpDaily(true);
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("tongyun_last_daily_snapshot");
+      }
+      const path = await ensureDailySnapshot();
+      if (path) {
+        triggerToast("快照已生成 ✅", "success");
+      } else {
+        triggerToast("快照生成失败（无数据或系统异常）", "error");
+      }
+      await loadDailySnapshots();
+    } catch {
+      triggerToast("快照生成失败", "error");
+    } finally {
+      setIsBackingUpDaily(false);
+    }
+  };
+
+  const handleRestoreDailySnapshot = async (fileName: string) => {
+    const confirmed = window.confirm(
+      "恢复会用该快照覆盖本机当前数据（密钥不受影响），确定继续吗？建议先导出一份当前快照。"
+    );
+    if (!confirmed) return;
+
+    try {
+      const content = await readDailySnapshot(fileName);
+      if (!content) {
+        triggerToast("读取快照文件失败", "error");
+        return;
+      }
+      const rawData = JSON.parse(content);
+      const normalized = normalizeSyncData(rawData);
+      if (!normalized) {
+        triggerToast("恢复失败，快照格式不正确", "error");
+        return;
+      }
+      applySyncData(normalized);
+      if (rawData.aiPraise) {
+        localStorage.setItem("tongyun_ai_praise", JSON.stringify(rawData.aiPraise));
+      }
+      // 与导入一致：视为本机主动恢复，刷新版本并标记待同步（上传前仍会做云端冲突检测）
+      bumpCategoryVersion(...ALL_SYNC_CATEGORIES);
+      syncEngine.markDirty();
+      triggerToast("已恢复 ✅", "success");
+    } catch (err) {
+      console.warn("[SyncSettingsPanel] Restore snapshot failed:", err);
+      triggerToast("恢复失败，快照解析异常", "error");
+    }
+  };
+
+  // 选择坚果云预设且尚未保存地址时，持久化默认地址，保证启动时能从本地配置恢复 WebDAV
+  useEffect(() => {
+    if (webdavPreset === "jianguoyun" && !localStorage.getItem("tongyun_webdav_url")) {
+      localStorage.setItem("tongyun_webdav_url", JIANGUOYUN_URL);
+    }
+  }, [webdavPreset]);
+
+  const handleSelectPreset = (preset: "jianguoyun" | "custom") => {
+    setWebdavPreset(preset);
+    if (preset === "jianguoyun") {
+      setWebdavUrl(JIANGUOYUN_URL);
+      localStorage.setItem("tongyun_webdav_url", JIANGUOYUN_URL);
+    }
+  };
 
   const applySyncProviderConfig = () => {
     if (syncBackend === "webdav") {
@@ -41,16 +153,6 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
         url: webdavUrl,
         username: webdavUser,
         password: webdavPass || undefined,
-      });
-    } else if (syncBackend === "supabase") {
-      syncEngine.supabaseProvider.setConfig({
-        url: supabaseUrl,
-        anonKey: supabaseKey,
-      });
-    } else if (syncBackend === "http") {
-      syncEngine.httpProvider.setConfig({
-        baseUrl: httpSyncUrl,
-        apiKey: httpSyncKey,
       });
     }
   };
@@ -81,7 +183,7 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
       <div className="space-y-2">
         <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">同步后端</label>
         <div className="grid grid-cols-2 gap-2">
-          {([["none", "不使用"], ["webdav", "坚果云 WebDAV"], ["http", "自建 Sync 服务"], ["supabase", "Supabase"]] as [SyncBackendType, string][]).map(([val, label]) => (
+          {([["none", "不使用"], ["webdav", "WebDAV"]] as [SyncBackendType, string][]).map(([val, label]) => (
             <button
               key={val}
               onClick={() => {
@@ -102,21 +204,59 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
 
       {syncBackend === "webdav" && (
         <div className="space-y-3">
-          <div className="rounded-xl bg-[#F7F5F0] dark:bg-slate-800/60 border border-[#EFEBE4] dark:border-slate-700 p-3 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            <p className="mb-1.5">服务器地址一般为 <code className="text-slate-700 dark:text-slate-200">https://dav.jianguoyun.com/dav/</code>。密码<b>不是</b>登录密码，需在坚果云网页端「设置 → 安全」中生成<b>应用专用密码</b>。</p>
-            <button type="button" onClick={() => openExternal("https://help.jianguoyun.com/?p=2066")} className="inline-flex items-center gap-1 text-[#4D7C5D] dark:text-[#6DAF7E] hover:underline font-medium">查看坚果云 WebDAV 开启教程 ↗</button>
+          <div>
+            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">服务商</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleSelectPreset("jianguoyun")}
+                className={`py-1.5 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer ${
+                  webdavPreset === "jianguoyun"
+                    ? "bg-[#4D7C5D] text-white border-[#4D7C5D]"
+                    : "bg-white text-slate-600 border-[#EFEBE4] hover:border-[#4D7C5D]"
+                }`}
+              >
+                坚果云（推荐）
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectPreset("custom")}
+                className={`py-1.5 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer ${
+                  webdavPreset === "custom"
+                    ? "bg-[#4D7C5D] text-white border-[#4D7C5D]"
+                    : "bg-white text-slate-600 border-[#EFEBE4] hover:border-[#4D7C5D]"
+                }`}
+              >
+                自定义 WebDAV
+              </button>
+            </div>
           </div>
+
+          {webdavPreset === "jianguoyun" ? (
+            <div className="rounded-xl bg-[#F7F5F0] dark:bg-slate-800/60 border border-[#EFEBE4] dark:border-slate-700 p-3 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              <p className="mb-1.5">密码请填写坚果云「应用密码」：登录坚果云网页版 → 账户信息 → 安全选项 → 第三方应用管理 → 添加应用生成。不要填写登录密码。</p>
+              <button type="button" onClick={() => openExternal("https://help.jianguoyun.com/?p=2066")} className="inline-flex items-center gap-1 text-[#4D7C5D] dark:text-[#6DAF7E] hover:underline font-medium cursor-pointer">查看坚果云 WebDAV 开启教程 ↗</button>
+            </div>
+          ) : (
+            <div className="rounded-xl bg-[#F7F5F0] dark:bg-slate-800/60 border border-[#EFEBE4] dark:border-slate-700 p-3 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              <p>支持任何标准 WebDAV 服务器（如 Nextcloud、ownCloud、群晖 WebDAV Server 等），请确保支持 HTTPS 连接。</p>
+            </div>
+          )}
+
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">{s.syncUrl}</label>
             <input
               type="text"
+              readOnly={webdavPreset === "jianguoyun"}
               placeholder="https://dav.jianguoyun.com/dav/"
               value={webdavUrl}
               onChange={(e) => {
                 setWebdavUrl(e.target.value);
                 localStorage.setItem("tongyun_webdav_url", e.target.value);
               }}
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+              className={`w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] ${
+                webdavPreset === "jianguoyun" ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""
+              }`}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -150,107 +290,6 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
         </div>
       )}
 
-      {syncBackend === "http" && (
-        <div className="space-y-3">
-          <div className="rounded-xl bg-[#F7F5F0] dark:bg-slate-800/60 border border-[#EFEBE4] dark:border-slate-700 p-3 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            <p className="mb-1.5">对接仓库内 <code className="text-slate-700 dark:text-slate-200">sync-server/</code>（FastAPI + MySQL）。本机默认 <code className="text-slate-700 dark:text-slate-200">http://127.0.0.1:8787</code>，API Key 填服务器 <code className="text-slate-700 dark:text-slate-200">.env</code> 里的值。密钥只存本机，不要提交到 Git。</p>
-            <p className="text-[10px] opacity-80">启动：<code className="text-slate-700 dark:text-slate-200">cd sync-server && docker compose up -d</code></p>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">服务地址</label>
-            <input
-              type="text"
-              placeholder="http://127.0.0.1:8787"
-              value={httpSyncUrl}
-              onChange={(e) => {
-                setHttpSyncUrl(e.target.value);
-                localStorage.setItem("tongyun_http_sync_url", e.target.value);
-              }}
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">API Key</label>
-            <input
-              type="password"
-              placeholder="与 sync-server/.env 中 API_KEY 一致"
-              value={httpSyncKey}
-              onChange={(e) => {
-                setHttpSyncKey(e.target.value);
-                localStorage.setItem("tongyun_http_sync_key", e.target.value);
-              }}
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
-            />
-          </div>
-          {httpSyncUrl.trim() && (
-            <button
-              type="button"
-              onClick={() => {
-                const base = httpSyncUrl.trim().replace(/\/+$/, "");
-                const doc = `# TongYun 自建 Sync 服务（无密钥）
-
-Base URL: ${base}
-鉴权：请求头 \`X-API-Key\` 由用户本机配置，不要写入此文档或 Git。
-
-分类与桌面端一致：tasks / completedTasks / stickyNotes / pomodoroLogs / countdowns / journal / config
-
-## API
-- GET ${base}/health
-- GET ${base}/v1/manifest
-- GET ${base}/v1/categories/{category}
-- PUT ${base}/v1/categories/{category}  body: {"data":...,"version":ms,"base_version":n}
-- GET ${base}/v1/snapshot
-- PUT ${base}/v1/snapshot  body: {"snapshot":{...},"merge_by_version":false}
-
-写操作先 GET 再带 base_version；409 时用 server_data 合并后重试。
-完整字段说明见仓库 sync-server/AI_PROMPT.md。`;
-                navigator.clipboard.writeText(doc);
-                triggerToast("已复制 API 说明（不含密钥）✅", "success");
-              }}
-              className="w-full bg-white hover:bg-[#F5F1EA] border border-[#DEEAE2] text-[#4D7C5D] dark:text-[#6DAF7E] py-2 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-            >
-              <Copy className="w-3 h-3" />
-              复制 AI 接口说明（无密钥）
-            </button>
-          )}
-        </div>
-      )}
-
-      {syncBackend === "supabase" && (
-        <div className="space-y-3">
-          <div className="rounded-xl bg-[#F7F5F0] dark:bg-slate-800/60 border border-[#EFEBE4] dark:border-slate-700 p-3 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            <p className="mb-1.5">在 Supabase 新建项目后，进入 <b>Project Settings → API</b>，复制 <b>Project URL</b> 与 <b>anon public key</b> 填入下方。建议开启 Row Level Security 保护数据。</p>
-            <button type="button" onClick={() => openExternal("https://supabase.com/docs/guides/api")} className="inline-flex items-center gap-1 text-[#4D7C5D] dark:text-[#6DAF7E] hover:underline font-medium">查看 Supabase 配置教程 ↗</button>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Supabase URL</label>
-            <input
-              type="text"
-              placeholder="https://your-project.supabase.co"
-              value={supabaseUrl}
-              onChange={(e) => {
-                setSupabaseUrl(e.target.value);
-                localStorage.setItem("tongyun_supabase_url", e.target.value);
-              }}
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Anon Key</label>
-            <input
-              type="password"
-              placeholder="eyJhbGciOiJIUzI1NiIs..."
-              value={supabaseKey}
-              onChange={(e) => {
-                setSupabaseKey(e.target.value);
-                localStorage.setItem("tongyun_supabase_anon_key", e.target.value);
-              }}
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
-            />
-          </div>
-        </div>
-      )}
-
       {syncBackend !== "none" && (
         <div className="space-y-3">
           <div className="flex items-center justify-between p-3 rounded-xl border border-[#EFEBE4] bg-white/50">
@@ -258,7 +297,9 @@ Base URL: ${base}
               <span className="text-xs font-bold text-slate-700 block">
                 {syncStatus === "syncing" ? "同步中..." :
                  syncStatus === "success" ? "上次同步成功" :
-                 syncStatus === "error" ? "同步出错" : "等待同步"}
+                 syncStatus === "error" ? "同步出错" :
+                 syncStatus === "conflict" ? "有冲突待处理" :
+                 syncStatus === "offline" ? "离线，稍后自动补传" : "等待同步"}
               </span>
               {syncLastTime && (
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
@@ -270,11 +311,15 @@ Base URL: ${base}
               syncStatus === "syncing" ? "bg-blue-100 text-blue-600" :
               syncStatus === "success" ? "bg-green-100 text-green-600" :
               syncStatus === "error" ? "bg-red-100 text-red-600" :
+              syncStatus === "conflict" ? "bg-amber-100 text-amber-700" :
+              syncStatus === "offline" ? "bg-slate-100 text-slate-600" :
               "bg-slate-100 text-slate-500"
             }`}>
               {syncStatus === "syncing" ? "同步中" :
                syncStatus === "success" ? "已同步" :
-               syncStatus === "error" ? "失败" : "待同步"}
+               syncStatus === "error" ? "失败" :
+               syncStatus === "conflict" ? "有冲突" :
+               syncStatus === "offline" ? "离线" : "待同步"}
             </span>
           </div>
 
@@ -316,41 +361,20 @@ Base URL: ${base}
           <div className="flex items-center justify-between p-3 rounded-xl border border-[#EFEBE4] bg-white/50">
             <div>
               <span className="text-xs font-bold text-slate-700 block">自动同步</span>
-              <span className="text-[10px] text-slate-400 mt-0.5 block">数据变更后自动同步到云端</span>
+              <span className="text-[10px] text-slate-400 mt-0.5 block">
+                启动时、关闭窗口/退出时、每 5 分钟自动同步；编辑停止约 30 秒后上传，离线时自动排队，恢复网络后补传。
+              </span>
             </div>
             <input
               type="checkbox"
               checked={config.enableAutoBackup !== false}
               onChange={(e) => {
-                syncEngine.setAutoSync(e.target.checked, (config.syncInterval || 60) * 1000);
+                syncEngine.setAutoSync(e.target.checked);
                 onChange({ ...config, enableAutoBackup: e.target.checked });
               }}
               className="w-4 h-4 accent-[#4D7C5D] cursor-pointer"
             />
           </div>
-          {config.enableAutoBackup !== false && (
-            <div className="flex items-center justify-between p-3 rounded-xl border border-[#EFEBE4] bg-white/50 mt-2">
-              <span className="text-[10px] font-bold text-slate-600 block">同步间隔</span>
-              <select
-                value={config.syncInterval || 60}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  syncEngine.setAutoSync(true, val * 1000);
-                  onChange({ ...config, syncInterval: val });
-                }}
-                className="bg-[#FAF8F5] border border-[#EFEBE4] px-2 py-1 rounded-lg text-[10px] text-slate-700 font-bold focus:outline-none focus:border-[#C4D7B2]"
-              >
-                <option value={15}>每15秒</option>
-                <option value={30}>每30秒</option>
-                <option value={60}>每1分钟</option>
-                <option value={300}>每5分钟</option>
-                <option value={900}>每15分钟</option>
-                <option value={1800}>每30分钟</option>
-                <option value={3600}>每小时</option>
-                <option value={0}>仅手动</option>
-              </select>
-            </div>
-          )}
 
           <div className="pt-3 border-t border-[#EFEBE4]">
             <div className="flex items-center gap-2 mb-2">
@@ -360,7 +384,7 @@ Base URL: ${base}
             <p className="text-[10px] text-slate-400 mb-3 font-medium">任务附件（图片/文件）的存储位置。云端后端支持公网 URL，AI 可直接读取。</p>
 
             <div className="flex flex-wrap gap-2 mb-3">
-              {([["local", "本地存储"], ["webdav", "WebDAV (坚果云)"], ["supabase", "Supabase"]] as [StorageBackendType, string][]).map(([val, label]) => {
+              {([["local", "本地存储"], ["webdav", "WebDAV (坚果云)"]] as [StorageBackendType, string][]).map(([val, label]) => {
                 const selected = storageBackend === val;
                 return (
                   <button key={val} onClick={() => { setStorageBackend(val); storageManager.setBackend(val); }}
@@ -373,10 +397,6 @@ Base URL: ${base}
                 );
               })}
             </div>
-
-            {storageBackend !== "local" && storageBackend !== "webdav" && (
-              <p className="text-[10px] text-slate-400 mb-2 italic">云端后端需将 Bucket/容器设为「公共读」，公网 URL 才能真正被访问、被 AI 读取。</p>
-            )}
 
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/60 border border-[#EFEBE4]">
               <div className="flex items-center gap-2">
@@ -625,13 +645,7 @@ manifest 键：\`stickyNotes\`
         <div className="flex gap-3">
           <button
             onClick={() => {
-              const sync = getLocalSyncData();
-              const data = {
-                ...sync,
-                customizationConfig: sanitizeConfigForSync(sync.customizationConfig),
-                aiPraise: safeJsonParse(localStorage.getItem("tongyun_ai_praise"), []),
-                exportedAt: new Date().toISOString(),
-              };
+              const data = buildSnapshotPayload();
               const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
@@ -698,6 +712,9 @@ manifest 键：\`stickyNotes\`
                   if (data.aiPraise) {
                     localStorage.setItem("tongyun_ai_praise", JSON.stringify(data.aiPraise));
                   }
+                  // 导入视为本机主动恢复：刷新各分类版本并标记待同步，下次同步时上传（上传前仍会做云端冲突检测）
+                  bumpCategoryVersion(...ALL_SYNC_CATEGORIES);
+                  syncEngine.markDirty();
                   triggerToast(s.snapshotImported || "导入成功 ✅", "success");
                 } catch {
                   triggerToast(s.snapshotImportError || "导入失败，文件格式不正确", "error");
@@ -707,6 +724,80 @@ manifest 键：\`stickyNotes\`
               e.target.value = "";
             }}
           />
+        </div>
+
+        {/* 自动每日快照子区块 */}
+        <div className="pt-3 border-t border-[#EFEBE4] dark:border-slate-700/60 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
+              自动每日快照
+            </span>
+            {isTauri && (
+              <button
+                type="button"
+                onClick={handleImmediateDailyBackup}
+                disabled={isBackingUpDaily}
+                className="px-2.5 py-1 rounded-lg bg-[#4D7C5D] hover:bg-[#3F684C] disabled:bg-slate-300 text-white text-[10px] font-extrabold flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+              >
+                {isBackingUpDaily ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : null}
+                立即备份
+              </button>
+            )}
+          </div>
+          <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
+            每天自动在本机保存一份完整数据快照（不含密钥），保留最近 14 天，不依赖网络。
+          </p>
+
+          {!isTauri ? (
+            <div className="text-[10px] text-slate-400 bg-white/50 dark:bg-slate-800/40 border border-[#EFEBE4] dark:border-slate-700 rounded-xl p-2.5">
+              仅桌面端可用
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {backupDir && (
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono select-all break-all bg-white/60 dark:bg-slate-800/60 px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-slate-700">
+                  {backupDir}
+                </div>
+              )}
+
+              {dailySnapshots.length === 0 ? (
+                <div className="text-[10px] text-slate-400 text-center py-2.5 bg-white/30 dark:bg-slate-800/30 rounded-xl border border-dashed border-[#EFEBE4] dark:border-slate-700">
+                  暂无每日快照（系统将在每天使用时自动创建）
+                </div>
+              ) : (
+                <div className="max-h-36 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                  {dailySnapshots.map((snap) => {
+                    const dateMatch = snap.name.match(/\d{4}-\d{2}-\d{2}/);
+                    const dateLabel = dateMatch ? dateMatch[0] : snap.name;
+                    const sizeKb = Math.max(1, Math.round(snap.size / 1024));
+                    return (
+                      <div
+                        key={snap.name}
+                        className="flex items-center justify-between p-2 rounded-xl bg-white/60 dark:bg-slate-800/60 border border-[#EFEBE4] dark:border-slate-700 text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 font-mono">
+                            {dateLabel}
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-medium">
+                            {sizeKb} KB
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRestoreDailySnapshot(snap.name)}
+                          className="px-2.5 py-1 rounded-lg border border-[#EFEBE4] dark:border-slate-600 hover:border-[#4D7C5D] dark:hover:border-[#6DAF7E] hover:bg-[#F0F5F1] dark:hover:bg-[#233527] text-slate-600 dark:text-slate-300 hover:text-[#4D7C5D] dark:hover:text-[#6DAF7E] text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          恢复
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

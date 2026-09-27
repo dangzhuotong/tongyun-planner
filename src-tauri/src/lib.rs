@@ -3,8 +3,42 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::menu::{Menu, MenuItem};
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 
+mod backup;
 mod email;
+mod webdav_meta;
+
+pub use backup::*;
+pub use webdav_meta::*;
+
+static QUIT_PENDING: AtomicBool = AtomicBool::new(false);
+static QUIT_READY: AtomicBool = AtomicBool::new(false);
+
+fn request_quit(app: &AppHandle) {
+    if QUIT_READY.load(Ordering::SeqCst) {
+        app.exit(0);
+        return;
+    }
+    if QUIT_PENDING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    let _ = app.emit_to("main", "tongyun-quit-requested", ());
+
+    let app_handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(8));
+        QUIT_READY.store(true, Ordering::SeqCst);
+        app_handle.exit(0);
+    });
+}
+
+#[tauri::command]
+fn app_quit_ready(app: AppHandle) {
+    QUIT_READY.store(true, Ordering::SeqCst);
+    app.exit(0);
+}
 
 #[tauri::command]
 fn save_local_attachment(app: AppHandle, file_name: String, bytes: Vec<u8>) -> Result<String, String> {
@@ -489,7 +523,16 @@ pub fn run() {
             file_list,
             fetch_rss,
             ai_proxy,
-            email::send_test_email
+            email::send_test_email,
+            webdav_stat,
+            webdav_download_meta,
+            webdav_upload_meta,
+            local_backup_write,
+            local_backup_list,
+            local_backup_read,
+            local_backup_prune,
+            local_backup_dir,
+            app_quit_ready
         ])
         // 6. 初始化系统托盘
         .setup(|app| {
@@ -533,7 +576,7 @@ pub fn run() {
                             });
                         }
                         "quit" => {
-                            app.exit(0);
+                            request_quit(app);
                         }
                         _ => {}
                     }
@@ -570,9 +613,18 @@ pub fn run() {
                     if let Some(widget) = window.app_handle().get_webview_window("widget") {
                         let _ = widget.hide();
                     }
+                    let _ = window.app_handle().emit_to("main", "tongyun-main-hidden", ());
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("运行 Tauri 应用程序时发生错误");
+        .build(tauri::generate_context!())
+        .expect("运行 Tauri 应用程序时发生错误")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { code, api, .. } = event {
+                if code.is_none() && !QUIT_READY.load(Ordering::SeqCst) {
+                    api.prevent_exit();
+                    request_quit(app);
+                }
+            }
+        });
 }
