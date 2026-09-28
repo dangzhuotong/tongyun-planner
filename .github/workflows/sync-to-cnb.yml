@@ -1,0 +1,114 @@
+# GitHub is the source of truth. Every push to the default branch is pushed
+# (fast-forward only, never forced) to the CNB mirror, where .cnb.yml may deploy.
+# Required secrets: CNB_TOKEN (CNB access token with push permission),
+# optional CNB_USER (defaults to "cnb").
+name: Sync to CNB
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-to-cnb
+  cancel-in-progress: false
+
+jobs:
+  sync-to-cnb:
+    name: Push master to CNB master
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CNB_REPO: dangzhuotong/tongyun-planner
+      CNB_BRANCH: master
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Push to CNB (fast-forward only)
+        env:
+          CNB_TOKEN: ${{ secrets.CNB_TOKEN }}
+          CNB_USER: ${{ secrets.CNB_USER }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CNB_TOKEN:-}" ]; then
+            echo "::error::secret CNB_TOKEN is not configured for this repository; nothing pushed."
+            exit 1
+          fi
+          auth="$(printf '%s:%s' "${CNB_USER:-cnb}" "$CNB_TOKEN" | base64 -w0)"
+          echo "::add-mask::${auth}"
+          # Credentials only via env-scoped git config (never in URL, argv or logs).
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="http.https://cnb.cool/.extraheader"
+          export GIT_CONFIG_VALUE_0="Authorization: Basic ${auth}"
+          export GIT_TERMINAL_PROMPT=0
+          unset CNB_TOKEN auth
+
+          url="https://cnb.cool/${CNB_REPO}.git"
+          ref="refs/heads/${CNB_BRANCH}"
+          sha="${GITHUB_SHA}"
+          # Print git output but drop any line that could echo credentials.
+          scrub() { grep -viE 'token|authorization|password' || true; }
+
+          echo "source: ${GITHUB_REPOSITORY}@${GITHUB_REF_NAME} ${sha}"
+          echo "target: ${url} ${ref}"
+
+          set +e
+          ls_out="$(git ls-remote "$url" "$ref" 2>/tmp/ls.err)"
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            scrub </tmp/ls.err
+            echo "::error::cannot access CNB repo ${CNB_REPO} (exit ${rc}); check CNB_TOKEN permission."
+            exit 1
+          fi
+          remote_sha="$(printf '%s\n' "$ls_out" | awk -v r="$ref" '$2 == r {print $1}' | head -n1)"
+
+          if [ -n "$remote_sha" ]; then
+            echo "CNB ${CNB_BRANCH} is at ${remote_sha}"
+            if [ "$remote_sha" = "$sha" ]; then
+              echo "CNB already at ${sha}; nothing to do."
+              exit 0
+            fi
+            set +e
+            git fetch --no-tags "$url" "${ref}:refs/remotes/cnb/${CNB_BRANCH}" 2>&1 | scrub
+            rc=${PIPESTATUS[0]}
+            set -e
+            if [ "$rc" -ne 0 ]; then
+              echo "::error::failed to fetch CNB ${CNB_BRANCH} (exit ${rc})."
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$remote_sha" "$sha"; then
+              echo "::error::REFUSING TO SYNC: CNB ${CNB_REPO}@${CNB_BRANCH} (${remote_sha}) is NOT an ancestor of GitHub ${sha}. CNB has commits GitHub does not have (or GitHub is behind). Reconcile manually; this workflow never force-pushes."
+              echo "Commits on CNB but not in ${sha}:"
+              git log --oneline "${sha}..${remote_sha}" | head -n 50 || true
+              exit 1
+            fi
+            echo "fast-forward: $(git rev-list --count "${remote_sha}..${sha}") new commit(s)"
+          else
+            echo "CNB branch ${CNB_BRANCH} does not exist yet; it will be created."
+          fi
+
+          set +e
+          git push --no-tags "$url" "${sha}:${ref}" 2>&1 | scrub
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::git push to CNB failed (exit ${rc}); not retrying with force."
+            exit 1
+          fi
+
+          after="$(git ls-remote "$url" "$ref" 2>/dev/null | awk -v r="$ref" '$2 == r {print $1}' | head -n1)"
+          if [ "$after" != "$sha" ]; then
+            echo "::error::CNB ${CNB_BRANCH} is ${after:-<missing>} after push, expected ${sha}."
+            exit 1
+          fi
+          echo "OK: CNB ${CNB_REPO}@${CNB_BRANCH} = ${sha}"
