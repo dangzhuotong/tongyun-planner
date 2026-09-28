@@ -5,13 +5,13 @@
   <p><strong>TongYun Planner</strong> · 在纷繁世界里，为你留出一块温暖、安宁的心流角落</p>
 
   <p>
-    <a href="https://github.com/yibingzhi/tongyun-planner/releases/latest"><strong>⬇ 下载最新版</strong></a>
+    <a href="https://github.com/dangzhuotong/tongyun-planner/releases/latest"><strong>⬇ 下载最新版</strong></a>
     &nbsp;·&nbsp; Windows · macOS Apple Silicon
   </p>
 
   <p>
-    <a href="https://github.com/yibingzhi/tongyun-planner/releases/latest"><img src="https://img.shields.io/github/v/release/yibingzhi/tongyun-planner?style=flat-square&color=4D7C5D&label=release" alt="Latest release" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/yibingzhi/tongyun-planner?style=flat-square&color=4D7C5D" alt="MIT License" /></a>
+    <a href="https://github.com/dangzhuotong/tongyun-planner/releases/latest"><img src="https://img.shields.io/github/v/release/dangzhuotong/tongyun-planner?style=flat-square&color=4D7C5D&label=release" alt="Latest release" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/dangzhuotong/tongyun-planner?style=flat-square&color=4D7C5D" alt="MIT License" /></a>
     <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20Apple%20Silicon-8B6E3C?style=flat-square" alt="Platform" />
     <img src="https://img.shields.io/badge/i18n-中文%20%7C%20English-5B99B0?style=flat-square" alt="i18n" />
     <img src="https://img.shields.io/badge/Tauri-2-FFC131?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
@@ -33,7 +33,7 @@
 
 **TongYun Planner（橦云手帐）** is a local-first desktop journal and task app: Eisenhower matrix, flip-page diary, pomodoro, sticky notes, and optional AI comments. Built for people who want a paper-like ritual and keep their notes on their own machine.
 
-[Download the latest installer](https://github.com/yibingzhi/tongyun-planner/releases/latest) for **Windows** and **macOS Apple Silicon**. The UI is Chinese by default, with a full English language pack in Settings. There is no official Linux installer yet (you can still build from source).
+[Download the latest installer](https://github.com/dangzhuotong/tongyun-planner/releases/latest) for **Windows** and **macOS Apple Silicon**. The UI is Chinese by default, with a full English language pack in Settings. There is no official Linux installer yet (you can still build from source).
 
 </details>
 
@@ -64,7 +64,7 @@
 
 ## 下载与安装
 
-到 **[Releases · latest](https://github.com/yibingzhi/tongyun-planner/releases/latest)** 取安装包：
+到 **[Releases · latest](https://github.com/dangzhuotong/tongyun-planner/releases/latest)** 取安装包：
 
 | 系统 | 文件 |
 |:---|:---|
@@ -83,7 +83,7 @@
 适合改代码或打 Linux 包。需要 Node.js 18+、Rust，以及各系统的原生编译工具（Windows 需 VS C++ Build Tools；macOS 需 Xcode Command Line Tools）。
 
 ```bash
-git clone https://github.com/yibingzhi/tongyun-planner.git
+git clone https://github.com/dangzhuotong/tongyun-planner.git
 cd tongyun-planner
 npm install
 npm run tauri dev      # 开发

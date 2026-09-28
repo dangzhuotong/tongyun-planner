@@ -5,7 +5,7 @@
 ## 如何贡献
 
 ### 报告问题
-1. 使用 [GitHub Issues](https://github.com/yibingzhi/tongyun-planner/issues/new) 提交问题
+1. 使用 [GitHub Issues](https://github.com/dangzhuotong/tongyun-planner/issues/new) 提交问题
 2. 清晰描述问题，包括重现步骤、期望行为和实际行为
 3. 如果可能，提供截图或错误日志
 
@@ -22,7 +22,7 @@
 - 提交信息：使用中文或英文，清晰描述变更内容
 
 ### 开发环境设置
-1. 克隆项目：`git clone https://github.com/yibingzhi/tongyun-planner.git`
+1. 克隆项目：`git clone https://github.com/dangzhuotong/tongyun-planner.git`
 2. 安装依赖：`npm install`
 3. 启动开发服务器：`npm run tauri dev`
 4. 进行更改并测试
