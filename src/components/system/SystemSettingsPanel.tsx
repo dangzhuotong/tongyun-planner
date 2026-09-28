@@ -238,7 +238,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => openExternal("https://github.com/yibingzhi/tongyun-planner/issues/new/choose")}
+            onClick={() => openExternal("https://github.com/dangzhuotong/tongyun-planner/issues/new/choose")}
             className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-[#EFEBE4] dark:border-slate-700 px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs"
           >
             <ExternalLink className="w-3.5 h-3.5 text-slate-400" />

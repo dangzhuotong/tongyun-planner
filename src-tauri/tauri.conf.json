@@ -64,7 +64,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDVENzVBMzQxNzU2RkFBM0YKUldRL3FtOTFRYU4xWFp1UkVhbGdudS90bEdXTjB4dUJjRFFkZHFPb0pzV3RQSFlDajJHRzQ0b1oK",
       "endpoints": [
-        "https://github.com/yibingzhi/tongyun-planner/releases/latest/download/latest.json"
+        "https://github.com/dangzhuotong/tongyun-planner/releases/latest/download/latest.json"
       ]
     }
   }

@@ -245,7 +245,7 @@ Tauri 提供了插件系统，可以扩展应用功能：
 - Linux：通过 `.deb`、`.AppImage` 分发
 
 ### 自动更新
-- 端点：`https://github.com/yibingzhi/tongyun-planner/releases/latest/download/latest.json`
+- 端点：`https://github.com/dangzhuotong/tongyun-planner/releases/latest/download/latest.json`
 - `tauri-plugin-updater` 只支持一把 minisign 公钥。v1.1.0 公钥为 `5D75A341756FAA3F`，与 v1.0 的 `2EF518C56CBB4006` 不同，因此 **v1.0 → v1.1 不能走应用内更新**。
 - 签名私钥只存放在 GitHub Secrets `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`，不要写入仓库。
 

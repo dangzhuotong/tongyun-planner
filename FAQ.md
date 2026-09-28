@@ -3,12 +3,12 @@
 ## 安装和运行
 
 ### Q: 如何安装 TongYun Planner？
-A: 一般用户请到 [Releases 最新版](https://github.com/yibingzhi/tongyun-planner/releases/latest) 下载 Windows、macOS Universal 或 Linux 安装包。安装包未签名，Windows 可能需要「仍要运行」，macOS 请右键「打开」。
+A: 一般用户请到 [Releases 最新版](https://github.com/dangzhuotong/tongyun-planner/releases/latest) 下载 Windows、macOS Universal 或 Linux 安装包。安装包未签名，Windows 可能需要「仍要运行」，macOS 请右键「打开」。
 
 v1.0 用户请手动安装 v1.1：更新公钥已更换，应用内更新无法从 1.0 升到 1.1。
 
 从源码运行：
-1. 克隆项目：`git clone https://github.com/yibingzhi/tongyun-planner.git`
+1. 克隆项目：`git clone https://github.com/dangzhuotong/tongyun-planner.git`
 2. 安装依赖：`npm install`
 3. 启动开发服务器：`npm run tauri dev`
 
@@ -142,7 +142,7 @@ A: 请按照以下步骤：
 ## 其他问题
 
 ### Q: 如何联系开发者？
-A: 请开 [GitHub Issue](https://github.com/yibingzhi/tongyun-planner/issues)。目前没有官方邮箱或社群。
+A: 请开 [GitHub Issue](https://github.com/dangzhuotong/tongyun-planner/issues)。目前没有官方邮箱或社群。
 
 ### Q: 是否支持多语言？
 A: 目前支持中文和英文，计划添加更多语言支持。
