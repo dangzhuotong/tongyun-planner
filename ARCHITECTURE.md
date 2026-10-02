@@ -101,16 +101,19 @@ fn my_command(param: String) -> Result<String, String> {
 项目中存在两层看似重叠、实则职责不同的存储抽象，请勿混淆：
 
 - **`src/utils/storage/` —— 本地/附件存储后端（StorageManager）**
-  - 负责"数据落在哪里"：支持 `local`（浏览器 localStorage / Tauri Store）、`webdav`、`oss`、`cos`、`supabase` 多种后端。
+  - 负责"数据落在哪里"：支持 `local`（浏览器 localStorage / Tauri Store）与 `webdav` 两种后端。
   - 主要用于**附件**（图片/文件）的上传、下载、公开 URL 生成（`getAttachmentPath` / `uploadFile` / `getFileUrl`）。
   - `storageManager.setBackend()` 切换的是附件的落盘位置。
 
 - **`src/utils/sync/` —— 跨设备同步引擎（SyncEngine）**
-  - 负责"多设备之间如何保持一致"：支持 `webdav`、`supabase` 两种同步后端。
-  - 以**分类增量 + manifest 版本比较**方式推送/拉取完整业务数据（任务、便签、习惯等），处理冲突。
+  - 负责"多设备之间如何保持一致"：自 v1.1.0 起只支持 `webdav` 一种同步后端（内置坚果云预设，也可填自定义 WebDAV 地址）；旧版 Supabase / 自建 HTTP 配置在启动时仅提示改用 WebDAV（`legacyBackends.ts`）。
+  - 以**分类增量 + manifest 版本比较**方式推送/拉取完整业务数据（任务、便签、习惯等）。
+  - 同步时机：启动、窗口关闭/退出前、每 5 分钟；编辑停止约 30 秒后防抖上传，离线时记录脏分类，联网后补传。
+  - 冲突：上传前比对远端 ETag / Last-Modified（`conflict.ts`），若自上次同步后被改动则不上传，远端与本地副本另存为带时间戳的本地备份（`backups/conflicts/`），由用户选择保留哪份。
+  - 本地备份：每天自动快照到应用数据目录 `backups/daily/`，保留最近 14 份（`localSnapshots.ts` + Rust `backup.rs`）；导出与快照都会剥离密钥字段。
   - `syncEngine.setBackend()` 切换的是跨设备同步通道。
 
-> 注意：两层都支持 `webdav` / `supabase`，但**用途不同**——前者是附件存储位置，后者是数据同步通道，二者在 `SettingsView` 中是独立的两组配置，互不影响。修改其中一组不会自动改写另一组。
+> 注意：两层都支持 `webdav`，但**用途不同**——前者是附件存储位置，后者是数据同步通道，二者在 `SettingsView` 中是独立的两组配置，互不影响。修改其中一组不会自动改写另一组。
 
 ## 快捷键
 
@@ -242,7 +245,9 @@ Tauri 提供了插件系统，可以扩展应用功能：
 - Linux：通过 `.deb`、`.AppImage` 分发
 
 ### 自动更新
-Tauri 支持自动更新功能，可以配置更新服务器。
+- 端点：`https://github.com/dangzhuotong/tongyun-planner/releases/latest/download/latest.json`
+- `tauri-plugin-updater` 只支持一把 minisign 公钥。v1.1.0 公钥为 `5D75A341756FAA3F`，与 v1.0 的 `2EF518C56CBB4006` 不同，因此 **v1.0 → v1.1 不能走应用内更新**。
+- 签名私钥只存放在 GitHub Secrets `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`，不要写入仓库。
 
 ## 未来规划
 

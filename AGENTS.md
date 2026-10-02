@@ -10,7 +10,7 @@
 - **技术栈**：
   - 前端：React 19 + TypeScript + Vite 7 + Tailwind CSS 4 + Framer Motion + Lucide React
   - 桌面宿主：Tauri 2 + Rust（Tauri Plugin Updater, Process, SQL, Store, Opener）
-  - 存储：SQLite 领域数据库（增量写入） + localStorage 兼容降级 + WebDAV / 自建 HTTP / Supabase 云同步
+  - 存储：SQLite 领域数据库（增量写入） + localStorage 兼容降级 + WebDAV 云同步（内置坚果云预设）
 
 ---
 
@@ -46,7 +46,7 @@
 - `config`（应用个性化与 AI 配置）
 
 ### ② 永远整包读写与逻辑时钟
-- 无论 WebDAV、自建 HTTP 还是 Supabase，**严禁半截 PATCH**，必须全量读出 → 变更 → 全量写入。
+- WebDAV 同步**严禁半截 PATCH**，必须全量读出 → 变更 → 全量写入。
 - 采用毫秒级逻辑时钟（`Date.now()`）作为版本标记，解决跨端冲突。
 
 ### ③ 敏感凭据绝对隔离（安全底线）

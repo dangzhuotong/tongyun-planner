@@ -1,7 +1,6 @@
 import type { StorageProvider, StorageBackendType } from "./types";
 import { LocalStorageProvider } from "./localProvider";
 import { WebDAVStorageProvider } from "./webdavProvider";
-import { SupabaseStorageProvider } from "./supabaseProvider";
 
 export type StorageStatus = "idle" | "busy" | "error";
 export type StorageListener = (current: StorageBackendType) => void;
@@ -16,24 +15,25 @@ export class StorageManager {
 
   readonly local: LocalStorageProvider;
   readonly webdav: WebDAVStorageProvider;
-  readonly supabase: SupabaseStorageProvider;
 
   constructor() {
     this.local = new LocalStorageProvider();
     this.webdav = new WebDAVStorageProvider();
-    this.supabase = new SupabaseStorageProvider();
 
     this.providers.set("local", this.local);
     this.providers.set("webdav", this.webdav);
-    this.providers.set("supabase", this.supabase);
 
     this.loadPreference();
   }
 
   private loadPreference(): void {
-    const saved = localStorage.getItem(STORAGE_KEY) as StorageBackendType | null;
-    if (saved && this.providers.has(saved)) {
-      this._current = saved;
+    const saved = localStorage.getItem(STORAGE_KEY) as string | null;
+    if (saved === "supabase") {
+      this._current = "local";
+    } else if (saved && this.providers.has(saved as StorageBackendType)) {
+      this._current = saved as StorageBackendType;
+    } else {
+      this._current = "local";
     }
   }
 

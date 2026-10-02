@@ -19,7 +19,6 @@
     "release": "node scripts/release.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2.4.0",

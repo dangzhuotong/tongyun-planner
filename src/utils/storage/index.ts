@@ -1,7 +1,6 @@
 export type {
   StorageProvider,
   StorageBackendType,
-  SupabaseStorageConfig,
 } from "./types";
 
 export {
@@ -17,4 +16,3 @@ export type { StorageStatus, StorageListener } from "./manager";
 
 export { LocalStorageProvider } from "./localProvider";
 export { WebDAVStorageProvider } from "./webdavProvider";
-export { SupabaseStorageProvider } from "./supabaseProvider";
