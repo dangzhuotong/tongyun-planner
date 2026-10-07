@@ -14,7 +14,7 @@ function getAllKnownKeys(): string[] {
     'tongyun_journal', 'tongyun_journal_add_todo',
     'tongyun_ai_praise',
     'tongyun_webdav_url', 'tongyun_webdav_user', 'tongyun_webdav_pass',
-    'tongyun_http_sync_url', 'tongyun_http_sync_key', 'tongyun_sync_backend',
+    'tongyun_sync_backend',
     'aero_last_backup_time', 'tongyun_sync_version', 'tongyun_last_updated',
     'tongyun_last_sync_time', 'tongyun_auto_sync',
     // 分类 LWW 版本戳：缺失会导致空本地盖掉远端
@@ -32,10 +32,12 @@ function getAllKnownKeys(): string[] {
     'tongyun_recollect_prose',
     // 日历 & 白噪音
     'tongyun_timeblocks', 'tongyun_visible_noises',
-    // 邮件 & Supabase 云端
+    // 邮件
     'tongyun_email_config',
-    'tongyun_supabase_url', 'tongyun_supabase_anon_key', 'tongyun_supabase_user_id',
     'tongyun_storage_backend',
+    // 旧版同步后端（仅用于 v1.1.0 迁移提示检测）
+    'tongyun_supabase_url', 'tongyun_supabase_anon_key', 'tongyun_supabase_user_id',
+    'tongyun_http_sync_url', 'tongyun_http_sync_key',
     // 分析 & 快速任务
     'tongyun_daily_goal', 'tongyun_analytics_report', 'tongyun_last_quick_category',
     // 习惯打卡

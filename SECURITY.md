@@ -4,9 +4,10 @@
 
 | 版本 | 支持状态 |
 | --- | --- |
-| 1.0.x | 当前发布版 |
-| 0.2.x | 请升级到 1.0.x |
-| 0.1.x | 请升级到 1.0.x |
+| 1.1.x | 当前发布版 |
+| 1.0.x | 请升级到 1.1.x（需手动安装，应用内更新不可用） |
+| 0.2.x | 请升级到 1.1.x |
+| 0.1.x | 请升级到 1.1.x |
 
 ## 报告漏洞
 
@@ -16,7 +17,7 @@
 请不要在公开的 Issue 中报告安全漏洞。
 
 ### 2. 私下报告
-请使用 GitHub 的 [Security advisory](https://github.com/yibingzhi/tongyun-planner/security/advisories/new)（若入口不可用，可开 Issue 并标明不要公开细节，或在 Issue 里说明你希望私下沟通）。请包含：
+请使用 GitHub 的 [Security advisory](https://github.com/dangzhuotong/tongyun-planner/security/advisories/new)（若入口不可用，可开 Issue 并标明不要公开细节，或在 Issue 里说明你希望私下沟通）。请包含：
 - 漏洞描述
 - 重现步骤
 - 影响范围
@@ -152,7 +153,7 @@
 - 安全培训教育
 
 ### 联系方式
-- GitHub：[Security advisories](https://github.com/yibingzhi/tongyun-planner/security/advisories) / [Issues](https://github.com/yibingzhi/tongyun-planner/issues)
+- GitHub：[Security advisories](https://github.com/dangzhuotong/tongyun-planner/security/advisories) / [Issues](https://github.com/dangzhuotong/tongyun-planner/issues)
 - 没有独立安全邮箱。
 
 ## 安全认证

@@ -27,7 +27,20 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({
 }) => {
   const { t } = useTranslation();
   const s = t.settings;
-  const [subTab, setSubTab] = useState<"personalization" | "ai" | "sunset" | "sync" | "system" | "fun" | "email">("personalization");
+  const [subTab, setSubTab] = useState<"personalization" | "ai" | "sunset" | "sync" | "system" | "fun" | "email">(() => {
+    if (typeof sessionStorage !== "undefined") {
+      const initial = sessionStorage.getItem("tongyun_settings_initial_tab");
+      const validTabs = ["personalization", "ai", "sunset", "sync", "system", "fun", "email"];
+      if (initial && validTabs.includes(initial)) {
+        return initial as any;
+      }
+    }
+    return "personalization";
+  });
+  // 一次性跳转参数：读取后在 effect 中清除（初始化函数在 StrictMode 下可能执行两次，不在其中产生副作用）
+  useEffect(() => {
+    if (typeof sessionStorage !== "undefined") sessionStorage.removeItem("tongyun_settings_initial_tab");
+  }, []);
   const [searchQuery, setSearchQuery] = useState("");
   const [toasts, setToasts] = useState<Array<{ id: number; text: string; type: "success" | "error" }>>([]);
   const toastIdRef = useRef(0);

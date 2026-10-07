@@ -25,6 +25,8 @@ const MemoryView = React.lazy(() => import("./components/MemoryView").then((m) =
 import type { Update } from "@tauri-apps/plugin-updater";
 import { UpdateModal } from "./components/UpdateModal";
 import { checkForAppUpdate } from "./utils/updater";
+import { LegacySyncNotice } from "./components/sync/LegacySyncNotice";
+import { detectLegacySyncBackend } from "./utils/sync/legacyBackends";
 
 const viewFallback = (
   <div className="flex-grow flex items-center justify-center text-slate-400 text-sm py-20">
@@ -45,19 +47,33 @@ import { useHabits } from "./hooks/useHabits";
 import { useDebouncedPersistence } from "./hooks/useDebouncedPersistence";
 import type { JournalEntry } from "./types";
 import { useSync } from "./hooks/useSync";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { PomodoroContext } from "./context/PomodoroContext";
 import { PersonalProvider, usePersonal } from "./context/PersonalContext";
 import { createId } from "./utils/id";
 import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
-import { SYNC_APPLIED_EVENT, bumpSyncVersion, bumpCategoryVersion, dedupeActiveTasks, type SyncCategory, type SyncData } from "./utils/sync/types";
+import { SYNC_APPLIED_EVENT, bumpSyncVersion, bumpCategoryVersion, dedupeActiveTasks, withLocalSecrets, type SyncCategory, type SyncData, type SyncConflict } from "./utils/sync/types";
 import { beginSyncApply, endSyncApply, isSyncApplying } from "./utils/sync/syncApplyGuard";
 import { canUseAI } from "./utils/aiEngine";
 import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
 import { useDueNotifications } from "./hooks/useDueNotifications";
 import { useCrossWindowSync } from "./hooks/useCrossWindowSync";
 import { useStoreInit } from "./hooks/useStoreInit";
+import { SyncConflictModal } from "./components/sync/SyncConflictModal";
+import { ensureDailySnapshot } from "./utils/sync/localSnapshots";
+
+/** 当前 webview 是否为主窗口（同步调度 / 退出刷盘只允许主窗口执行，避免挂件、便签窗口重复同步或抢先退出） */
+function isMainWebview(): boolean {
+  if (typeof window === "undefined" || !(window as any).__TAURI_INTERNALS__) return true;
+  try {
+    return getCurrentWebviewWindow().label === "main";
+  } catch {
+    return false;
+  }
+}
 
 function AppInner() {
   return (
@@ -90,6 +106,16 @@ function AppBody() {
   const isFirstLoad = useRef(true);
   const isRestoringRef = useRef(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>(() => syncEngine.conflicts);
+  const [conflictDismissedKey, setConflictDismissedKey] = useState<string | null>(null);
+
+  const conflictSetKey = useMemo(() => {
+    if (syncConflicts.length === 0) return "";
+    return syncConflicts
+      .map((c) => `${c.category}:${c.remoteFingerprint || c.remoteManifestVersion}`)
+      .sort()
+      .join("|");
+  }, [syncConflicts]);
 
   const [celebrationMessage, setCelebrationMessage] = useState<string | null>(null);
   const [deleteUndoToast, setDeleteUndoToast] = useState<string | null>(null);
@@ -267,7 +293,7 @@ function AppBody() {
     const timer = setTimeout(async () => {
       try {
         const update = await checkForAppUpdate();
-        if (update && update.available) {
+        if (update) {
           setActiveUpdate(update);
         }
       } catch (err) {
@@ -275,6 +301,28 @@ function AppBody() {
       }
     }, 3000);
     return () => clearTimeout(timer);
+  }, []);
+
+  // ============ 旧版同步后端迁移提醒 ============
+  // hydration 完成后（本地设置已从 Store 恢复）才检测，只在主窗口提示一次
+  const legacySyncBackend = useMemo(() => {
+    if (!isHydrated || !isMainWebview()) return null;
+    try {
+      return detectLegacySyncBackend();
+    } catch (err) {
+      console.warn("[App] Legacy sync backend check failed:", err);
+      return null;
+    }
+  }, [isHydrated]);
+  const [legacyNoticeDismissed, setLegacyNoticeDismissed] = useState(false);
+  const showLegacySyncNotice = legacySyncBackend !== null && !legacyNoticeDismissed;
+
+  const handleGoSettingsFromNotice = useCallback(() => {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem("tongyun_settings_initial_tab", "sync");
+    }
+    setActiveTab("settings");
+    setFlowMode(false);
   }, []);
 
   // ============ AI Confirm Tasks ============
@@ -357,11 +405,9 @@ function AppBody() {
       setJournal(data.journal || []);
       localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
       if (data.customizationConfig) {
-        customizationHook.setCustomizationConfig((prev) => ({
-          ...data.customizationConfig!,
-          aiApiKey: prev?.aiApiKey || "",
-          providerApiKeys: prev?.providerApiKeys || {},
-        }));
+        customizationHook.setCustomizationConfig((prev) =>
+          withLocalSecrets(data.customizationConfig!, prev)
+        );
       }
     } finally {
       endSyncApply();
@@ -382,9 +428,10 @@ function AppBody() {
   useEffect(() => {
     return syncEngine.subscribe((state) => {
       if (state.status === "syncing") setSyncStatus("syncing");
-      else if (state.status === "error") setSyncStatus("error");
+      else if (state.status === "error" || state.status === "conflict" || state.status === "offline") setSyncStatus("error");
       else if (state.status === "success") setSyncStatus("synced");
       if (state.lastSyncTime) setLastBackupTime(state.lastSyncTime);
+      setSyncConflicts(state.conflicts || []);
     });
   }, []);
 
@@ -442,31 +489,74 @@ function AppBody() {
     }
   }, [isHydrated, tasksHook.tasks, tasksHook.completedTasks, notesHook.stickyNotes, customizationHook.customizationConfig, pomodoroHook.pomodoroLogs, countdownHook.countdowns]);
 
-  // 初始化 syncEngine 自动同步开关
+  // 自动同步开关（仅 main 窗口）
   useEffect(() => {
-    if (!isHydrated) return;
-    const interval = (customizationHook.customizationConfig.syncInterval || 60) * 1000;
-    syncEngine.setAutoSync(customizationHook.customizationConfig.enableAutoBackup !== false, interval);
-  }, [isHydrated, customizationHook.customizationConfig.enableAutoBackup, customizationHook.customizationConfig.syncInterval]);
+    if (!isHydrated || !isMainWebview()) return;
+    syncEngine.setAutoSync(customizationHook.customizationConfig.enableAutoBackup !== false);
+    return () => {
+      syncEngine.setAutoSync(false);
+    };
+  }, [isHydrated, customizationHook.customizationConfig.enableAutoBackup]);
 
   useEffect(() => {
     isFirstLoad.current = false;
   }, []);
 
-  // 启动时与定期从云端拉取
+  // 启动时从云端同步（仅 main 窗口）
   useEffect(() => {
-    if (!isHydrated || customizationHook.customizationConfig.enableAutoBackup === false) return;
+    if (!isHydrated || !isMainWebview() || customizationHook.customizationConfig.enableAutoBackup === false) return;
     if (!syncEngine.isConfigured()) return;
     const timer = setTimeout(() => syncEngine.sync(), 3000);
     return () => clearTimeout(timer);
   }, [isHydrated, customizationHook.customizationConfig.enableAutoBackup]);
 
+  // 每日本地自动快照（仅 main 窗口）：启动后稍候检查一次，之后每小时检查（跨过午夜也能补上当天快照），保留最近 14 份
   useEffect(() => {
-    if (!isHydrated || customizationHook.customizationConfig.enableAutoBackup === false) return;
-    if (!syncEngine.isConfigured()) return;
-    const interval = setInterval(() => syncEngine.sync(), 300000);
-    return () => clearInterval(interval);
-  }, [isHydrated, customizationHook.customizationConfig.enableAutoBackup]);
+    if (!isHydrated || !isMainWebview()) return;
+    const run = () => { void ensureDailySnapshot(); };
+    const timer = setTimeout(run, 10000);
+    const interval = setInterval(run, 60 * 60 * 1000);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [isHydrated]);
+
+  // 监听 Tauri 窗口隐藏及退出事件（仅 main 窗口）
+  useEffect(() => {
+    if (typeof window === "undefined" || !(window as any).__TAURI_INTERNALS__) return;
+    // listen() 默认接收所有目标的事件，因此必须按真实窗口 label 过滤，只让主窗口处理
+    if (!isMainWebview()) return;
+
+    let cancelled = false;
+    const unlisteners: Array<() => void> = [];
+    const keep = (fn: () => void) => {
+      // effect 已清理（如 StrictMode 二次挂载）时立即注销，避免重复监听
+      if (cancelled) fn();
+      else unlisteners.push(fn);
+    };
+
+    listen("tongyun-main-hidden", () => {
+      syncEngine.flush(8000);
+    }).then(keep).catch(() => {});
+
+    listen("tongyun-quit-requested", async () => {
+      try {
+        await syncEngine.flush(6000);
+      } finally {
+        try {
+          await invoke("app_quit_ready");
+        } catch (e) {
+          console.error("[App] app_quit_ready failed:", e);
+        }
+      }
+    }).then(keep).catch(() => {});
+
+    return () => {
+      cancelled = true;
+      unlisteners.forEach((fn) => fn());
+    };
+  }, []);
 
   // Add task with AI auto-categorize
   const handleAddTaskWithAI = useCallback(async (taskData: {
@@ -666,6 +756,23 @@ function AppBody() {
           }}
         />
       )}
+      {showLegacySyncNotice && (
+        <LegacySyncNotice
+          onClose={() => setLegacyNoticeDismissed(true)}
+          onGoSettings={handleGoSettingsFromNotice}
+        />
+      )}
+      {syncEngine.status === "conflict" &&
+        syncConflicts.length > 0 &&
+        conflictDismissedKey !== conflictSetKey && (
+          <SyncConflictModal
+            conflicts={syncConflicts}
+            onResolve={async (choice) => {
+              await syncEngine.resolveConflicts(choice);
+            }}
+            onClose={() => setConflictDismissedKey(conflictSetKey)}
+          />
+        )}
     </PomodoroContext.Provider>
   );
 }
