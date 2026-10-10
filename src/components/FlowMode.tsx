@@ -49,7 +49,7 @@ export const FlowMode: React.FC<FlowModeProps> = ({
 
   if (!currentTask && queue.length > 0) {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#FAF8F5] flex flex-col items-center justify-center animate-fade-in-up">
+      <div className="fixed inset-0 z-[100] bg-[#FAF8F5] flex flex-col items-center justify-center animate-fade-in-up main-window-root">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 rounded-2xl bg-[#F0F5F1] flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8 text-[#4D7C5D]" />
@@ -66,7 +66,7 @@ export const FlowMode: React.FC<FlowModeProps> = ({
 
   if (!currentTask) {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#FAF8F5] flex flex-col items-center justify-center animate-fade-in-up">
+      <div className="fixed inset-0 z-[100] bg-[#FAF8F5] flex flex-col items-center justify-center animate-fade-in-up main-window-root">
         <div className="text-center space-y-4">
           <span className="text-5xl block">🌿</span>
           <h2 className="text-xl font-bold text-slate-400">今天没有待办任务</h2>
@@ -99,7 +99,7 @@ export const FlowMode: React.FC<FlowModeProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#FAF8F5] flex flex-col animate-fade-in-up select-none">
+    <div className="fixed inset-0 z-[100] bg-[#FAF8F5] flex flex-col animate-fade-in-up select-none main-window-root">
       <div className="flex items-center justify-between px-8 py-5 border-b border-[#EFEBE4]">
         <div className="flex items-center gap-3 text-sm font-bold text-slate-400">
           <ListTodo className="w-4 h-4" />

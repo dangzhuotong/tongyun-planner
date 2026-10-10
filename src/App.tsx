@@ -1088,7 +1088,7 @@ const MainLayout = React.memo(function MainLayout({
         />
         </React.Suspense>
       ) : (
-        <div className={`w-full h-full min-h-screen bg-[#FAFAF8] text-[#2D323A] flex flex-col select-none overflow-hidden relative theme-font-${fontFamily || "sans"}`}>
+        <div className={`w-full h-full min-h-screen bg-[#FAFAF8] text-[#2D323A] flex flex-col select-none overflow-hidden relative theme-font-${fontFamily || "sans"} main-window-root`}>
       <TitleBar />
       <div className="flex flex-grow min-h-0 relative">
         <Sidebar

@@ -28,6 +28,7 @@ import { StickyPin } from "./StickyPin";
 import { useTranslation } from "../i18n/LanguageContext";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
+import { shouldStartDrag } from "../utils/dragTarget";
 
 interface WidgetWindowProps {
   tasks: Task[];
@@ -363,17 +364,40 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 挂件窗口穿透状态同步：锁定时穿透（不可拖），解锁后恢复不穿透（可正常拖动）
+  useEffect(() => {
+    try {
+      getCurrentWebviewWindow().setIgnoreCursorEvents(isWidgetLocked).catch(() => {});
+    } catch {
+      /* 非 Tauri 环境忽略 */
+    }
+  }, [isWidgetLocked]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isWidgetLocked) return;
+    // 自身带 data-tauri-drag-region 的元素交给 Tauri 内置拖动，避免重复 startDragging
+    const t = e.target as Element | null;
+    if (t && typeof t.hasAttribute === "function" && t.hasAttribute("data-tauri-drag-region")) return;
+    if (e.button === 0 && shouldStartDrag(e.target)) {
+      try {
+        getCurrentWebviewWindow().startDragging().catch(() => {});
+      } catch {
+        /* 非 Tauri 环境或取消拖动 */
+      }
+    }
+  };
+
   return (
     <div
-      
-      className={`w-full h-full p-4 flex flex-col justify-between items-center rounded-2xl glassmorphism-dark text-[#2D323A] border border-[#EFEBE4] select-none overflow-hidden glow-card cursor-move transition-all duration-500 ${
+      onMouseDown={handleMouseDown}
+      className={`widget-window-root w-full h-full p-4 flex flex-col justify-between items-center rounded-2xl glassmorphism-dark text-[#2D323A] border border-[#EFEBE4] select-none overflow-hidden glow-card cursor-move transition-all duration-500 pointer-events-auto ${
         isWidgetLocked 
           ? "opacity-45 hover:opacity-90 theme-glass-solid ring-1 ring-[#8B6E3C]/20" 
           : `theme-glass-${customizationConfig?.interfaceGlass || "matte"}`
       } theme-font-${customizationConfig?.fontFamily || "sans"}`}
     >
       {/* 顶部标题栏 */}
-      <div className="w-full flex items-center justify-between pb-2 border-b border-slate-200 pointer-events-auto">
+      <div data-tauri-drag-region className="w-full flex items-center justify-between pb-2 border-b border-slate-200 pointer-events-auto">
         <div data-tauri-drag-region className="flex items-center gap-1.5 flex-grow cursor-move">
           <BookOpen className="w-3.5 h-3.5 text-[#8B6E3C]" />
           <span
@@ -404,6 +428,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
             </span>
           )}
           <button
+            data-no-drag
             onClick={(e) => { e.stopPropagation(); toggleSplit(); }}
             onPointerDown={(e) => e.stopPropagation()}
             className={`p-1 rounded-lg transition-all cursor-pointer text-[9px] font-extrabold ${
@@ -416,6 +441,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
             ⊞
           </button>
           <button
+            data-no-drag
             onClick={() => handleToggleWidgetLock()}
             onPointerDown={(e) => e.stopPropagation()}
             className={`p-1 rounded-lg transition-all cursor-pointer ${
