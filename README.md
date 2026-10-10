@@ -73,7 +73,14 @@
 | macOS Universal | `TongyunPlanner_*_universal.dmg` |
 | Linux | `.AppImage` 或 `.deb` |
 
-安装包**未做代码签名**。Windows 可能出现 SmartScreen：「更多信息 → 仍要运行」。macOS 请右键安装包 / 应用选择「打开」；若提示已损坏，可在终端执行 `xattr -cr /Applications/TongyunPlanner.app`。
+安装包**未做代码签名**。Windows 可能出现 SmartScreen：「更多信息 → 仍要运行」。macOS 首次打开说明见下文。
+
+### macOS 首次打开
+
+说明：安装包没有 Apple 签名和公证，所以 macOS 首次打开会提示「Apple 无法验证 TongyunPlanner…」。三种解决办法：
+1. 系统设置 → 隐私与安全性 → 往下找到提示，点「仍要打开」；
+2. 在「应用程序」里右键点 App，选「打开」，再确认一次；
+3. 终端执行：`xattr -dr com.apple.quarantine /Applications/TongyunPlanner.app`
 
 **从 v1.0 升级：** 请下载并安装 v1.1.0。更新公钥已更换，v1.0 无法通过应用内更新升到 v1.1。装好 v1.1 之后，后续版本会自动提示更新。
 

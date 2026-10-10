@@ -75,10 +75,13 @@ jobs:
             - macOS 选 *_universal.dmg（Apple Silicon 与 Intel 通用）
             - Linux 选 .AppImage 或 .deb
 
-            > **macOS 提示**：若打开提示「文件已损坏」或无法打开，请在终端执行解除隔离属性：
-            > `xattr -cr /Applications/TongyunPlanner.app`
-
             已安装 v1.1.0 及以上版本会自动提示更新。v1.0.x 因更新公钥更换，无法应用内升级，请手动下载安装一次。
+
+            ### macOS 首次打开
+            说明：安装包没有 Apple 签名和公证，所以 macOS 首次打开会提示「Apple 无法验证 TongyunPlanner…」。三种解决办法：
+            1. 系统设置 → 隐私与安全性 → 往下找到提示，点「仍要打开」；
+            2. 在「应用程序」里右键点 App，选「打开」，再确认一次；
+            3. 终端执行：`xattr -dr com.apple.quarantine /Applications/TongyunPlanner.app`
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args || '' }}
