@@ -96,6 +96,7 @@ export const RSSView: React.FC<RSSViewProps> = ({ searchQuery, onOpenArticle, is
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 选中源切换时拉取对应 RSS 文章数据
     if (selectedFeed) loadFeedArticles(selectedFeed);
   }, [selectedFeed, loadFeedArticles]);
 

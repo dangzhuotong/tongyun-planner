@@ -273,7 +273,7 @@ export class WebDAVProvider implements SyncProvider {
       await ensureDir(this.config, REMOTE_DIR);
       await uploadFile(this.config, REMOTE_DIR + "tongyun_planner_test.txt", "ok");
       return true;
-    } catch (_e) { return false; }
+    } catch { return false; }
   }
 
   async statFile(filename: string): Promise<{ exists: boolean; etag: string | null; lastModified: string | null }> {
@@ -628,7 +628,7 @@ export class WebDAVProvider implements SyncProvider {
     if (!json) return null;
     try {
       return JSON.parse(json) as SyncManifest;
-    } catch (_e) {
+    } catch {
       return null;
     }
   }
@@ -645,6 +645,6 @@ export class WebDAVProvider implements SyncProvider {
     try {
       const text = await downloadFile(this.config, "tongyun_planner_version.txt");
       return parseInt(text.trim(), 10);
-    } catch (_e) { return null; }
+    } catch { return null; }
   }
 }

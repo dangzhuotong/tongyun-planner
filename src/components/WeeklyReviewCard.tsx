@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { Sparkles, TrendingUp, Clock, BookOpen, CheckCircle2 } from "lucide-react";
 import type { Task, PomodoroLog, JournalEntry, CustomizationConfig } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
@@ -28,16 +28,16 @@ function getWeekRange(): { start: string; end: string } {
   };
 }
 
-export const WeeklyReviewCard: React.FC<WeeklyReviewCardProps> = ({
+const WeeklyReviewCardInner: React.FC<WeeklyReviewCardProps & { today: string; localeKey: string }> = ({
   config,
   completedTasks,
   pomodoroLogs,
   journal,
+  today,
+  localeKey,
 }) => {
   const { locale } = useTranslation();
   const isZh = locale === "zh-CN";
-  const localeKey = config.locale || "zh-CN";
-  const today = getLocalDateString();
   const { start, end } = getWeekRange();
 
   const [review, setReview] = useState<string | null>(() =>
@@ -110,12 +110,6 @@ export const WeeklyReviewCard: React.FC<WeeklyReviewCardProps> = ({
     setLoading(false);
   };
 
-  useEffect(() => {
-    const cached = readDailyCache<string>(CACHE_KEY, today, localeKey);
-    setReview(cached ?? null);
-    setError(false);
-  }, [today, localeKey]);
-
   return (
     <div className="rounded-2xl bg-white/80 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-4.5 shadow-2xs">
       <div className="flex items-center justify-between mb-3">
@@ -186,4 +180,10 @@ export const WeeklyReviewCard: React.FC<WeeklyReviewCardProps> = ({
       </div>
     </div>
   );
+};
+
+export const WeeklyReviewCard: React.FC<WeeklyReviewCardProps> = (props) => {
+  const today = getLocalDateString();
+  const localeKey = props.config.locale || "zh-CN";
+  return <WeeklyReviewCardInner key={`${today}-${localeKey}`} today={today} localeKey={localeKey} {...props} />;
 };

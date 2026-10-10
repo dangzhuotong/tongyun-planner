@@ -360,7 +360,7 @@ function AppBody() {
       try {
         const stored = localStorage.getItem("tongyun_ai_praise");
         if (stored) aiPool = safeJsonParse(stored, []);
-      } catch (_) { /* ignore parse error */ }
+      } catch { /* ignore parse error */ }
       const pool = [...fixedPool, ...aiPool];
       setCelebrationMessage(pool[Math.floor(Math.random() * pool.length)]);
     }

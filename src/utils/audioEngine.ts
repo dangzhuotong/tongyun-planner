@@ -94,7 +94,7 @@ export class AudioEngine {
     if (this.source) {
       try {
         this.source.stop();
-      } catch (e) {
+      } catch {
         // Ignored
       }
       this.source.disconnect();
@@ -103,7 +103,7 @@ export class AudioEngine {
     if (this.lfo) {
       try {
         this.lfo.stop();
-      } catch (e) {
+      } catch {
         // Ignored
       }
       this.lfo.disconnect();
@@ -491,7 +491,7 @@ export class AudioEngine {
       try {
         gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime);
         gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
-      } catch (e) {
+      } catch {
         // Fallback if AudioContext is state issues
       }
 
@@ -505,21 +505,21 @@ export class AudioEngine {
 
         try {
           sourceNode?.stop();
-        } catch (e) {
+        } catch {
           // Ignored
         }
         sourceNode?.disconnect();
 
         try {
           lfoNode?.stop();
-        } catch (e) {
+        } catch {
           // Ignored
         }
         lfoNode?.disconnect();
 
         try {
           gainNode.disconnect();
-        } catch (e) {
+        } catch {
           // Ignored
         }
 
@@ -743,7 +743,7 @@ export class AudioEngine {
 
       noise.start(now);
       noise.stop(now + 0.12);
-    } catch (e) {
+    } catch {
       // Ignored
     }
   }
@@ -776,7 +776,7 @@ export class AudioEngine {
       gain2.connect(ctx.destination);
       osc2.start(now + 0.03);
       osc2.stop(now + 0.08);
-    } catch (e) {
+    } catch {
       // Ignored
     }
   }
@@ -799,7 +799,7 @@ export class AudioEngine {
       gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + 0.09);
-    } catch (e) {
+    } catch {
       // Ignored
     }
   }

@@ -42,6 +42,7 @@ export const GitHubView: React.FC<GitHubViewProps> = ({ config, actions }) => {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 周期切换或初次挂载时拉取 GitHub 趋势数据
     fetchGitHubTrending(githubPeriod);
   }, [githubPeriod, fetchGitHubTrending]);
 
