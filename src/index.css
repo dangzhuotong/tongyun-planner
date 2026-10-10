@@ -20,6 +20,34 @@ html.transparent-window body {
   background-color: transparent !important;
 }
 
+/* ==========================================================================
+   macOS 窗口圆角
+   主窗口只在 macOS 配置为透明（src-tauri/tauri.macos.conf.json + macOSPrivateApi），
+   挂件本来就是透明窗口。macOS 下由根容器画 12px 圆角并裁切；
+   Windows / Linux 不加 platform-macos，外观保持原样。
+   ========================================================================== */
+html.platform-macos,
+html.platform-macos body {
+  background-color: transparent !important;
+}
+
+html.platform-macos .main-window-root {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+html.platform-macos .widget-window-root {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+html.dark.platform-macos .main-window-root,
+html.dark.platform-macos .widget-window-root {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
 /* 优雅精致的现代自定义滚动条 */
 ::-webkit-scrollbar {
   width: 5px;
