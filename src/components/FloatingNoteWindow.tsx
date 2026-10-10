@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 import { NOTE_COLORS } from "./noteThemes";
 import { StickyPin } from "./StickyPin";
@@ -13,9 +13,32 @@ interface FloatingNoteWindowProps {
 
 export const FloatingNoteWindow: React.FC<FloatingNoteWindowProps> = ({ noteId }) => {
   const { t } = useTranslation(); const fn = t.floatingNote;
-  const [text, setText] = useState("");
-  const [color, setColor] = useState("tea");
-  const [pinType, setPinType] = useState<"pin" | "tape" | "clip" | "heart" | "smiley">("pin");
+  const [text, setText] = useState(() => {
+    const localNotes = localStorage.getItem("aero_sticky_notes");
+    if (localNotes) {
+      const notes = safeJsonParse<any[]>(localNotes, []);
+      const currentNote = notes.find((n: any) => n.id === noteId);
+      if (currentNote) return currentNote.text || "";
+    }
+    return "";
+  });
+  const [color, setColor] = useState(() => {
+    const localNotes = localStorage.getItem("aero_sticky_notes");
+    if (localNotes) {
+      const notes = safeJsonParse<any[]>(localNotes, []);
+      const currentNote = notes.find((n: any) => n.id === noteId);
+      if (currentNote) return currentNote.color || "tea";
+    }
+    return "tea";
+  });
+  const [pinType, setPinType] = useState<"pin" | "tape" | "clip" | "heart" | "smiley">(() => {
+    const localConfig = localStorage.getItem("aero_customization_config");
+    if (localConfig) {
+      const config = safeJsonParse<any>(localConfig, {});
+      if (config.pinType) return config.pinType;
+    }
+    return "pin";
+  });
   const [darkMode, setDarkMode] = useState<string>(() => {
     try {
       const raw = localStorage.getItem("aero_customization_config");
@@ -59,29 +82,8 @@ export const FloatingNoteWindow: React.FC<FloatingNoteWindowProps> = ({ noteId }
     });
   };
 
-  // Load initial data from localStorage
-  useEffect(() => {
-    const localNotes = localStorage.getItem("aero_sticky_notes");
-    if (localNotes) {
-      const notes = safeJsonParse<any[]>(localNotes, []);
-        const currentNote = notes.find((n: any) => n.id === noteId);
-        if (currentNote) {
-          setText(currentNote.text);
-          setColor(currentNote.color);
-        }
-    }
-
-    const localConfig = localStorage.getItem("aero_customization_config");
-    if (localConfig) {
-      const config = safeJsonParse<any>(localConfig, {});
-      if (config.pinType) {
-        setPinType(config.pinType);
-      }
-    }
-  }, [noteId]);
-
   // Sync state between windows
-  const syncState = async (action: string, title: string) => {
+  const syncState = useCallback(async (action: string, title: string) => {
     try {
       await invoke("sync_todo_state", {
         payload: {
@@ -97,7 +99,7 @@ export const FloatingNoteWindow: React.FC<FloatingNoteWindowProps> = ({ noteId }
     } catch (e) {
       console.error("Failed to broadcast note sync", e);
     }
-  };
+  }, [noteId]);
 
   const handleTextChange = (newText: string) => {
     setText(newText);

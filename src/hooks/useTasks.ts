@@ -85,7 +85,8 @@ export function useTasks() {
     const completed: Task = { ...task, completedAt: Date.now() };
     let updatedTasks: Task[];
     if (task.repeat && task.repeat !== "none") {
-      const { completedAt: _drop, ...base } = task;
+      const base = { ...task };
+      delete base.completedAt;
       const nextDue = getNextDueDate(task.dueDate, task.repeat);
       updatedTasks = [{ ...base, id: createId("task"), dueDate: nextDue }, ...tasks.filter(t => t.id !== id)];
     } else {
@@ -110,7 +111,8 @@ export function useTasks() {
     });
 
     if (restoredItem) {
-      const { completedAt: _drop, ...restored } = restoredItem;
+      const restored = { ...restoredItem };
+      delete restored.completedAt;
       setTasks((prev) => {
         const updated = [restored, ...prev];
         saveTasks(updated);

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import { Star, Bookmark, Trash2, Clock, Sparkles, PenLine, RefreshCw } from "lucide-react";
 import type { Article, BookmarkedArticle, ReadHistoryEntry } from "./types";
 import type { CustomizationConfig } from "../../types";
@@ -111,11 +111,12 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (subTab === "recollect" && canUseAI(config) && !recollect && !recollectLoading) {
+  const handleSwitchToRecollect = () => {
+    setSubTab("recollect");
+    if (canUseAI(config) && !recollect && !recollectLoading) {
       generateRecollect(false);
     }
-  }, [subTab, canUseAI(config), recollect, recollectLoading]);
+  };
 
   const hasAi = canUseAI(config);
 
@@ -141,7 +142,7 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
             收藏
           </button>
           <button
-            onClick={() => setSubTab("recollect")}
+            onClick={handleSwitchToRecollect}
             className={
               "px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer " +
               (subTab === "recollect"

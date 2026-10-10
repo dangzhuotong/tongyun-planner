@@ -1,11 +1,20 @@
 /// <reference types="vite/client" />
 
+interface ErrorOptions {
+  cause?: unknown;
+}
+
+interface ErrorConstructor {
+  new (message?: string, options?: ErrorOptions): Error;
+  (message?: string, options?: ErrorOptions): Error;
+}
+
 declare module "lunar-javascript" {
-  class Solar {
+  export class Solar {
     static fromYmd(year: number, month: number, day: number): Solar;
     getLunar(): Lunar;
   }
-  class Lunar {
+  export class Lunar {
     getYearInChinese(): string;
     getMonthInChinese(): string;
     getDayInChinese(): string;

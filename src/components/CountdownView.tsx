@@ -99,7 +99,7 @@ function getLunarNextSolarDate(targetDateStr: string): string {
     const m = String(targetDate.getMonth() + 1).padStart(2, "0");
     const d = String(targetDate.getDate()).padStart(2, "0");
     return `${y}-${m}-${d}`;
-  } catch (e) {
+  } catch {
     return targetDateStr;
   }
 }

@@ -30,7 +30,7 @@ async function fetchPlatformData(platform: string): Promise<TrendingItem[]> {
       if ((e.message || "").startsWith("HTTP")) throw e;
       const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
       const proxyRes = await fetch(proxy);
-      if (!proxyRes.ok) throw new Error(`CORS 拦截，代理也失效了`);
+      if (!proxyRes.ok) throw new Error(`CORS 拦截，代理也失效了`, { cause: e });
       return proxyRes.text();
     }
   };
@@ -134,6 +134,7 @@ export const TrendingView: React.FC<{ actions: NewsActions }> = ({ actions }) =>
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 挂载时拉取热议数据并更新各平台状态
     fetchAllPlatforms();
   }, [fetchAllPlatforms]);
 

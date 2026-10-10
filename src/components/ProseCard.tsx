@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Sparkles, PenLine } from "lucide-react";
 import type { Task, CustomizationConfig } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
@@ -13,11 +13,14 @@ interface ProseCardProps {
 
 const PROSE_CACHE_KEY = "tongyun_ai_daily_prose";
 
-export const ProseCard: React.FC<ProseCardProps> = ({ config, tasks }) => {
+const ProseCardInner: React.FC<ProseCardProps & { today: string; localeKey: string }> = ({
+  config,
+  tasks,
+  today,
+  localeKey,
+}) => {
   const { locale } = useTranslation();
   const isZh = locale === "zh-CN";
-  const today = getLocalDateString();
-  const localeKey = config.locale || "zh-CN";
 
   const [prose, setProse] = useState<string | null>(() =>
     readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey)
@@ -54,11 +57,6 @@ export const ProseCard: React.FC<ProseCardProps> = ({ config, tasks }) => {
     }
     setProseLoading(false);
   };
-
-  useEffect(() => {
-    setProse(readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey));
-    setProseError(null);
-  }, [today, localeKey]);
 
   const label = isZh ? "AI 散文" : "AI Prose";
 
@@ -143,4 +141,10 @@ export const ProseCard: React.FC<ProseCardProps> = ({ config, tasks }) => {
       </div>
     </div>
   );
+};
+
+export const ProseCard: React.FC<ProseCardProps> = (props) => {
+  const today = getLocalDateString();
+  const localeKey = props.config.locale || "zh-CN";
+  return <ProseCardInner key={`${today}-${localeKey}`} today={today} localeKey={localeKey} {...props} />;
 };

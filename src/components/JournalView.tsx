@@ -73,79 +73,29 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
   }, [journal]);
 
   const selected = useMemo(() => dailyEntryMap.get(currentDate) || null, [currentDate, dailyEntryMap]);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const handlePickImage = () => fileInputRef.current?.click();
-
-  const handleFileChosen = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-    if (!file.type.startsWith("image/")) return;
-    const storedPath = await saveJournalAttachment(file, createId("att-file"));
-    const att: Attachment = {
-      id: createId("att"),
-      name: file.name,
-      path: storedPath,
-      type: file.type,
-      size: file.size,
-      createdAt: new Date().toISOString(),
-    };
-    commit({ attachments: [...(selected?.attachments || []), att] });
-  };
-
-  const handleImagePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.startsWith("image/")) {
-        e.preventDefault();
-        const file = items[i].getAsFile();
-        if (!file) continue;
-        const storedPath = await saveJournalAttachment(file, createId("att-file"));
-        const att: Attachment = {
-          id: createId("att"),
-          name: file.name || `pasted-${Date.now()}.png`,
-          path: storedPath,
-          type: file.type,
-          size: file.size,
-          createdAt: new Date().toISOString(),
-        };
-        commit({ attachments: [...(selected?.attachments || []), att] });
-        break;
-      }
-    }
-  };
-
-  const handleRemoveImage = (attId: string) => {
-    const existing = selected?.attachments || [];
-    const removed = existing.find((attachment) => attachment.id === attId);
-    commit({ attachments: existing.filter((a) => a.id !== attId) });
-    if (removed) void deleteJournalAttachment(removed.path);
-  };
-
   const viewDate = currentDate;
 
   // 本地草稿，避免每次按键都触发父级重渲染造成的光标跳动
-  const [draftContent, setDraftContent] = useState("");
+  const [draftContent, setDraftContent] = useState(() => selected?.content || "");
+  const [prevSelected, setPrevSelected] = useState(selected);
+  if (selected !== prevSelected) {
+    setPrevSelected(selected);
+    setDraftContent(selected?.content || "");
+    setConfirmDelete(false);
+  }
+
   const draftDirtyRef = useRef(false);
-  const draftContentRef = useRef("");
-  const selectedRef = useRef<JournalEntry | null>(null);
+  const draftContentRef = useRef(draftContent);
+  const selectedRef = useRef<JournalEntry | null>(selected);
   const viewDateRef = useRef(viewDate);
   const onUpsertRef = useRef(onUpsert);
 
-  draftContentRef.current = draftContent;
-  selectedRef.current = selected;
-  viewDateRef.current = viewDate;
-  onUpsertRef.current = onUpsert;
-
   useEffect(() => {
-    setDraftContent(selected?.content || "");
-    draftContentRef.current = selected?.content || "";
-    draftDirtyRef.current = false;
-    setConfirmDelete(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected]);
+    draftContentRef.current = draftContent;
+    selectedRef.current = selected;
+    viewDateRef.current = viewDate;
+    onUpsertRef.current = onUpsert;
+  });
 
   const flushDraft = useCallback(() => {
     if (!draftDirtyRef.current) return;
@@ -193,8 +143,61 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
       ...patch,
       updatedAt: Date.now(),
     };
+    if (next.mood === undefined) {
+      delete next.mood;
+    }
     onUpsert(next);
   }, [selected, onUpsert, viewDate]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handlePickImage = useCallback(() => fileInputRef.current?.click(), []);
+
+  const handleFileChosen = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    if (!file.type.startsWith("image/")) return;
+    const storedPath = await saveJournalAttachment(file, createId("att-file"));
+    const att: Attachment = {
+      id: createId("att"),
+      name: file.name,
+      path: storedPath,
+      type: file.type,
+      size: file.size,
+      createdAt: new Date().toISOString(),
+    };
+    commit({ attachments: [...(selected?.attachments || []), att] });
+  }, [commit, selected?.attachments]);
+
+  const handleImagePaste = useCallback(async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith("image/")) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (!file) continue;
+        const storedPath = await saveJournalAttachment(file, createId("att-file"));
+        const att: Attachment = {
+          id: createId("att"),
+          name: file.name || `pasted-${Date.now()}.png`,
+          path: storedPath,
+          type: file.type,
+          size: file.size,
+          createdAt: new Date().toISOString(),
+        };
+        commit({ attachments: [...(selected?.attachments || []), att] });
+        break;
+      }
+    }
+  }, [commit, selected?.attachments]);
+
+  const handleRemoveImage = useCallback((attId: string) => {
+    const existing = selected?.attachments || [];
+    const removed = existing.find((attachment) => attachment.id === attId);
+    commit({ attachments: existing.filter((a) => a.id !== attId) });
+    if (removed) void deleteJournalAttachment(removed.path);
+  }, [commit, selected?.attachments]);
 
   const handleContentChange = (v: string) => {
     draftDirtyRef.current = true;
@@ -206,29 +209,10 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
     flushDraft();
     setCurrentDate(date);
   }, [flushDraft]);
-  const handleMoodPick = (emoji: string) => {
-    const base = selected || ({
-      id: createId("journal"),
-      linkKey: viewDate,
-      title: viewDate,
-      content: "",
-      date: viewDate,
-      isDaily: true,
-      createdAt: Date.now(),
-    } as JournalEntry);
-    const next: JournalEntry = {
-      ...base,
-      content: draftDirtyRef.current ? draftContentRef.current : base.content,
-      updatedAt: Date.now(),
-    };
-    draftDirtyRef.current = false;
-    if (selected?.mood === emoji) {
-      delete next.mood;
-    } else {
-      next.mood = emoji;
-    }
-    onUpsert(next);
-  };
+
+  const handleMoodPick = useCallback((emoji: string) => {
+    commit({ mood: selected?.mood === emoji ? undefined : emoji });
+  }, [commit, selected?.mood]);
 
   const shiftDate = (delta: number) => {
     const [y, m, d] = currentDate.split("-").map(Number);
