@@ -121,17 +121,17 @@ export interface DueCountdown {
 
 export function getDueDateCountdown(dueDateStr?: string, dueTimeStr?: string): DueCountdown | null {
   if (!dueDateStr) return null;
-  
+
   const parts = dueDateStr.split("-");
   if (parts.length !== 3) return null;
-  
+
   const dueYear = parseInt(parts[0], 10);
   const dueMonth = parseInt(parts[1], 10) - 1;
   const dueDay = parseInt(parts[2], 10);
-  
+
   const due = new Date(dueYear, dueMonth, dueDay);
   const today = new Date();
-  
+
   if (dueTimeStr) {
     const timeParts = dueTimeStr.split(":");
     const hour = parseInt(timeParts[0], 10) || 0;
@@ -139,7 +139,7 @@ export function getDueDateCountdown(dueDateStr?: string, dueTimeStr?: string): D
     due.setHours(hour, min, 0, 0);
     const now = new Date();
     const diffMs = due.getTime() - now.getTime();
-    
+
     if (diffMs < 0) {
       const absDays = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60 * 24));
       return {
@@ -150,7 +150,8 @@ export function getDueDateCountdown(dueDateStr?: string, dueTimeStr?: string): D
       };
     }
     // Same day check via calendar date comparison
-    const isSameDay = dueYear === now.getFullYear() && dueMonth === now.getMonth() && dueDay === now.getDate();
+    const isSameDay =
+      dueYear === now.getFullYear() && dueMonth === now.getMonth() && dueDay === now.getDate();
     if (isSameDay) {
       return {
         days: 0,
@@ -160,7 +161,11 @@ export function getDueDateCountdown(dueDateStr?: string, dueTimeStr?: string): D
       };
     }
     // Future date
-    const calDiff = Math.floor((new Date(dueYear, dueMonth, dueDay).getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / (1000 * 60 * 60 * 24));
+    const calDiff = Math.floor(
+      (new Date(dueYear, dueMonth, dueDay).getTime() -
+        new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
     return {
       days: calDiff,
       text: `还剩 ${calDiff} 天`,
@@ -168,14 +173,14 @@ export function getDueDateCountdown(dueDateStr?: string, dueTimeStr?: string): D
       isToday: false,
     };
   }
-  
+
   // Legacy: date only, midnight cutoff
   due.setHours(0, 0, 0, 0);
   today.setHours(0, 0, 0, 0);
-  
+
   const diffMs = due.getTime() - today.getTime();
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays < 0) {
     return {
       days: Math.abs(diffDays),
@@ -210,8 +215,7 @@ export const JOURNAL_TEMPLATES: JournalTemplate[] = [
   {
     id: "morning",
     name: "晨间页面",
-    content:
-      "# ☀️ 晨间页面\n\n## 今日三件要事\n- \n- \n- \n\n## 今日心情\n\n## 感恩的一件事\n- \n",
+    content: "# ☀️ 晨间页面\n\n## 今日三件要事\n- \n- \n- \n\n## 今日心情\n\n## 感恩的一件事\n- \n",
   },
   {
     id: "review",
@@ -228,8 +232,7 @@ export const JOURNAL_TEMPLATES: JournalTemplate[] = [
   {
     id: "free",
     name: "自由记录",
-    content:
-      "# 📝 自由记录\n\n",
+    content: "# 📝 自由记录\n\n",
   },
 ];
 
@@ -246,8 +249,8 @@ export function extractJournalTags(content: string): string[] {
 
 export interface NoiseDefinition {
   id: string;
-  labelKey: string;    // i18n key suffix for short label (e.g. "brown" -> s.brown)
-  titleKey: string;    // i18n key suffix for hover title (e.g. "brownTitle" -> s.brownTitle)
+  labelKey: string; // i18n key suffix for short label (e.g. "brown" -> s.brown)
+  titleKey: string; // i18n key suffix for hover title (e.g. "brownTitle" -> s.brownTitle)
 }
 
 export const NOISE_DEFINITIONS: NoiseDefinition[] = [
@@ -269,7 +272,11 @@ export const NOISE_DEFINITIONS: NoiseDefinition[] = [
 export function getVisibleNoises(): string[] {
   const stored = localStorage.getItem("tongyun_visible_noises");
   if (stored) {
-    try { return JSON.parse(stored); } catch { /* fall through */ }
+    try {
+      return JSON.parse(stored);
+    } catch {
+      /* fall through */
+    }
   }
   return NOISE_DEFINITIONS.map((n) => n.id);
 }
@@ -281,5 +288,3 @@ export function setVisibleNoises(ids: string[]): void {
 /** AI 象限分类默认 System Prompt */
 export const DEFAULT_AI_CLASSIFY_PROMPT =
   "你是一个日程管理专家。你的任务是根据任务标题和细节描述，推断并返回适合的艾森豪威尔象限类别。请只返回以下四个英文标识符之一，不要包含任何标点符号、Markdown 格式、解释或多余的空格：\n- urgent-important\n- important-not-urgent\n- urgent-not-important\n- not-urgent-not-important";
-
-

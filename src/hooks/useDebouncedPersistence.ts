@@ -7,12 +7,7 @@ import { useEffect, useRef } from "react";
  * 注意：组件卸载或页面关闭（pagehide）时，若防抖窗口内仍有待写入的值，
  * 会在卸载/关闭前同步 flush，避免最后一次修改丢失。
  */
-export function useDebouncedPersistence<T>(
-  value: T,
-  key: string,
-  delay = 250,
-  enabled = true
-) {
+export function useDebouncedPersistence<T>(value: T, key: string, delay = 250, enabled = true) {
   const timerRef = useRef<number | null>(null);
   const valueRef = useRef<T>(value);
   const pendingRef = useRef(false);

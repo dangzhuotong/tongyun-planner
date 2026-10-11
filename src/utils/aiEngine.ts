@@ -10,9 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
  */
 export function getEffectiveApiKey(config: CustomizationConfig): string | undefined {
   const provider = config.aiProvider || "openai";
-  return config.providerApiKeys?.[provider]?.trim()
-    || config.aiApiKey?.trim()
-    || undefined;
+  return config.providerApiKeys?.[provider]?.trim() || config.aiApiKey?.trim() || undefined;
 }
 
 /** OpenCode / Ollama 可无 Key，其余 Provider 必须配置当前 Provider 的 Key。 */
@@ -38,14 +36,35 @@ function supportsTemperature(model: string): boolean {
 export function describeAIError(error: unknown, locale = "zh-CN"): string {
   const raw = error instanceof Error ? error.message : String(error || "");
   const zh = locale === "zh-CN";
-  if (/API_KEY_MISSING/i.test(raw)) return zh ? "请先填写当前 AI 提供商的 API Key。" : "Add an API key for the current provider.";
-  if (/E_HTTP_401|invalid_api_key|incorrect api key/i.test(raw)) return zh ? "OpenAI API Key 无效或已失效，请重新填写。" : "The OpenAI API key is invalid or expired.";
-  if (/E_HTTP_429|insufficient_quota|quota|billing/i.test(raw)) return zh ? "OpenAI 额度不足或请求受限，请检查账单与用量限制。" : "OpenAI quota is exhausted or rate limited. Check billing and usage limits.";
-  if (/E_HTTP_404|model_not_found|does not exist/i.test(raw)) return zh ? "模型或接口地址不存在，请检查模型名与 Endpoint。" : "The model or endpoint was not found. Check both settings.";
-  if (/E_HTTP_400|unsupported_parameter|unknown parameter/i.test(raw)) return zh ? "当前模型不接受某个请求参数，请检查模型配置。" : "The selected model rejected a request parameter. Check its configuration.";
-  if (/E_NETWORK|timeout|timed out|connect/i.test(raw)) return zh ? "无法连接 AI 服务，请检查网络、代理或 Endpoint。" : "Could not reach the AI service. Check the network, proxy, or endpoint.";
-  if (/E_TOKEN_LIMIT|length/i.test(raw)) return zh ? "模型输出上限不足，请调大 Max Tokens。" : "The output token limit is too low. Increase Max Tokens.";
-  return zh ? `AI 请求失败：${raw.slice(0, 180) || "未知错误"}` : `AI request failed: ${raw.slice(0, 180) || "unknown error"}`;
+  if (/API_KEY_MISSING/i.test(raw))
+    return zh ? "请先填写当前 AI 提供商的 API Key。" : "Add an API key for the current provider.";
+  if (/E_HTTP_401|invalid_api_key|incorrect api key/i.test(raw))
+    return zh
+      ? "OpenAI API Key 无效或已失效，请重新填写。"
+      : "The OpenAI API key is invalid or expired.";
+  if (/E_HTTP_429|insufficient_quota|quota|billing/i.test(raw))
+    return zh
+      ? "OpenAI 额度不足或请求受限，请检查账单与用量限制。"
+      : "OpenAI quota is exhausted or rate limited. Check billing and usage limits.";
+  if (/E_HTTP_404|model_not_found|does not exist/i.test(raw))
+    return zh
+      ? "模型或接口地址不存在，请检查模型名与 Endpoint。"
+      : "The model or endpoint was not found. Check both settings.";
+  if (/E_HTTP_400|unsupported_parameter|unknown parameter/i.test(raw))
+    return zh
+      ? "当前模型不接受某个请求参数，请检查模型配置。"
+      : "The selected model rejected a request parameter. Check its configuration.";
+  if (/E_NETWORK|timeout|timed out|connect/i.test(raw))
+    return zh
+      ? "无法连接 AI 服务，请检查网络、代理或 Endpoint。"
+      : "Could not reach the AI service. Check the network, proxy, or endpoint.";
+  if (/E_TOKEN_LIMIT|length/i.test(raw))
+    return zh
+      ? "模型输出上限不足，请调大 Max Tokens。"
+      : "The output token limit is too low. Increase Max Tokens.";
+  return zh
+    ? `AI 请求失败：${raw.slice(0, 180) || "未知错误"}`
+    : `AI request failed: ${raw.slice(0, 180) || "unknown error"}`;
 }
 
 /**
@@ -70,7 +89,7 @@ function cleanJsonResponse(text: string): string {
 export async function callAI(
   config: CustomizationConfig,
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
 ): Promise<string> {
   const provider = config.aiProvider || "openai";
 
@@ -157,7 +176,9 @@ export async function callAI(
 
     // finish_reason === "length" 说明 max_tokens 不够，模型被截断
     if (finishReason === "length") {
-      throw new Error("E_TOKEN_LIMIT: max_tokens 不足，模型输出被截断。请在设置中调大 Max Tokens。");
+      throw new Error(
+        "E_TOKEN_LIMIT: max_tokens 不足，模型输出被截断。请在设置中调大 Max Tokens。",
+      );
     }
 
     // content 为空但有 reasoning_content，从推理内容里提取最后一段作容错
@@ -184,7 +205,7 @@ export async function testAIConnection(config: CustomizationConfig): Promise<str
 export async function classifyCategory(
   config: CustomizationConfig,
   title: string,
-  desc: string
+  desc: string,
 ): Promise<Task["category"] | null> {
   const systemPrompt = DEFAULT_AI_CLASSIFY_PROMPT;
   const userPrompt = `任务标题: ${title}\n描述: ${desc || "无"}`;
@@ -192,16 +213,19 @@ export async function classifyCategory(
   try {
     const result = await callAI(config, systemPrompt, userPrompt);
     // 清洗结果：转小写，去除引号、括号、多余标点
-    const cleaned = result.trim().toLowerCase().replace(/[`'"'[\]#*.]/g, "");
+    const cleaned = result
+      .trim()
+      .toLowerCase()
+      .replace(/[`'"'[\]#*.]/g, "");
 
     // 映射中文分类到英文标识符
     const chineseMapping: Record<string, Task["category"]> = {
-      "重要且紧急": "urgent-important",
-      "重要紧急": "urgent-important",
-      "重要不紧急": "important-not-urgent",
-      "紧急不重要": "urgent-not-important",
-      "不重要不紧急": "not-urgent-not-important",
-      "不重要且不紧急": "not-urgent-not-important",
+      重要且紧急: "urgent-important",
+      重要紧急: "urgent-important",
+      重要不紧急: "important-not-urgent",
+      紧急不重要: "urgent-not-important",
+      不重要不紧急: "not-urgent-not-important",
+      不重要且不紧急: "not-urgent-not-important",
     };
 
     for (const [zh, en] of Object.entries(chineseMapping)) {
@@ -231,7 +255,7 @@ export async function classifyCategory(
 export async function decomposeTask(
   config: CustomizationConfig,
   title: string,
-  desc: string
+  desc: string,
 ): Promise<string> {
   const systemPrompt =
     "你是一个高效日程管理专家。你的任务是将用户输入的大任务进行结构化拆解，分成 3 到 5 步可立即执行的子任务。请输出标准的 Markdown 复选框格式（例如：\n- [ ] 步骤一\n- [ ] 步骤二\n）。只返回 Markdown 复选框列表内容本身，不要返回任何开头引言、多余解释、行号或结束总结。";
@@ -243,10 +267,7 @@ export async function decomposeTask(
 /**
  * 3. AI 智能优化润色标题 (Title Polish)
  */
-export async function polishTitle(
-  config: CustomizationConfig,
-  title: string
-): Promise<string> {
+export async function polishTitle(config: CustomizationConfig, title: string): Promise<string> {
   const systemPrompt =
     "你是一个排版和日常管理助手。请对以下待办任务标题进行精简和美化润色，使其看起来更简练、有条理且专业。请控制在 15 个字以内。你可以适当在标题最前端加上 1 个对应的 Emoji 表情（如 📝，💻，🏃）。直接返回润色后的标题文本，不要包含任何双引号、前缀（如“润色后：”）或多余解释。若觉得原标题已经极好，请直接返回原标题。";
   const userPrompt = `原标题: ${title}`;
@@ -259,7 +280,7 @@ export async function polishTitle(
  */
 export async function formatNoteText(
   config: CustomizationConfig,
-  noteText: string
+  noteText: string,
 ): Promise<string> {
   const systemPrompt =
     "你是一个手账随身记排版专家。请对用户随手记下的凌乱便签草稿进行整理、分点和排版美化，使其结构清晰、易于查阅。你可以根据上下文加入合适的 Emoji，但必须 100% 保持原意与所有事实细节。只返回整理后的便签内容本身，不要返回任何引言、解释或多余的行。";
@@ -273,7 +294,7 @@ export async function formatNoteText(
  */
 export async function brainstormNote(
   config: CustomizationConfig,
-  noteText: string
+  noteText: string,
 ): Promise<string> {
   const systemPrompt =
     "你是一个创意与规划助手。请阅读以下便签记事的内容，并针对其主题，发散出 3 点具体的扩展灵感、补充细节或后续行动建议。请使用 Markdown 的短分点符号（- ）进行排版，字数控制在简短的范围内（每点不超过 20 字）。只返回追加续写的想法内容本身，不要任何多余废话。";
@@ -285,10 +306,7 @@ export async function brainstormNote(
 /**
  * 6. AI 夸夸模式 — 根据完成的任务生成祝贺语
  */
-export async function generatePraise(
-  config: CustomizationConfig,
-  locale: string
-): Promise<string> {
+export async function generatePraise(config: CustomizationConfig, locale: string): Promise<string> {
   const lang = locale === "zh-CN" ? "简体中文" : "English";
   const systemPrompt = `你是一个温暖、有趣的鼓励大师。请用 ${lang} 生成一句简短的任务完成祝贺/夸赞语。
 要求：
@@ -311,7 +329,7 @@ export async function generatePraise(
 export async function generatePraiseBatch(
   config: CustomizationConfig,
   locale: string,
-  count: number = 5
+  count: number = 5,
 ): Promise<string[]> {
   const lang = locale === "zh-CN" ? "简体中文" : "English";
   const systemPrompt = `你是一个温暖、有趣的鼓励大师。请用 ${lang} 生成 ${count} 条通用的任务完成祝贺/夸赞语。
@@ -325,7 +343,10 @@ export async function generatePraiseBatch(
   const userPrompt = `请生成 ${count} 条通用夸赞语。`;
   try {
     const result = await callAI(config, systemPrompt, userPrompt);
-    const lines = result.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+    const lines = result
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
     return lines.slice(0, count);
   } catch {
     return [];
@@ -345,12 +366,13 @@ export interface GenerateProseOptions {
 export async function generateProse(
   config: CustomizationConfig,
   locale: string,
-  options: GenerateProseOptions = {}
+  options: GenerateProseOptions = {},
 ): Promise<string> {
   const now = new Date();
-  const dateStr = locale === "zh-CN"
-    ? `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`
-    : now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const dateStr =
+    locale === "zh-CN"
+      ? `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`
+      : now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   const systemPrompt = `你是一位文风平实的散文作家，写短篇随笔。
 
@@ -363,12 +385,17 @@ export async function generateProse(
 输出格式：第一行标题（2–8 字），空一行后写正文。只返回标题和正文。`;
 
   const parts = [`今天是 ${dateStr}。请写一篇短篇随笔。`];
-  const hints = (options.contextHints || []).map((h) => h.trim()).filter(Boolean).slice(0, 3);
+  const hints = (options.contextHints || [])
+    .map((h) => h.trim())
+    .filter(Boolean)
+    .slice(0, 3);
   if (hints.length > 0) {
     parts.push(`可参考这些今日线索（不必全用，点到即可）：${hints.join("；")}。`);
   }
   if (options.avoidSnippet?.trim()) {
-    parts.push(`请换一个完全不同的切入点，不要与下面这篇相似：\n${options.avoidSnippet.trim().slice(0, 120)}`);
+    parts.push(
+      `请换一个完全不同的切入点，不要与下面这篇相似：\n${options.avoidSnippet.trim().slice(0, 120)}`,
+    );
   }
 
   return await callAI(config, systemPrompt, parts.join("\n"));
@@ -380,7 +407,7 @@ export async function generateProse(
 export async function generateRecollection(
   config: CustomizationConfig,
   locale: string,
-  items: { title: string; source?: string; date?: string }[]
+  items: { title: string; source?: string; date?: string }[],
 ): Promise<string> {
   if (items.length === 0) return "";
   const now = new Date();
@@ -426,26 +453,37 @@ export async function generateRecollection(
  * 6d. AI 每日建议 —— 基于今日任务智能推荐与优先级
  */
 export interface DailySuggestionContext {
-  pomodoroCount?: number;     // 今日番茄次数
-  pomodoroMinutes?: number;   // 今日专注分钟
-  unfinishedCount?: number;   // 今日未完成任务数
+  pomodoroCount?: number; // 今日番茄次数
+  pomodoroMinutes?: number; // 今日专注分钟
+  unfinishedCount?: number; // 今日未完成任务数
 }
 
 export async function generateDailySuggestion(
   config: CustomizationConfig,
-  todayTasks: { title: string; category: Task["category"]; dueTime?: string; description?: string }[],
+  todayTasks: {
+    title: string;
+    category: Task["category"];
+    dueTime?: string;
+    description?: string;
+  }[],
   locale: string,
-  ctx?: DailySuggestionContext
+  ctx?: DailySuggestionContext,
 ): Promise<string> {
   const lang = locale === "zh-CN" ? "简体中文" : "English";
-  const taskList = todayTasks.map((t, i) =>
-    `${i + 1}. [${t.category}] ${t.title}${t.dueTime ? ` (截止: ${t.dueTime})` : ""}${t.description ? ` — ${t.description.slice(0, 30)}` : ""}`
-  ).join("\n");
+  const taskList = todayTasks
+    .map(
+      (t, i) =>
+        `${i + 1}. [${t.category}] ${t.title}${t.dueTime ? ` (截止: ${t.dueTime})` : ""}${t.description ? ` — ${t.description.slice(0, 30)}` : ""}`,
+    )
+    .join("\n");
 
   const extras: string[] = [];
   if (ctx?.unfinishedCount != null) extras.push(`今日未完成待办数: ${ctx.unfinishedCount}`);
   if (ctx?.pomodoroCount != null) {
-    extras.push(`今日番茄: ${ctx.pomodoroCount} 次` + (ctx.pomodoroMinutes != null ? `（约 ${ctx.pomodoroMinutes} 分钟）` : ""));
+    extras.push(
+      `今日番茄: ${ctx.pomodoroCount} 次` +
+        (ctx.pomodoroMinutes != null ? `（约 ${ctx.pomodoroMinutes} 分钟）` : ""),
+    );
   }
 
   const systemPrompt = `你是一个温和高效的日程顾问。请用 ${lang} 给用户写一段简短的今日建议（80-140 字）。
@@ -457,7 +495,8 @@ export async function generateDailySuggestion(
 - 如果列表为空，则说"今天没有待办，好好休息或规划明天吧"
 - 只返回建议文本本身，不要任何额外说明`;
 
-  const userPrompt = `今日待办列表:\n${taskList || "（空）"}` +
+  const userPrompt =
+    `今日待办列表:\n${taskList || "（空）"}` +
     (extras.length ? `\n\n补充上下文:\n${extras.join("\n")}` : "");
 
   return await callAI(config, systemPrompt, userPrompt);
@@ -477,7 +516,7 @@ export interface ExtractedTask {
 
 export async function extractTasksFromNote(
   config: CustomizationConfig,
-  noteText: string
+  noteText: string,
 ): Promise<ExtractedTask[]> {
   const today = getLocalDateString();
   const systemPrompt = `你是一个专业的日程和任务规划专家。你的任务是分析用户输入的文案（如客服工单、备忘或大段规划），提取并分离成结构化的待办任务。
@@ -507,12 +546,12 @@ export async function extractTasksFromNote(
 
         // 映射中文分类到英文标识符
         const chineseMapping: Record<string, Task["category"]> = {
-          "重要且紧急": "urgent-important",
-          "重要紧急": "urgent-important",
-          "重要不紧急": "important-not-urgent",
-          "紧急不重要": "urgent-not-important",
-          "不重要不紧急": "not-urgent-not-important",
-          "不重要且不紧急": "not-urgent-not-important",
+          重要且紧急: "urgent-important",
+          重要紧急: "urgent-important",
+          重要不紧急: "important-not-urgent",
+          紧急不重要: "urgent-not-important",
+          不重要不紧急: "not-urgent-not-important",
+          不重要且不紧急: "not-urgent-not-important",
         };
 
         for (const [zh, en] of Object.entries(chineseMapping)) {
@@ -550,7 +589,12 @@ export async function extractTasksFromNote(
 export async function generateReport(
   config: CustomizationConfig,
   type: "daily" | "weekly",
-  data: { completedTasks: number; pomodoroCount: number; pomodoroMinutes: number; taskCategories: Record<string, number> }
+  data: {
+    completedTasks: number;
+    pomodoroCount: number;
+    pomodoroMinutes: number;
+    taskCategories: Record<string, number>;
+  },
 ): Promise<string> {
   const dateRange = type === "daily" ? "今天" : "过去一周";
   const systemPrompt = `你是一个效率助手。请根据以下数据生成一份简洁温暖的${type === "daily" ? "日" : "周"}报总结。`;
@@ -572,7 +616,7 @@ export interface WeeklyReviewContext {
 export async function generateWeeklyReview(
   config: CustomizationConfig,
   locale: string,
-  ctx: WeeklyReviewContext
+  ctx: WeeklyReviewContext,
 ): Promise<string> {
   const isZh = locale === "zh-CN";
 
@@ -581,12 +625,15 @@ export async function generateWeeklyReview(
     : `Completed ${ctx.completedCount} tasks, focused ${ctx.pomodoroCount} times (${ctx.pomodoroMinutes} min), wrote ${ctx.journalDays} journal entries`;
 
   const moodLine = ctx.moodSummary
-    ? (isZh ? `心情概要：${ctx.moodSummary}` : `Mood: ${ctx.moodSummary}`)
+    ? isZh
+      ? `心情概要：${ctx.moodSummary}`
+      : `Mood: ${ctx.moodSummary}`
     : "";
 
-  const snippetBlock = ctx.journalSnippets.length > 0
-    ? ctx.journalSnippets.map((s, i) => `${i + 1}. ${s}`).join("\n")
-    : "";
+  const snippetBlock =
+    ctx.journalSnippets.length > 0
+      ? ctx.journalSnippets.map((s, i) => `${i + 1}. ${s}`).join("\n")
+      : "";
 
   const systemPrompt = isZh
     ? `你是一位温柔体贴的生活伙伴，擅长在数据中看见人的温度。请根据下面用户本周的时间与心力数据，写一段本周回顾（80-120 字）。

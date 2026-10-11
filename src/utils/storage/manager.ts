@@ -66,7 +66,7 @@ export class StorageManager {
   }
 
   private notify(): void {
-    this.listeners.forEach(fn => fn(this._current));
+    this.listeners.forEach((fn) => fn(this._current));
   }
 
   /* ── Delegated methods ── */

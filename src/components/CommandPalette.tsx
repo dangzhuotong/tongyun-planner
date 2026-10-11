@@ -217,7 +217,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       section: "journal",
       icon: BookOpen,
       onSelect: () => onNavigate("journal"),
-      keywords: `${j.title} ${j.content} ${j.date} ${(j.mood || "")}`,
+      keywords: `${j.title} ${j.content} ${j.date} ${j.mood || ""}`,
     }));
 
     const taskItems: CommandItem[] = tasks.slice(0, 100).map((t) => ({
@@ -250,14 +250,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       keywords: n.text,
     }));
 
-    return [
-      ...navigation,
-      ...actions,
-      ...focusItems,
-      ...journalItems,
-      ...taskItems,
-      ...noteItems,
-    ];
+    return [...navigation, ...actions, ...focusItems, ...journalItems, ...taskItems, ...noteItems];
   }, [
     tasks,
     stickyNotes,
@@ -359,9 +352,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   useEffect(() => {
     if (!listRef.current) return;
-    const el = listRef.current.querySelector<HTMLElement>(
-      `[data-idx="${activeIdx}"]`
-    );
+    const el = listRef.current.querySelector<HTMLElement>(`[data-idx="${activeIdx}"]`);
     if (el) el.scrollIntoView({ block: "nearest" });
   }, [activeIdx]);
 
@@ -395,10 +386,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {/* 结果列表 */}
-        <div
-          ref={listRef}
-          className="max-h-[50vh] overflow-y-auto custom-scrollbar py-1"
-        >
+        <div ref={listRef} className="max-h-[50vh] overflow-y-auto custom-scrollbar py-1">
           {flatOrder.length === 0 ? (
             <div className="text-center py-10 text-xs text-slate-400 font-medium">
               没有找到匹配项
@@ -434,9 +422,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                           isActive ? "text-[#A34E36]" : "text-slate-400"
                         }`}
                       />
-                      <span className="text-xs font-bold flex-grow truncate">
-                        {item.label}
-                      </span>
+                      <span className="text-xs font-bold flex-grow truncate">{item.label}</span>
                       {item.hint && (
                         <span className="text-[10px] text-slate-400 font-medium truncate max-w-[180px]">
                           {item.hint}
@@ -459,15 +445,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         <div className="px-4 py-2 border-t border-[#EFEBE4] bg-[#FAF8F5]/60 flex items-center justify-between text-[9px] text-slate-400 font-bold">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="bg-white border border-slate-200 px-1 py-0.5 rounded">
-                ↑↓
-              </kbd>
+              <kbd className="bg-white border border-slate-200 px-1 py-0.5 rounded">↑↓</kbd>
               选择
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="bg-white border border-slate-200 px-1 py-0.5 rounded">
-                ↵
-              </kbd>
+              <kbd className="bg-white border border-slate-200 px-1 py-0.5 rounded">↵</kbd>
               确认
             </span>
           </div>

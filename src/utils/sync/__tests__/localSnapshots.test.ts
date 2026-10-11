@@ -1,12 +1,25 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { dailySnapshotFileName, DAILY_SNAPSHOT_KEEP, buildSnapshotPayload, ensureDailySnapshot } from "../localSnapshots";
+import {
+  dailySnapshotFileName,
+  DAILY_SNAPSHOT_KEEP,
+  buildSnapshotPayload,
+  ensureDailySnapshot,
+} from "../localSnapshots";
 
 class LocalStorageMock {
   private store: Record<string, string> = {};
-  getItem(key: string): string | null { return this.store[key] ?? null; }
-  setItem(key: string, value: string): void { this.store[key] = String(value); }
-  removeItem(key: string): void { delete this.store[key]; }
-  clear(): void { this.store = {}; }
+  getItem(key: string): string | null {
+    return this.store[key] ?? null;
+  }
+  setItem(key: string, value: string): void {
+    this.store[key] = String(value);
+  }
+  removeItem(key: string): void {
+    delete this.store[key];
+  }
+  clear(): void {
+    this.store = {};
+  }
 }
 
 describe("localSnapshots", () => {
@@ -47,7 +60,7 @@ describe("localSnapshots", () => {
       const expectedMonth = String(date.getMonth() + 1).padStart(2, "0");
       const expectedDay = String(date.getDate()).padStart(2, "0");
       expect(dailySnapshotFileName(date)).toBe(
-        `tongyun-daily-${expectedYear}-${expectedMonth}-${expectedDay}.json`
+        `tongyun-daily-${expectedYear}-${expectedMonth}-${expectedDay}.json`,
       );
     });
 
@@ -75,7 +88,7 @@ describe("localSnapshots", () => {
           providerApiKeys: { openai: "sk-x" },
           emailSmtpPassword: "p@ss",
           smtpPass: "smtp-secret-pass",
-        })
+        }),
       );
       for (const snap of [buildSnapshotPayload(), buildSnapshotPayload(new Date(), "daily")]) {
         const json = JSON.stringify(snap);

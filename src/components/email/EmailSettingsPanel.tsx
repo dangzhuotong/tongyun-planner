@@ -54,7 +54,11 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
   const [emailConfig, setEmailConfig] = useState<EmailConfig>(() => {
     const saved = localStorage.getItem("tongyun_email_config");
     if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore invalid JSON */ }
+      try {
+        return JSON.parse(saved);
+      } catch {
+        /* ignore invalid JSON */
+      }
     }
     return {
       smtpProvider: "qq" as const,
@@ -79,11 +83,11 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
 
   const handleSelectEmailProvider = (provider: string) => {
     if (provider === "custom") {
-      setEmailConfig(p => ({ ...p, smtpProvider: "custom" as const }));
+      setEmailConfig((p) => ({ ...p, smtpProvider: "custom" as const }));
     } else {
       const preset = SMTP_PRESETS[provider];
       if (preset) {
-        setEmailConfig(p => ({
+        setEmailConfig((p) => ({
           ...p,
           smtpProvider: provider as EmailConfig["smtpProvider"],
           smtpHost: preset.host,
@@ -131,54 +135,121 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">{s.emailProvider}</h4>
+          <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+            {s.emailProvider}
+          </h4>
           {emailConfig.smtpProvider !== "custom" && (
-            <button onClick={() => setShowEmailHelp(!showEmailHelp)} className="text-[10px] font-bold text-[#4D7C5D] hover:text-[#3F684C] flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[#F0F5F1] transition-all cursor-pointer">
+            <button
+              onClick={() => setShowEmailHelp(!showEmailHelp)}
+              className="text-[10px] font-bold text-[#4D7C5D] hover:text-[#3F684C] flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[#F0F5F1] transition-all cursor-pointer"
+            >
               {showEmailHelp ? "收起帮助" : "❓ 如何获取授权码？"}
             </button>
           )}
         </div>
         <div className="grid grid-cols-4 gap-2">
-          {[{ id: "qq", label: "QQ邮箱" }, { id: "163", label: "163邮箱" }, { id: "gmail", label: "Gmail" }, { id: "custom", label: "✏️ " + (t.common.custom || "自定义") }].map((p) => (
-            <button key={p.id} onClick={() => { handleSelectEmailProvider(p.id); setShowEmailHelp(false); }}
+          {[
+            { id: "qq", label: "QQ邮箱" },
+            { id: "163", label: "163邮箱" },
+            { id: "gmail", label: "Gmail" },
+            { id: "custom", label: "✏️ " + (t.common.custom || "自定义") },
+          ].map((p) => (
+            <button
+              key={p.id}
+              onClick={() => {
+                handleSelectEmailProvider(p.id);
+                setShowEmailHelp(false);
+              }}
               className={`py-2.5 rounded-xl text-[10px] font-extrabold border transition-all duration-200 cursor-pointer text-center hover:scale-105 active:scale-95 ${emailConfig.smtpProvider === p.id ? "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36] shadow-xs" : "bg-white border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:border-slate-300"}`}
-            >{p.label}</button>
+            >
+              {p.label}
+            </button>
           ))}
         </div>
       </div>
 
       {showEmailHelp && emailConfig.smtpProvider !== "custom" && (
         <div className="bg-[#FAF5ED] border border-[#EFE5D3] p-4 rounded-2xl animate-fade-in-up">
-          <h5 className="text-xs font-bold text-[#8B6E3C] mb-2">📖 {EMAIL_HELP[emailConfig.smtpProvider]?.title || "帮助"}</h5>
-          <ol className="space-y-1.5 ml-4">{EMAIL_HELP[emailConfig.smtpProvider]?.steps.map((step, i) => <li key={i} className="text-[11px] text-slate-600 leading-relaxed list-decimal">{step}</li>)}</ol>
-          <p className="text-[10px] text-[#A34E36] font-bold mt-2">⚠️ 授权码是 16 位字符，不是你登录邮箱的密码</p>
+          <h5 className="text-xs font-bold text-[#8B6E3C] mb-2">
+            📖 {EMAIL_HELP[emailConfig.smtpProvider]?.title || "帮助"}
+          </h5>
+          <ol className="space-y-1.5 ml-4">
+            {EMAIL_HELP[emailConfig.smtpProvider]?.steps.map((step, i) => (
+              <li key={i} className="text-[11px] text-slate-600 leading-relaxed list-decimal">
+                {step}
+              </li>
+            ))}
+          </ol>
+          <p className="text-[10px] text-[#A34E36] font-bold mt-2">
+            ⚠️ 授权码是 16 位字符，不是你登录邮箱的密码
+          </p>
         </div>
       )}
 
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase block">{s.emailSmtpHost}</label>
-            <input type="text" value={emailConfig.smtpHost} onChange={e => setEmailConfig(p => ({ ...p, smtpHost: e.target.value }))} className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase block">
+              {s.emailSmtpHost}
+            </label>
+            <input
+              type="text"
+              value={emailConfig.smtpHost}
+              onChange={(e) => setEmailConfig((p) => ({ ...p, smtpHost: e.target.value }))}
+              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+            />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase block">{s.emailSmtpPort}</label>
-            <input type="number" value={emailConfig.smtpPort} onChange={e => setEmailConfig(p => ({ ...p, smtpPort: parseInt(e.target.value) || 465 }))} className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase block">
+              {s.emailSmtpPort}
+            </label>
+            <input
+              type="number"
+              value={emailConfig.smtpPort}
+              onChange={(e) =>
+                setEmailConfig((p) => ({ ...p, smtpPort: parseInt(e.target.value) || 465 }))
+              }
+              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+            />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase block">📤 发件邮箱（SMTP 登录）</label>
-            <input type="text" value={emailConfig.smtpUser} onChange={e => setEmailConfig(p => ({ ...p, smtpUser: e.target.value }))} placeholder="yourname@163.com" className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase block">
+              📤 发件邮箱（SMTP 登录）
+            </label>
+            <input
+              type="text"
+              value={emailConfig.smtpUser}
+              onChange={(e) => setEmailConfig((p) => ({ ...p, smtpUser: e.target.value }))}
+              placeholder="yourname@163.com"
+              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+            />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase block">{s.emailSmtpPass}</label>
-            <input type="password" value={emailConfig.smtpPass} onChange={e => setEmailConfig(p => ({ ...p, smtpPass: e.target.value }))} placeholder="••••••••" className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]" />
+            <label className="text-[10px] font-bold text-slate-500 uppercase block">
+              {s.emailSmtpPass}
+            </label>
+            <input
+              type="password"
+              value={emailConfig.smtpPass}
+              onChange={(e) => setEmailConfig((p) => ({ ...p, smtpPass: e.target.value }))}
+              placeholder="••••••••"
+              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+            />
           </div>
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-500 uppercase block">📥 接收提醒邮箱（收件箱）</label>
-          <input type="text" value={emailConfig.recipientEmail} onChange={e => setEmailConfig(p => ({ ...p, recipientEmail: e.target.value }))} placeholder="yourname@163.com" className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]" />
+          <label className="text-[10px] font-bold text-slate-500 uppercase block">
+            📥 接收提醒邮箱（收件箱）
+          </label>
+          <input
+            type="text"
+            value={emailConfig.recipientEmail}
+            onChange={(e) => setEmailConfig((p) => ({ ...p, recipientEmail: e.target.value }))}
+            placeholder="yourname@163.com"
+            className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+          />
         </div>
       </div>
 
@@ -189,17 +260,35 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
       </div>
 
       <div className="flex gap-3 pt-1 sticky bottom-0 bg-white/90 pb-1">
-        <button type="button" onClick={() => { localStorage.setItem("tongyun_email_config", JSON.stringify(emailConfig)); triggerToast(s.emailSaved, "success"); }}
+        <button
+          type="button"
+          onClick={() => {
+            localStorage.setItem("tongyun_email_config", JSON.stringify(emailConfig));
+            triggerToast(s.emailSaved, "success");
+          }}
           className="flex-1 bg-[#4D7C5D] hover:bg-[#3F684C] text-white py-2.5 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-xs"
-        ><Send className="w-3.5 h-3.5" />{s.emailSave}</button>
-        <button type="button" onClick={handleTestEmail}
+        >
+          <Send className="w-3.5 h-3.5" />
+          {s.emailSave}
+        </button>
+        <button
+          type="button"
+          onClick={handleTestEmail}
           className="flex-1 bg-[#8B6E3C] hover:bg-[#725A31] text-white py-2.5 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95 transition-all shadow-xs"
-        ><Send className="w-3.5 h-3.5" />{s.emailTest}</button>
+        >
+          <Send className="w-3.5 h-3.5" />
+          {s.emailTest}
+        </button>
       </div>
 
       {emailSendResult && (
-        <div className={`p-3 rounded-xl border text-xs font-bold leading-relaxed ${emailSendResult.ok ? "bg-[#F0F5F1] border-[#DEEAE2] text-[#4D7C5D]" : "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36]"}`}>
-          <div className="flex items-start gap-2"><span>{emailSendResult.ok ? "✅" : "❌"}</span><span>{emailSendResult.msg}</span></div>
+        <div
+          className={`p-3 rounded-xl border text-xs font-bold leading-relaxed ${emailSendResult.ok ? "bg-[#F0F5F1] border-[#DEEAE2] text-[#4D7C5D]" : "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36]"}`}
+        >
+          <div className="flex items-start gap-2">
+            <span>{emailSendResult.ok ? "✅" : "❌"}</span>
+            <span>{emailSendResult.msg}</span>
+          </div>
           {!emailSendResult.ok && emailSendResult.msg.includes("535") && (
             <div className="mt-2 pt-2 border-t border-[#F5DFDB] text-[10px] text-slate-600 font-medium space-y-1">
               <p>🔍 常见原因：</p>

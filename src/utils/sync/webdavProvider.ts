@@ -32,9 +32,14 @@ const MANIFEST_FILE = "manifest.json";
 const LEGACY_BACKUP_FILE = "tongyun_planner_backup.json";
 const REMOTE_DIR = "TongYunPlanner/";
 
-const isTauri = () => typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
+const isTauri = () =>
+  typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
-function invokeWithTimeout<T>(cmd: string, args: Record<string, unknown>, ms = SYNC_TIMEOUT): Promise<T> {
+function invokeWithTimeout<T>(
+  cmd: string,
+  args: Record<string, unknown>,
+  ms = SYNC_TIMEOUT,
+): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout>;
   return Promise.race([
     invoke<T>(cmd, args).then((result) => {
@@ -42,27 +47,28 @@ function invokeWithTimeout<T>(cmd: string, args: Record<string, unknown>, ms = S
       return result;
     }),
     new Promise<T>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("WebDAV timeout (" + (ms / 1000) + "s)")), ms);
+      timeoutId = setTimeout(() => reject(new Error("WebDAV timeout (" + ms / 1000 + "s)")), ms);
     }),
   ]);
 }
 
 export async function statFile(
   config: WebDavConfig,
-  filename: string
+  filename: string,
 ): Promise<{ exists: boolean; etag: string | null; lastModified: string | null }> {
   if (!config.url || !config.username) throw new Error("WebDAV config incomplete");
 
   if (isTauri()) {
-    return await invokeWithTimeout<{ exists: boolean; etag: string | null; lastModified: string | null }>(
-      "webdav_stat",
-      {
-        url: config.url,
-        username: config.username,
-        password: config.password || null,
-        filename,
-      }
-    );
+    return await invokeWithTimeout<{
+      exists: boolean;
+      etag: string | null;
+      lastModified: string | null;
+    }>("webdav_stat", {
+      url: config.url,
+      username: config.username,
+      password: config.password || null,
+      filename,
+    });
   }
 
   const baseUrl = config.url.endsWith("/") ? config.url : config.url + "/";
@@ -84,20 +90,21 @@ export async function statFile(
 
 export async function downloadWithMeta(
   config: WebDavConfig,
-  filename: string
+  filename: string,
 ): Promise<{ exists: boolean; content: string; etag: string | null; lastModified: string | null }> {
   if (!config.url || !config.username) throw new Error("WebDAV config incomplete");
 
   if (isTauri()) {
-    const res = await invokeWithTimeout<{ content: string; etag: string | null; lastModified: string | null }>(
-      "webdav_download_meta",
-      {
-        url: config.url,
-        username: config.username,
-        password: config.password || null,
-        filename,
-      }
-    );
+    const res = await invokeWithTimeout<{
+      content: string;
+      etag: string | null;
+      lastModified: string | null;
+    }>("webdav_download_meta", {
+      url: config.url,
+      username: config.username,
+      password: config.password || null,
+      filename,
+    });
     return { exists: true, ...res };
   }
 
@@ -118,21 +125,22 @@ export async function downloadWithMeta(
 export async function uploadWithMeta(
   config: WebDavConfig,
   filename: string,
-  content: string
+  content: string,
 ): Promise<{ exists: boolean; etag: string | null; lastModified: string | null }> {
   if (!config.url || !config.username) throw new Error("WebDAV config incomplete");
 
   if (isTauri()) {
-    return await invokeWithTimeout<{ exists: boolean; etag: string | null; lastModified: string | null }>(
-      "webdav_upload_meta",
-      {
-        url: config.url,
-        username: config.username,
-        password: config.password || null,
-        filename,
-        content,
-      }
-    );
+    return await invokeWithTimeout<{
+      exists: boolean;
+      etag: string | null;
+      lastModified: string | null;
+    }>("webdav_upload_meta", {
+      url: config.url,
+      username: config.username,
+      password: config.password || null,
+      filename,
+      content,
+    });
   }
 
   const baseUrl = config.url.endsWith("/") ? config.url : config.url + "/";
@@ -151,7 +159,7 @@ export async function uploadWithMeta(
 async function writeLocalBackup(
   kind: "daily" | "conflicts",
   fileName: string,
-  content: string
+  content: string,
 ): Promise<string> {
   if (isTauri()) {
     try {
@@ -177,7 +185,7 @@ async function fingerprintAfterUpload(
   config: WebDavConfig,
   filename: string,
   uploadRes: { exists: boolean; etag: string | null; lastModified: string | null },
-  localVersion: number
+  localVersion: number,
 ): Promise<string> {
   try {
     const meta = await statFile(config, filename);
@@ -203,8 +211,10 @@ async function ensureDir(config: WebDavConfig, dirname: string): Promise<void> {
 
   if (isTauri()) {
     await invokeWithTimeout("webdav_mkcol", {
-      url: config.url, username: config.username,
-      password: config.password || null, dirname,
+      url: config.url,
+      username: config.username,
+      password: config.password || null,
+      dirname,
     });
     return;
   }
@@ -273,20 +283,32 @@ export class WebDAVProvider implements SyncProvider {
       await ensureDir(this.config, REMOTE_DIR);
       await uploadFile(this.config, REMOTE_DIR + "tongyun_planner_test.txt", "ok");
       return true;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
-  async statFile(filename: string): Promise<{ exists: boolean; etag: string | null; lastModified: string | null }> {
+  async statFile(
+    filename: string,
+  ): Promise<{ exists: boolean; etag: string | null; lastModified: string | null }> {
     if (!this.config) throw new Error("WebDAV not configured");
     return await statFile(this.config, filename);
   }
 
-  async downloadWithMeta(filename: string): Promise<{ exists: boolean; content: string; etag: string | null; lastModified: string | null }> {
+  async downloadWithMeta(filename: string): Promise<{
+    exists: boolean;
+    content: string;
+    etag: string | null;
+    lastModified: string | null;
+  }> {
     if (!this.config) throw new Error("WebDAV not configured");
     return await downloadWithMeta(this.config, filename);
   }
 
-  async uploadWithMeta(filename: string, content: string): Promise<{ exists: boolean; etag: string | null; lastModified: string | null }> {
+  async uploadWithMeta(
+    filename: string,
+    content: string,
+  ): Promise<{ exists: boolean; etag: string | null; lastModified: string | null }> {
     if (!this.config) throw new Error("WebDAV not configured");
     return await uploadWithMeta(this.config, filename, content);
   }
@@ -299,7 +321,10 @@ export class WebDAVProvider implements SyncProvider {
    * @param dirtyOnly  If provided, only these categories are pushed.
    *                   If omitted, compares local manifest vs remote manifest.
    */
-  async push(data: SyncData, dirtyOnly?: Set<SyncCategory>): Promise<{ conflicts: SyncConflict[] }> {
+  async push(
+    data: SyncData,
+    dirtyOnly?: Set<SyncCategory>,
+  ): Promise<{ conflicts: SyncConflict[] }> {
     if (!this.config) throw new Error("WebDAV not configured");
 
     // Ensure remote directory exists before uploading
@@ -318,7 +343,7 @@ export class WebDAVProvider implements SyncProvider {
       remoteManifest = await this.getRemoteManifest();
       if (remoteManifest) {
         toPush = ALL_SYNC_CATEGORIES.filter(
-          cat => localManifest[cat].version > (remoteManifest![cat]?.version || 0)
+          (cat) => localManifest[cat].version > (remoteManifest![cat]?.version || 0),
         );
       } else {
         // No remote manifest — push everything (first sync or migration)
@@ -348,7 +373,9 @@ export class WebDAVProvider implements SyncProvider {
       const currentFp = remoteFingerprint(meta, remoteVersion);
 
       if (isRemoteChanged(storedFp, currentFp, meta.exists)) {
-        console.warn(`[sync] conflict detected on ${cat}: storedFp=${storedFp}, currentFp=${currentFp}`);
+        console.warn(
+          `[sync] conflict detected on ${cat}: storedFp=${storedFp}, currentFp=${currentFp}`,
+        );
         let remoteContent = "";
         let remotePayload: unknown = null;
         try {
@@ -404,7 +431,12 @@ export class WebDAVProvider implements SyncProvider {
         }
       }
 
-      const guard = protectAgainstEmptyOverwrite(cat, payload, remotePayload, dirtyOnly?.has(cat) ?? false);
+      const guard = protectAgainstEmptyOverwrite(
+        cat,
+        payload,
+        remotePayload,
+        dirtyOnly?.has(cat) ?? false,
+      );
       if (guard.skip) {
         console.warn(`[sync] skip empty overwrite for ${cat}`);
         if (remotePayload != null) {
@@ -430,7 +462,12 @@ export class WebDAVProvider implements SyncProvider {
       const json = JSON.stringify(payload);
       const uploadRes = await uploadWithMeta(this.config, remoteFilePath, json);
       const localVersion = getLocalCategoryVersion(cat);
-      const newFp = await fingerprintAfterUpload(this.config, remoteFilePath, uploadRes, localVersion);
+      const newFp = await fingerprintAfterUpload(
+        this.config,
+        remoteFilePath,
+        uploadRes,
+        localVersion,
+      );
       setFingerprint(account, fileName, newFp);
 
       mergedManifest[cat] = { version: localVersion, size: json.length };
@@ -461,7 +498,10 @@ export class WebDAVProvider implements SyncProvider {
     return this.pullLegacy(dirtyOnly);
   }
 
-  private async pullMultiFile(remoteManifest: SyncManifest, dirtyOnly?: Set<SyncCategory>): Promise<SyncData | null> {
+  private async pullMultiFile(
+    remoteManifest: SyncManifest,
+    dirtyOnly?: Set<SyncCategory>,
+  ): Promise<SyncData | null> {
     if (!this.config) return null;
     const localData = getLocalSyncData();
     let anyUpdated = false;
@@ -484,7 +524,9 @@ export class WebDAVProvider implements SyncProvider {
       // 本地版本号 >= 远端 → 本地不旧于远端，不拉取（双重防线：dirty 标记丢失后版本号仍能保护）
       const localVer = getLocalCategoryVersion(cat);
       if (localVer >= remoteVer) {
-        console.log(`[sync] pull skip newer category: ${cat} (local ${localVer} >= remote ${remoteVer})`);
+        console.log(
+          `[sync] pull skip newer category: ${cat} (local ${localVer} >= remote ${remoteVer})`,
+        );
         const storedFp = getFingerprint(account, fileName);
         if (!storedFp) {
           try {
@@ -500,7 +542,12 @@ export class WebDAVProvider implements SyncProvider {
         continue;
       }
 
-      let downloaded: { exists: boolean; content: string; etag: string | null; lastModified: string | null } | null;
+      let downloaded: {
+        exists: boolean;
+        content: string;
+        etag: string | null;
+        lastModified: string | null;
+      } | null;
       try {
         downloaded = await downloadWithMeta(this.config, remoteFilePath);
       } catch (e: any) {
@@ -547,8 +594,10 @@ export class WebDAVProvider implements SyncProvider {
     let anyUpdated = false;
     for (const cat of PULL_CATEGORY_ORDER) {
       if (dirtyOnly?.has(cat)) continue;
-      const remotePayload = cat === "config" ? data.customizationConfig : getCategoryPayload(data, cat);
-      const localPayload = cat === "config" ? localData.customizationConfig : getCategoryPayload(localData, cat);
+      const remotePayload =
+        cat === "config" ? data.customizationConfig : getCategoryPayload(data, cat);
+      const localPayload =
+        cat === "config" ? localData.customizationConfig : getCategoryPayload(localData, cat);
       const merged = mergeRemoteIntoLocal(cat, remotePayload, localPayload);
       applyCategoryPayload(cat, merged);
       anyUpdated = true;
@@ -579,7 +628,12 @@ export class WebDAVProvider implements SyncProvider {
 
     const uploadRes = await uploadWithMeta(this.config, remoteFilePath, json);
     const localVersion = getLocalCategoryVersion(cat) || bumpCategoryVersion(cat);
-    const newFp = await fingerprintAfterUpload(this.config, remoteFilePath, uploadRes, localVersion);
+    const newFp = await fingerprintAfterUpload(
+      this.config,
+      remoteFilePath,
+      uploadRes,
+      localVersion,
+    );
     const account = this.getAccount();
     setFingerprint(account, fileName, newFp);
 
@@ -609,7 +663,10 @@ export class WebDAVProvider implements SyncProvider {
     applyCategoryPayload(conflict.category, payload);
 
     if (conflict.remoteManifestVersion > 0) {
-      localStorage.setItem("tongyun_cat_ver_" + conflict.category, String(conflict.remoteManifestVersion));
+      localStorage.setItem(
+        "tongyun_cat_ver_" + conflict.category,
+        String(conflict.remoteManifestVersion),
+      );
     }
 
     if (conflict.remoteFingerprint) {
@@ -638,13 +695,15 @@ export class WebDAVProvider implements SyncProvider {
     const manifest = await this.getRemoteManifest();
     if (manifest) {
       // Return max version across all categories
-      return Math.max(...ALL_SYNC_CATEGORIES.map(cat => manifest[cat]?.version || 0));
+      return Math.max(...ALL_SYNC_CATEGORIES.map((cat) => manifest[cat]?.version || 0));
     }
     // Legacy fallback
     if (!this.config) return null;
     try {
       const text = await downloadFile(this.config, "tongyun_planner_version.txt");
       return parseInt(text.trim(), 10);
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 }

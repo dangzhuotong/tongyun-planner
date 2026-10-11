@@ -37,11 +37,11 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
         withDates = withDates.filter(
           (t) =>
             t.title.toLowerCase().includes(q) ||
-            (t.description && t.description.toLowerCase().includes(q))
+            (t.description && t.description.toLowerCase().includes(q)),
         );
       }
       const sorted = [...withDates].sort((a, b) =>
-        (a.dueDate || "").localeCompare(b.dueDate || "")
+        (a.dueDate || "").localeCompare(b.dueDate || ""),
       );
       return sorted.slice(0, 100); // cap for performance
     }, [tasks, debouncedQuery]);
@@ -75,7 +75,9 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
       try {
         e.dataTransfer.setData("text/plain", taskId);
         e.dataTransfer.setData("text", taskId);
-      } catch { /* dataTransfer not supported */ }
+      } catch {
+        /* dataTransfer not supported */
+      }
       e.dataTransfer.effectAllowed = "move";
     };
 
@@ -182,15 +184,14 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
         {/* Tip Hint */}
         <div className="text-[10px] text-slate-400 font-medium px-1 flex items-center gap-1">
           <GripHorizontal className="w-3 h-3 text-[#4D7C5D]" />
-          <span>提示：可以直接按住甘特图中的任务绿色区块，拖拽放置到任意日期网格上以重新安排截止时间。</span>
+          <span>
+            提示：可以直接按住甘特图中的任务绿色区块，拖拽放置到任意日期网格上以重新安排截止时间。
+          </span>
         </div>
 
         {/* Gantt Timeline Board Table */}
         <div className="bg-white/90 border border-[#EFEBE4] rounded-2xl overflow-hidden shadow-xs relative">
-          <div
-            className="overflow-x-auto custom-scrollbar"
-            style={{ maxHeight: "62vh" }}
-          >
+          <div className="overflow-x-auto custom-scrollbar" style={{ maxHeight: "62vh" }}>
             <div className="min-w-[720px] relative">
               {/* Header row */}
               <div className="flex border-b border-[#EFEBE4] bg-[#FAF8F5]/90 sticky top-0 z-20 backdrop-blur-md">
@@ -205,8 +206,8 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
                       h.isToday
                         ? "bg-[#F0F5F1] text-[#4D7C5D]"
                         : h.isWeekend
-                        ? "text-[#D4380D]/60"
-                        : "text-slate-400"
+                          ? "text-[#D4380D]/60"
+                          : "text-slate-400"
                     }`}
                   >
                     <div>{h.weekday}</div>
@@ -223,8 +224,7 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
                 </div>
               ) : (
                 ganttData.map((task, idx) => {
-                  const hasDependencies =
-                    task.dependsOn && task.dependsOn.length > 0;
+                  const hasDependencies = task.dependsOn && task.dependsOn.length > 0;
 
                   return (
                     <div
@@ -239,9 +239,7 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
                         className="w-52 flex-shrink-0 px-3 py-2 text-xs text-slate-700 font-bold truncate border-r border-[#EFEBE4] flex items-center gap-1.5 cursor-pointer hover:text-[#4D7C5D]"
                         title={task.title}
                       >
-                        {task.isPinned && (
-                          <span className="text-[10px]">📌</span>
-                        )}
+                        {task.isPinned && <span className="text-[10px]">📌</span>}
                         <span className="truncate flex-grow">{task.title}</span>
 
                         {hasDependencies && (
@@ -288,9 +286,7 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
                                   task.dueTime || "全天"
                                 }`}
                               >
-                                <span className="text-[9px] font-bold truncate">
-                                  {task.title}
-                                </span>
+                                <span className="text-[9px] font-bold truncate">{task.title}</span>
 
                                 {task.dueTime && (
                                   <span className="text-[8px] font-mono bg-white/20 px-1 rounded text-white shrink-0 ml-1">
@@ -311,5 +307,5 @@ export const GanttView: React.FC<GanttViewProps> = React.memo(
         </div>
       </div>
     );
-  }
+  },
 );

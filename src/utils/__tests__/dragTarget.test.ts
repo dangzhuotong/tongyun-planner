@@ -203,7 +203,12 @@ describe("shouldStartDrag - cursor-pointer clickable", () => {
       parentElement: null,
       getAttribute: (a: string) => (a === "class" ? "text-2xl cursor-pointer hover:text-x" : null),
     };
-    const child: DragCandidateNode = { nodeType: 1, tagName: "I", parentElement: span, getAttribute: () => null };
+    const child: DragCandidateNode = {
+      nodeType: 1,
+      tagName: "I",
+      parentElement: span,
+      getAttribute: () => null,
+    };
     expect(shouldStartDrag(span)).toBe(false);
     expect(shouldStartDrag(child)).toBe(false);
   });

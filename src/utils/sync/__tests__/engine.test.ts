@@ -19,7 +19,8 @@ class LocalStorageMock {
 
 describe("SyncEngine dirty persistence and offline", () => {
   beforeEach(() => {
-    (globalThis as unknown as { localStorage: Storage }).localStorage = new LocalStorageMock() as unknown as Storage;
+    (globalThis as unknown as { localStorage: Storage }).localStorage =
+      new LocalStorageMock() as unknown as Storage;
     Object.defineProperty(globalThis, "navigator", {
       value: { onLine: true },
       configurable: true,
@@ -33,7 +34,7 @@ describe("SyncEngine dirty persistence and offline", () => {
     expect(engine.dirty).toBe(true);
     engine.markDirty("config");
     expect(JSON.parse(localStorage.getItem("tongyun_sync_dirty") || "[]").sort()).toEqual(
-      ["config", "journal", "tasks"].sort()
+      ["config", "journal", "tasks"].sort(),
     );
   });
 
@@ -44,7 +45,7 @@ describe("SyncEngine dirty persistence and offline", () => {
     expect(engine.dirty).toBe(true);
     engine.markDirty("stickyNotes");
     expect(JSON.parse(localStorage.getItem("tongyun_sync_dirty") || "[]").sort()).toEqual(
-      ["stickyNotes", "tasks"].sort()
+      ["stickyNotes", "tasks"].sort(),
     );
   });
 
@@ -53,7 +54,7 @@ describe("SyncEngine dirty persistence and offline", () => {
     const engine = new SyncEngine();
     engine.markDirty();
     expect(JSON.parse(localStorage.getItem("tongyun_sync_dirty") || "[]").sort()).toEqual(
-      [...ALL_SYNC_CATEGORIES].sort()
+      [...ALL_SYNC_CATEGORIES].sort(),
     );
   });
 

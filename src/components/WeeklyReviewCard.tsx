@@ -28,20 +28,15 @@ function getWeekRange(): { start: string; end: string } {
   };
 }
 
-const WeeklyReviewCardInner: React.FC<WeeklyReviewCardProps & { today: string; localeKey: string }> = ({
-  config,
-  completedTasks,
-  pomodoroLogs,
-  journal,
-  today,
-  localeKey,
-}) => {
+const WeeklyReviewCardInner: React.FC<
+  WeeklyReviewCardProps & { today: string; localeKey: string }
+> = ({ config, completedTasks, pomodoroLogs, journal, today, localeKey }) => {
   const { locale } = useTranslation();
   const isZh = locale === "zh-CN";
   const { start, end } = getWeekRange();
 
   const [review, setReview] = useState<string | null>(() =>
-    readDailyCache<string>(CACHE_KEY, today, localeKey)
+    readDailyCache<string>(CACHE_KEY, today, localeKey),
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -128,31 +123,43 @@ const WeeklyReviewCardInner: React.FC<WeeklyReviewCardProps & { today: string; l
         >
           <Sparkles className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
           {loading
-            ? (isZh ? "生成中..." : "Generating...")
+            ? isZh
+              ? "生成中..."
+              : "Generating..."
             : review
-              ? (isZh ? "刷新" : "Refresh")
-              : (isZh ? "生成回顾" : "Generate")}
+              ? isZh
+                ? "刷新"
+                : "Refresh"
+              : isZh
+                ? "生成回顾"
+                : "Generate"}
         </button>
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-3">
         <div className="rounded-xl bg-[#F0F5F1] dark:bg-[#232924] p-2.5 text-center">
           <CheckCircle2 className="w-3.5 h-3.5 mx-auto mb-1 text-[#4D7C5D] dark:text-[#6FAD84]" />
-          <div className="text-sm font-black text-[#3F684C] dark:text-[#6FAD84]">{stats.completedCount}</div>
+          <div className="text-sm font-black text-[#3F684C] dark:text-[#6FAD84]">
+            {stats.completedCount}
+          </div>
           <div className="text-[8px] text-slate-500 dark:text-slate-400 font-bold uppercase">
             {isZh ? "已完成" : "Done"}
           </div>
         </div>
         <div className="rounded-xl bg-[#F5F0EB] dark:bg-[#2A2A20] p-2.5 text-center">
           <Clock className="w-3.5 h-3.5 mx-auto mb-1 text-[#8B6E3C] dark:text-[#C9A96A]" />
-          <div className="text-sm font-black text-[#6B5530] dark:text-[#C9A96A]">{stats.pomodoroMinutes}</div>
+          <div className="text-sm font-black text-[#6B5530] dark:text-[#C9A96A]">
+            {stats.pomodoroMinutes}
+          </div>
           <div className="text-[8px] text-slate-500 dark:text-slate-400 font-bold uppercase">
             {isZh ? "专注分" : "min"}
           </div>
         </div>
         <div className="rounded-xl bg-[#F0F4F7] dark:bg-[#1E242B] p-2.5 text-center">
           <BookOpen className="w-3.5 h-3.5 mx-auto mb-1 text-[#4D6C8B] dark:text-[#7CA2C4]" />
-          <div className="text-sm font-black text-[#3A5873] dark:text-[#7CA2C4]">{stats.journalDays}</div>
+          <div className="text-sm font-black text-[#3A5873] dark:text-[#7CA2C4]">
+            {stats.journalDays}
+          </div>
           <div className="text-[8px] text-slate-500 dark:text-slate-400 font-bold uppercase">
             {isZh ? "日记篇" : "journal"}
           </div>
@@ -185,5 +192,12 @@ const WeeklyReviewCardInner: React.FC<WeeklyReviewCardProps & { today: string; l
 export const WeeklyReviewCard: React.FC<WeeklyReviewCardProps> = (props) => {
   const today = getLocalDateString();
   const localeKey = props.config.locale || "zh-CN";
-  return <WeeklyReviewCardInner key={`${today}-${localeKey}`} today={today} localeKey={localeKey} {...props} />;
+  return (
+    <WeeklyReviewCardInner
+      key={`${today}-${localeKey}`}
+      today={today}
+      localeKey={localeKey}
+      {...props}
+    />
+  );
 };

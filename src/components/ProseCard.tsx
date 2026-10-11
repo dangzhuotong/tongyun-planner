@@ -23,7 +23,7 @@ const ProseCardInner: React.FC<ProseCardProps & { today: string; localeKey: stri
   const isZh = locale === "zh-CN";
 
   const [prose, setProse] = useState<string | null>(() =>
-    readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey)
+    readDailyCache<string>(PROSE_CACHE_KEY, today, localeKey),
   );
   const [proseLoading, setProseLoading] = useState(false);
   const [proseError, setProseError] = useState<string | null>(null);
@@ -49,7 +49,11 @@ const ProseCardInner: React.FC<ProseCardProps & { today: string; localeKey: stri
         setProse(result);
         writeDailyCache(PROSE_CACHE_KEY, today, localeKey, result);
       } else {
-        setProseError(isZh ? "AI 返回了空内容，请更换模型后重试。" : "The model returned an empty response. Try another model.");
+        setProseError(
+          isZh
+            ? "AI 返回了空内容，请更换模型后重试。"
+            : "The model returned an empty response. Try another model.",
+        );
       }
     } catch (error) {
       console.error("AI prose generation failed", error);
@@ -77,10 +81,16 @@ const ProseCardInner: React.FC<ProseCardProps & { today: string; localeKey: stri
         >
           <Sparkles className={`w-3 h-3 ${proseLoading ? "animate-spin" : ""}`} />
           {proseLoading
-            ? (isZh ? "生成中..." : "Generating...")
+            ? isZh
+              ? "生成中..."
+              : "Generating..."
             : prose
-              ? (isZh ? "换一篇" : "Another one")
-              : (isZh ? "生成散文" : "Generate")}
+              ? isZh
+                ? "换一篇"
+                : "Another one"
+              : isZh
+                ? "生成散文"
+                : "Generate"}
         </button>
       </div>
       <div className="min-h-[60px]">
@@ -89,7 +99,10 @@ const ProseCardInner: React.FC<ProseCardProps & { today: string; localeKey: stri
             <div className="w-5 h-5 border-2 border-[#4D7C5D]/30 border-t-[#4D7C5D] rounded-full animate-spin" />
           </div>
         ) : proseError ? (
-          <p className="text-[10px] text-red-400 font-bold text-center py-4 break-words" role="alert">
+          <p
+            className="text-[10px] text-red-400 font-bold text-center py-4 break-words"
+            role="alert"
+          >
             {proseError}
           </p>
         ) : prose ? (
@@ -135,7 +148,9 @@ const ProseCardInner: React.FC<ProseCardProps & { today: string; localeKey: stri
           })()
         ) : (
           <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold text-center py-4">
-            {isZh ? "点击上方按钮，让 AI 为你写一篇短随笔" : "Click above to let AI write a short essay for you"}
+            {isZh
+              ? "点击上方按钮，让 AI 为你写一篇短随笔"
+              : "Click above to let AI write a short essay for you"}
           </p>
         )}
       </div>
@@ -146,5 +161,7 @@ const ProseCardInner: React.FC<ProseCardProps & { today: string; localeKey: stri
 export const ProseCard: React.FC<ProseCardProps> = (props) => {
   const today = getLocalDateString();
   const localeKey = props.config.locale || "zh-CN";
-  return <ProseCardInner key={`${today}-${localeKey}`} today={today} localeKey={localeKey} {...props} />;
+  return (
+    <ProseCardInner key={`${today}-${localeKey}`} today={today} localeKey={localeKey} {...props} />
+  );
 };

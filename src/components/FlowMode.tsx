@@ -55,8 +55,13 @@ export const FlowMode: React.FC<FlowModeProps> = ({
             <CheckCircle2 className="w-8 h-8 text-[#4D7C5D]" />
           </div>
           <h2 className="text-xl font-bold text-[#2D323A]">全部完成！🎉</h2>
-          <p className="text-sm text-slate-400 font-medium">今日 {completedCount} 个任务已全部完成</p>
-          <button onClick={onExit} className="mt-4 px-6 py-2.5 rounded-xl bg-[#4D7C5D] text-white text-sm font-bold hover:bg-[#3F684C] transition-all cursor-pointer">
+          <p className="text-sm text-slate-400 font-medium">
+            今日 {completedCount} 个任务已全部完成
+          </p>
+          <button
+            onClick={onExit}
+            className="mt-4 px-6 py-2.5 rounded-xl bg-[#4D7C5D] text-white text-sm font-bold hover:bg-[#3F684C] transition-all cursor-pointer"
+          >
             返回
           </button>
         </div>
@@ -70,7 +75,10 @@ export const FlowMode: React.FC<FlowModeProps> = ({
         <div className="text-center space-y-4">
           <span className="text-5xl block">🌿</span>
           <h2 className="text-xl font-bold text-slate-400">今天没有待办任务</h2>
-          <button onClick={onExit} className="mt-4 px-6 py-2.5 rounded-xl bg-[#4D7C5D] text-white text-sm font-bold hover:bg-[#3F684C] transition-all cursor-pointer">
+          <button
+            onClick={onExit}
+            className="mt-4 px-6 py-2.5 rounded-xl bg-[#4D7C5D] text-white text-sm font-bold hover:bg-[#3F684C] transition-all cursor-pointer"
+          >
             返回
           </button>
         </div>
@@ -116,8 +124,12 @@ export const FlowMode: React.FC<FlowModeProps> = ({
       <div className="flex-grow flex flex-col px-8 overflow-y-auto">
         {/* 任务卡片：垂直居中 */}
         <div className="flex-grow flex items-center justify-center min-h-0">
-          <div className={`max-w-lg w-full transition-all duration-500 ${showComplete ? "scale-95 opacity-0" : "scale-100 opacity-100"}`}>
-            <div className={`w-1.5 h-1.5 rounded-full mb-4 ${getQuadColor(currentTask.category)}`} />
+          <div
+            className={`max-w-lg w-full transition-all duration-500 ${showComplete ? "scale-95 opacity-0" : "scale-100 opacity-100"}`}
+          >
+            <div
+              className={`w-1.5 h-1.5 rounded-full mb-4 ${getQuadColor(currentTask.category)}`}
+            />
             <h1 className="text-3xl font-bold text-[#2D323A] leading-tight mb-4">
               {currentTask.title}
             </h1>
@@ -127,12 +139,12 @@ export const FlowMode: React.FC<FlowModeProps> = ({
               </p>
             )}
             <div className="flex items-center gap-3 text-sm text-slate-400 font-medium">
-              <span className={`text-[10px] font-black px-2 py-1 rounded-md text-white ${getQuadColor(currentTask.category)}`}>
+              <span
+                className={`text-[10px] font-black px-2 py-1 rounded-md text-white ${getQuadColor(currentTask.category)}`}
+              >
                 {getQuadLabel(currentTask.category)}
               </span>
-              {currentTask.dueTime && (
-                <span>截止 {currentTask.dueTime}</span>
-              )}
+              {currentTask.dueTime && <span>截止 {currentTask.dueTime}</span>}
             </div>
 
             <div className="mt-10 flex gap-4">

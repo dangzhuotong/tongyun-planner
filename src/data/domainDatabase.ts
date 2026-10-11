@@ -48,7 +48,9 @@ async function createSchema(db: Database): Promise<void> {
     updated_at INTEGER NOT NULL,
     data TEXT NOT NULL
   )`);
-  await db.execute("CREATE INDEX IF NOT EXISTS idx_domain_tasks_completed ON domain_tasks(completed_at)");
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_domain_tasks_completed ON domain_tasks(completed_at)",
+  );
   await db.execute("CREATE INDEX IF NOT EXISTS idx_domain_tasks_due ON domain_tasks(due_date)");
   await db.execute(`CREATE TABLE IF NOT EXISTS domain_journal (
     id TEXT PRIMARY KEY,
@@ -57,13 +59,17 @@ async function createSchema(db: Database): Promise<void> {
     updated_at INTEGER NOT NULL,
     data TEXT NOT NULL
   )`);
-  await db.execute("CREATE INDEX IF NOT EXISTS idx_domain_journal_date ON domain_journal(entry_date)");
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_domain_journal_date ON domain_journal(entry_date)",
+  );
   await db.execute(`CREATE TABLE IF NOT EXISTS domain_pomodoro_logs (
     id TEXT PRIMARY KEY,
     occurred_at INTEGER NOT NULL,
     data TEXT NOT NULL
   )`);
-  await db.execute("CREATE INDEX IF NOT EXISTS idx_domain_pomodoro_time ON domain_pomodoro_logs(occurred_at)");
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_domain_pomodoro_time ON domain_pomodoro_logs(occurred_at)",
+  );
   await db.execute(`CREATE TABLE IF NOT EXISTS domain_habits (
     id TEXT PRIMARY KEY,
     updated_at INTEGER NOT NULL,
@@ -110,7 +116,13 @@ async function migrateLegacyData(db: Database): Promise<void> {
       await db.execute(
         `INSERT OR REPLACE INTO domain_tasks(id, completed_at, due_date, updated_at, data)
          VALUES ($1, $2, $3, $4, $5)`,
-        [task.id, task.completedAt ?? null, task.dueDate ?? null, task.completedAt ?? Date.now(), JSON.stringify(task)],
+        [
+          task.id,
+          task.completedAt ?? null,
+          task.dueDate ?? null,
+          task.completedAt ?? Date.now(),
+          JSON.stringify(task),
+        ],
       );
     }
 
@@ -118,7 +130,13 @@ async function migrateLegacyData(db: Database): Promise<void> {
       await db.execute(
         `INSERT OR REPLACE INTO domain_journal(id, entry_date, is_daily, updated_at, data)
          VALUES ($1, $2, $3, $4, $5)`,
-        [entry.id, entry.date, entry.isDaily ? 1 : 0, entry.updatedAt ?? entry.createdAt ?? Date.now(), JSON.stringify(entry)],
+        [
+          entry.id,
+          entry.date,
+          entry.isDaily ? 1 : 0,
+          entry.updatedAt ?? entry.createdAt ?? Date.now(),
+          JSON.stringify(entry),
+        ],
       );
     }
 
@@ -136,7 +154,10 @@ async function migrateLegacyData(db: Database): Promise<void> {
       );
     }
 
-    await db.execute("INSERT INTO schema_migrations(version, applied_at) VALUES ($1, $2)", [SCHEMA_VERSION, Date.now()]);
+    await db.execute("INSERT INTO schema_migrations(version, applied_at) VALUES ($1, $2)", [
+      SCHEMA_VERSION,
+      Date.now(),
+    ]);
     await db.execute("COMMIT");
   } catch (error) {
     await db.execute("ROLLBACK").catch(() => undefined);

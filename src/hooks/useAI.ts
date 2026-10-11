@@ -11,7 +11,10 @@ export function useAI(customizationConfig: CustomizationConfig) {
   const [tagFilter, setTagFilter] = useState<string>("all");
   const [aiInputText, setAiInputText] = useState("");
   const [aiInputLoading, setAiInputLoading] = useState(false);
-  const [aiInputMessage, setAiInputMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [aiInputMessage, setAiInputMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   const [aiPreviewTasks, setAiPreviewTasks] = useState<ExtractedTask[]>([]);
   const [showAiInbox, setShowAiInbox] = useState(false);
 
@@ -48,12 +51,15 @@ export function useAI(customizationConfig: CustomizationConfig) {
     }
   }, [aiInputText, customizationConfig]);
 
-  const aiAutoCategorize = useCallback(async (title: string, description: string) => {
-    if (customizationConfig.aiAutoCategorize && canUseAI(customizationConfig)) {
-      return await classifyCategory(customizationConfig, title, description);
-    }
-    return null;
-  }, [customizationConfig]);
+  const aiAutoCategorize = useCallback(
+    async (title: string, description: string) => {
+      if (customizationConfig.aiAutoCategorize && canUseAI(customizationConfig)) {
+        return await classifyCategory(customizationConfig, title, description);
+      }
+      return null;
+    },
+    [customizationConfig],
+  );
 
   // Auto-dismiss AI messages
   useEffect(() => {
@@ -63,24 +69,39 @@ export function useAI(customizationConfig: CustomizationConfig) {
     }
   }, [aiInputMessage]);
 
-  return useMemo(() => ({
-    searchQuery,
-    debouncedSearchQuery,
-    setSearchQuery,
-    categoryFilter,
-    setCategoryFilter,
-    tagFilter,
-    setTagFilter,
-    aiInputText,
-    setAiInputText,
-    aiInputLoading,
-    aiInputMessage,
-    setAiInputMessage,
-    aiPreviewTasks,
-    setAiPreviewTasks,
-    showAiInbox,
-    setShowAiInbox,
-    handleAiBatchInput,
-    aiAutoCategorize,
-  }), [searchQuery, debouncedSearchQuery, categoryFilter, tagFilter, aiInputText, aiInputLoading, aiInputMessage, aiPreviewTasks, showAiInbox, handleAiBatchInput, aiAutoCategorize]);
+  return useMemo(
+    () => ({
+      searchQuery,
+      debouncedSearchQuery,
+      setSearchQuery,
+      categoryFilter,
+      setCategoryFilter,
+      tagFilter,
+      setTagFilter,
+      aiInputText,
+      setAiInputText,
+      aiInputLoading,
+      aiInputMessage,
+      setAiInputMessage,
+      aiPreviewTasks,
+      setAiPreviewTasks,
+      showAiInbox,
+      setShowAiInbox,
+      handleAiBatchInput,
+      aiAutoCategorize,
+    }),
+    [
+      searchQuery,
+      debouncedSearchQuery,
+      categoryFilter,
+      tagFilter,
+      aiInputText,
+      aiInputLoading,
+      aiInputMessage,
+      aiPreviewTasks,
+      showAiInbox,
+      handleAiBatchInput,
+      aiAutoCategorize,
+    ],
+  );
 }

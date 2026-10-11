@@ -67,13 +67,22 @@ export const PLATFORMS: PlatformDef[] = [
   { key: "juejin", label: "掘金", color: "bg-emerald-50 text-emerald-600 border-emerald-100" },
   { key: "csdn", label: "CSDN", color: "bg-orange-50 text-orange-600 border-orange-100" },
   { key: "xiaohongshu", label: "小红书", color: "bg-pink-50 text-pink-600 border-pink-100" },
-  { key: "producthunt", label: "Product Hunt", color: "bg-purple-50 text-purple-600 border-purple-100" },
+  {
+    key: "producthunt",
+    label: "Product Hunt",
+    color: "bg-purple-50 text-purple-600 border-purple-100",
+  },
 ];
 
 export const DEFAULT_FEEDS: RSSFeed[] = [
   { id: "sspai", name: "少数派 · 极客利器", url: "https://sspai.com/feed", category: "tech" },
   { id: "hn", name: "Hacker News · Top", url: "https://hnrss.org/frontpage", category: "tech" },
-  { id: "ruanyifeng", name: "阮一峰的网络日志", url: "https://www.ruanyifeng.com/blog/atom.xml", category: "tech" },
+  {
+    id: "ruanyifeng",
+    name: "阮一峰的网络日志",
+    url: "https://www.ruanyifeng.com/blog/atom.xml",
+    category: "tech",
+  },
   { id: "zhihu-daily", name: "知乎每日精选", url: "https://www.zhihu.com/rss", category: "daily" },
 ];
 

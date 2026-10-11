@@ -9,7 +9,9 @@ function load(): HabitItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return [];
 }
 
@@ -43,10 +45,7 @@ export function useHabits() {
   /** 添加新习惯 */
   const addHabit = useCallback((name: string, emoji: string) => {
     const id = createId("habit");
-    setHabits((prev) => [
-      ...prev,
-      { id, name, emoji, doneToday: false, streak: 0 },
-    ]);
+    setHabits((prev) => [...prev, { id, name, emoji, doneToday: false, streak: 0 }]);
   }, []);
 
   /** 删除习惯 */
@@ -77,7 +76,7 @@ export function useHabits() {
           lastDoneDate: toggled ? today : h.lastDoneDate,
           streak: toggled ? newStreak : h.streak,
         };
-      })
+      }),
     );
   }, []);
 

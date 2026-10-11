@@ -8,9 +8,7 @@ import { getCachedData, setCachedData, fetchWithRetry } from "../../utils/cache"
 import { NewsItemActions } from "./NewsItemActions";
 import type { NewsActions } from "./newsActions";
 
-const isTauri =
-  typeof window !== "undefined" &&
-  (window as any).__TAURI_INTERNALS__ !== undefined;
+const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
 const MAX_PER_CARD = 8;
 const CACHE_TTL = 30 * 60 * 1000;
@@ -47,7 +45,9 @@ async function fetchPlatformData(platform: string): Promise<TrendingItem[]> {
         })();
     const articles = parseRSSXML(xml);
     return articles.slice(0, MAX_PER_CARD).map((a, i) => ({
-      title: a.title, url: a.link, index: i + 1,
+      title: a.title,
+      url: a.link,
+      index: i + 1,
     }));
   }
 
@@ -96,7 +96,7 @@ export const TrendingView: React.FC<{ actions: NewsActions }> = ({ actions }) =>
           } catch (e: any) {
             return { key, data: [] as TrendingItem[], error: e.message || "加载失败" };
           }
-        })
+        }),
       );
       results.push(...batchResults);
     }
@@ -122,15 +122,26 @@ export const TrendingView: React.FC<{ actions: NewsActions }> = ({ actions }) =>
 
   const retryPlatform = useCallback((key: string) => {
     setLoadingPlatforms((prev) => new Set(prev).add(key));
-    fetchPlatformDataWithRetry(key).then((data) => {
-      setCachedData("trending_" + key, data);
-      setAllTrendingData((prev) => ({ ...prev, [key]: data }));
-      setErrorPlatforms((prev) => { const n = { ...prev }; delete n[key]; return n; });
-    }).catch((err: any) => {
-      setErrorPlatforms((prev) => ({ ...prev, [key]: err.message || "加载失败" }));
-    }).finally(() => {
-      setLoadingPlatforms((prev) => { const n = new Set(prev); n.delete(key); return n; });
-    });
+    fetchPlatformDataWithRetry(key)
+      .then((data) => {
+        setCachedData("trending_" + key, data);
+        setAllTrendingData((prev) => ({ ...prev, [key]: data }));
+        setErrorPlatforms((prev) => {
+          const n = { ...prev };
+          delete n[key];
+          return n;
+        });
+      })
+      .catch((err: any) => {
+        setErrorPlatforms((prev) => ({ ...prev, [key]: err.message || "加载失败" }));
+      })
+      .finally(() => {
+        setLoadingPlatforms((prev) => {
+          const n = new Set(prev);
+          n.delete(key);
+          return n;
+        });
+      });
   }, []);
 
   useEffect(() => {
@@ -145,7 +156,9 @@ export const TrendingView: React.FC<{ actions: NewsActions }> = ({ actions }) =>
           <TrendingUp className="w-4 h-4 text-[#4D7C5D]" />
           <span className="text-[13px] font-bold text-[#2D323A]">今日热议</span>
           <span className="text-[9px] text-slate-400 font-medium">
-            {loadingPlatforms.size > 0 ? `加载中 ${loadingPlatforms.size}/${PLATFORMS.length} ...` : `${PLATFORMS.length} 个平台`}
+            {loadingPlatforms.size > 0
+              ? `加载中 ${loadingPlatforms.size}/${PLATFORMS.length} ...`
+              : `${PLATFORMS.length} 个平台`}
           </span>
         </div>
         <button
@@ -170,10 +183,19 @@ export const TrendingView: React.FC<{ actions: NewsActions }> = ({ actions }) =>
               className="bg-white/90 border border-[#EFEBE4] rounded-2xl hover:border-[#C4D7B2] hover:shadow-sm transition-all overflow-hidden flex flex-col"
             >
               {/* Card header */}
-              <div className={"flex items-center justify-between px-3.5 py-2.5 border-b border-[#EFEBE4] " + platform.color.split(" ").slice(0, 2).join(" ") + " dark:!bg-[#2D323A]/40 dark:!text-slate-300"}>
+              <div
+                className={
+                  "flex items-center justify-between px-3.5 py-2.5 border-b border-[#EFEBE4] " +
+                  platform.color.split(" ").slice(0, 2).join(" ") +
+                  " dark:!bg-[#2D323A]/40 dark:!text-slate-300"
+                }
+              >
                 <span className="text-[10px] font-bold tracking-wide">{platform.label}</span>
                 <button
-                  onClick={(e) => { e.stopPropagation(); retryPlatform(platform.key); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    retryPlatform(platform.key);
+                  }}
                   title="刷新"
                   className="p-0.5 rounded hover:bg-black/5 opacity-50 hover:opacity-100 transition-all cursor-pointer"
                 >
@@ -186,12 +208,21 @@ export const TrendingView: React.FC<{ actions: NewsActions }> = ({ actions }) =>
                 {error ? (
                   <div className="flex flex-col items-center justify-center py-6 gap-2 text-center">
                     <span className="text-[9px] text-slate-400">{error}</span>
-                    <button onClick={() => retryPlatform(platform.key)} className="text-[9px] text-[#8B6E3C] dark:text-[#C4A05E] font-bold hover:underline cursor-pointer">重试</button>
+                    <button
+                      onClick={() => retryPlatform(platform.key)}
+                      className="text-[9px] text-[#8B6E3C] dark:text-[#C4A05E] font-bold hover:underline cursor-pointer"
+                    >
+                      重试
+                    </button>
                   </div>
                 ) : isLoading ? (
                   <div className="space-y-2 py-3 px-2">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="h-3 bg-slate-100 dark:bg-slate-700 rounded animate-pulse" style={{ width: `${60 + Math.random() * 40}%` }} />
+                      <div
+                        key={i}
+                        className="h-3 bg-slate-100 dark:bg-slate-700 rounded animate-pulse"
+                        style={{ width: `${60 + Math.random() * 40}%` }}
+                      />
                     ))}
                   </div>
                 ) : items.length === 0 ? (
@@ -199,13 +230,18 @@ export const TrendingView: React.FC<{ actions: NewsActions }> = ({ actions }) =>
                     <span className="text-[9px] font-medium">暂无数据</span>
                   </div>
                 ) : (
-                   <div className="flex flex-col">
+                  <div className="flex flex-col">
                     {items.map((item, idx) => (
                       <div
                         key={item.url}
                         className="group flex items-start gap-2 px-2.5 py-2 rounded-lg hover:bg-[#F0F5F1]/60 transition-all"
                       >
-                        <span className={"w-5 h-5 rounded flex items-center justify-center flex-shrink-0 text-[8px] font-bold mt-[1px] " + (idx < 3 ? "bg-[#4D7C5D] text-white" : "bg-[#F0F5F1] text-[#4D7C5D]")}>
+                        <span
+                          className={
+                            "w-5 h-5 rounded flex items-center justify-center flex-shrink-0 text-[8px] font-bold mt-[1px] " +
+                            (idx < 3 ? "bg-[#4D7C5D] text-white" : "bg-[#F0F5F1] text-[#4D7C5D]")
+                          }
+                        >
                           {idx + 1}
                         </span>
                         <div className="min-w-0 flex-grow">

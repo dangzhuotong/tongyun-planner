@@ -25,12 +25,12 @@ export class AudioEngine {
   // Pre-generate and cache Brownian Noise buffer (O(N) generated once, O(1) thereafter)
   private getBrownBuffer(ctx: AudioContext): AudioBuffer {
     if (this.brownBuffer) return this.brownBuffer;
-    
+
     const sampleRate = ctx.sampleRate;
     const bufferSize = 2 * sampleRate;
     const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
     const data = buffer.getChannelData(0);
-    
+
     let lastOut = 0.0;
     for (let i = 0; i < bufferSize; i++) {
       const white = Math.random() * 2 - 1;
@@ -38,7 +38,7 @@ export class AudioEngine {
       lastOut = data[i];
       data[i] *= 3.5;
     }
-    
+
     this.brownBuffer = buffer;
     return buffer;
   }
@@ -46,13 +46,19 @@ export class AudioEngine {
   // Pre-generate and cache Pink Noise buffer (O(N) generated once, O(1) thereafter)
   private getPinkBuffer(ctx: AudioContext): AudioBuffer {
     if (this.pinkBuffer) return this.pinkBuffer;
-    
+
     const sampleRate = ctx.sampleRate;
     const bufferSize = 2 * sampleRate;
     const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
     const data = buffer.getChannelData(0);
-    
-    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+
+    let b0 = 0,
+      b1 = 0,
+      b2 = 0,
+      b3 = 0,
+      b4 = 0,
+      b5 = 0,
+      b6 = 0;
     for (let i = 0; i < bufferSize; i++) {
       const white = Math.random() * 2 - 1;
       b0 = 0.99886 * b0 + white * 0.0555179;
@@ -65,7 +71,7 @@ export class AudioEngine {
       data[i] *= 0.11;
       b6 = white * 0.115926;
     }
-    
+
     this.pinkBuffer = buffer;
     return buffer;
   }
@@ -121,7 +127,7 @@ export class AudioEngine {
       clearTimeout(this.fadeTimeoutId);
       this.fadeTimeoutId = null;
     }
-    
+
     this.stopNoiseImmediate();
 
     try {
@@ -211,31 +217,40 @@ export class AudioEngine {
         this.source.connect(lp);
         lp.connect(this.gain);
 
-        const crackleInterval = setInterval(() => {
-          if (!this.ctx || !this.gain) { clearInterval(crackleInterval); return; }
-          const cCtx = this.ctx;
-          const crackleGain = cCtx.createGain();
-          crackleGain.gain.setValueAtTime(Math.random() * 0.12 + 0.04, cCtx.currentTime);
-          crackleGain.gain.exponentialRampToValueAtTime(0.001, cCtx.currentTime + 0.06 + Math.random() * 0.08);
+        const crackleInterval = setInterval(
+          () => {
+            if (!this.ctx || !this.gain) {
+              clearInterval(crackleInterval);
+              return;
+            }
+            const cCtx = this.ctx;
+            const crackleGain = cCtx.createGain();
+            crackleGain.gain.setValueAtTime(Math.random() * 0.12 + 0.04, cCtx.currentTime);
+            crackleGain.gain.exponentialRampToValueAtTime(
+              0.001,
+              cCtx.currentTime + 0.06 + Math.random() * 0.08,
+            );
 
-          const crackleSource = cCtx.createBufferSource();
-          const crackleBufferSize = Math.floor(0.1 * cCtx.sampleRate);
-          const crackleBuf = cCtx.createBuffer(1, crackleBufferSize, cCtx.sampleRate);
-          const crackleData = crackleBuf.getChannelData(0);
-          for (let i = 0; i < crackleBufferSize; i++) {
-            crackleData[i] = Math.random() * 2 - 1;
-          }
-          crackleSource.buffer = crackleBuf;
+            const crackleSource = cCtx.createBufferSource();
+            const crackleBufferSize = Math.floor(0.1 * cCtx.sampleRate);
+            const crackleBuf = cCtx.createBuffer(1, crackleBufferSize, cCtx.sampleRate);
+            const crackleData = crackleBuf.getChannelData(0);
+            for (let i = 0; i < crackleBufferSize; i++) {
+              crackleData[i] = Math.random() * 2 - 1;
+            }
+            crackleSource.buffer = crackleBuf;
 
-          const crackleHp = cCtx.createBiquadFilter();
-          crackleHp.type = "highpass";
-          crackleHp.frequency.setValueAtTime(2000, cCtx.currentTime);
+            const crackleHp = cCtx.createBiquadFilter();
+            crackleHp.type = "highpass";
+            crackleHp.frequency.setValueAtTime(2000, cCtx.currentTime);
 
-          crackleSource.connect(crackleHp);
-          crackleHp.connect(crackleGain);
-          crackleGain.connect(this.gain!);
-          crackleSource.start(cCtx.currentTime);
-        }, 400 + Math.random() * 800);
+            crackleSource.connect(crackleHp);
+            crackleHp.connect(crackleGain);
+            crackleGain.connect(this.gain!);
+            crackleSource.start(cCtx.currentTime);
+          },
+          400 + Math.random() * 800,
+        );
 
         (this as any)._crackleInterval = crackleInterval;
       } else if (type === "stream") {
@@ -458,11 +473,14 @@ export class AudioEngine {
           rumbleSrc.stop(now + 3);
         };
 
-        (this as any)._thunderInterval = setInterval(() => {
-          if (Math.random() > 0.35) rumble();
-        }, 8000 + Math.random() * 12000);
+        (this as any)._thunderInterval = setInterval(
+          () => {
+            if (Math.random() > 0.35) rumble();
+          },
+          8000 + Math.random() * 12000,
+        );
       }
-      
+
       this.source.start();
     } catch (e) {
       console.error("启动白噪音发生器失败:", e);
@@ -497,11 +515,26 @@ export class AudioEngine {
 
       this.fadeTimeoutId = setTimeout(() => {
         // Clear periodic sound intervals (bell/pendulum/ring/thunder)
-        if ((this as any)._crackleInterval) { clearInterval((this as any)._crackleInterval); (this as any)._crackleInterval = null; }
-        if ((this as any)._bellInterval) { clearInterval((this as any)._bellInterval); (this as any)._bellInterval = null; }
-        if ((this as any)._pendulumInterval) { clearInterval((this as any)._pendulumInterval); (this as any)._pendulumInterval = null; }
-        if ((this as any)._ringInterval) { clearInterval((this as any)._ringInterval); (this as any)._ringInterval = null; }
-        if ((this as any)._thunderInterval) { clearInterval((this as any)._thunderInterval); (this as any)._thunderInterval = null; }
+        if ((this as any)._crackleInterval) {
+          clearInterval((this as any)._crackleInterval);
+          (this as any)._crackleInterval = null;
+        }
+        if ((this as any)._bellInterval) {
+          clearInterval((this as any)._bellInterval);
+          (this as any)._bellInterval = null;
+        }
+        if ((this as any)._pendulumInterval) {
+          clearInterval((this as any)._pendulumInterval);
+          (this as any)._pendulumInterval = null;
+        }
+        if ((this as any)._ringInterval) {
+          clearInterval((this as any)._ringInterval);
+          (this as any)._ringInterval = null;
+        }
+        if ((this as any)._thunderInterval) {
+          clearInterval((this as any)._thunderInterval);
+          (this as any)._thunderInterval = null;
+        }
 
         try {
           sourceNode?.stop();
@@ -542,7 +575,7 @@ export class AudioEngine {
         const osc1 = ctx.createOscillator();
         const gain1 = ctx.createGain();
         osc1.type = "sine";
-        osc1.frequency.setValueAtTime(784.00, now);
+        osc1.frequency.setValueAtTime(784.0, now);
         gain1.gain.setValueAtTime(0.4, now);
         gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
         osc1.connect(gain1);
@@ -588,7 +621,7 @@ export class AudioEngine {
         osc.stop(now + 0.42);
       } else if (soundType === "chime") {
         // Gentle ascending wind chime (C5, E5, G5, C6)
-        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
           const osc = ctx.createOscillator();
           const g = ctx.createGain();
           osc.type = "sine";
@@ -642,7 +675,7 @@ export class AudioEngine {
         }
       } else if (soundType === "marimba") {
         // Cheerful descending wooden marimba-like (C6, G5, E5, C5)
-        [1046.50, 783.99, 659.25, 523.25].forEach((freq, i) => {
+        [1046.5, 783.99, 659.25, 523.25].forEach((freq, i) => {
           const osc = ctx.createOscillator();
           const g = ctx.createGain();
           osc.type = "triangle";
@@ -656,7 +689,12 @@ export class AudioEngine {
         });
       } else if (soundType === "bells") {
         // Cascade of bell-like tones with harmonics
-        [[523.25, 0], [659.25, 0.15], [783.99, 0.3], [1046.50, 0.45]].forEach(([freq, t]) => {
+        [
+          [523.25, 0],
+          [659.25, 0.15],
+          [783.99, 0.3],
+          [1046.5, 0.45],
+        ].forEach(([freq, t]) => {
           const tNum = t as number;
           const fNum = freq as number;
           [1, 2.5, 4.2].forEach((ratio) => {

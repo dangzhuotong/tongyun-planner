@@ -158,7 +158,11 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
   const q1Color = PLANNER_COLORS[config.qColors["urgent-important"]] || PLANNER_COLORS.rose;
 
   const handleColorChange = (
-    quadId: "urgent-important" | "important-not-urgent" | "urgent-not-important" | "not-urgent-not-important",
+    quadId:
+      | "urgent-important"
+      | "important-not-urgent"
+      | "urgent-not-important"
+      | "not-urgent-not-important",
     colorKey: string,
   ) => {
     const newConfig = {
@@ -308,7 +312,9 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
                             key={colorKey}
                             onClick={() => handleColorChange(quad.id, colorKey)}
                             className={`w-5.5 h-5.5 rounded-full ${colorConfig.dot} border border-slate-200 transition-all hover:scale-110 cursor-pointer relative ${
-                              isSelected ? "ring-2 ring-slate-400 ring-offset-2 scale-110 shadow-xs" : "opacity-80 hover:opacity-100"
+                              isSelected
+                                ? "ring-2 ring-slate-400 ring-offset-2 scale-110 shadow-xs"
+                                : "opacity-80 hover:opacity-100"
                             }`}
                             title={colorConfig.name}
                           >
@@ -500,7 +506,9 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
               className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full ${q1Color.bg} border ${q1Color.border}`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${q1Color.dot}`} />
-              <span className={`text-[7.5px] font-extrabold uppercase tracking-wider ${q1Color.text}`}>
+              <span
+                className={`text-[7.5px] font-extrabold uppercase tracking-wider ${q1Color.text}`}
+              >
                 {s.previewCardTag}
               </span>
             </div>

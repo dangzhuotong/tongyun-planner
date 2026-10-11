@@ -15,7 +15,7 @@ const FP_STORAGE_KEY = "tongyun_webdav_fp";
  */
 export function remoteFingerprint(
   meta: { exists: boolean; etag?: string | null; lastModified?: string | null } | null,
-  manifestVersion?: number
+  manifestVersion?: number,
 ): string | null {
   if (!meta?.exists) return null;
   const etag = normalizeEtag(meta.etag);
@@ -28,7 +28,11 @@ export function remoteFingerprint(
 /** 统一 ETag 格式：去掉弱校验前缀 W/ 与两侧引号，避免 HEAD / GET / PROPFIND 返回格式不同导致误判 */
 export function normalizeEtag(etag: string | null | undefined): string | null {
   if (!etag) return null;
-  const v = etag.trim().replace(/^W\//i, "").replace(/^"+|"+$/g, "").trim();
+  const v = etag
+    .trim()
+    .replace(/^W\//i, "")
+    .replace(/^"+|"+$/g, "")
+    .trim();
   return v || null;
 }
 
@@ -94,7 +98,7 @@ export function clearFingerprints(): void {
 export function isRemoteChanged(
   knownFp: string | undefined,
   currentFp: string | null,
-  remoteExists: boolean
+  remoteExists: boolean,
 ): boolean {
   if (!remoteExists) return false;
   if (currentFp === null) return false;
@@ -110,7 +114,7 @@ export function isRemoteChanged(
 export function conflictBackupFileName(
   date: Date,
   category: string,
-  side: "remote" | "local"
+  side: "remote" | "local",
 ): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   const yyyy = date.getFullYear();

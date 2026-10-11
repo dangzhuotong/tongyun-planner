@@ -80,7 +80,7 @@ function getLunarNextSolarDate(targetDateStr: string): string {
     let targetDate = new Date(
       targetSolar.getYear(),
       targetSolar.getMonth() - 1,
-      targetSolar.getDay()
+      targetSolar.getDay(),
     );
 
     // If past today's zero timestamp, roll over to next year
@@ -91,7 +91,7 @@ function getLunarNextSolarDate(targetDateStr: string): string {
       targetDate = new Date(
         targetSolar.getYear(),
         targetSolar.getMonth() - 1,
-        targetSolar.getDay()
+        targetSolar.getDay(),
       );
     }
 
@@ -106,7 +106,7 @@ function getLunarNextSolarDate(targetDateStr: string): string {
 
 function getDaysInfo(
   targetDate: string,
-  isLunar?: boolean
+  isLunar?: boolean,
 ): {
   days: number;
   label: string;
@@ -114,9 +114,7 @@ function getDaysInfo(
   isToday: boolean;
   effectiveTargetDate: string;
 } {
-  const effectiveTargetDate = isLunar
-    ? getLunarNextSolarDate(targetDate)
-    : targetDate;
+  const effectiveTargetDate = isLunar ? getLunarNextSolarDate(targetDate) : targetDate;
 
   const now = new Date();
   now.setHours(0, 0, 0, 0);
@@ -209,9 +207,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
           <h2 className="text-lg font-extrabold text-[#2D323A] tracking-tight">
             {c.title}{" "}
             {countdowns.length > 0 && (
-              <span className="text-sm text-slate-400 font-bold">
-                · {countdowns.length}
-              </span>
+              <span className="text-sm text-slate-400 font-bold">· {countdowns.length}</span>
             )}
           </h2>
           <button
@@ -325,109 +321,106 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                 {grp.events.map((event, idx) => {
                   const info = getDaysInfo(event.targetDate, event.isLunar);
                   const color = CARD_COLORS[idx % CARD_COLORS.length];
-              return (
-                <div
-                  key={event.id}
-                  className={`rounded-2xl border-2 p-5 shadow-sm hover:shadow-md transition-all duration-300 card-hover-lift relative group ${
-                    info.isOverdue
-                      ? "bg-red-50 border-red-200"
-                      : info.isToday
-                      ? "bg-[#F0F5F1] border-[#C4D7B2]"
-                      : `${color.bg} ${color.border}`
-                  }`}
-                >
-                  {/* Delete button */}
-                  {confirmDelete === event.id ? (
-                    <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
-                      <button
-                        onClick={() => {
-                          handleDeleteCountdown(event.id);
-                          setConfirmDelete(null);
-                        }}
-                        className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all cursor-pointer"
-                        title={t.common.confirm}
-                      >
-                        <Check className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete(null)}
-                        className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center hover:bg-slate-300 transition-all cursor-pointer"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setConfirmDelete(event.id)}
-                      className="absolute top-3 right-3 w-6 h-6 rounded-full bg-white/85 border border-[#EFEBE4] flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
-                      title={c.delete}
+                  return (
+                    <div
+                      key={event.id}
+                      className={`rounded-2xl border-2 p-5 shadow-sm hover:shadow-md transition-all duration-300 card-hover-lift relative group ${
+                        info.isOverdue
+                          ? "bg-red-50 border-red-200"
+                          : info.isToday
+                            ? "bg-[#F0F5F1] border-[#C4D7B2]"
+                            : `${color.bg} ${color.border}`
+                      }`}
                     >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
+                      {/* Delete button */}
+                      {confirmDelete === event.id ? (
+                        <div className="absolute top-3 right-3 flex items-center gap-1 z-10">
+                          <button
+                            onClick={() => {
+                              handleDeleteCountdown(event.id);
+                              setConfirmDelete(null);
+                            }}
+                            className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-all cursor-pointer"
+                            title={t.common.confirm}
+                          >
+                            <Check className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => setConfirmDelete(null)}
+                            className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center hover:bg-slate-300 transition-all cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDelete(event.id)}
+                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-white/85 border border-[#EFEBE4] flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
+                          title={c.delete}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
 
-                  {/* Header Badges */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-4xl">{event.emoji || "📅"}</div>
-                    {event.isLunar && (
-                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-0.5">
-                        <Moon className="w-2.5 h-2.5" />
-                        <span>农历重复</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Title */}
-                  <h3 className="text-sm font-extrabold text-[#2D323A] truncate mb-2">
-                    {event.title}
-                  </h3>
-
-                  {/* Days count */}
-                  <div
-                    className={`text-3xl font-black tracking-tight mb-1 ${
-                      info.isOverdue
-                        ? "text-red-500"
-                        : info.isToday
-                        ? "text-[#4D7C5D]"
-                        : color.text
-                    }`}
-                  >
-                    {info.isToday ? "🎉" : `${info.days}`}
-                  </div>
-
-                  {/* Label */}
-                  <p
-                    className={`text-xs font-bold ${
-                      info.isOverdue
-                        ? "text-red-400"
-                        : info.isToday
-                        ? "text-[#4D7C5D]"
-                        : "text-slate-400"
-                    }`}
-                  >
-                    {info.isToday
-                      ? c.today
-                      : c[info.label].replace(
-                          "{days}",
-                          `${info.days}${c.daysLabel}`
+                      {/* Header Badges */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-4xl">{event.emoji || "📅"}</div>
+                        {event.isLunar && (
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-0.5">
+                            <Moon className="w-2.5 h-2.5" />
+                            <span>农历重复</span>
+                          </span>
                         )}
-                  </p>
+                      </div>
 
-                  {/* Target date info */}
-                  <div className="flex items-center justify-between mt-3 text-[9px] text-slate-400 font-medium pt-2 border-t border-black/5">
-                    <div className="flex items-center gap-1">
-                      <CalendarDays className="w-3 h-3" />
-                      <span>{event.targetDate}</span>
+                      {/* Title */}
+                      <h3 className="text-sm font-extrabold text-[#2D323A] truncate mb-2">
+                        {event.title}
+                      </h3>
+
+                      {/* Days count */}
+                      <div
+                        className={`text-3xl font-black tracking-tight mb-1 ${
+                          info.isOverdue
+                            ? "text-red-500"
+                            : info.isToday
+                              ? "text-[#4D7C5D]"
+                              : color.text
+                        }`}
+                      >
+                        {info.isToday ? "🎉" : `${info.days}`}
+                      </div>
+
+                      {/* Label */}
+                      <p
+                        className={`text-xs font-bold ${
+                          info.isOverdue
+                            ? "text-red-400"
+                            : info.isToday
+                              ? "text-[#4D7C5D]"
+                              : "text-slate-400"
+                        }`}
+                      >
+                        {info.isToday
+                          ? c.today
+                          : c[info.label].replace("{days}", `${info.days}${c.daysLabel}`)}
+                      </p>
+
+                      {/* Target date info */}
+                      <div className="flex items-center justify-between mt-3 text-[9px] text-slate-400 font-medium pt-2 border-t border-black/5">
+                        <div className="flex items-center gap-1">
+                          <CalendarDays className="w-3 h-3" />
+                          <span>{event.targetDate}</span>
+                        </div>
+                        {event.isLunar && (
+                          <span className="font-mono text-[#4D7C5D] font-bold">
+                            下一个目标日: {info.effectiveTargetDate}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {event.isLunar && (
-                      <span className="font-mono text-[#4D7C5D] font-bold">
-                        下一个目标日: {info.effectiveTargetDate}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
               </div>
             </div>
           ))
@@ -439,5 +432,5 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
         )}
       </div>
     );
-  }
+  },
 );

@@ -47,7 +47,8 @@ export const LegacySyncNotice: React.FC<LegacySyncNoticeProps> = ({ onClose, onG
         </div>
 
         <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line">
-          {s.legacySyncBody || "从 v1.1.0 起，橦云手帐的云同步只支持 WebDAV（推荐坚果云）。你之前配置的 Supabase / 自建 HTTP 同步已停用，本机数据不受影响。请到「设置 → 数据同步」改用 WebDAV 继续多设备同步。"}
+          {s.legacySyncBody ||
+            "从 v1.1.0 起，橦云手帐的云同步只支持 WebDAV（推荐坚果云）。你之前配置的 Supabase / 自建 HTTP 同步已停用，本机数据不受影响。请到「设置 → 数据同步」改用 WebDAV 继续多设备同步。"}
         </p>
 
         <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#EFEBE4] dark:border-[#333]">

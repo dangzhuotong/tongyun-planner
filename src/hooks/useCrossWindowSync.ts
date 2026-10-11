@@ -26,7 +26,13 @@ export function useCrossWindowSync(
   useEffect(() => {
     const handleSyncPayload = (p: any) => {
       if (p.source_window && p.source_window === windowLabelRef.current) return;
-      const { tasksHook: tH, pomodoroHook: pH, notesHook: nH, widgetHook: wH, customizationHook: cH } = handlersRef.current;
+      const {
+        tasksHook: tH,
+        pomodoroHook: pH,
+        notesHook: nH,
+        widgetHook: wH,
+        customizationHook: cH,
+      } = handlersRef.current;
       switch (p.action) {
         case "complete":
           tH.handleComplete(p.task_id, false);
@@ -59,14 +65,18 @@ export function useCrossWindowSync(
         }
         case "favorite_sync":
           tH.setTasks((prev: Task[]) => {
-            const updated = prev.map((t) => t.id === p.task_id ? { ...t, isFavorite: p.title === "true" } : t);
+            const updated = prev.map((t) =>
+              t.id === p.task_id ? { ...t, isFavorite: p.title === "true" } : t,
+            );
             tH.saveTasks(updated);
             return updated;
           });
           break;
         case "pin_sync":
           tH.setTasks((prev: Task[]) => {
-            const updated = prev.map((t) => t.id === p.task_id ? { ...t, isPinned: p.title === "true" } : t);
+            const updated = prev.map((t) =>
+              t.id === p.task_id ? { ...t, isPinned: p.title === "true" } : t,
+            );
             tH.saveTasks(updated);
             return updated;
           });
@@ -78,7 +88,8 @@ export function useCrossWindowSync(
               const next: Task = { ...t };
               if (p.title != null && p.title !== "") next.title = p.title;
               if (p.description != null) next.description = p.description || undefined;
-              if (p.category != null && p.category !== "") next.category = p.category as Task["category"];
+              if (p.category != null && p.category !== "")
+                next.category = p.category as Task["category"];
               if (p.notes != null) next.notes = p.notes || undefined;
               if (p.due_date != null) next.dueDate = p.due_date || undefined;
               if (p.due_time != null) next.dueTime = p.due_time || undefined;
@@ -119,28 +130,43 @@ export function useCrossWindowSync(
             pH.setPomodoroTaskId(data.taskId || null);
             pH.setPomodoroTaskTitle(data.taskTitle || null);
             pH.setPomodoroEndTime(data.endTime);
-          } catch { /* invalid pomodoro sync payload */ }
+          } catch {
+            /* invalid pomodoro sync payload */
+          }
           break;
         case "add_pomodoro_log":
           try {
             const log = JSON.parse(p.title);
             pH.setPomodoroLogs((prev: any[]) => [log, ...prev.filter((l: any) => l.id !== log.id)]);
-          } catch { /* invalid pomodoro log sync payload */ }
+          } catch {
+            /* invalid pomodoro log sync payload */
+          }
           break;
         case "add_note":
           try {
             const note = JSON.parse(p.title);
-            nH.setStickyNotes((prev: any[]) => [note, ...prev.filter((n: any) => n.id !== note.id)]);
-          } catch { /* invalid note sync payload */ }
+            nH.setStickyNotes((prev: any[]) => [
+              note,
+              ...prev.filter((n: any) => n.id !== note.id),
+            ]);
+          } catch {
+            /* invalid note sync payload */
+          }
           break;
         case "edit_note_text":
-          nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, text: p.title } : n));
+          nH.setStickyNotes((prev: any[]) =>
+            prev.map((n) => (n.id === p.task_id ? { ...n, text: p.title } : n)),
+          );
           break;
         case "edit_note_title":
-          nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, title: p.title } : n));
+          nH.setStickyNotes((prev: any[]) =>
+            prev.map((n) => (n.id === p.task_id ? { ...n, title: p.title } : n)),
+          );
           break;
         case "change_note_color":
-          nH.setStickyNotes((prev: any[]) => prev.map((n) => n.id === p.task_id ? { ...n, color: p.title } : n));
+          nH.setStickyNotes((prev: any[]) =>
+            prev.map((n) => (n.id === p.task_id ? { ...n, color: p.title } : n)),
+          );
           break;
         case "delete_note":
           nH.setStickyNotes((prev: any[]) => prev.filter((n) => n.id !== p.task_id));
@@ -149,7 +175,9 @@ export function useCrossWindowSync(
           try {
             const config = JSON.parse(p.title);
             cH.setCustomizationConfig(config);
-          } catch { /* invalid settings sync payload */ }
+          } catch {
+            /* invalid settings sync payload */
+          }
           break;
         case "restore_sync":
           try {
@@ -164,17 +192,27 @@ export function useCrossWindowSync(
             nH.setStickyNotes(notes);
             setJournal(restored.journal || []);
             localStorage.setItem("tongyun_journal", JSON.stringify(restored.journal || []));
-            cH.setCustomizationConfig(restored.customizationConfig || cH.DEFAULT_CUSTOMIZATION_CONFIG);
-          } catch { /* invalid restore sync payload */ }
+            cH.setCustomizationConfig(
+              restored.customizationConfig || cH.DEFAULT_CUSTOMIZATION_CONFIG,
+            );
+          } catch {
+            /* invalid restore sync payload */
+          }
           break;
       }
     };
 
-    const unlistenPromise = listen("todo-sync-event", (event: any) => handleSyncPayload(event.payload)).catch(() => undefined);
+    const unlistenPromise = listen("todo-sync-event", (event: any) =>
+      handleSyncPayload(event.payload),
+    ).catch(() => undefined);
     const unsubDev = subscribeDevSync((event) => handleSyncPayload(event.payload));
 
     return () => {
-      unlistenPromise.then((unlisten) => { if (typeof unlisten === "function") unlisten(); }).catch(() => {});
+      unlistenPromise
+        .then((unlisten) => {
+          if (typeof unlisten === "function") unlisten();
+        })
+        .catch(() => {});
       unsubDev();
     };
   }, []);

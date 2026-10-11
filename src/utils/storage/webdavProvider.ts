@@ -3,7 +3,8 @@ import type { WebDavConfig } from "../../types";
 import { invoke } from "@tauri-apps/api/core";
 
 const REMOTE_DIR = "TongYunPlanner/";
-const isTauri = () => typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
+const isTauri = () =>
+  typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
 function base64Encode(data: Uint8Array): string {
   const chars: string[] = [];
@@ -59,7 +60,9 @@ export class WebDAVStorageProvider implements StorageProvider {
       await this.writeText("__test__.txt", "ok");
       await this.deleteFile("__test__.txt");
       return true;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
   /** Ensure a directory exists, creating intermediate dirs recursively */
@@ -68,7 +71,12 @@ export class WebDAVStorageProvider implements StorageProvider {
     // Ensure the base REMOTE_DIR first
     if (isTauri()) {
       try {
-        await invoke("webdav_mkcol", { url: c.url, username: c.username, password: c.password || null, dirname: REMOTE_DIR.replace(/\/$/, "") });
+        await invoke("webdav_mkcol", {
+          url: c.url,
+          username: c.username,
+          password: c.password || null,
+          dirname: REMOTE_DIR.replace(/\/$/, ""),
+        });
       } catch (e: any) {
         const msg = typeof e === "string" ? e : e?.message || "";
         if (!msg.includes("E_HTTP_405") && !msg.includes("E_HTTP_409")) throw e;
@@ -76,8 +84,12 @@ export class WebDAVStorageProvider implements StorageProvider {
     } else {
       const baseUrl = c.url.endsWith("/") ? c.url : c.url + "/";
       const token = btoa(c.username + ":" + (c.password || ""));
-      const res = await fetch(baseUrl + REMOTE_DIR, { method: "MKCOL", headers: { Authorization: "Basic " + token } });
-      if (!res.ok && res.status !== 405 && res.status !== 409) throw new Error("E_HTTP_" + res.status);
+      const res = await fetch(baseUrl + REMOTE_DIR, {
+        method: "MKCOL",
+        headers: { Authorization: "Basic " + token },
+      });
+      if (!res.ok && res.status !== 405 && res.status !== 409)
+        throw new Error("E_HTTP_" + res.status);
     }
     if (!dirname) return;
 
@@ -89,7 +101,12 @@ export class WebDAVStorageProvider implements StorageProvider {
       const c = this.getConfig();
       if (isTauri()) {
         try {
-          await invoke("webdav_mkcol", { url: c.url, username: c.username, password: c.password || null, dirname: acc });
+          await invoke("webdav_mkcol", {
+            url: c.url,
+            username: c.username,
+            password: c.password || null,
+            dirname: acc,
+          });
         } catch (e: any) {
           const msg = typeof e === "string" ? e : e?.message || "";
           if (!msg.includes("E_HTTP_405") && !msg.includes("E_HTTP_409")) throw e;
@@ -98,8 +115,12 @@ export class WebDAVStorageProvider implements StorageProvider {
       }
       const baseUrl = c.url.endsWith("/") ? c.url : c.url + "/";
       const token = btoa(c.username + ":" + (c.password || ""));
-      const res = await fetch(baseUrl + acc, { method: "MKCOL", headers: { Authorization: "Basic " + token } });
-      if (!res.ok && res.status !== 405 && res.status !== 409) throw new Error("E_HTTP_" + res.status);
+      const res = await fetch(baseUrl + acc, {
+        method: "MKCOL",
+        headers: { Authorization: "Basic " + token },
+      });
+      if (!res.ok && res.status !== 405 && res.status !== 409)
+        throw new Error("E_HTTP_" + res.status);
     }
   }
 
@@ -121,8 +142,12 @@ export class WebDAVStorageProvider implements StorageProvider {
     const b64 = base64Encode(data);
     if (isTauri()) {
       await invoke("webdav_upload_binary", {
-        url: c.url, username: c.username, password: c.password || null,
-        filename: fullPath, contentBase64: b64, contentType: mime,
+        url: c.url,
+        username: c.username,
+        password: c.password || null,
+        filename: fullPath,
+        contentBase64: b64,
+        contentType: mime,
       });
       return fullPath;
     }
@@ -146,7 +171,10 @@ export class WebDAVStorageProvider implements StorageProvider {
     if (isTauri()) {
       try {
         const b64: string = await invoke("webdav_download_binary", {
-          url: c.url, username: c.username, password: c.password || null, filename: fullPath,
+          url: c.url,
+          username: c.username,
+          password: c.password || null,
+          filename: fullPath,
         });
         return base64Decode(b64);
       } catch (e: any) {
@@ -175,7 +203,10 @@ export class WebDAVStorageProvider implements StorageProvider {
     if (isTauri()) {
       try {
         await invoke("webdav_delete", {
-          url: c.url, username: c.username, password: c.password || null, filename: fullPath,
+          url: c.url,
+          username: c.username,
+          password: c.password || null,
+          filename: fullPath,
         });
       } catch (e: any) {
         const msg = typeof e === "string" ? e : e?.message || "";
@@ -214,8 +245,11 @@ export class WebDAVStorageProvider implements StorageProvider {
 
     if (isTauri()) {
       await invoke("webdav_upload", {
-        url: c.url, username: c.username, password: c.password || null,
-        filename: fullPath, content,
+        url: c.url,
+        username: c.username,
+        password: c.password || null,
+        filename: fullPath,
+        content,
       });
       return;
     }
@@ -224,7 +258,10 @@ export class WebDAVStorageProvider implements StorageProvider {
     const token = btoa(c.username + ":" + (c.password || ""));
     const res = await fetch(baseUrl + fullPath, {
       method: "PUT",
-      headers: { Authorization: "Basic " + token, "Content-Type": "application/json; charset=utf-8" },
+      headers: {
+        Authorization: "Basic " + token,
+        "Content-Type": "application/json; charset=utf-8",
+      },
       body: content,
     });
     if (!res.ok) throw new Error("E_HTTP_" + res.status);
@@ -237,7 +274,10 @@ export class WebDAVStorageProvider implements StorageProvider {
     if (isTauri()) {
       try {
         return await invoke("webdav_download", {
-          url: c.url, username: c.username, password: c.password || null, filename: fullPath,
+          url: c.url,
+          username: c.username,
+          password: c.password || null,
+          filename: fullPath,
         });
       } catch (e: any) {
         const msg = typeof e === "string" ? e : e?.message || "";

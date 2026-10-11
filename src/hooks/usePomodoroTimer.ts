@@ -20,7 +20,9 @@ export function usePomodoroTimer({
   onCelebration,
 }: UsePomodoroTimerOptions) {
   const windowLabelRef = useRef(windowLabel);
-  useEffect(() => { windowLabelRef.current = windowLabel; }, [windowLabel]);
+  useEffect(() => {
+    windowLabelRef.current = windowLabel;
+  }, [windowLabel]);
 
   const pomodoroStateRef = useRef({
     isBreak: pomodoroHook.pomodoroIsBreak,
@@ -74,7 +76,11 @@ export function usePomodoroTimer({
     const endTime = pomodoroHook.pomodoroEndTime;
     let fired = false;
 
-    if (pomodoroHook.randomBreakEnabled && !pomodoroHook.pomodoroIsBreak && nextRandomBreakRef.current === null) {
+    if (
+      pomodoroHook.randomBreakEnabled &&
+      !pomodoroHook.pomodoroIsBreak &&
+      nextRandomBreakRef.current === null
+    ) {
       const minGap = 180;
       const maxGap = 420;
       const totalSec = pomodoroHook.focusDuration * 60;
@@ -146,7 +152,16 @@ export function usePomodoroTimer({
           const nextTime = s.focusDuration * 60;
           pomodoroHook.setPomodoroTimeLeft(nextTime);
           setTimeout(() => {
-            s.syncPomodoro(false, nextTime, false, s.focusDuration, s.breakDuration, s.sessionCount, null, null);
+            s.syncPomodoro(
+              false,
+              nextTime,
+              false,
+              s.focusDuration,
+              s.breakDuration,
+              s.sessionCount,
+              null,
+              null,
+            );
           }, 50);
         } else {
           pomodoroHook.setPomodoroIsBreak(true);
@@ -169,13 +184,24 @@ export function usePomodoroTimer({
           };
           pomodoroHook.setPomodoroLogs((prev: any[]) => [newLog, ...prev]);
 
-          onCelebration(s.locale === "en" ? "Focus session done! Keep going 💪" : "专注一关完成！继续加油 💪");
+          onCelebration(
+            s.locale === "en" ? "Focus session done! Keep going 💪" : "专注一关完成！继续加油 💪",
+          );
 
           pomodoroHook.setPomodoroTaskId(null);
           pomodoroHook.setPomodoroTaskTitle(null);
 
           setTimeout(() => {
-            s.syncPomodoro(false, nextTime, true, s.focusDuration, s.breakDuration, nextSession, null, null);
+            s.syncPomodoro(
+              false,
+              nextTime,
+              true,
+              s.focusDuration,
+              s.breakDuration,
+              nextSession,
+              null,
+              null,
+            );
           }, 50);
         }
       }

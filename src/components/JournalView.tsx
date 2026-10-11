@@ -1,6 +1,24 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Trash2, Search, ListChecks, Tag as TagIcon, ChevronLeft, ChevronRight, Sparkles, Plus, Camera, X } from "lucide-react";
-import type { JournalEntry, Task, CustomizationConfig, PomodoroLog, Attachment, HabitItem } from "../types";
+import {
+  Trash2,
+  Search,
+  ListChecks,
+  Tag as TagIcon,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Plus,
+  Camera,
+  X,
+} from "lucide-react";
+import type {
+  JournalEntry,
+  Task,
+  CustomizationConfig,
+  PomodoroLog,
+  Attachment,
+  HabitItem,
+} from "../types";
 import { extractJournalTags } from "../constants";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
@@ -10,7 +28,11 @@ import { callAI } from "../utils/aiEngine";
 import { usePersonal } from "../context/PersonalContext";
 import { matchesSearch } from "../utils/textSearch";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
-import { deleteJournalAttachment, journalAttachmentSrc, saveJournalAttachment } from "../utils/journalAttachmentStorage";
+import {
+  deleteJournalAttachment,
+  journalAttachmentSrc,
+  saveJournalAttachment,
+} from "../utils/journalAttachmentStorage";
 
 /** 日记页心情：五级，存为 emoji 字符串 */
 const JOURNAL_MOODS = [
@@ -48,10 +70,19 @@ interface JournalViewProps {
   habitsHook: { habits: HabitItem[]; toggleHabit: (id: string) => void };
 }
 
-export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, habitsHook }: JournalViewProps) {
+export function JournalView({
+  tasks,
+  completedTasks,
+  pomodoroLogs,
+  aiConfig,
+  habitsHook,
+}: JournalViewProps) {
   const {
-    journal, handleUpsertJournal: onUpsert, handleDeleteJournal: onDelete,
-    journalAddTodo: addTodoEnabled, handleToggleJournalAddTodo: onToggleAddTodo,
+    journal,
+    handleUpsertJournal: onUpsert,
+    handleDeleteJournal: onDelete,
+    journalAddTodo: addTodoEnabled,
+    handleToggleJournalAddTodo: onToggleAddTodo,
   } = usePersonal();
   const { t, locale } = useTranslation();
   const j = t.journal as Record<string, string>;
@@ -68,11 +99,16 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
 
   const dailyEntryMap = useMemo(() => {
     const m = new Map<string, JournalEntry>();
-    journal.forEach((e) => { if (e.isDaily) m.set(e.date, e); });
+    journal.forEach((e) => {
+      if (e.isDaily) m.set(e.date, e);
+    });
     return m;
   }, [journal]);
 
-  const selected = useMemo(() => dailyEntryMap.get(currentDate) || null, [currentDate, dailyEntryMap]);
+  const selected = useMemo(
+    () => dailyEntryMap.get(currentDate) || null,
+    [currentDate, dailyEntryMap],
+  );
   const viewDate = currentDate;
 
   // 本地草稿，避免每次按键都触发父级重渲染造成的光标跳动
@@ -101,15 +137,17 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
     if (!draftDirtyRef.current) return;
     draftDirtyRef.current = false;
     const date = viewDateRef.current;
-    const base = selectedRef.current || ({
-      id: createId("journal"),
-      linkKey: date,
-      title: date,
-      content: "",
-      date,
-      isDaily: true,
-      createdAt: Date.now(),
-    } as JournalEntry);
+    const base =
+      selectedRef.current ||
+      ({
+        id: createId("journal"),
+        linkKey: date,
+        title: date,
+        content: "",
+        date,
+        isDaily: true,
+        createdAt: Date.now(),
+      } as JournalEntry);
     onUpsertRef.current({
       ...base,
       content: draftContentRef.current,
@@ -125,79 +163,93 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
 
   useEffect(() => () => flushDraft(), [flushDraft]);
 
-  const commit = useCallback((patch: Partial<JournalEntry>) => {
-    const base = selected || ({
-      id: createId("journal"),
-      linkKey: viewDate,
-      title: viewDate,
-      content: "",
-      date: viewDate,
-      isDaily: true,
-      createdAt: Date.now(),
-    } as JournalEntry);
-    const pendingContent = draftDirtyRef.current ? draftContentRef.current : base.content;
-    draftDirtyRef.current = false;
-    const next: JournalEntry = {
-      ...base,
-      content: pendingContent,
-      ...patch,
-      updatedAt: Date.now(),
-    };
-    if (next.mood === undefined) {
-      delete next.mood;
-    }
-    onUpsert(next);
-  }, [selected, onUpsert, viewDate]);
+  const commit = useCallback(
+    (patch: Partial<JournalEntry>) => {
+      const base =
+        selected ||
+        ({
+          id: createId("journal"),
+          linkKey: viewDate,
+          title: viewDate,
+          content: "",
+          date: viewDate,
+          isDaily: true,
+          createdAt: Date.now(),
+        } as JournalEntry);
+      const pendingContent = draftDirtyRef.current ? draftContentRef.current : base.content;
+      draftDirtyRef.current = false;
+      const next: JournalEntry = {
+        ...base,
+        content: pendingContent,
+        ...patch,
+        updatedAt: Date.now(),
+      };
+      if (next.mood === undefined) {
+        delete next.mood;
+      }
+      onUpsert(next);
+    },
+    [selected, onUpsert, viewDate],
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handlePickImage = useCallback(() => fileInputRef.current?.click(), []);
 
-  const handleFileChosen = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-    if (!file.type.startsWith("image/")) return;
-    const storedPath = await saveJournalAttachment(file, createId("att-file"));
-    const att: Attachment = {
-      id: createId("att"),
-      name: file.name,
-      path: storedPath,
-      type: file.type,
-      size: file.size,
-      createdAt: new Date().toISOString(),
-    };
-    commit({ attachments: [...(selected?.attachments || []), att] });
-  }, [commit, selected?.attachments]);
+  const handleFileChosen = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      e.target.value = "";
+      if (!file.type.startsWith("image/")) return;
+      const storedPath = await saveJournalAttachment(file, createId("att-file"));
+      const att: Attachment = {
+        id: createId("att"),
+        name: file.name,
+        path: storedPath,
+        type: file.type,
+        size: file.size,
+        createdAt: new Date().toISOString(),
+      };
+      commit({ attachments: [...(selected?.attachments || []), att] });
+    },
+    [commit, selected?.attachments],
+  );
 
-  const handleImagePaste = useCallback(async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.startsWith("image/")) {
-        e.preventDefault();
-        const file = items[i].getAsFile();
-        if (!file) continue;
-        const storedPath = await saveJournalAttachment(file, createId("att-file"));
-        const att: Attachment = {
-          id: createId("att"),
-          name: file.name || `pasted-${Date.now()}.png`,
-          path: storedPath,
-          type: file.type,
-          size: file.size,
-          createdAt: new Date().toISOString(),
-        };
-        commit({ attachments: [...(selected?.attachments || []), att] });
-        break;
+  const handleImagePaste = useCallback(
+    async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          e.preventDefault();
+          const file = items[i].getAsFile();
+          if (!file) continue;
+          const storedPath = await saveJournalAttachment(file, createId("att-file"));
+          const att: Attachment = {
+            id: createId("att"),
+            name: file.name || `pasted-${Date.now()}.png`,
+            path: storedPath,
+            type: file.type,
+            size: file.size,
+            createdAt: new Date().toISOString(),
+          };
+          commit({ attachments: [...(selected?.attachments || []), att] });
+          break;
+        }
       }
-    }
-  }, [commit, selected?.attachments]);
+    },
+    [commit, selected?.attachments],
+  );
 
-  const handleRemoveImage = useCallback((attId: string) => {
-    const existing = selected?.attachments || [];
-    const removed = existing.find((attachment) => attachment.id === attId);
-    commit({ attachments: existing.filter((a) => a.id !== attId) });
-    if (removed) void deleteJournalAttachment(removed.path);
-  }, [commit, selected?.attachments]);
+  const handleRemoveImage = useCallback(
+    (attId: string) => {
+      const existing = selected?.attachments || [];
+      const removed = existing.find((attachment) => attachment.id === attId);
+      commit({ attachments: existing.filter((a) => a.id !== attId) });
+      if (removed) void deleteJournalAttachment(removed.path);
+    },
+    [commit, selected?.attachments],
+  );
 
   const handleContentChange = (v: string) => {
     draftDirtyRef.current = true;
@@ -205,14 +257,20 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
     setDraftContent(v);
   };
 
-  const navigateToDate = useCallback((date: string) => {
-    flushDraft();
-    setCurrentDate(date);
-  }, [flushDraft]);
+  const navigateToDate = useCallback(
+    (date: string) => {
+      flushDraft();
+      setCurrentDate(date);
+    },
+    [flushDraft],
+  );
 
-  const handleMoodPick = useCallback((emoji: string) => {
-    commit({ mood: selected?.mood === emoji ? undefined : emoji });
-  }, [commit, selected?.mood]);
+  const handleMoodPick = useCallback(
+    (emoji: string) => {
+      commit({ mood: selected?.mood === emoji ? undefined : emoji });
+    },
+    [commit, selected?.mood],
+  );
 
   const shiftDate = (delta: number) => {
     const [y, m, d] = currentDate.split("-").map(Number);
@@ -229,31 +287,40 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
 
   const viewFocus = useMemo(
     () => pomodoroStatsOn(pomodoroLogs, viewDate),
-    [pomodoroLogs, viewDate]
+    [pomodoroLogs, viewDate],
   );
 
   const viewDone = useMemo(
     () => completedTasks.filter((task) => taskCompletedOn(task, viewDate)),
-    [completedTasks, viewDate]
+    [completedTasks, viewDate],
   );
 
   // 温柔的 AI 评语
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const generateAiComment = useCallback(async () => {
-    if (!aiConfig?.aiApiKey) { setAiError(j.needApiKey || "请先在设置中配置 AI API Key"); return; }
-    if (!draftContent.trim()) { setAiError(j.emptyContent || "先写点什么，AI 才好回应你～"); return; }
-    setAiLoading(true); setAiError(null);
+    if (!aiConfig?.aiApiKey) {
+      setAiError(j.needApiKey || "请先在设置中配置 AI API Key");
+      return;
+    }
+    if (!draftContent.trim()) {
+      setAiError(j.emptyContent || "先写点什么，AI 才好回应你～");
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
     try {
       const lang = locale === "zh-CN" ? "简体中文" : "English";
       const custom = aiConfig?.journalCommentPrompt?.trim();
-      const system = custom
-        ? custom.replace(/\$\{lang\}/g, lang)
-        : buildDefaultCommentPrompt(lang);
+      const system = custom ? custom.replace(/\$\{lang\}/g, lang) : buildDefaultCommentPrompt(lang);
       const result = await callAI(aiConfig, system, `这是用户今天的日记：\n${draftContent}`);
       if (result) commit({ aiComment: result });
     } catch (e: any) {
-      setAiError(e?.message === "API_KEY_MISSING" ? (j.needApiKey || "请先配置 AI Key") : (j.aiError || "AI 回应失败，请稍后再试"));
+      setAiError(
+        e?.message === "API_KEY_MISSING"
+          ? j.needApiKey || "请先配置 AI Key"
+          : j.aiError || "AI 回应失败，请稍后再试",
+      );
     } finally {
       setAiLoading(false);
     }
@@ -301,7 +368,9 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
   }, [selected, currentDate, dailyEntryMap, entryToMarkdown, downloadMarkdown]);
 
   const handleExportAll = useCallback(() => {
-    const dailies = journal.filter((e) => e.isDaily).sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt);
+    const dailies = journal
+      .filter((e) => e.isDaily)
+      .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt);
     const parts = dailies.map(entryToMarkdown);
     const md = parts.join("\n\n---\n\n");
     downloadMarkdown(`tongyun-journal-all-${today}.md`, md);
@@ -382,19 +451,25 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
 
   // 日期滑条自动居中定位到当前选中日期
   useEffect(() => {
-    activeDateRef.current?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    activeDateRef.current?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
   }, [currentDate]);
 
   // 全部日记中出现过的标签（去重排序），用于标签筛选
   const allTags = useMemo(() => {
     const set = new Set<string>();
-    journal.forEach((e) => { if (e.isDaily) extractJournalTags(e.content).forEach((tag) => set.add(tag)); });
+    journal.forEach((e) => {
+      if (e.isDaily) extractJournalTags(e.content).forEach((tag) => set.add(tag));
+    });
     return [...set].sort((a, b) => a.localeCompare(b, locale === "zh-CN" ? "zh" : "en"));
   }, [journal, locale]);
 
   const viewTasks = useMemo(
     () => tasks.filter((task) => task.dueDate === viewDate),
-    [tasks, viewDate]
+    [tasks, viewDate],
   );
 
   const tags = useMemo(() => extractJournalTags(draftContent), [draftContent]);
@@ -403,19 +478,28 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
   const [lunarText, setLunarText] = useState("");
   useEffect(() => {
     let cancelled = false;
-    import("lunar-javascript").then((mod: any) => {
-      try {
-        const Solar = mod.Solar || (mod.default && mod.default.Solar);
-        if (!Solar) return;
-        const d = new Date(currentDate + "T00:00:00");
-        const lunar = Solar.fromDate(d).getLunar();
-        if (!cancelled) setLunarText(`${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`);
-      } catch { /* ignore */ }
-    }).catch(() => {});
-    return () => { cancelled = true; };
+    import("lunar-javascript")
+      .then((mod: any) => {
+        try {
+          const Solar = mod.Solar || (mod.default && mod.default.Solar);
+          if (!Solar) return;
+          const d = new Date(currentDate + "T00:00:00");
+          const lunar = Solar.fromDate(d).getLunar();
+          if (!cancelled) setLunarText(`${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`);
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [currentDate]);
 
-  const weekdayNames = locale === "zh-CN" ? ["日", "一", "二", "三", "四", "五", "六"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const weekdayNames =
+    locale === "zh-CN"
+      ? ["日", "一", "二", "三", "四", "五", "六"]
+      : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const fmtDate = (ds: string) => {
     const [y, m, d] = ds.split("-").map(Number);
     const dt = new Date(y, m - 1, d);
@@ -432,12 +516,15 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
   const editorInner = (
     <>
       <div className="flex items-center gap-2 flex-wrap">
-        {selected && (
-          confirmDelete ? (
+        {selected &&
+          (confirmDelete ? (
             <div className="ml-auto flex items-center gap-1.5">
               <span className="text-[10px] text-[#A34E36]">{j.confirmDelete || "确定删除？"}</span>
               <button
-                onClick={() => { onDelete(selected.id); setConfirmDelete(false); }}
+                onClick={() => {
+                  onDelete(selected.id);
+                  setConfirmDelete(false);
+                }}
                 className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#A34E36] text-white hover:bg-[#8A4029] cursor-pointer transition-colors"
               >
                 {j.delete}
@@ -457,20 +544,30 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
-          )
-        )}
+          ))}
       </div>
 
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
-            <span key={tag} className="text-[10px] text-[#8B6E3C] bg-[#8B6E3C]/10 rounded-full px-2 py-0.5 font-medium">#{tag}</span>
+            <span
+              key={tag}
+              className="text-[10px] text-[#8B6E3C] bg-[#8B6E3C]/10 rounded-full px-2 py-0.5 font-medium"
+            >
+              #{tag}
+            </span>
           ))}
         </div>
       )}
 
       <div className="flex items-center gap-2">
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChosen} />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChosen}
+        />
         <button
           onClick={handlePickImage}
           className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] text-slate-500 hover:text-[#4D7C5D] hover:border-[#4D7C5D] hover:bg-[#F0F5F1] cursor-pointer transition-colors dark:border-[#3A3A3A] dark:text-slate-400 dark:hover:text-[#6FAD84] dark:hover:border-[#6FAD84] dark:hover:bg-[#232924]"
@@ -522,25 +619,45 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
 
       <div className="rounded-xl bg-gradient-to-br from-[#F0F5F1] to-[#FCEFF4] dark:from-[#232924] dark:to-[#2B2125] border border-[#E4EEE6] dark:border-[#33353A] p-4">
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#E8A0BF] dark:text-[#E8A0BF]/80 mb-2">
-          <Sparkles className="w-3.5 h-3.5" />{j.aiCommentTitle || "暖评"}
+          <Sparkles className="w-3.5 h-3.5" />
+          {j.aiCommentTitle || "暖评"}
         </div>
         {selected?.aiComment ? (
           <>
-            <p className="text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{selected.aiComment}</p>
-            <button onClick={generateAiComment} disabled={aiLoading} className="mt-2 text-[10px] text-[#4D7C5D] dark:text-[#6FAD84] hover:underline disabled:opacity-40 cursor-pointer">
-              {aiLoading ? "..." : (j.regenerate || "重新生成")}
+            <p className="text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+              {selected.aiComment}
+            </p>
+            <button
+              onClick={generateAiComment}
+              disabled={aiLoading}
+              className="mt-2 text-[10px] text-[#4D7C5D] dark:text-[#6FAD84] hover:underline disabled:opacity-40 cursor-pointer"
+            >
+              {aiLoading ? "..." : j.regenerate || "重新生成"}
             </button>
           </>
         ) : (
-          <button onClick={generateAiComment} disabled={aiLoading} className="text-[11px] font-semibold px-3 py-2 rounded-lg bg-white dark:bg-[#1C1D21] border border-[#E4EEE6] dark:border-[#383A42] text-[#4D7C5D] dark:text-[#6FAD84] hover:bg-[#EAF1EC] dark:hover:bg-[#232924] transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" />{aiLoading ? (j.aiThinking || "正在写暖评...") : (j.aiGenerate || "完成今天，收下今天的暖评")}
+          <button
+            onClick={generateAiComment}
+            disabled={aiLoading}
+            className="text-[11px] font-semibold px-3 py-2 rounded-lg bg-white dark:bg-[#1C1D21] border border-[#E4EEE6] dark:border-[#383A42] text-[#4D7C5D] dark:text-[#6FAD84] hover:bg-[#EAF1EC] dark:hover:bg-[#232924] transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {aiLoading
+              ? j.aiThinking || "正在写暖评..."
+              : j.aiGenerate || "完成今天，收下今天的暖评"}
           </button>
         )}
         {aiError && <p className="text-[10px] text-red-500 mt-2">{aiError}</p>}
       </div>
       {selected && (
         <div className="text-[10px] text-slate-400 text-right">
-          {j.updatedAt} {new Date(selected.updatedAt).toLocaleString([], { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+          {j.updatedAt}{" "}
+          {new Date(selected.updatedAt).toLocaleString([], {
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
         </div>
       )}
     </>
@@ -560,71 +677,82 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
           title={j.addTodoHint || "开启后，每一天的日记都会加入当日待办"}
         >
           <ListChecks className="w-3.5 h-3.5" />
-          {addTodoEnabled ? "✓ " : ""}{j.addTodo}
+          {addTodoEnabled ? "✓ " : ""}
+          {j.addTodo}
         </button>
 
-        <div ref={stripRef} className="flex-1 overflow-x-auto custom-scrollbar flex items-center gap-1.5 pb-1">
+        <div
+          ref={stripRef}
+          className="flex-1 overflow-x-auto custom-scrollbar flex items-center gap-1.5 pb-1"
+        >
+          <button
+            type="button"
+            onClick={jumpEarlier}
+            className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 border border-[#EFEBE4] bg-white hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer"
+            title={j.jumpEarlier || "更早"}
+          >
+            ‹ {j.jumpEarlier || "更早"}
+          </button>
+          {(currentDate < stripStart || currentDate > stripEnd) && (
             <button
               type="button"
-              onClick={jumpEarlier}
-              className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 border border-[#EFEBE4] bg-white hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer"
-              title={j.jumpEarlier || "更早"}
+              ref={activeDateRef}
+              onClick={() => {}}
+              className="flex-shrink-0 flex flex-col items-center px-2.5 py-1 rounded-xl bg-[#4D7C5D] text-white border border-[#4D7C5D]"
+              title={currentDate}
             >
-              ‹ {j.jumpEarlier || "更早"}
+              <span className="text-[11px] font-bold leading-none">
+                {(() => {
+                  const [, m, d] = currentDate.split("-");
+                  return `${Number(m)}/${Number(d)}`;
+                })()}
+              </span>
+              <span className="text-[9px] mt-0.5 leading-none">{j.outsideStrip || "滑条外"}</span>
             </button>
-            {(currentDate < stripStart || currentDate > stripEnd) && (
+          )}
+          {visibleDateStrip.map((ds) => {
+            const [y, m, d] = ds.split("-").map(Number);
+            const wd = weekdayNames[new Date(y, m - 1, d).getDay()];
+            const entry = dailyEntryMap.get(ds);
+            const has = !!entry && !!(entry.content?.trim() || entry.mood);
+            const active = ds === currentDate;
+            return (
               <button
-                type="button"
-                ref={activeDateRef}
-                onClick={() => {}}
-                className="flex-shrink-0 flex flex-col items-center px-2.5 py-1 rounded-xl bg-[#4D7C5D] text-white border border-[#4D7C5D]"
-                title={currentDate}
+                key={ds}
+                ref={active ? activeDateRef : undefined}
+                onClick={() => navigateToDate(ds)}
+                className={`flex-shrink-0 flex flex-col items-center px-2.5 py-1 rounded-xl transition-colors cursor-pointer border ${
+                  active
+                    ? "bg-[#4D7C5D] text-white border-[#4D7C5D]"
+                    : has
+                      ? "bg-[#F0F5F1] text-[#4D7C5D] border-[#C4D7B2] hover:bg-[#E4EEE6]"
+                      : "bg-white text-slate-400 border-[#EFEBE4] hover:bg-[#FAF8F5]"
+                }`}
+                title={ds}
               >
                 <span className="text-[11px] font-bold leading-none">
-                  {(() => { const [, m, d] = currentDate.split("-"); return `${Number(m)}/${Number(d)}`; })()}
+                  {m}/{d}
                 </span>
-                <span className="text-[9px] mt-0.5 leading-none">{j.outsideStrip || "滑条外"}</span>
+                <span className="text-[9px] mt-0.5 leading-none">{wd}</span>
+                {entry?.mood ? (
+                  <span className="text-[10px] mt-0.5 leading-none">{entry.mood}</span>
+                ) : has ? (
+                  <span
+                    className={`w-1 h-1 rounded-full mt-1 ${active ? "bg-white" : "bg-[#C4D7B2]"}`}
+                  />
+                ) : null}
               </button>
-            )}
-            {visibleDateStrip.map((ds) => {
-              const [y, m, d] = ds.split("-").map(Number);
-              const wd = weekdayNames[new Date(y, m - 1, d).getDay()];
-              const entry = dailyEntryMap.get(ds);
-              const has = !!entry && !!(entry.content?.trim() || entry.mood);
-              const active = ds === currentDate;
-              return (
-                <button
-                  key={ds}
-                  ref={active ? activeDateRef : undefined}
-                  onClick={() => navigateToDate(ds)}
-                  className={`flex-shrink-0 flex flex-col items-center px-2.5 py-1 rounded-xl transition-colors cursor-pointer border ${
-                    active
-                      ? "bg-[#4D7C5D] text-white border-[#4D7C5D]"
-                      : has
-                        ? "bg-[#F0F5F1] text-[#4D7C5D] border-[#C4D7B2] hover:bg-[#E4EEE6]"
-                        : "bg-white text-slate-400 border-[#EFEBE4] hover:bg-[#FAF8F5]"
-                  }`}
-                  title={ds}
-                >
-                  <span className="text-[11px] font-bold leading-none">{m}/{d}</span>
-                  <span className="text-[9px] mt-0.5 leading-none">{wd}</span>
-                  {entry?.mood ? (
-                    <span className="text-[10px] mt-0.5 leading-none">{entry.mood}</span>
-                  ) : has ? (
-                    <span className={`w-1 h-1 rounded-full mt-1 ${active ? "bg-white" : "bg-[#C4D7B2]"}`} />
-                  ) : null}
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={jumpLater}
-              className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 border border-[#EFEBE4] bg-white hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer"
-              title={j.jumpLater || "更晚"}
-            >
-              {j.jumpLater || "更晚"} ›
-            </button>
-          </div>
+            );
+          })}
+          <button
+            type="button"
+            onClick={jumpLater}
+            className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 border border-[#EFEBE4] bg-white hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer"
+            title={j.jumpLater || "更晚"}
+          >
+            {j.jumpLater || "更晚"} ›
+          </button>
+        </div>
 
         <div className="ml-auto flex items-center gap-2 flex-shrink-0 relative">
           <div className="relative">
@@ -641,10 +769,14 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
                   type="button"
                   onClick={() => setSearch("")}
                   className="absolute right-8 top-1/2 -translate-y-1/2 text-[10px] text-slate-300 hover:text-slate-500 cursor-pointer"
-                >×</button>
-                <span className={`absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-bold rounded-full px-1.5 py-0.5 ${
-                  searchMatchCount > 0 ? "bg-[#F0F5F1] text-[#4D7C5D]" : "bg-red-50 text-red-400"
-                }`}>
+                >
+                  ×
+                </button>
+                <span
+                  className={`absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-bold rounded-full px-1.5 py-0.5 ${
+                    searchMatchCount > 0 ? "bg-[#F0F5F1] text-[#4D7C5D]" : "bg-red-50 text-red-400"
+                  }`}
+                >
                   {searchMatchCount}
                 </span>
               </>
@@ -655,7 +787,9 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
               <button
                 onClick={() => setTagOpen((v) => !v)}
                 className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
-                  tagOpen || activeTag ? "border-[#8B6E3C] text-[#8B6E3C] bg-[#8B6E3C]/10" : "border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5]"
+                  tagOpen || activeTag
+                    ? "border-[#8B6E3C] text-[#8B6E3C] bg-[#8B6E3C]/10"
+                    : "border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5]"
                 }`}
                 title={j.tags}
               >
@@ -669,7 +803,9 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
                         key={tag}
                         onClick={() => setActiveTag((prev) => (prev === tag ? null : tag))}
                         className={`text-[10px] rounded-full px-2 py-0.5 font-medium transition-colors cursor-pointer border ${
-                          activeTag === tag ? "bg-[#8B6E3C] text-white border-[#8B6E3C]" : "text-[#8B6E3C] bg-[#8B6E3C]/10 border-transparent hover:bg-[#8B6E3C]/20"
+                          activeTag === tag
+                            ? "bg-[#8B6E3C] text-white border-[#8B6E3C]"
+                            : "text-[#8B6E3C] bg-[#8B6E3C]/10 border-transparent hover:bg-[#8B6E3C]/20"
                         }`}
                       >
                         #{tag}
@@ -677,7 +813,12 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
                     ))}
                   </div>
                   {activeTag && (
-                    <button onClick={() => setActiveTag(null)} className="text-[10px] text-slate-400 hover:text-slate-600">{j.clearTag} ✕</button>
+                    <button
+                      onClick={() => setActiveTag(null)}
+                      className="text-[10px] text-slate-400 hover:text-slate-600"
+                    >
+                      {j.clearTag} ✕
+                    </button>
                   )}
                 </div>
               )}
@@ -711,80 +852,87 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
       <div className="flex flex-grow min-h-0 gap-4">
         <section className="flex-grow min-w-0 flex flex-col gap-3">
           <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] dark:bg-[#1C1D21] shadow-[0_2px_14px_rgba(120,100,70,0.10)] dark:shadow-none border border-[#ECE3D2] dark:border-[#383A42] relative">
-              {/* 书脊 */}
-              <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6] dark:from-[#25272D] dark:via-[#1F2025] dark:to-[#25272D]" />
-              <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70 dark:bg-[#383A42]" />
-              <div
-                key={`page-${currentDate}-${flipTick}`}
-                className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0 animate-fade-in-up"
-              >
-                {/* 页眉：大日期 + 翻页 */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => shiftDate(-1)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5D9C2] text-[#8B6E3C] hover:bg-[#F3ECDF] cursor-pointer transition-colors"
-                    title={j.prevDay || "前一天"}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <div className="flex-grow text-center">
-                    <div className="text-2xl font-bold text-[#5A4A33] font-serif tracking-tight">{headerDate.big}</div>
-                    <div className="text-[10px] text-[#9A8866] mt-0.5">{headerDate.small}</div>
+            {/* 书脊 */}
+            <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6] dark:from-[#25272D] dark:via-[#1F2025] dark:to-[#25272D]" />
+            <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70 dark:bg-[#383A42]" />
+            <div
+              key={`page-${currentDate}-${flipTick}`}
+              className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0 animate-fade-in-up"
+            >
+              {/* 页眉：大日期 + 翻页 */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => shiftDate(-1)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5D9C2] text-[#8B6E3C] hover:bg-[#F3ECDF] cursor-pointer transition-colors"
+                  title={j.prevDay || "前一天"}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="flex-grow text-center">
+                  <div className="text-2xl font-bold text-[#5A4A33] font-serif tracking-tight">
+                    {headerDate.big}
                   </div>
-                  <button
-                    onClick={() => shiftDate(1)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5D9C2] text-[#8B6E3C] hover:bg-[#F3ECDF] cursor-pointer transition-colors"
-                    title={j.prevDay || "后一天"}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                  <div className="text-[10px] text-[#9A8866] mt-0.5">{headerDate.small}</div>
                 </div>
-                <div className="flex items-center justify-center gap-2 -mt-1">
-                  {!isToday && (
-                    <button
-                      onClick={goToday}
-                      className="text-[10px] px-2 py-0.5 rounded-full bg-[#F0F5F1] text-[#4D7C5D] hover:bg-[#E4EEE6] cursor-pointer border border-[#C4D7B2]"
-                    >
-                      {j.goToday}
-                    </button>
-                  )}
-                  {isFuture && <span className="text-[10px] text-slate-400">· {j.futureDay}</span>}
-                  {/* 今日心情：与「回到今天」同行，省一行 */}
-                  <span className="mx-1 text-[#E5D9C2]">|</span>
-                  {JOURNAL_MOODS.map((m) => {
-                    const active = selected?.mood === m.emoji;
-                    return (
-                      <button
-                        key={m.emoji}
-                        type="button"
-                        onClick={() => handleMoodPick(m.emoji)}
-                        title={m.label}
-                        className={`w-7 h-7 flex items-center justify-center rounded-full text-sm transition-all cursor-pointer border ${
-                          active
-                            ? "bg-[#F0F5F1] border-[#4D7C5D] scale-110 shadow-sm"
-                            : "bg-transparent border-transparent hover:bg-[#F3ECDF]/80 opacity-60 hover:opacity-100"
-                        }`}
-                      >
-                        {m.emoji}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {editorInner}
+                <button
+                  onClick={() => shiftDate(1)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5D9C2] text-[#8B6E3C] hover:bg-[#F3ECDF] cursor-pointer transition-colors"
+                  title={j.prevDay || "后一天"}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
+              <div className="flex items-center justify-center gap-2 -mt-1">
+                {!isToday && (
+                  <button
+                    onClick={goToday}
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-[#F0F5F1] text-[#4D7C5D] hover:bg-[#E4EEE6] cursor-pointer border border-[#C4D7B2]"
+                  >
+                    {j.goToday}
+                  </button>
+                )}
+                {isFuture && <span className="text-[10px] text-slate-400">· {j.futureDay}</span>}
+                {/* 今日心情：与「回到今天」同行，省一行 */}
+                <span className="mx-1 text-[#E5D9C2]">|</span>
+                {JOURNAL_MOODS.map((m) => {
+                  const active = selected?.mood === m.emoji;
+                  return (
+                    <button
+                      key={m.emoji}
+                      type="button"
+                      onClick={() => handleMoodPick(m.emoji)}
+                      title={m.label}
+                      className={`w-7 h-7 flex items-center justify-center rounded-full text-sm transition-all cursor-pointer border ${
+                        active
+                          ? "bg-[#F0F5F1] border-[#4D7C5D] scale-110 shadow-sm"
+                          : "bg-transparent border-transparent hover:bg-[#F3ECDF]/80 opacity-60 hover:opacity-100"
+                      }`}
+                    >
+                      {m.emoji}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {editorInner}
             </div>
+          </div>
         </section>
 
         {/* 右：今日关联 */}
         <aside className="w-56 flex-shrink-0 flex flex-col gap-4 border-l border-[#EFEBE4] pl-3 overflow-y-auto custom-scrollbar">
           <div>
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] mb-2">
-              <ListChecks className="w-3.5 h-3.5" />{j.todayLinks}
+              <ListChecks className="w-3.5 h-3.5" />
+              {j.todayLinks}
             </div>
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{j.todayTasks}</div>
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+              {j.todayTasks}
+            </div>
             <div className="space-y-1 mb-3">
-              {viewTasks.length === 0 && <div className="text-[11px] text-slate-300">{j.noTasks}</div>}
+              {viewTasks.length === 0 && (
+                <div className="text-[11px] text-slate-300">{j.noTasks}</div>
+              )}
               {viewTasks.map((task) => (
                 <button
                   key={task.id}
@@ -796,9 +944,13 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
                 </button>
               ))}
             </div>
-            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{j.todayDone || "今日完成"}</div>
+            <div className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+              {j.todayDone || "今日完成"}
+            </div>
             <div className="space-y-1 mb-3">
-              {viewDone.length === 0 && <div className="text-[11px] text-slate-300">{j.noDone || "今天还没有完成任务"}</div>}
+              {viewDone.length === 0 && (
+                <div className="text-[11px] text-slate-300">{j.noDone || "今天还没有完成任务"}</div>
+              )}
               {viewDone.slice(0, 8).map((task) => (
                 <button
                   key={task.id}
@@ -812,7 +964,9 @@ export function JournalView({ tasks, completedTasks, pomodoroLogs, aiConfig, hab
             </div>
             {viewFocus.count > 0 && (
               <button
-                onClick={() => insertLine(`🍅 专注 ${viewFocus.minutes} 分钟（${viewFocus.count} 个番茄）`)}
+                onClick={() =>
+                  insertLine(`🍅 专注 ${viewFocus.minutes} 分钟（${viewFocus.count} 个番茄）`)
+                }
                 className="w-full text-left text-[11px] text-[#A64424] bg-[#FBECE5] border border-[#F6DCD2] hover:border-[#E57C58] rounded-lg px-2 py-1.5 cursor-pointer transition-colors mt-2"
                 title={j.insertFocus || "插入到日记"}
               >

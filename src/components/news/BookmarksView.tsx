@@ -45,7 +45,13 @@ function writeDailyCache<T>(key: string, today: string, locale: string, data: T)
 const RECOLLECT_CACHE_KEY = "tongyun_recollect_prose";
 
 export const BookmarksView: React.FC<BookmarksViewProps> = ({
-  config, searchQuery, bookmarks, readHistory, onOpenArticle, toggleBookmark, actions
+  config,
+  searchQuery,
+  bookmarks,
+  readHistory,
+  onOpenArticle,
+  toggleBookmark,
+  actions,
 }) => {
   const [subTab, setSubTab] = useState<"list" | "recollect">("list");
 
@@ -53,9 +59,7 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
     if (!searchQuery.trim()) return bookmarks;
     const q = searchQuery.toLowerCase();
     return bookmarks.filter(
-      (a) =>
-        a.title.toLowerCase().includes(q) ||
-        a.description.toLowerCase().includes(q)
+      (a) => a.title.toLowerCase().includes(q) || a.description.toLowerCase().includes(q),
     );
   }, [bookmarks, searchQuery]);
 
@@ -63,19 +67,21 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
   const today = getLocalDateString();
   const localeKey = config.locale || "zh-CN";
   const [recollect, setRecollect] = useState<string | null>(() =>
-    readDailyCache<string>(RECOLLECT_CACHE_KEY, today, localeKey)
+    readDailyCache<string>(RECOLLECT_CACHE_KEY, today, localeKey),
   );
   const [recollectLoading, setRecollectLoading] = useState(false);
   const [recollectError, setRecollectError] = useState(false);
 
   const sampled = useMemo(
     () => [...bookmarks].sort((a, b) => a.bookmarkedAt - b.bookmarkedAt).slice(0, 6),
-    [bookmarks]
+    [bookmarks],
   );
   const promptItems = useMemo(() => {
-    const fromBookmarks = bookmarks
-      .slice(0, 8)
-      .map((a) => ({ title: a.title, source: a.feedName, date: new Date(a.bookmarkedAt).toLocaleDateString("zh-CN") }));
+    const fromBookmarks = bookmarks.slice(0, 8).map((a) => ({
+      title: a.title,
+      source: a.feedName,
+      date: new Date(a.bookmarkedAt).toLocaleDateString("zh-CN"),
+    }));
     const fromHistory = readHistory
       .slice(0, 6)
       .map((h) => ({ title: h.title, source: h.feedName }));
@@ -126,7 +132,9 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
         <h2 className="text-lg font-serif font-black text-[#2D323A] flex items-center gap-1.5">
           <Star className="w-4 h-4 text-[#8B6E3C]" />
           收藏夹
-          <span className="text-sm font-sans font-normal text-slate-300 ml-1">({filteredBookmarks.length})</span>
+          <span className="text-sm font-sans font-normal text-slate-300 ml-1">
+            ({filteredBookmarks.length})
+          </span>
         </h2>
         <div className="flex items-center gap-1">
           <button
@@ -178,7 +186,9 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
                     </h4>
                     <div className="flex items-center gap-2 text-[10px] text-slate-300 font-medium mt-0.5">
                       {article.feedName && <span>{article.feedName}</span>}
-                      <span>收藏于 {new Date(article.bookmarkedAt).toLocaleDateString("zh-CN")}</span>
+                      <span>
+                        收藏于 {new Date(article.bookmarkedAt).toLocaleDateString("zh-CN")}
+                      </span>
                     </div>
                   </div>
                   <button
@@ -190,7 +200,12 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
                   </button>
                   <NewsItemActions
                     className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
-                    newsRef={{ title: article.title, url: article.link, description: article.description, source: article.feedName }}
+                    newsRef={{
+                      title: article.title,
+                      url: article.link,
+                      description: article.description,
+                      source: article.feedName,
+                    }}
                     actions={actions}
                   />
                 </div>
@@ -202,11 +217,16 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
             <div className="mt-6 pt-4 border-t border-dashed border-slate-200">
               <div className="flex items-center gap-1.5 mb-3">
                 <Clock className="w-3.5 h-3.5 text-slate-300" />
-                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.15em]">最近阅读</span>
+                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.15em]">
+                  最近阅读
+                </span>
               </div>
               <div className="space-y-1">
                 {readHistory.slice(0, 10).map((entry) => (
-                  <div key={entry.title + entry.readAt} className="flex items-center gap-2 py-1.5 text-[11px] text-slate-400">
+                  <div
+                    key={entry.title + entry.readAt}
+                    className="flex items-center gap-2 py-1.5 text-[11px] text-slate-400"
+                  >
                     <span className="w-1 h-1 rounded-full bg-slate-200 flex-shrink-0" />
                     <span className="truncate font-medium">{entry.title}</span>
                     <span className="text-slate-200 text-[9px] ml-auto flex-shrink-0">
@@ -222,7 +242,9 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
         <div className="flex-grow flex flex-col">
           {!hasAi ? (
             <>
-              <p className="text-[11px] text-slate-400 mb-3">未配置 AI 密钥，为你随机拾起几朵旧朝花：</p>
+              <p className="text-[11px] text-slate-400 mb-3">
+                未配置 AI 密钥，为你随机拾起几朵旧朝花：
+              </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {sampled.length === 0 ? (
                   <p className="text-[11px] text-slate-300">还没有收藏，先去别处拾一朵吧。</p>
@@ -233,8 +255,12 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
                       onClick={() => onOpenArticle(article)}
                       className="p-3 rounded-xl bg-white/60 border border-[#E8E0D0]/60 hover:border-[#E8E0D0] hover:shadow-sm cursor-pointer transition-all"
                     >
-                      <h4 className="text-[12px] font-serif font-bold text-[#2D323A] group-hover:text-[#A34E36] line-clamp-2">{article.title}</h4>
-                      <div className="text-[9px] text-slate-300 mt-1">收藏于 {new Date(article.bookmarkedAt).toLocaleDateString("zh-CN")}</div>
+                      <h4 className="text-[12px] font-serif font-bold text-[#2D323A] group-hover:text-[#A34E36] line-clamp-2">
+                        {article.title}
+                      </h4>
+                      <div className="text-[9px] text-slate-300 mt-1">
+                        收藏于 {new Date(article.bookmarkedAt).toLocaleDateString("zh-CN")}
+                      </div>
                     </div>
                   ))
                 )}
@@ -248,8 +274,15 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
           ) : recollectError ? (
             <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
               <PenLine className="w-8 h-8 text-slate-200" />
-              <p className="text-[11px] text-slate-400 font-medium">生成失败，请检查 AI 配置后重试</p>
-              <button onClick={() => generateRecollect(true)} className="text-[10px] text-[#8B6E3C] font-bold hover:underline cursor-pointer mt-1">重试</button>
+              <p className="text-[11px] text-slate-400 font-medium">
+                生成失败，请检查 AI 配置后重试
+              </p>
+              <button
+                onClick={() => generateRecollect(true)}
+                className="text-[10px] text-[#8B6E3C] font-bold hover:underline cursor-pointer mt-1"
+              >
+                重试
+              </button>
             </div>
           ) : recollect ? (
             <div>
@@ -263,14 +296,18 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
                   disabled={recollectLoading}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-bold text-slate-400 hover:text-slate-600 bg-white/70 hover:bg-white border border-[#EFEBE4] transition-all cursor-pointer"
                 >
-                  <RefreshCw className={"w-2.5 h-2.5 " + (recollectLoading ? "animate-spin" : "")} />
+                  <RefreshCw
+                    className={"w-2.5 h-2.5 " + (recollectLoading ? "animate-spin" : "")}
+                  />
                   重写散文
                 </button>
               </div>
               <RecollectProse text={recollect} />
               {sampled.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-dashed border-slate-200">
-                  <div className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.15em] mb-3">今日拾起的朝花</div>
+                  <div className="text-[9px] font-bold text-slate-300 uppercase tracking-[0.15em] mb-3">
+                    今日拾起的朝花
+                  </div>
                   <div className="space-y-2">
                     {sampled.map((article) => (
                       <div
@@ -279,14 +316,22 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
                         className="group flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/60 border border-transparent hover:border-[#E8E0D0] cursor-pointer transition-all"
                       >
                         <div className="flex-grow min-w-0">
-                          <h4 className="text-[12px] font-serif font-bold text-[#2D323A] group-hover:text-[#A34E36] transition-colors truncate">{article.title}</h4>
+                          <h4 className="text-[12px] font-serif font-bold text-[#2D323A] group-hover:text-[#A34E36] transition-colors truncate">
+                            {article.title}
+                          </h4>
                           <div className="text-[9px] text-slate-300 mt-0.5">
-                            {article.feedName ? article.feedName + " · " : ""}收藏于 {new Date(article.bookmarkedAt).toLocaleDateString("zh-CN")}
+                            {article.feedName ? article.feedName + " · " : ""}收藏于{" "}
+                            {new Date(article.bookmarkedAt).toLocaleDateString("zh-CN")}
                           </div>
                         </div>
                         <NewsItemActions
                           className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
-                          newsRef={{ title: article.title, url: article.link, description: article.description, source: article.feedName }}
+                          newsRef={{
+                            title: article.title,
+                            url: article.link,
+                            description: article.description,
+                            source: article.feedName,
+                          }}
                           actions={actions}
                         />
                       </div>
@@ -298,7 +343,12 @@ export const BookmarksView: React.FC<BookmarksViewProps> = ({
           ) : (
             <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-300">
               <PenLine className="w-8 h-8" />
-              <button onClick={() => generateRecollect(true)} className="text-[10px] text-[#8B6E3C] font-bold hover:underline cursor-pointer">生成朝花夕拾</button>
+              <button
+                onClick={() => generateRecollect(true)}
+                className="text-[10px] text-[#8B6E3C] font-bold hover:underline cursor-pointer"
+              >
+                生成朝花夕拾
+              </button>
             </div>
           )}
         </div>
@@ -318,7 +368,14 @@ function RecollectProse({ text }: { text: string }) {
       )}
       <div className="prose-body space-y-3 text-[13px] leading-relaxed text-slate-700 whitespace-pre-wrap">
         {proseBody.split(/\n{2,}/).map((paragraph, idx) => (
-          <p key={idx} className={idx === 0 && !proseTitle ? "first-letter:text-[#8B6E3C] first-letter:text-[22px] first-letter:font-bold first-letter:mr-0.5 first-letter:float-left" : ""}>
+          <p
+            key={idx}
+            className={
+              idx === 0 && !proseTitle
+                ? "first-letter:text-[#8B6E3C] first-letter:text-[22px] first-letter:font-bold first-letter:mr-0.5 first-letter:float-left"
+                : ""
+            }
+          >
             {paragraph}
           </p>
         ))}

@@ -1,10 +1,28 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Cloud, RefreshCw, Server, Copy, HardDrive, CheckCircle2, AlertTriangle, Sparkles, Download, Upload, ShieldCheck, RotateCcw } from "lucide-react";
+import {
+  Cloud,
+  RefreshCw,
+  Server,
+  Copy,
+  HardDrive,
+  CheckCircle2,
+  AlertTriangle,
+  Sparkles,
+  Download,
+  Upload,
+  ShieldCheck,
+  RotateCcw,
+} from "lucide-react";
 import type { CustomizationConfig } from "../../types";
 import type { SyncBackendType } from "../../utils/sync/types";
 import { storageManager, type StorageBackendType } from "../../utils/storage";
 import { syncEngine } from "../../utils/sync/engine";
-import { normalizeSyncData, applySyncData, bumpCategoryVersion, ALL_SYNC_CATEGORIES } from "../../utils/sync/types";
+import {
+  normalizeSyncData,
+  applySyncData,
+  bumpCategoryVersion,
+  ALL_SYNC_CATEGORIES,
+} from "../../utils/sync/types";
 import {
   buildSnapshotPayload,
   ensureDailySnapshot,
@@ -46,15 +64,21 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
     if (!saved) return JIANGUOYUN_URL;
     return saved;
   });
-  const [webdavUser, setWebdavUser] = useState(() => localStorage.getItem("tongyun_webdav_user") || "");
-  const [webdavPass, setWebdavPass] = useState(() => localStorage.getItem("tongyun_webdav_pass") || "");
+  const [webdavUser, setWebdavUser] = useState(
+    () => localStorage.getItem("tongyun_webdav_user") || "",
+  );
+  const [webdavPass, setWebdavPass] = useState(
+    () => localStorage.getItem("tongyun_webdav_pass") || "",
+  );
   const [syncBackend, setSyncBackend] = useState<SyncBackendType>(() => syncEngine.currentBackend);
   const [webdavPreset, setWebdavPreset] = useState<"jianguoyun" | "custom">(() => {
     const saved = localStorage.getItem("tongyun_webdav_url") || "";
     return !saved || saved.startsWith("https://dav.jianguoyun.com") ? "jianguoyun" : "custom";
   });
 
-  const [storageBackend, setStorageBackend] = useState<StorageBackendType>(() => storageManager.current);
+  const [storageBackend, setStorageBackend] = useState<StorageBackendType>(
+    () => storageManager.current,
+  );
   const [syncStatus, setSyncStatus] = useState(syncEngine.status);
   const [syncLastTime, setSyncLastTime] = useState<number | null>(syncEngine.lastSyncTime);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,10 +92,7 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
   const loadDailySnapshots = useCallback(async () => {
     if (!isTauri) return;
     try {
-      const [dir, list] = await Promise.all([
-        getBackupDir(),
-        listDailySnapshots(),
-      ]);
+      const [dir, list] = await Promise.all([getBackupDir(), listDailySnapshots()]);
       setBackupDir(dir);
       setDailySnapshots(list);
     } catch (err) {
@@ -114,7 +135,7 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
 
   const handleRestoreDailySnapshot = async (fileName: string) => {
     const confirmed = window.confirm(
-      "恢复会用该快照覆盖本机当前数据（密钥不受影响），确定继续吗？建议先导出一份当前快照。"
+      "恢复会用该快照覆盖本机当前数据（密钥不受影响），确定继续吗？建议先导出一份当前快照。",
     );
     if (!confirmed) return;
 
@@ -187,15 +208,25 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-[#4D7C5D] dark:text-[#6FAD84] font-semibold bg-[#F0F5F1] dark:bg-[#233527] px-2.5 py-1.5 rounded-xl border border-[#DEEAE2] dark:border-[#2D4533]">
             <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>{s.syncSecurityNote || "🔒 安全说明：云端同步不会上传任何 AI API Key 等敏感密钥，密钥仅保存在本机。在其他设备使用 AI 功能时，请在设置中单独填写密钥。"}</span>
+            <span>
+              {s.syncSecurityNote ||
+                "🔒 安全说明：云端同步不会上传任何 AI API Key 等敏感密钥，密钥仅保存在本机。在其他设备使用 AI 功能时，请在设置中单独填写密钥。"}
+            </span>
           </div>
         </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">同步后端</label>
+        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+          同步后端
+        </label>
         <div className="grid grid-cols-2 gap-2">
-          {([["none", "不使用"], ["webdav", "WebDAV"]] as [SyncBackendType, string][]).map(([val, label]) => (
+          {(
+            [
+              ["none", "不使用"],
+              ["webdav", "WebDAV"],
+            ] as [SyncBackendType, string][]
+          ).map(([val, label]) => (
             <button
               key={val}
               onClick={() => {
@@ -217,7 +248,9 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
       {syncBackend === "webdav" && (
         <div className="space-y-3">
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">服务商</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+              服务商
+            </label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -246,17 +279,31 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
 
           {webdavPreset === "jianguoyun" ? (
             <div className="rounded-xl bg-[#F7F5F0] dark:bg-slate-800/60 border border-[#EFEBE4] dark:border-slate-700 p-3 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-              <p className="mb-1.5">密码请填写坚果云「应用密码」：登录坚果云网页版 → 账户信息 → 安全选项 → 第三方应用管理 → 添加应用生成。不要填写登录密码。</p>
-              <button type="button" onClick={() => openExternal("https://help.jianguoyun.com/?p=2066")} className="inline-flex items-center gap-1 text-[#4D7C5D] dark:text-[#6DAF7E] hover:underline font-medium cursor-pointer">查看坚果云 WebDAV 开启教程 ↗</button>
+              <p className="mb-1.5">
+                密码请填写坚果云「应用密码」：登录坚果云网页版 → 账户信息 → 安全选项 →
+                第三方应用管理 → 添加应用生成。不要填写登录密码。
+              </p>
+              <button
+                type="button"
+                onClick={() => openExternal("https://help.jianguoyun.com/?p=2066")}
+                className="inline-flex items-center gap-1 text-[#4D7C5D] dark:text-[#6DAF7E] hover:underline font-medium cursor-pointer"
+              >
+                查看坚果云 WebDAV 开启教程 ↗
+              </button>
             </div>
           ) : (
             <div className="rounded-xl bg-[#F7F5F0] dark:bg-slate-800/60 border border-[#EFEBE4] dark:border-slate-700 p-3 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-              <p>支持任何标准 WebDAV 服务器（如 Nextcloud、ownCloud、群晖 WebDAV Server 等），请确保支持 HTTPS 连接。</p>
+              <p>
+                支持任何标准 WebDAV 服务器（如 Nextcloud、ownCloud、群晖 WebDAV Server
+                等），请确保支持 HTTPS 连接。
+              </p>
             </div>
           )}
 
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">{s.syncUrl}</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+              {s.syncUrl}
+            </label>
             <input
               type="text"
               readOnly={webdavPreset === "jianguoyun"}
@@ -273,7 +320,9 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">{s.syncUser}</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                {s.syncUser}
+              </label>
               <input
                 type="text"
                 placeholder="your-email@example.com"
@@ -286,7 +335,9 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
               />
             </div>
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">{s.syncPass}</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                {s.syncPass}
+              </label>
               <input
                 type="password"
                 placeholder="••••••••"
@@ -307,11 +358,17 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
           <div className="flex items-center justify-between p-3 rounded-xl border border-[#EFEBE4] bg-white/50">
             <div>
               <span className="text-xs font-bold text-slate-700 block">
-                {syncStatus === "syncing" ? "同步中..." :
-                 syncStatus === "success" ? "上次同步成功" :
-                 syncStatus === "error" ? "同步出错" :
-                 syncStatus === "conflict" ? "有冲突待处理" :
-                 syncStatus === "offline" ? "离线，稍后自动补传" : "等待同步"}
+                {syncStatus === "syncing"
+                  ? "同步中..."
+                  : syncStatus === "success"
+                    ? "上次同步成功"
+                    : syncStatus === "error"
+                      ? "同步出错"
+                      : syncStatus === "conflict"
+                        ? "有冲突待处理"
+                        : syncStatus === "offline"
+                          ? "离线，稍后自动补传"
+                          : "等待同步"}
               </span>
               {syncLastTime && (
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
@@ -319,19 +376,32 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                 </span>
               )}
             </div>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              syncStatus === "syncing" ? "bg-blue-100 text-blue-600" :
-              syncStatus === "success" ? "bg-green-100 text-green-600" :
-              syncStatus === "error" ? "bg-red-100 text-red-600" :
-              syncStatus === "conflict" ? "bg-amber-100 text-amber-700" :
-              syncStatus === "offline" ? "bg-slate-100 text-slate-600" :
-              "bg-slate-100 text-slate-500"
-            }`}>
-              {syncStatus === "syncing" ? "同步中" :
-               syncStatus === "success" ? "已同步" :
-               syncStatus === "error" ? "失败" :
-               syncStatus === "conflict" ? "有冲突" :
-               syncStatus === "offline" ? "离线" : "待同步"}
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                syncStatus === "syncing"
+                  ? "bg-blue-100 text-blue-600"
+                  : syncStatus === "success"
+                    ? "bg-green-100 text-green-600"
+                    : syncStatus === "error"
+                      ? "bg-red-100 text-red-600"
+                      : syncStatus === "conflict"
+                        ? "bg-amber-100 text-amber-700"
+                        : syncStatus === "offline"
+                          ? "bg-slate-100 text-slate-600"
+                          : "bg-slate-100 text-slate-500"
+              }`}
+            >
+              {syncStatus === "syncing"
+                ? "同步中"
+                : syncStatus === "success"
+                  ? "已同步"
+                  : syncStatus === "error"
+                    ? "失败"
+                    : syncStatus === "conflict"
+                      ? "有冲突"
+                      : syncStatus === "offline"
+                        ? "离线"
+                        : "待同步"}
             </span>
           </div>
 
@@ -347,7 +417,11 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
               disabled={isLoading}
               className="flex-1 bg-white border border-[#EFEBE4] hover:border-[#4D7C5D] text-slate-600 py-2 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
             >
-              {isLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Server className="w-3 h-3" />}
+              {isLoading ? (
+                <RefreshCw className="w-3 h-3 animate-spin" />
+              ) : (
+                <Server className="w-3 h-3" />
+              )}
               测试连接
             </button>
             <button
@@ -365,7 +439,11 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
               disabled={isLoading || syncStatus === "syncing"}
               className="flex-1 bg-[#4D7C5D] hover:bg-[#3F684C] disabled:bg-slate-300 text-white py-2 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
             >
-              {isLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Cloud className="w-3 h-3" />}
+              {isLoading ? (
+                <RefreshCw className="w-3 h-3 animate-spin" />
+              ) : (
+                <Cloud className="w-3 h-3" />
+              )}
               立即同步
             </button>
           </div>
@@ -374,7 +452,8 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
             <div>
               <span className="text-xs font-bold text-slate-700 block">自动同步</span>
               <span className="text-[10px] text-slate-400 mt-0.5 block">
-                启动时、关闭窗口/退出时、每 5 分钟自动同步；编辑停止约 30 秒后上传，离线时自动排队，恢复网络后补传。
+                启动时、关闭窗口/退出时、每 5 分钟自动同步；编辑停止约 30
+                秒后上传，离线时自动排队，恢复网络后补传。
               </span>
             </div>
             <input
@@ -391,17 +470,33 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
           <div className="pt-3 border-t border-[#EFEBE4]">
             <div className="flex items-center gap-2 mb-2">
               <HardDrive className="w-3.5 h-3.5 text-[#8B6E3C]" />
-              <span className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">附件存储</span>
+              <span className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+                附件存储
+              </span>
             </div>
-            <p className="text-[10px] text-slate-400 mb-3 font-medium">任务附件（图片/文件）的存储位置。云端后端支持公网 URL，AI 可直接读取。</p>
+            <p className="text-[10px] text-slate-400 mb-3 font-medium">
+              任务附件（图片/文件）的存储位置。云端后端支持公网 URL，AI 可直接读取。
+            </p>
 
             <div className="flex flex-wrap gap-2 mb-3">
-              {([["local", "本地存储"], ["webdav", "WebDAV (坚果云)"]] as [StorageBackendType, string][]).map(([val, label]) => {
+              {(
+                [
+                  ["local", "本地存储"],
+                  ["webdav", "WebDAV (坚果云)"],
+                ] as [StorageBackendType, string][]
+              ).map(([val, label]) => {
                 const selected = storageBackend === val;
                 return (
-                  <button key={val} onClick={() => { setStorageBackend(val); storageManager.setBackend(val); }}
+                  <button
+                    key={val}
+                    onClick={() => {
+                      setStorageBackend(val);
+                      storageManager.setBackend(val);
+                    }}
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer ${
-                      selected ? "bg-[#4D7C5D] text-white border-[#4D7C5D]" : "bg-white text-slate-600 border-[#EFEBE4] hover:border-[#4D7C5D]"
+                      selected
+                        ? "bg-[#4D7C5D] text-white border-[#4D7C5D]"
+                        : "bg-white text-slate-600 border-[#EFEBE4] hover:border-[#4D7C5D]"
                     }`}
                   >
                     {label}
@@ -412,18 +507,33 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
 
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-white/60 border border-[#EFEBE4]">
               <div className="flex items-center gap-2">
-                {storageManager.isConfigured() ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600" /> : <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
-                <span className="text-[10px] font-bold text-slate-700">{storageManager.provider.displayName}</span>
+                {storageManager.isConfigured() ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                ) : (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                )}
+                <span className="text-[10px] font-bold text-slate-700">
+                  {storageManager.provider.displayName}
+                </span>
                 {storageManager.provider.supportsPublicUrl && storageManager.isConfigured() && (
-                  <span className="text-[8px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full font-bold">AI 可读</span>
+                  <span className="text-[8px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full font-bold">
+                    AI 可读
+                  </span>
                 )}
               </div>
               {storageBackend !== "local" && (
-                <button onClick={async () => { setIsLoading(true); const ok = await storageManager.test(); setIsLoading(false); triggerToast(ok ? "连接成功 ✅" : "连接失败 ❌", ok ? "success" : "error"); }}
+                <button
+                  onClick={async () => {
+                    setIsLoading(true);
+                    const ok = await storageManager.test();
+                    setIsLoading(false);
+                    triggerToast(ok ? "连接成功 ✅" : "连接失败 ❌", ok ? "success" : "error");
+                  }}
                   disabled={isLoading || !storageManager.isConfigured()}
                   className="text-[9px] px-2 py-1 rounded-lg border border-[#EFEBE4] hover:border-[#4D7C5D] disabled:opacity-40 text-slate-500 font-bold cursor-pointer transition-all"
                 >
-                  {isLoading ? <RefreshCw className="w-2.5 h-2.5 animate-spin inline" /> : null} 测试
+                  {isLoading ? <RefreshCw className="w-2.5 h-2.5 animate-spin inline" /> : null}{" "}
+                  测试
                 </button>
               )}
             </div>
@@ -433,19 +543,26 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
             <div className="p-3 rounded-xl border border-[#DEEAE2] bg-[#F0F5F1]/50">
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="w-3.5 h-3.5 text-[#4D7C5D] dark:text-[#6DAF7E]" />
-                <span className="text-[11px] font-bold text-[#4D7C5D] dark:text-[#6DAF7E]">AI 智能体集成</span>
+                <span className="text-[11px] font-bold text-[#4D7C5D] dark:text-[#6DAF7E]">
+                  AI 智能体集成
+                </span>
               </div>
-              <p className="text-[10px] text-slate-500 mb-2">将待办管理能力作为工具赋予你的 AI 助手，一键复制函数定义即可粘贴到 OpenAI/Claude 的 tools 参数中。</p>
+              <p className="text-[10px] text-slate-500 mb-2">
+                将待办管理能力作为工具赋予你的 AI 助手，一键复制函数定义即可粘贴到 OpenAI/Claude 的
+                tools 参数中。
+              </p>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(buildAiToolDocFromSettings({
-                    webdavUrl,
-                    webdavUser,
-                    webdavPass,
-                    aiApiKey: config.aiApiKey,
-                    providerApiKeys: config.providerApiKeys,
-                    smtpPass: readStoredSmtpPass(),
-                  }));
+                  navigator.clipboard.writeText(
+                    buildAiToolDocFromSettings({
+                      webdavUrl,
+                      webdavUser,
+                      webdavPass,
+                      aiApiKey: config.aiApiKey,
+                      providerApiKeys: config.providerApiKeys,
+                      smtpPass: readStoredSmtpPass(),
+                    }),
+                  );
                   triggerToast("已复制 ✅ 完整技能定义，可直接粘贴给 AI", "success");
                 }}
                 className="w-full bg-white hover:bg-[#F5F1EA] border border-[#DEEAE2] text-[#4D7C5D] dark:text-[#6DAF7E] py-2 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
@@ -461,7 +578,9 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
       <div className="pt-4 border-t border-[#EFEBE4] space-y-3">
         <div className="flex items-center gap-2">
           <Download className="w-4 h-4 text-[#8B6E3C]" />
-          <span className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">{s.snapshotTitle || "本地快照备份"}</span>
+          <span className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+            {s.snapshotTitle || "本地快照备份"}
+          </span>
         </div>
         <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
           {s.snapshotDesc || "一键导出全部数据为 JSON 文件，换电脑或重装后可拖入恢复，不依赖网络。"}
@@ -487,7 +606,17 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
           <button
             onClick={() => {
               const tasks: any[] = safeJsonParse(localStorage.getItem("aero_todos"), []);
-              const headers = ["title", "description", "category", "priority", "dueDate", "dueTime", "repeat", "tags", "notes"];
+              const headers = [
+                "title",
+                "description",
+                "category",
+                "priority",
+                "dueDate",
+                "dueTime",
+                "repeat",
+                "tags",
+                "notes",
+              ];
               const escape = (v: any) => {
                 const str = v == null ? "" : Array.isArray(v) ? v.join("|") : String(v);
                 return `"${str.replace(/"/g, '""')}"`;
@@ -603,9 +732,7 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                           <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 font-mono">
                             {dateLabel}
                           </span>
-                          <span className="text-[9px] text-slate-400 font-medium">
-                            {sizeKb} KB
-                          </span>
+                          <span className="text-[9px] text-slate-400 font-medium">{sizeKb} KB</span>
                         </div>
                         <button
                           type="button"
