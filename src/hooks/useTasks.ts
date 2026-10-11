@@ -134,27 +134,21 @@ export function useTasks() {
 
   const handleUndoComplete = useCallback(
     (id: string, shouldSync: boolean = true) => {
-      let restoredItem: Task | undefined;
-      setCompletedTasks((cPrev) => {
-        restoredItem = cPrev.find((t) => t.id === id);
-        const cUpdated = cPrev.filter((t) => t.id !== id);
-        saveCompleted(cUpdated);
-        return cUpdated;
-      });
+      const restoredItem = completedTasks.find((t) => t.id === id);
+      if (!restoredItem) return;
 
-      if (restoredItem) {
-        const restored = { ...restoredItem };
-        delete restored.completedAt;
-        setTasks((prev) => {
-          const updated = [restored, ...prev];
-          saveTasks(updated);
-          return updated;
-        });
-      }
+      const nextCompleted = completedTasks.filter((t) => t.id !== id);
+      const restored = { ...restoredItem };
+      delete restored.completedAt;
+      const nextTasks = [restored, ...tasks.filter((t) => t.id !== id)];
+
+      setCompletedTasks(nextCompleted);
+      setTasks(nextTasks);
+      saveAll(nextTasks, nextCompleted);
 
       if (shouldSync) syncState(id, "undo_complete");
     },
-    [saveTasks, saveCompleted, syncState],
+    [tasks, completedTasks, saveAll, syncState],
   );
 
   const handleToggleFavorite = useCallback(

@@ -25,6 +25,7 @@ import { parseNaturalDate, formatNaturalPreview } from "../utils/dateParser";
 import { storageManager, getAttachmentPath } from "../utils/storage";
 import { PRIORITY_LEVELS } from "../constants";
 import { CustomSelect } from "./CustomSelect";
+import { createId } from "../utils/id";
 
 interface TaskDetailModalProps {
   task: Task;
@@ -520,7 +521,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                     try {
                       const buffer = await file.arrayBuffer();
                       const bytes = new Uint8Array(buffer);
-                      const attId = crypto.randomUUID();
+                      const attId = createId("att");
                       // Sanitize filename to avoid path issues with spaces/special chars
                       const ext = file.name.includes(".") ? file.name.split(".").pop()! : "bin";
                       const safeName = `${attId}.${ext}`;

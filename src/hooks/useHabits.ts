@@ -66,7 +66,7 @@ export function useHabits() {
         if (toggled) {
           const yesterday = new Date();
           yesterday.setDate(yesterday.getDate() - 1);
-          const y = yesterday.toISOString().slice(0, 10);
+          const y = getLocalDateString(yesterday);
           newStreak = h.lastDoneDate === y ? h.streak + 1 : 1;
         }
 
