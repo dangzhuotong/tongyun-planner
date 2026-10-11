@@ -18,7 +18,10 @@ export const SunsetPanel: React.FC<SunsetPanelProps> = ({ config, onChange }) =>
   const { t } = useTranslation();
   const s = t.settings;
 
-  const handleChange = <K extends keyof CustomizationConfig>(key: K, value: CustomizationConfig[K]) => {
+  const handleChange = <K extends keyof CustomizationConfig>(
+    key: K,
+    value: CustomizationConfig[K],
+  ) => {
     onChange({ ...config, [key]: value });
   };
 
@@ -46,7 +49,9 @@ export const SunsetPanel: React.FC<SunsetPanelProps> = ({ config, onChange }) =>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-500 block uppercase">{s.sunsetStart}</label>
+          <label className="text-[10px] font-bold text-slate-500 block uppercase">
+            {s.sunsetStart}
+          </label>
           <CustomSelect
             value={config.sunsetStartHour ?? 18}
             onChange={(val) => handleChange("sunsetStartHour", val)}
@@ -57,7 +62,9 @@ export const SunsetPanel: React.FC<SunsetPanelProps> = ({ config, onChange }) =>
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-500 block uppercase">{s.sunsetEnd}</label>
+          <label className="text-[10px] font-bold text-slate-500 block uppercase">
+            {s.sunsetEnd}
+          </label>
           <CustomSelect
             value={config.sunsetEndHour ?? 6}
             onChange={(val) => handleChange("sunsetEndHour", val)}
@@ -72,7 +79,9 @@ export const SunsetPanel: React.FC<SunsetPanelProps> = ({ config, onChange }) =>
       <div className="space-y-2 pt-2 border-t border-slate-100">
         <div className="flex justify-between items-center">
           <span className="text-xs font-bold text-slate-700">{s.sunsetWarmth}</span>
-          <span className="text-[10px] font-extrabold text-[#A34E36]">{config.sunsetWarmth ?? 50}%</span>
+          <span className="text-[10px] font-extrabold text-[#A34E36]">
+            {config.sunsetWarmth ?? 50}%
+          </span>
         </div>
         <input
           type="range"

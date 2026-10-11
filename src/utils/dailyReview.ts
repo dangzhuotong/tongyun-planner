@@ -11,7 +11,7 @@ export function taskCompletedOn(task: Task, date: string): boolean {
 
 export function pomodoroStatsOn(
   logs: Pick<PomodoroLog, "timestamp" | "duration">[],
-  date: string
+  date: string,
 ): { count: number; minutes: number } {
   const start = new Date(`${date}T00:00:00`).getTime();
   const end = start + 24 * 60 * 60 * 1000;

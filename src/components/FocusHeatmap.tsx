@@ -275,7 +275,7 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
               >
                 <title>{`${cell.date} · ${cell.count} 个番茄`}</title>
               </rect>
-            ))
+            )),
           )}
         </svg>
       </div>
@@ -288,7 +288,8 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
               {a.weekGlance || "本周速览"}
             </span>
             <span className="text-[9px] font-bold text-slate-400">
-              近 {weeks} 周累计 <span className="text-[#4D7C5D] font-extrabold">{stats.total}</span> 个番茄
+              近 {weeks} 周累计 <span className="text-[#4D7C5D] font-extrabold">{stats.total}</span>{" "}
+              个番茄
             </span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -303,7 +304,8 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
 
             <div className="rounded-xl bg-[#FAF8F5] border border-[#EFEBE4]/80 px-3 py-2.5 text-center">
               <div className="text-base font-black text-[#2D323A] tracking-tight leading-none">
-                {stats.thisWeekActiveDays} <span className="text-[10px] text-slate-400 font-normal">/ 7</span>
+                {stats.thisWeekActiveDays}{" "}
+                <span className="text-[10px] text-slate-400 font-normal">/ 7</span>
               </div>
               <div className="text-[9px] font-bold text-slate-400 mt-1.5">
                 {a.weekActiveDaysShort || "活跃天数"}
@@ -315,8 +317,8 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
                 stats.delta > 0
                   ? "bg-[#F0F5F1] border-[#DEEAE2]"
                   : stats.delta < 0
-                  ? "bg-[#FCF2F0] border-[#F5DFDB]"
-                  : "bg-[#FAF8F5] border-[#EFEBE4]/80"
+                    ? "bg-[#FCF2F0] border-[#F5DFDB]"
+                    : "bg-[#FAF8F5] border-[#EFEBE4]/80"
               }`}
             >
               <div
@@ -324,8 +326,8 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
                   stats.delta > 0
                     ? "text-[#4D7C5D]"
                     : stats.delta < 0
-                    ? "text-[#A34E36]"
-                    : "text-slate-500"
+                      ? "text-[#A34E36]"
+                      : "text-slate-500"
                 }`}
               >
                 {stats.delta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : null}

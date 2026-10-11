@@ -1,8 +1,5 @@
 export type TaskCategory =
-  | "urgent-important"
-  | "urgent-not-important"
-  | "important-not-urgent"
-  | "not-urgent-not-important";
+  "urgent-important" | "urgent-not-important" | "important-not-urgent" | "not-urgent-not-important";
 
 export type RepeatType = "daily" | "weekly" | "monthly" | "none";
 
@@ -37,9 +34,9 @@ export interface Task {
   priority?: TaskPriority;
   subtasks?: SubTask[];
   tags?: string[];
-  dependsOn?: string[];  // task IDs that must be completed first
+  dependsOn?: string[]; // task IDs that must be completed first
   attachments?: Attachment[];
-  journalId?: string;    // 关联自某篇日记（addToTodo 时创建）
+  journalId?: string; // 关联自某篇日记（addToTodo 时创建）
   /** 完成时刻（ms）；撤销完成时清除。旧数据可能缺失 */
   completedAt?: number;
 }
@@ -66,12 +63,12 @@ export interface JournalEntry {
   linkKey: string;
   title: string;
   content: string;
-  date: string;          // YYYY-MM-DD（日记 = linkKey；笔记 = 创建日期）
-  isDaily: boolean;      // 是否为日期日记（自动按日归档）
+  date: string; // YYYY-MM-DD（日记 = linkKey；笔记 = 创建日期）
+  isDaily: boolean; // 是否为日期日记（自动按日归档）
   templateId?: string;
   /** 当日心情 emoji（仅日记常用），如 😊 */
   mood?: string;
-  aiComment?: string;    // AI 生成的温柔评语
+  aiComment?: string; // AI 生成的温柔评语
   /** 附件（图片等） */
   attachments?: Attachment[];
   createdAt: number;
@@ -84,9 +81,26 @@ export interface JournalTemplate {
   content: string;
 }
 
-export type AlertSoundType = "beep" | "cuckoo" | "meow" | "chime" | "ding" | "phone" | "marimba" | "bells" | "alarm";
+export type AlertSoundType =
+  "beep" | "cuckoo" | "meow" | "chime" | "ding" | "phone" | "marimba" | "bells" | "alarm";
 
-export type AppTab = "home" | "matrix" | "list" | "calendar" | "notes" | "analytics" | "completed" | "countdown" | "settings" | "tasks" | "focus" | "archive" | "news" | "gantt" | "journal" | "memory";
+export type AppTab =
+  | "home"
+  | "matrix"
+  | "list"
+  | "calendar"
+  | "notes"
+  | "analytics"
+  | "completed"
+  | "countdown"
+  | "settings"
+  | "tasks"
+  | "focus"
+  | "archive"
+  | "news"
+  | "gantt"
+  | "journal"
+  | "memory";
 
 export interface CountdownEvent {
   id: string;
@@ -94,7 +108,7 @@ export interface CountdownEvent {
   targetDate: string; // YYYY-MM-DD
   emoji?: string;
   color?: string;
-  isLunar?: boolean;   // 是否为农历生日/农历倒计时
+  isLunar?: boolean; // 是否为农历生日/农历倒计时
 }
 
 export interface HabitItem {
@@ -155,13 +169,13 @@ export interface CustomizationConfig {
 
   // AI Agent settings
   aiProvider?: "openai" | "anthropic" | "opencode" | "deepseek" | "ollama";
-  providerApiKeys?: Record<string, string>;  // 每个 Provider 独立的 API Key
-  aiApiKey?: string;                          // 保留兼容旧版
+  providerApiKeys?: Record<string, string>; // 每个 Provider 独立的 API Key
+  aiApiKey?: string; // 保留兼容旧版
   aiEndpoint?: string;
   aiModel?: string;
   aiAutoCategorize?: boolean;
-  aiTemperature?: number;    // 0-2, default 0.3
-  aiMaxTokens?: number;      // default 4096
+  aiTemperature?: number; // 0-2, default 0.3
+  aiMaxTokens?: number; // default 4096
   journalCommentPrompt?: string; // 暖评自定义系统提示词（留空则用内置默认）
   enableAutoBackup?: boolean;
   syncInterval?: number; // seconds: 15, 30, 60, 300, 900, 1800, 3600, 0(manual)
@@ -169,9 +183,9 @@ export interface CustomizationConfig {
 
 export interface TimeBlock {
   id: string;
-  date: string;        // YYYY-MM-DD
-  startTime: string;   // HH:mm
-  endTime: string;     // HH:mm
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
   taskId?: string;
   title: string;
   color: string;
@@ -196,4 +210,3 @@ export interface EmailConfig {
   digestHour: number;
   digestMinute: number;
 }
-

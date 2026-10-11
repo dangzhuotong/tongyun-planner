@@ -116,15 +116,12 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
             icon: <Layers3 className="w-3.5 h-3.5" />,
           },
         ] as const,
-      [m.importantNotUrgent, m.notUrgentNotImportant, m.urgentImportant, m.urgentNotImportant]
+      [m.importantNotUrgent, m.notUrgentNotImportant, m.urgentImportant, m.urgentNotImportant],
     );
 
     const activeQuadrants = useMemo(
-      () =>
-        expandedQuadrant
-          ? quadrants.filter((q) => q.id === expandedQuadrant)
-          : quadrants,
-      [expandedQuadrant, quadrants]
+      () => (expandedQuadrant ? quadrants.filter((q) => q.id === expandedQuadrant) : quadrants),
+      [expandedQuadrant, quadrants],
     );
 
     const [localSearch, setLocalSearch] = useState("");
@@ -210,16 +207,28 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] leading-relaxed pt-1">
               <div className="p-3 rounded-xl bg-white dark:bg-[#1C1D21] border border-[#F5DFDB] dark:border-[#422D30]">
-                <strong className="text-[#A34E36] dark:text-[#E06D53]">第一象限 (重要且紧急)：</strong> 危机与限期任务。立即专注执行，避免过度堆积导致疲惫。
+                <strong className="text-[#A34E36] dark:text-[#E06D53]">
+                  第一象限 (重要且紧急)：
+                </strong>{" "}
+                危机与限期任务。立即专注执行，避免过度堆积导致疲惫。
               </div>
               <div className="p-3 rounded-xl bg-white dark:bg-[#1C1D21] border border-[#DEEAE2] dark:border-[#2D3A31]">
-                <strong className="text-[#4D7C5D] dark:text-[#6FAD84]">第二象限 (重要不紧急)：</strong> 高价值成长区。人生核心目标与规划，应分配最多的时间精力。
+                <strong className="text-[#4D7C5D] dark:text-[#6FAD84]">
+                  第二象限 (重要不紧急)：
+                </strong>{" "}
+                高价值成长区。人生核心目标与规划，应分配最多的时间精力。
               </div>
               <div className="p-3 rounded-xl bg-white dark:bg-[#1C1D21] border border-[#E5E2EE] dark:border-[#353242]">
-                <strong className="text-[#5C528B] dark:text-[#8D82C4]">第三象限 (紧急不重要)：</strong> 琐碎干扰。批处理、委派他人或借助 AI 工具快速搞定。
+                <strong className="text-[#5C528B] dark:text-[#8D82C4]">
+                  第三象限 (紧急不重要)：
+                </strong>{" "}
+                琐碎干扰。批处理、委派他人或借助 AI 工具快速搞定。
               </div>
               <div className="p-3 rounded-xl bg-white dark:bg-[#1C1D21] border border-[#EFE5D3] dark:border-[#3E372E]">
-                <strong className="text-[#8B6E3C] dark:text-[#CBB182]">第四象限 (不紧急不重要)：</strong> 低价值消耗。记录并控制耗时，能不做就不做。
+                <strong className="text-[#8B6E3C] dark:text-[#CBB182]">
+                  第四象限 (不紧急不重要)：
+                </strong>{" "}
+                低价值消耗。记录并控制耗时，能不做就不做。
               </div>
             </div>
           </div>
@@ -265,7 +274,9 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                       {quad.icon}
                     </div>
                     <div>
-                      <span className={`text-xs font-bold ${textClass} tracking-wider block leading-none`}>
+                      <span
+                        className={`text-xs font-bold ${textClass} tracking-wider block leading-none`}
+                      >
                         {quad.label}
                       </span>
                       <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium mt-1 block">
@@ -284,9 +295,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
 
                     {/* Maximize / Collapse toggle buttons */}
                     <button
-                      onClick={() =>
-                        setExpandedQuadrant(expandedQuadrant ? null : quad.id)
-                      }
+                      onClick={() => setExpandedQuadrant(expandedQuadrant ? null : quad.id)}
                       className={`p-1.5 rounded-lg hover:bg-white/80 dark:hover:bg-[#1C1D21]/80 transition-colors border ${borderClass} text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer`}
                       title={expandedQuadrant ? m.collapse : m.expand}
                     >
@@ -302,14 +311,12 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                 {/* Inline Quick Add Component */}
                 <div className="z-10">
                   <QuickAddTask
-                    handleAddTask={(data) =>
-                      handleAddTask({ ...data, isExplicit: true })
-                    }
+                    handleAddTask={(data) => handleAddTask({ ...data, isExplicit: true })}
                     defaultCategory={quad.id}
                     compact={true}
                     placeholder={m.addPlaceholder.replace(
                       "{quadrant}",
-                      quad.label.split(" ").slice(1).join("")
+                      quad.label.split(" ").slice(1).join(""),
                     )}
                   />
                 </div>
@@ -322,10 +329,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                 >
                   {quadrantTasks.length > 0 ? (
                     quadrantTasks.map((task) => {
-                      const countdown = getDueDateCountdown(
-                        task.dueDate,
-                        task.dueTime
-                      );
+                      const countdown = getDueDateCountdown(task.dueDate, task.dueTime);
                       const isOverdue = countdown?.isOverdue;
                       const cardBg = isOverdue
                         ? "bg-[#FCF2F0]/90 dark:bg-[#2F2123]"
@@ -402,23 +406,17 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                               <button
                                 onClick={() => handleToggleFavorite(task.id)}
                                 className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0 cursor-pointer text-slate-400"
-                                title={
-                                  task.isFavorite ? m.unfavorite : m.favorite
-                                }
+                                title={task.isFavorite ? m.unfavorite : m.favorite}
                               >
                                 <Heart
                                   className={`w-3.5 h-3.5 text-[#E8A0BF] transition-all ${
-                                    task.isFavorite
-                                      ? "fill-[#E8A0BF]"
-                                      : "text-slate-300"
+                                    task.isFavorite ? "fill-[#E8A0BF]" : "text-slate-300"
                                   }`}
                                 />
                               </button>
 
                               <button
-                                onClick={() =>
-                                  handleStartFocus(task.id, task.title)
-                                }
+                                onClick={() => handleStartFocus(task.id, task.title)}
                                 className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                                 title={m.startFocus}
                               >
@@ -451,19 +449,14 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                                   const badgeStyle = countdown.isOverdue
                                     ? "bg-[#FCF2F0] dark:bg-[#3D2325] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53] font-extrabold"
                                     : countdown.isToday
-                                    ? "bg-[#FBECE5] dark:bg-[#382723] border-[#F6DCD2] dark:border-[#4D2E28] text-[#A64424] dark:text-[#E57C58] font-extrabold"
-                                    : "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42] text-slate-500 dark:text-slate-400 font-semibold";
+                                      ? "bg-[#FBECE5] dark:bg-[#382723] border-[#F6DCD2] dark:border-[#4D2E28] text-[#A64424] dark:text-[#E57C58] font-extrabold"
+                                      : "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42] text-slate-500 dark:text-slate-400 font-semibold";
                                   return (
                                     <span
                                       className={`text-[8.5px] px-2 py-0.5 rounded-lg border flex items-center gap-1 shrink-0 whitespace-nowrap ${badgeStyle}`}
                                     >
-                                      📅{" "}
-                                      {task.dueDate
-                                        ?.split("-")
-                                        .slice(1)
-                                        .join("/")}
-                                      {task.dueTime ? ` ${task.dueTime}` : ""}{" "}
-                                      ({countdown.text})
+                                      📅 {task.dueDate?.split("-").slice(1).join("/")}
+                                      {task.dueTime ? ` ${task.dueTime}` : ""} ({countdown.text})
                                     </span>
                                   );
                                 })()}
@@ -483,20 +476,27 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                                 </span>
                               )}
 
-                              {task.subtasks && task.subtasks.length > 0 && (() => {
-                                const done = task.subtasks.filter((s) => s.completed).length;
-                                const total = task.subtasks.length;
-                                const pct = Math.round((done / total) * 100);
-                                return (
-                                  <span className="text-[8.5px] px-2 py-0.5 rounded-lg border bg-[#FAF5ED] dark:bg-[#2B2721] border-[#EFE5D3] dark:border-[#3E372E] text-[#8B6E3C] dark:text-[#CBB182] font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap">
-                                    <ListTodo className="w-2.5 h-2.5" />
-                                    <span>{done}/{total}</span>
-                                    <span className="w-8 h-1 rounded-full bg-[#EFE5D3] dark:bg-[#3E372E] overflow-hidden">
-                                      <span className="block h-full rounded-full bg-[#8B6E3C] dark:bg-[#CBB182] transition-all duration-300" style={{ width: `${pct}%` }} />
+                              {task.subtasks &&
+                                task.subtasks.length > 0 &&
+                                (() => {
+                                  const done = task.subtasks.filter((s) => s.completed).length;
+                                  const total = task.subtasks.length;
+                                  const pct = Math.round((done / total) * 100);
+                                  return (
+                                    <span className="text-[8.5px] px-2 py-0.5 rounded-lg border bg-[#FAF5ED] dark:bg-[#2B2721] border-[#EFE5D3] dark:border-[#3E372E] text-[#8B6E3C] dark:text-[#CBB182] font-bold flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                                      <ListTodo className="w-2.5 h-2.5" />
+                                      <span>
+                                        {done}/{total}
+                                      </span>
+                                      <span className="w-8 h-1 rounded-full bg-[#EFE5D3] dark:bg-[#3E372E] overflow-hidden">
+                                        <span
+                                          className="block h-full rounded-full bg-[#8B6E3C] dark:bg-[#CBB182] transition-all duration-300"
+                                          style={{ width: `${pct}%` }}
+                                        />
+                                      </span>
                                     </span>
-                                  </span>
-                                );
-                              })()}
+                                  );
+                                })()}
 
                               {task.tags &&
                                 task.tags.length > 0 &&
@@ -547,5 +547,5 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
         </div>
       </div>
     );
-  }
+  },
 );

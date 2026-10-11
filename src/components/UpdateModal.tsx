@@ -76,7 +76,8 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ update, onClose }) => 
         )}
 
         <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-          是否立即下载并安装？安装完成后应用会自动重启。/ Download and install now? The app will restart when done.
+          是否立即下载并安装？安装完成后应用会自动重启。/ Download and install now? The app will
+          restart when done.
         </p>
 
         {installing && (
@@ -100,9 +101,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ update, onClose }) => 
         {error && (
           <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 flex items-start gap-2 text-xs text-red-600 dark:text-red-400">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 break-all">
-              更新失败 / Update failed: {error}
-            </div>
+            <div className="flex-1 break-all">更新失败 / Update failed: {error}</div>
           </div>
         )}
 

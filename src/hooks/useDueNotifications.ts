@@ -25,11 +25,18 @@ export function useDueNotifications({
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
 
     const check = () => {
-      try { getCurrentWebviewWindow(); } catch { return; }
+      try {
+        getCurrentWebviewWindow();
+      } catch {
+        return;
+      }
 
       const enabledRaw = localStorage.getItem("tongyun_due_remind_enabled");
       if (enabledRaw === "0") return;
-      const beforeMinRaw = parseInt(localStorage.getItem("tongyun_due_remind_before_min") || "15", 10);
+      const beforeMinRaw = parseInt(
+        localStorage.getItem("tongyun_due_remind_before_min") || "15",
+        10,
+      );
       const beforeMin = [5, 15, 30, 60].includes(beforeMinRaw) ? beforeMinRaw : 15;
       const REMIND_BEFORE = beforeMin * 60 * 1000;
       const DATE_ONLY_HOUR = 9;
@@ -49,7 +56,15 @@ export function useDueNotifications({
         if (task.dueTime) {
           const [h, m] = task.dueTime.split(":").map(Number);
           if (Number.isNaN(h) || Number.isNaN(m)) continue;
-          const dueTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0).getTime();
+          const dueTs = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            h,
+            m,
+            0,
+            0,
+          ).getTime();
           if (nowTs >= dueTs && nowTs <= dueTs + 60 * 60 * 1000) {
             phase = "due";
             body = isZh ? `已到截止时间 ${task.dueTime}` : `Due at ${task.dueTime}`;
@@ -57,11 +72,23 @@ export function useDueNotifications({
             phase = "before";
             const mins = Math.max(1, Math.round((dueTs - nowTs) / 60000));
             body = isZh
-              ? (mins <= 1 ? `即将在 ${task.dueTime} 截止` : `还有 ${mins} 分钟（${task.dueTime}）截止`)
-              : (mins <= 1 ? `Due at ${task.dueTime}` : `${mins} min left (due ${task.dueTime})`);
+              ? mins <= 1
+                ? `即将在 ${task.dueTime} 截止`
+                : `还有 ${mins} 分钟（${task.dueTime}）截止`
+              : mins <= 1
+                ? `Due at ${task.dueTime}`
+                : `${mins} min left (due ${task.dueTime})`;
           }
         } else {
-          const dayTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), DATE_ONLY_HOUR, 0, 0, 0).getTime();
+          const dayTs = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            DATE_ONLY_HOUR,
+            0,
+            0,
+            0,
+          ).getTime();
           if (nowTs >= dayTs && nowTs <= dayTs + 60 * 60 * 1000) {
             phase = "day";
             body = isZh ? "今日到期（未设具体时间）" : "Due today (no specific time)";
@@ -80,9 +107,15 @@ export function useDueNotifications({
           });
           n.onclick = () => {
             onOpenTask(task.id);
-            try { n.close(); } catch { /* ignore */ }
+            try {
+              n.close();
+            } catch {
+              /* ignore */
+            }
           };
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     };
     check();

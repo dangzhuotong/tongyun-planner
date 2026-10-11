@@ -12,7 +12,8 @@ interface FloatingNoteWindowProps {
 }
 
 export const FloatingNoteWindow: React.FC<FloatingNoteWindowProps> = ({ noteId }) => {
-  const { t } = useTranslation(); const fn = t.floatingNote;
+  const { t } = useTranslation();
+  const fn = t.floatingNote;
   const [text, setText] = useState(() => {
     const localNotes = localStorage.getItem("aero_sticky_notes");
     if (localNotes) {
@@ -43,7 +44,9 @@ export const FloatingNoteWindow: React.FC<FloatingNoteWindowProps> = ({ noteId }
     try {
       const raw = localStorage.getItem("aero_customization_config");
       return raw ? JSON.parse(raw).darkMode || "light" : "light";
-    } catch { return "light"; }
+    } catch {
+      return "light";
+    }
   });
   const [isFolded, setIsFolded] = useState(false);
 
@@ -83,34 +86,35 @@ export const FloatingNoteWindow: React.FC<FloatingNoteWindowProps> = ({ noteId }
   };
 
   // Sync state between windows
-  const syncState = useCallback(async (action: string, title: string) => {
-    try {
-      await invoke("sync_todo_state", {
-        payload: {
-          task_id: noteId,
-          action,
-          title,
-          description: "",
-          notes: "",
-          category: "",
-          timestamp: Date.now(),
-        },
-      });
-    } catch (e) {
-      console.error("Failed to broadcast note sync", e);
-    }
-  }, [noteId]);
+  const syncState = useCallback(
+    async (action: string, title: string) => {
+      try {
+        await invoke("sync_todo_state", {
+          payload: {
+            task_id: noteId,
+            action,
+            title,
+            description: "",
+            notes: "",
+            category: "",
+            timestamp: Date.now(),
+          },
+        });
+      } catch (e) {
+        console.error("Failed to broadcast note sync", e);
+      }
+    },
+    [noteId],
+  );
 
   const handleTextChange = (newText: string) => {
     setText(newText);
-    
+
     // Update local storage
     const localNotes = localStorage.getItem("aero_sticky_notes");
     if (localNotes) {
       const notes = safeJsonParse<any[]>(localNotes, []);
-      const updated = notes.map((n: any) =>
-        n.id === noteId ? { ...n, text: newText } : n
-      );
+      const updated = notes.map((n: any) => (n.id === noteId ? { ...n, text: newText } : n));
       localStorage.setItem("aero_sticky_notes", JSON.stringify(updated));
     }
     syncState("edit_note_text", newText);
@@ -119,13 +123,11 @@ export const FloatingNoteWindow: React.FC<FloatingNoteWindowProps> = ({ noteId }
   const handleColorChange = (newColor: string) => {
     audioEngine.playStickSound();
     setColor(newColor);
-    
+
     const localNotes = localStorage.getItem("aero_sticky_notes");
     if (localNotes) {
       const notes = safeJsonParse<any[]>(localNotes, []);
-      const updated = notes.map((n: any) =>
-        n.id === noteId ? { ...n, color: newColor } : n
-      );
+      const updated = notes.map((n: any) => (n.id === noteId ? { ...n, color: newColor } : n));
       localStorage.setItem("aero_sticky_notes", JSON.stringify(updated));
     }
     syncState("change_note_color", newColor);
@@ -158,7 +160,7 @@ export const FloatingNoteWindow: React.FC<FloatingNoteWindowProps> = ({ noteId }
   useEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
-    
+
     import("@tauri-apps/api/event").then((m) => {
       if (cancelled) return;
       m.listen("todo-sync-event", (event: any) => {
@@ -228,11 +230,23 @@ export const FloatingNoteWindow: React.FC<FloatingNoteWindowProps> = ({ noteId }
             title={isFolded ? fn.expand : fn.fold}
           >
             {isFolded ? (
-              <svg className="w-2.5 h-2.5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <svg
+                className="w-2.5 h-2.5 text-slate-500"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                viewBox="0 0 24 24"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             ) : (
-              <svg className="w-2.5 h-2.5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <svg
+                className="w-2.5 h-2.5 text-slate-500"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                viewBox="0 0 24 24"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
               </svg>
             )}
@@ -256,7 +270,9 @@ export const FloatingNoteWindow: React.FC<FloatingNoteWindowProps> = ({ noteId }
             style={{ minHeight: "100px" }}
           />
         ) : (
-          <div className={`text-[10px] font-extrabold truncate pr-10 mt-1 cursor-pointer ${theme.text}`}>
+          <div
+            className={`text-[10px] font-extrabold truncate pr-10 mt-1 cursor-pointer ${theme.text}`}
+          >
             {text.trim() || fn.doubleClickHint}
           </div>
         )}

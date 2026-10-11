@@ -1,4 +1,11 @@
-import type { Task, StickyNote, PomodoroLog, CountdownEvent, CustomizationConfig, JournalEntry } from "../../types";
+import type {
+  Task,
+  StickyNote,
+  PomodoroLog,
+  CountdownEvent,
+  CustomizationConfig,
+  JournalEntry,
+} from "../../types";
 
 export interface SyncData {
   version: number;
@@ -20,12 +27,17 @@ export type SyncCategory =
   | "stickyNotes"
   | "pomodoroLogs"
   | "countdowns"
-  | "journal"     // daily notes + linked notes
-  | "config";     // customizationConfig
+  | "journal" // daily notes + linked notes
+  | "config"; // customizationConfig
 
 export const ALL_SYNC_CATEGORIES: SyncCategory[] = [
-  "tasks", "completedTasks", "stickyNotes", "pomodoroLogs",
-  "countdowns", "journal", "config",
+  "tasks",
+  "completedTasks",
+  "stickyNotes",
+  "pomodoroLogs",
+  "countdowns",
+  "journal",
+  "config",
 ];
 
 /** Pull 时的处理顺序：completedTasks 必须在 tasks 之前，确保 tasks 去重时已完成列表已就位 */
@@ -51,8 +63,8 @@ export const SYNC_CATEGORY_FILES: Record<SyncCategory, string> = {
 };
 
 export interface SyncManifestEntry {
-  version: number;   // timestamp of last change
-  size?: number;     // byte length, informational
+  version: number; // timestamp of last change
+  size?: number; // byte length, informational
 }
 
 export type SyncManifest = Record<SyncCategory, SyncManifestEntry>;
@@ -77,7 +89,10 @@ export interface SyncProvider {
   readonly displayName: string;
   isConfigured(): boolean;
   test(): Promise<boolean>;
-  push(data: SyncData, dirtyOnly?: Set<SyncCategory>): Promise<{ conflicts: SyncConflict[] } | void>;
+  push(
+    data: SyncData,
+    dirtyOnly?: Set<SyncCategory>,
+  ): Promise<{ conflicts: SyncConflict[] } | void>;
   pull(dirtyOnly?: Set<SyncCategory>): Promise<SyncData | null>;
 }
 
@@ -169,7 +184,7 @@ export function sanitizeConfigForSync<T extends object | null | undefined>(confi
  */
 export function withLocalSecrets<T extends object>(
   incoming: T,
-  local: object | null | undefined
+  local: object | null | undefined,
 ): T {
   const result = { ...incoming } as Record<string, unknown>;
 
@@ -181,7 +196,8 @@ export function withLocalSecrets<T extends object>(
   }
 
   // 2. 将 local 中的 secret key（若存在）复制回来
-  const localRecord = local && typeof local === "object" ? (local as Record<string, unknown>) : null;
+  const localRecord =
+    local && typeof local === "object" ? (local as Record<string, unknown>) : null;
   if (localRecord) {
     for (const key of Object.keys(localRecord)) {
       if (isSecretConfigKey(key) && localRecord[key] !== undefined) {
@@ -200,13 +216,20 @@ export function withLocalSecrets<T extends object>(
 /** Extract a single category's payload from SyncData */
 export function getCategoryPayload(data: SyncData, cat: SyncCategory): unknown {
   switch (cat) {
-    case "tasks":          return data.tasks;
-    case "completedTasks": return data.completedTasks;
-    case "stickyNotes":    return data.stickyNotes;
-    case "pomodoroLogs":   return data.pomodoroLogs;
-    case "countdowns":     return data.countdowns;
-    case "journal":        return data.journal;
-    case "config":         return sanitizeConfigForSync(data.customizationConfig);
+    case "tasks":
+      return data.tasks;
+    case "completedTasks":
+      return data.completedTasks;
+    case "stickyNotes":
+      return data.stickyNotes;
+    case "pomodoroLogs":
+      return data.pomodoroLogs;
+    case "countdowns":
+      return data.countdowns;
+    case "journal":
+      return data.journal;
+    case "config":
+      return sanitizeConfigForSync(data.customizationConfig);
   }
 }
 
@@ -230,7 +253,7 @@ export function isEffectivelyEmptyCategory(cat: SyncCategory, payload: unknown):
 export function isSampleTasksOnly(payload: unknown): boolean {
   if (!Array.isArray(payload) || payload.length === 0) return false;
   return payload.every(
-    (t) => t && typeof t === "object" && /^\d{1,3}$/.test(String((t as Task).id ?? ""))
+    (t) => t && typeof t === "object" && /^\d{1,3}$/.test(String((t as Task).id ?? "")),
   );
 }
 
@@ -246,12 +269,17 @@ export function protectAgainstEmptyOverwrite(
   cat: SyncCategory,
   localPayload: unknown,
   remotePayload: unknown,
-  isUserDirty = false
+  isUserDirty = false,
 ): { skip: boolean; mergedLocal?: unknown } {
   if (cat === "config") {
     if (!isEffectivelyEmptyCategory(cat, localPayload)) return { skip: false };
     if (isEffectivelyEmptyCategory(cat, remotePayload)) return { skip: false };
-    if (localPayload && typeof localPayload === "object" && remotePayload && typeof remotePayload === "object") {
+    if (
+      localPayload &&
+      typeof localPayload === "object" &&
+      remotePayload &&
+      typeof remotePayload === "object"
+    ) {
       const local = localPayload as CustomizationConfig;
       const remote = remotePayload as CustomizationConfig;
       const merged: CustomizationConfig = {
@@ -293,7 +321,7 @@ export function protectAgainstEmptyOverwrite(
 export function mergeRemoteIntoLocal(
   cat: SyncCategory,
   remotePayload: unknown,
-  localPayload: unknown
+  localPayload: unknown,
 ): unknown {
   if (cat === "config") {
     const remote = remotePayload ? (remotePayload as Record<string, unknown>) : null;
@@ -330,7 +358,7 @@ export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void 
       const { tasks } = mergeCompletedPreferLocal(
         (payload as Task[]) || [],
         localCompleted,
-        localCompleted
+        localCompleted,
       );
       localStorage.setItem("aero_todos", JSON.stringify(tasks));
       break;
@@ -341,7 +369,7 @@ export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void 
       const { tasks, completedTasks } = mergeCompletedPreferLocal(
         active,
         (payload as Task[]) || [],
-        localCompleted
+        localCompleted,
       );
       localStorage.setItem("aero_todos", JSON.stringify(tasks));
       localStorage.setItem("aero_completed_todos", JSON.stringify(completedTasks));
@@ -381,8 +409,8 @@ function readJson<T>(key: string, fallback: string): T {
 /** 从活动任务列表里剔除已存在于 completed 中的任务，保证「已完成」不会重复出现在待办里 */
 export function dedupeActiveTasks(tasks: Task[], completed: Task[]): Task[] {
   if (!completed || completed.length === 0) return tasks;
-  const doneIds = new Set(completed.map(t => t.id));
-  return tasks.filter(t => !doneIds.has(t.id));
+  const doneIds = new Set(completed.map((t) => t.id));
+  return tasks.filter((t) => !doneIds.has(t.id));
 }
 
 /**
@@ -392,7 +420,7 @@ export function dedupeActiveTasks(tasks: Task[], completed: Task[]): Task[] {
 export function mergeCompletedPreferLocal(
   active: Task[],
   remoteCompleted: Task[],
-  localCompleted: Task[]
+  localCompleted: Task[],
 ): { tasks: Task[]; completedTasks: Task[] } {
   const byId = new Map<string, Task>();
   for (const t of remoteCompleted || []) byId.set(t.id, t);
@@ -409,7 +437,7 @@ export function reconcileTasksAndCompleted(): void {
   const { tasks, completedTasks } = mergeCompletedPreferLocal(
     active,
     remoteOrLocalCompleted,
-    remoteOrLocalCompleted
+    remoteOrLocalCompleted,
   );
   localStorage.setItem("aero_todos", JSON.stringify(tasks));
   localStorage.setItem("aero_completed_todos", JSON.stringify(completedTasks));
@@ -466,7 +494,7 @@ export function applySyncData(data: SyncData): void {
   const { tasks, completedTasks } = mergeCompletedPreferLocal(
     data.tasks,
     data.completedTasks || [],
-    localCompleted
+    localCompleted,
   );
   localStorage.setItem("aero_todos", JSON.stringify(tasks));
   localStorage.setItem("aero_completed_todos", JSON.stringify(completedTasks));
@@ -483,8 +511,10 @@ export function applySyncData(data: SyncData): void {
   localStorage.setItem("tongyun_last_updated", String(Date.now()));
 
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, {
-      detail: { ...data, tasks, completedTasks },
-    }));
+    window.dispatchEvent(
+      new CustomEvent(SYNC_APPLIED_EVENT, {
+        detail: { ...data, tasks, completedTasks },
+      }),
+    );
   }
 }

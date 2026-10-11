@@ -91,14 +91,26 @@ export class SyncEngine {
     localStorage.setItem(DIRTY_STORAGE_KEY, JSON.stringify([...this.dirtyCategories]));
   }
 
-  get currentBackend(): SyncBackendType { return this._currentBackend; }
-  get status(): SyncStatus { return this._status; }
-  get lastSyncTime(): number | null { return this._lastSyncTime; }
-  get errorMessage(): string | null { return this._errorMessage; }
-  get conflicts(): SyncConflict[] { return this._conflicts; }
+  get currentBackend(): SyncBackendType {
+    return this._currentBackend;
+  }
+  get status(): SyncStatus {
+    return this._status;
+  }
+  get lastSyncTime(): number | null {
+    return this._lastSyncTime;
+  }
+  get errorMessage(): string | null {
+    return this._errorMessage;
+  }
+  get conflicts(): SyncConflict[] {
+    return this._conflicts;
+  }
 
   /** Check whether any category is dirty */
-  get dirty(): boolean { return this.dirtyCategories.size > 0; }
+  get dirty(): boolean {
+    return this.dirtyCategories.size > 0;
+  }
 
   setBackend(type: SyncBackendType): void {
     this._currentBackend = type;
@@ -156,7 +168,7 @@ export class SyncEngine {
       errorMessage: this._errorMessage,
       conflicts: this._conflicts,
     };
-    this.listeners.forEach(fn => fn(state));
+    this.listeners.forEach((fn) => fn(state));
   }
 
   private getProvider(): SyncProvider | null {
@@ -247,7 +259,7 @@ export class SyncEngine {
       const { conflicts } = await this.webdavProvider.push(freshData, toPush);
 
       // 成功上传的分类从脏列表中移除，冲突分类保留在脏列表
-      const conflictedCats = new Set(conflicts.map(c => c.category));
+      const conflictedCats = new Set(conflicts.map((c) => c.category));
       for (const cat of toPush) {
         if (!conflictedCats.has(cat)) {
           this.dirtyCategories.delete(cat);

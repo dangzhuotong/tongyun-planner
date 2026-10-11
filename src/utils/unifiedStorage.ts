@@ -1,53 +1,84 @@
-import { initializeDomainDatabase } from '../data/domainDatabase';
+import { initializeDomainDatabase } from "../data/domainDatabase";
 
-const isTauri = () =>
-  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-const DB_NAME = 'sqlite:tongyun_planner.db';
+const DB_NAME = "sqlite:tongyun_planner.db";
 
 function getAllKnownKeys(): string[] {
   return [
-    'aero_todos', 'aero_completed_todos',
-    'aero_sticky_notes', 'aero_pomodoro_logs',
-    'aero_customization_config', 'aero_alert_sound_type',
-    'tongyun_countdowns',
-    'tongyun_journal', 'tongyun_journal_add_todo',
-    'tongyun_ai_praise',
-    'tongyun_webdav_url', 'tongyun_webdav_user', 'tongyun_webdav_pass',
-    'tongyun_sync_backend',
-    'aero_last_backup_time', 'tongyun_sync_version', 'tongyun_last_updated',
-    'tongyun_last_sync_time', 'tongyun_auto_sync',
+    "aero_todos",
+    "aero_completed_todos",
+    "aero_sticky_notes",
+    "aero_pomodoro_logs",
+    "aero_customization_config",
+    "aero_alert_sound_type",
+    "tongyun_countdowns",
+    "tongyun_journal",
+    "tongyun_journal_add_todo",
+    "tongyun_ai_praise",
+    "tongyun_webdav_url",
+    "tongyun_webdav_user",
+    "tongyun_webdav_pass",
+    "tongyun_sync_backend",
+    "aero_last_backup_time",
+    "tongyun_sync_version",
+    "tongyun_last_updated",
+    "tongyun_last_sync_time",
+    "tongyun_auto_sync",
     // 分类 LWW 版本戳：缺失会导致空本地盖掉远端
-    'tongyun_cat_ver_tasks', 'tongyun_cat_ver_completedTasks',
-    'tongyun_cat_ver_stickyNotes', 'tongyun_cat_ver_pomodoroLogs',
-    'tongyun_cat_ver_countdowns', 'tongyun_cat_ver_journal', 'tongyun_cat_ver_config',
-    'tongyun_widget_split', 'tongyun_locale', 'tongyun_nickname',
-    'pomodoro_focus_duration', 'pomodoro_break_duration',
+    "tongyun_cat_ver_tasks",
+    "tongyun_cat_ver_completedTasks",
+    "tongyun_cat_ver_stickyNotes",
+    "tongyun_cat_ver_pomodoroLogs",
+    "tongyun_cat_ver_countdowns",
+    "tongyun_cat_ver_journal",
+    "tongyun_cat_ver_config",
+    "tongyun_widget_split",
+    "tongyun_locale",
+    "tongyun_nickname",
+    "pomodoro_focus_duration",
+    "pomodoro_break_duration",
     // 侧栏 & 番茄
-    'tongyun_sidebar_collapsed', 'tongyun_random_break', 'tongyun_auto_noise',
+    "tongyun_sidebar_collapsed",
+    "tongyun_random_break",
+    "tongyun_auto_noise",
     // 资讯偏好
-    'tongyun_news_bookmarks', 'tongyun_news_history',
-    'tongyun_news_font_size', 'tongyun_news_font_family', 'tongyun_news_columns',
-    'tongyun_rss_feeds', 'tongyun_explore_feeds', 'tongyun_cors_proxy',
-    'tongyun_recollect_prose',
+    "tongyun_news_bookmarks",
+    "tongyun_news_history",
+    "tongyun_news_font_size",
+    "tongyun_news_font_family",
+    "tongyun_news_columns",
+    "tongyun_rss_feeds",
+    "tongyun_explore_feeds",
+    "tongyun_cors_proxy",
+    "tongyun_recollect_prose",
     // 日历 & 白噪音
-    'tongyun_timeblocks', 'tongyun_visible_noises',
+    "tongyun_timeblocks",
+    "tongyun_visible_noises",
     // 邮件
-    'tongyun_email_config',
-    'tongyun_storage_backend',
+    "tongyun_email_config",
+    "tongyun_storage_backend",
     // 旧版同步后端（仅用于 v1.1.0 迁移提示检测）
-    'tongyun_supabase_url', 'tongyun_supabase_anon_key', 'tongyun_supabase_user_id',
-    'tongyun_http_sync_url', 'tongyun_http_sync_key',
+    "tongyun_supabase_url",
+    "tongyun_supabase_anon_key",
+    "tongyun_supabase_user_id",
+    "tongyun_http_sync_url",
+    "tongyun_http_sync_key",
     // 分析 & 快速任务
-    'tongyun_daily_goal', 'tongyun_analytics_report', 'tongyun_last_quick_category',
+    "tongyun_daily_goal",
+    "tongyun_analytics_report",
+    "tongyun_last_quick_category",
     // 习惯打卡
-    'tongyun_habits',
+    "tongyun_habits",
     // 系统提醒
-    'tongyun_due_remind_enabled', 'tongyun_due_remind_before_min',
+    "tongyun_due_remind_enabled",
+    "tongyun_due_remind_before_min",
     // AI 缓存（当日类，跨设备恢复有意义）
-    'tongyun_hitokoto_hourly', 'tongyun_history_today',
-    'tongyun_ai_daily_suggestion', 'tongyun_ai_daily_prose',
-    'tongyun_ai_weekly_review',
+    "tongyun_hitokoto_hourly",
+    "tongyun_history_today",
+    "tongyun_ai_daily_suggestion",
+    "tongyun_ai_daily_prose",
+    "tongyun_ai_weekly_review",
   ];
 }
 
@@ -80,18 +111,18 @@ class UnifiedStorage {
     }
 
     try {
-      const { default: Database } = await import('@tauri-apps/plugin-sql');
+      const { default: Database } = await import("@tauri-apps/plugin-sql");
       this.db = await Database.load(DB_NAME);
 
       await this.db.execute(
         `CREATE TABLE IF NOT EXISTS storage (
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL
-        )`
+        )`,
       );
 
       const rows: { key: string; value: string }[] = await this.db.select(
-        'SELECT key, value FROM storage'
+        "SELECT key, value FROM storage",
       );
       const sqliteKeys = new Set<string>();
 
@@ -111,11 +142,13 @@ class UnifiedStorage {
           const local = this.origGetItem!(key);
           if (local !== null) {
             try {
-              await this.db.execute(
-                'INSERT OR IGNORE INTO storage (key, value) VALUES ($1, $2)',
-                [key, local]
-              );
-            } catch { /* ignore DB insert error */ }
+              await this.db.execute("INSERT OR IGNORE INTO storage (key, value) VALUES ($1, $2)", [
+                key,
+                local,
+              ]);
+            } catch {
+              /* ignore DB insert error */
+            }
           }
         }
       }
@@ -124,7 +157,7 @@ class UnifiedStorage {
 
       this.overrideLocalStorage();
     } catch (e) {
-      console.warn('SQLite init failed, localStorage only', e);
+      console.warn("SQLite init failed, localStorage only", e);
     }
   }
 
@@ -174,15 +207,12 @@ class UnifiedStorage {
         try {
           const value = this.origGetItem!(key);
           if (value !== null) {
-            await this.db.execute(
-              'INSERT OR REPLACE INTO storage (key, value) VALUES ($1, $2)',
-              [key, value]
-            );
+            await this.db.execute("INSERT OR REPLACE INTO storage (key, value) VALUES ($1, $2)", [
+              key,
+              value,
+            ]);
           } else {
-            await this.db.execute(
-              'DELETE FROM storage WHERE key = $1',
-              [key]
-            );
+            await this.db.execute("DELETE FROM storage WHERE key = $1", [key]);
           }
         } catch (e) {
           console.error(`SQLite flush failed for "${key}"`, e);

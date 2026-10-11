@@ -33,14 +33,17 @@ export function dailySnapshotFileName(date: Date): string {
  * 构建快照数据 Payload（手动“导出快照”与每日快照共用；每日快照额外带 snapshotType: "daily"）。
  * 安全底线：严禁包含任何敏感密钥（通过 sanitizeConfigForSync 彻底剥离）。
  */
-export function buildSnapshotPayload(now = new Date(), snapshotType?: "daily"): Record<string, unknown> {
+export function buildSnapshotPayload(
+  now = new Date(),
+  snapshotType?: "daily",
+): Record<string, unknown> {
   const sync = getLocalSyncData();
   return {
     ...sync,
     customizationConfig: sanitizeConfigForSync(sync.customizationConfig),
     aiPraise: safeJsonParse<string[]>(
       typeof localStorage !== "undefined" ? localStorage.getItem("tongyun_ai_praise") : null,
-      []
+      [],
     ),
     exportedAt: now.toISOString(),
     ...(snapshotType ? { snapshotType } : {}),

@@ -55,9 +55,7 @@ describe("Sync Security & Sanitization", () => {
       { id: "1", title: "示例 1" },
       { id: "2", title: "示例 2" },
     ] as Task[];
-    const realTasks = [
-      { id: "k9x2a", title: "真实用户任务" },
-    ] as Task[];
+    const realTasks = [{ id: "k9x2a", title: "真实用户任务" }] as Task[];
 
     expect(isSampleTasksOnly(sampleTasks)).toBe(true);
     expect(isSampleTasksOnly(realTasks)).toBe(false);
@@ -85,7 +83,10 @@ describe("Sync Security & Sanitization", () => {
       // remote does not have keys (or empty)
     };
 
-    const merged = mergeRemoteIntoLocal("config", remoteConfig, localConfig) as Record<string, unknown>;
+    const merged = mergeRemoteIntoLocal("config", remoteConfig, localConfig) as Record<
+      string,
+      unknown
+    >;
 
     expect(merged.darkMode).toBe("dark"); // remote value takes precedence for public settings
     expect(merged.syncInterval).toBe(60);
@@ -135,7 +136,9 @@ describe("Sync Security & Sanitization", () => {
         smtp_password: "super_secret_smtp",
       };
 
-      const sanitized = sanitizeConfigForSync(configWithFutureSecrets as unknown as CustomizationConfig) as any;
+      const sanitized = sanitizeConfigForSync(
+        configWithFutureSecrets as unknown as CustomizationConfig,
+      ) as any;
 
       expect(sanitized.darkMode).toBe("dark");
       expect(sanitized.syncInterval).toBe(60);
@@ -180,7 +183,10 @@ describe("Sync Security & Sanitization", () => {
 
       // Local secret keys are preserved
       expect(merged.aiApiKey).toBe("local-private-key");
-      expect(merged.providerApiKeys).toEqual({ openai: "local-openai", deepseek: "local-deepseek" });
+      expect(merged.providerApiKeys).toEqual({
+        openai: "local-openai",
+        deepseek: "local-deepseek",
+      });
       expect(merged.someServiceApiKey).toBe("local-some-key");
       expect(merged.githubToken).toBe("local-gh-token");
     });

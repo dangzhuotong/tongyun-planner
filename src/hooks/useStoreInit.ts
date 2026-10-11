@@ -39,14 +39,20 @@ export function useStoreInit(
     let label = "main";
     try {
       label = getCurrentWebviewWindow().label;
-    } catch { /* non-Tauri environment */ }
+    } catch {
+      /* non-Tauri environment */
+    }
     setWindowLabel(label);
     windowLabelRef.current = label;
     if (label !== "main") {
       document.documentElement.classList.add("transparent-window");
     }
 
-    if (typeof Notification !== "undefined" && Notification.permission !== "granted" && Notification.permission !== "denied") {
+    if (
+      typeof Notification !== "undefined" &&
+      Notification.permission !== "granted" &&
+      Notification.permission !== "denied"
+    ) {
       Notification.requestPermission();
     }
 
@@ -86,7 +92,8 @@ export function useStoreInit(
         }
 
         const localCountdowns = localStorage.getItem("tongyun_countdowns");
-        if (localCountdowns) handlersRef.current.countdownHook.setCountdowns(safeJsonParse(localCountdowns, []));
+        if (localCountdowns)
+          handlersRef.current.countdownHook.setCountdowns(safeJsonParse(localCountdowns, []));
 
         const repositoryData = await taskRepository.load();
         const localTasks = localStorage.getItem("aero_todos");
@@ -102,7 +109,10 @@ export function useStoreInit(
           resolvedTasks = handlersRef.current.tasksHook.INITIAL_TASKS;
           resolvedCompleted = [];
         } else {
-          resolvedTasks = safeJsonParse<Task[]>(localTasks, handlersRef.current.tasksHook.INITIAL_TASKS);
+          resolvedTasks = safeJsonParse<Task[]>(
+            localTasks,
+            handlersRef.current.tasksHook.INITIAL_TASKS,
+          );
           resolvedCompleted = safeJsonParse<Task[]>(localCompleted, []);
         }
         resolvedTasks = dedupeActiveTasks(resolvedTasks, resolvedCompleted);

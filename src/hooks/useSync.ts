@@ -8,8 +8,11 @@ const isTauri = typeof window !== "undefined" && (window as any).__TAURI_INTERNA
 // 浏览器 dev 模式下用会话 UUID 防止自收同步事件
 const SESSION_ID: string = (() => {
   if (isTauri) return "";
-  try { return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`; }
-  catch { return `session-${Date.now()}`; }
+  try {
+    return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  } catch {
+    return `session-${Date.now()}`;
+  }
 })();
 
 // 在浏览器 dev 模式下用 BroadcastChannel 做同源多标签广播降级
@@ -48,50 +51,53 @@ export function subscribeDevSync(handler: (payload: any) => void): () => void {
 export function useSync() {
   // 字段级同步：调用方对不想变更的字段应显式传 undefined。
   // 未传值一律映射为 null（Rust 侧 Option<String>）；空串 "" 交由接收方按"显式清空"处理。
-  const syncState = useCallback(async (
-    taskId: string,
-    action: string,
-    title?: string,
-    description?: string,
-    category?: string,
-    notes?: string,
-    dueDate?: string,
-    dueTime?: string
-  ) => {
-    let sourceWindow = SESSION_ID;
-    try {
-      sourceWindow = getCurrentWebviewWindow().label;
-    } catch {
-      // Browser-only development mode has no Tauri webview label.
-    }
-
-    const payload = {
-      task_id: taskId,
-      action,
-      source_window: sourceWindow,
-      title: title ?? null,
-      description: description ?? null,
-      notes: notes ?? null,
-      category: category ?? null,
-      due_date: dueDate ?? null,
-      due_time: dueTime ?? null,
-      timestamp: Date.now(),
-    };
-
-    if (isTauri) {
+  const syncState = useCallback(
+    async (
+      taskId: string,
+      action: string,
+      title?: string,
+      description?: string,
+      category?: string,
+      notes?: string,
+      dueDate?: string,
+      dueTime?: string,
+    ) => {
+      let sourceWindow = SESSION_ID;
       try {
-        await invoke("sync_todo_state", { payload });
-      } catch (e) {
-        console.error("同步窗口状态失败", e);
+        sourceWindow = getCurrentWebviewWindow().label;
+      } catch {
+        // Browser-only development mode has no Tauri webview label.
       }
-    } else if (devChannel) {
-      try {
-        devChannel.postMessage(payload);
-      } catch (e) {
-        console.error("dev 广播失败", e);
+
+      const payload = {
+        task_id: taskId,
+        action,
+        source_window: sourceWindow,
+        title: title ?? null,
+        description: description ?? null,
+        notes: notes ?? null,
+        category: category ?? null,
+        due_date: dueDate ?? null,
+        due_time: dueTime ?? null,
+        timestamp: Date.now(),
+      };
+
+      if (isTauri) {
+        try {
+          await invoke("sync_todo_state", { payload });
+        } catch (e) {
+          console.error("同步窗口状态失败", e);
+        }
+      } else if (devChannel) {
+        try {
+          devChannel.postMessage(payload);
+        } catch (e) {
+          console.error("dev 广播失败", e);
+        }
       }
-    }
-  }, []);
+    },
+    [],
+  );
 
   return { syncState };
 }

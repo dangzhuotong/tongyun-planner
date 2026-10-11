@@ -6,7 +6,7 @@ import en from "./en";
 
 const TRANSLATIONS: Record<Locale, Translations> = {
   "zh-CN": zhCN,
-  "en": en,
+  en: en,
 };
 
 interface LanguageContextType {
@@ -34,11 +34,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode; initialLoca
     setLocale,
   };
 
-  return (
-    <LanguageContext.Provider value={value}>
-      {children}
-    </LanguageContext.Provider>
-  );
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 };
 
 export function useTranslation(): LanguageContextType {

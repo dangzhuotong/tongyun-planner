@@ -50,7 +50,9 @@ function dataUrlToFile(dataUrl: string, name: string, type: string): File | null
   }
 }
 
-export async function migrateLegacyJournalAttachments(entries: JournalEntry[]): Promise<JournalEntry[]> {
+export async function migrateLegacyJournalAttachments(
+  entries: JournalEntry[],
+): Promise<JournalEntry[]> {
   if (!isTauri()) return entries;
   let changed = false;
   const migrated: JournalEntry[] = [];

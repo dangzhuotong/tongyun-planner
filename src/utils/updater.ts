@@ -19,7 +19,11 @@ export async function checkForAppUpdate(): Promise<Update | null> {
 
 export async function downloadAndInstallAppUpdate(
   update: Update,
-  onProgress?: (progress: { event: "Started" | "Progress" | "Finished"; chunkLength?: number; contentLength?: number }) => void
+  onProgress?: (progress: {
+    event: "Started" | "Progress" | "Finished";
+    chunkLength?: number;
+    contentLength?: number;
+  }) => void,
 ): Promise<void> {
   await update.downloadAndInstall((event) => {
     if (onProgress) {

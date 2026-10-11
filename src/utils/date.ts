@@ -46,10 +46,9 @@ const QUAD_ORDER = [
   "not-urgent-not-important",
 ] as const;
 
-export function filterHomeActionableTasks<T extends { dueDate?: string; isPinned?: boolean; category?: string }>(
-  tasks: T[],
-  today: string
-): T[] {
+export function filterHomeActionableTasks<
+  T extends { dueDate?: string; isPinned?: boolean; category?: string },
+>(tasks: T[], today: string): T[] {
   const kindRank: Record<HomeTaskKind, number> = { overdue: 0, today: 1, undated: 2 };
   return tasks
     .filter((t) => getHomeTaskKind(t, today) !== null)
@@ -59,8 +58,12 @@ export function filterHomeActionableTasks<T extends { dueDate?: string; isPinned
       const ka = getHomeTaskKind(a, today)!;
       const kb = getHomeTaskKind(b, today)!;
       if (kindRank[ka] !== kindRank[kb]) return kindRank[ka] - kindRank[kb];
-      const qa = QUAD_ORDER.indexOf((a.category || "important-not-urgent") as typeof QUAD_ORDER[number]);
-      const qb = QUAD_ORDER.indexOf((b.category || "important-not-urgent") as typeof QUAD_ORDER[number]);
+      const qa = QUAD_ORDER.indexOf(
+        (a.category || "important-not-urgent") as (typeof QUAD_ORDER)[number],
+      );
+      const qb = QUAD_ORDER.indexOf(
+        (b.category || "important-not-urgent") as (typeof QUAD_ORDER)[number],
+      );
       return (qa < 0 ? 99 : qa) - (qb < 0 ? 99 : qb);
     });
 }

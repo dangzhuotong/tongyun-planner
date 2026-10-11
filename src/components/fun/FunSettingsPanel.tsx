@@ -23,8 +23,12 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
     <div className="space-y-6 flex-grow overflow-y-auto max-h-[380px] pr-1 custom-scrollbar">
       <div className="bg-[#FAF8F5] border border-[#EFEBE4] rounded-2xl p-4 flex items-center justify-between">
         <div>
-          <span className="text-xs font-bold text-slate-700 block">{s.celebration || "🎉 夸夸模式"}</span>
-          <span className="text-[10px] text-slate-400 mt-0.5 block">{s.celebrationDesc || "完成任务时全屏撒花 + 夸赞消息"}</span>
+          <span className="text-xs font-bold text-slate-700 block">
+            {s.celebration || "🎉 夸夸模式"}
+          </span>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">
+            {s.celebrationDesc || "完成任务时全屏撒花 + 夸赞消息"}
+          </span>
         </div>
         <input
           type="checkbox"
@@ -53,7 +57,9 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
                       setAiPraiseList(updated);
                       localStorage.setItem("tongyun_ai_praise", JSON.stringify(updated));
                     }
-                  } catch { /* ignore praise generation error */ }
+                  } catch {
+                    /* ignore praise generation error */
+                  }
                   setGeneratingPraise(false);
                 }}
                 disabled={generatingPraise}
@@ -67,7 +73,10 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
           {aiPraiseList.length > 0 ? (
             <div className="space-y-1 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
               {aiPraiseList.map((msg, i) => (
-                <div key={i} className="flex items-center justify-between bg-white border border-[#EFEBE4] rounded-lg px-3 py-1.5 group">
+                <div
+                  key={i}
+                  className="flex items-center justify-between bg-white border border-[#EFEBE4] rounded-lg px-3 py-1.5 group"
+                >
                   <span className="text-[11px] text-slate-700 font-medium truncate">{msg}</span>
                   <button
                     onClick={() => {
@@ -84,7 +93,9 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
             </div>
           ) : (
             <p className="text-[10px] text-slate-400 italic">
-              {canUseAI(config) ? "点击上方按钮用 AI 生成夸夸词" : "配置 AI API Key 后可自动生成更多夸夸词"}
+              {canUseAI(config)
+                ? "点击上方按钮用 AI 生成夸夸词"
+                : "配置 AI API Key 后可自动生成更多夸夸词"}
             </p>
           )}
         </div>

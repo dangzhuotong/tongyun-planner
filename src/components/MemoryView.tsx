@@ -113,7 +113,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
   // Filtered Items for Selected Month
   const monthData = useMemo(() => {
     const monthJournals = journal.filter(
-      (j) => j.date && j.date.startsWith(selectedMonth) && j.content.trim().length > 0
+      (j) => j.date && j.date.startsWith(selectedMonth) && j.content.trim().length > 0,
     );
 
     const monthTasksMap: Record<string, Task[]> = {};
@@ -135,7 +135,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
       }
     });
 
-    const monthPomodoroMap: Record<string, { count: number; totalMinutes: number; logs: PomodoroLog[] }> = {};
+    const monthPomodoroMap: Record<
+      string,
+      { count: number; totalMinutes: number; logs: PomodoroLog[] }
+    > = {};
     pomodoroLogs.forEach((p) => {
       const d = new Date(p.timestamp);
       const y = d.getFullYear();
@@ -158,12 +161,20 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         ...monthJournals.map((j) => j.date),
         ...Object.keys(monthTasksMap),
         ...Object.keys(monthPomodoroMap),
-      ])
-    ).sort().reverse();
+      ]),
+    )
+      .sort()
+      .reverse();
 
     const totalJournals = monthJournals.length;
-    const totalCompletedTasks = Object.values(monthTasksMap).reduce((acc, cur) => acc + cur.length, 0);
-    const totalFocusMinutes = Object.values(monthPomodoroMap).reduce((acc, cur) => acc + cur.totalMinutes, 0);
+    const totalCompletedTasks = Object.values(monthTasksMap).reduce(
+      (acc, cur) => acc + cur.length,
+      0,
+    );
+    const totalFocusMinutes = Object.values(monthPomodoroMap).reduce(
+      (acc, cur) => acc + cur.totalMinutes,
+      0,
+    );
     const totalFocusHours = (totalFocusMinutes / 60).toFixed(1);
 
     const moodCounts: Record<string, number> = {};
@@ -217,7 +228,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         candidates.push({
           type: "task",
           date: dateStr,
-          title: isZh ? `高光完成 ${tasksList.length} 项日程` : `Completed ${tasksList.length} Tasks`,
+          title: isZh
+            ? `高光完成 ${tasksList.length} 项日程`
+            : `Completed ${tasksList.length} Tasks`,
           subtitle: tasksList.map((t) => t.title).join(" • "),
           count: tasksList.length,
         });
@@ -229,7 +242,9 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
         candidates.push({
           type: "focus",
           date: dateStr,
-          title: isZh ? `深度专注 ${pomo.totalMinutes} 分钟` : `Deep Focus ${pomo.totalMinutes} Mins`,
+          title: isZh
+            ? `深度专注 ${pomo.totalMinutes} 分钟`
+            : `Deep Focus ${pomo.totalMinutes} Mins`,
           subtitle: isZh ? `完成了 ${pomo.count} 个番茄钟` : `Completed ${pomo.count} Pomodoros`,
           count: pomo.count,
         });
@@ -314,7 +329,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               {isZh ? "手账与随记" : "Journals"}
             </div>
             <div className="text-lg font-bold font-mono text-[#2D323A] dark:text-slate-100">
-              {monthData.totalJournals} <span className="text-xs font-sans font-normal text-slate-400">{isZh ? "篇" : "entries"}</span>
+              {monthData.totalJournals}{" "}
+              <span className="text-xs font-sans font-normal text-slate-400">
+                {isZh ? "篇" : "entries"}
+              </span>
             </div>
           </div>
         </div>
@@ -328,7 +346,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               {isZh ? "已完成任务" : "Tasks Completed"}
             </div>
             <div className="text-lg font-bold font-mono text-[#2D323A] dark:text-slate-100">
-              {monthData.totalCompletedTasks} <span className="text-xs font-sans font-normal text-slate-400">{isZh ? "项" : "done"}</span>
+              {monthData.totalCompletedTasks}{" "}
+              <span className="text-xs font-sans font-normal text-slate-400">
+                {isZh ? "项" : "done"}
+              </span>
             </div>
           </div>
         </div>
@@ -342,7 +363,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
               {isZh ? "深度专注时长" : "Focus Time"}
             </div>
             <div className="text-lg font-bold font-mono text-[#2D323A] dark:text-slate-100">
-              {monthData.totalFocusHours} <span className="text-xs font-sans font-normal text-slate-400">{isZh ? "小时" : "hrs"}</span>
+              {monthData.totalFocusHours}{" "}
+              <span className="text-xs font-sans font-normal text-slate-400">
+                {isZh ? "小时" : "hrs"}
+              </span>
             </div>
           </div>
         </div>
@@ -361,12 +385,18 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                   .sort((a, b) => b[1] - a[1])
                   .slice(0, 3)
                   .map(([emoji, cnt]) => (
-                    <span key={emoji} className="text-base" title={`${cnt} ${isZh ? "次" : "times"}`}>
+                    <span
+                      key={emoji}
+                      className="text-base"
+                      title={`${cnt} ${isZh ? "次" : "times"}`}
+                    >
                       {emoji}
                     </span>
                   ))
               ) : (
-                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">{isZh ? "未记录" : "No mood"}</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                  {isZh ? "未记录" : "No mood"}
+                </span>
               )}
             </div>
           </div>
@@ -426,9 +456,13 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
             const dayTasks = monthData.monthTasksMap[dateStr] || [];
             const dayPomodoro = monthData.monthPomodoroMap[dateStr];
 
-            const showJournal = (filterType === "all" || filterType === "journal") && dayJournals.length > 0;
+            const showJournal =
+              (filterType === "all" || filterType === "journal") && dayJournals.length > 0;
             const showTask = (filterType === "all" || filterType === "task") && dayTasks.length > 0;
-            const showFocus = (filterType === "all" || filterType === "focus") && dayPomodoro && dayPomodoro.count > 0;
+            const showFocus =
+              (filterType === "all" || filterType === "focus") &&
+              dayPomodoro &&
+              dayPomodoro.count > 0;
 
             if (!showJournal && !showTask && !showFocus) return null;
 
@@ -467,7 +501,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                               <span>{j.title || (isZh ? "无题日记" : "Untitled")}</span>
                             </span>
                             {j.mood && (
-                              <span className="text-lg hover:scale-125 transition-transform" title={isZh ? "当日心情" : "Mood"}>
+                              <span
+                                className="text-lg hover:scale-125 transition-transform"
+                                title={isZh ? "当日心情" : "Mood"}
+                              >
                                 {j.mood}
                               </span>
                             )}
@@ -488,7 +525,12 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 
                         {/* Card Footer Jump Action */}
                         <div className="mt-4 pt-2 border-t border-[#EFEBE4]/60 dark:border-[#33353A] flex items-center justify-between text-[10px] text-slate-400 pl-1">
-                          <span>{new Date(j.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          <span>
+                            {new Date(j.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
                           {onOpenJournalDate && (
                             <button
                               onClick={() => onOpenJournalDate(j.date)}
@@ -509,7 +551,11 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-bold text-[#2E7D32] dark:text-[#66BB6A] flex items-center gap-1">
                             <CheckCircle2 className="w-3.5 h-3.5 text-[#2E7D32] dark:text-[#66BB6A]" />
-                            <span>{isZh ? `完成 ${dayTasks.length} 项成果` : `Completed ${dayTasks.length} Tasks`}</span>
+                            <span>
+                              {isZh
+                                ? `完成 ${dayTasks.length} 项成果`
+                                : `Completed ${dayTasks.length} Tasks`}
+                            </span>
                           </span>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E8F5E9] dark:bg-[#1E2E23] text-[#2E7D32] dark:text-[#66BB6A]">
                             {isZh ? "已达成" : "Done"}
@@ -518,7 +564,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
 
                         <div className="space-y-1.5 mt-2 max-h-36 overflow-y-auto custom-scrollbar pr-1">
                           {dayTasks.map((t) => (
-                            <div key={t.id} className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 bg-[#FAF8F5] dark:bg-[#1C1D21] p-2 rounded-xl border border-[#EFEBE4]/60 dark:border-[#33353A]">
+                            <div
+                              key={t.id}
+                              className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 bg-[#FAF8F5] dark:bg-[#1C1D21] p-2 rounded-xl border border-[#EFEBE4]/60 dark:border-[#33353A]"
+                            >
                               <div className="w-1.5 h-1.5 rounded-full bg-[#4D7C5D] dark:bg-[#6FAD84] shrink-0" />
                               <span className="flex-grow truncate font-medium">{t.title}</span>
                               {t.tags && t.tags.length > 0 && (
@@ -569,7 +618,10 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
                               .filter((l) => l.taskTitle)
                               .slice(0, 2)
                               .map((l, idx) => (
-                                <div key={l.id || idx} className="truncate flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                                <div
+                                  key={l.id || idx}
+                                  className="truncate flex items-center gap-1 text-slate-500 dark:text-slate-400"
+                                >
                                   <Clock className="w-3 h-3 text-[#D97706] dark:text-[#F59E0B] shrink-0" />
                                   <span className="truncate">{l.taskTitle}</span>
                                 </div>

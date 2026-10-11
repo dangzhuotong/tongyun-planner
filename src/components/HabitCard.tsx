@@ -12,12 +12,7 @@ interface HabitCardProps {
   onRemove: (id: string) => void;
 }
 
-export const HabitCard: React.FC<HabitCardProps> = ({
-  habits,
-  onToggle,
-  onAdd,
-  onRemove,
-}) => {
+export const HabitCard: React.FC<HabitCardProps> = ({ habits, onToggle, onAdd, onRemove }) => {
   const { t } = useTranslation();
   const h = t.habits;
 
@@ -65,7 +60,10 @@ export const HabitCard: React.FC<HabitCardProps> = ({
 
       {/* 新增表单 */}
       {showAdd && (
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 mb-3 pb-3 border-b border-[#EFEBE4] dark:border-[#33353A]">
+        <form
+          onSubmit={handleSubmit}
+          className="flex items-center gap-2 mb-3 pb-3 border-b border-[#EFEBE4] dark:border-[#33353A]"
+        >
           <div className="flex items-center gap-1">
             {EMOJI_PRESETS.map((emoji) => (
               <button
@@ -121,15 +119,19 @@ export const HabitCard: React.FC<HabitCardProps> = ({
                     : "bg-[#FCF2F0] dark:bg-[#3D2325] border-2 border-[#F5DFDB] dark:border-[#422D30] text-transparent hover:border-[#E06D53] scale-90 hover:scale-100"
                 }`}
               >
-                <Check className={`w-3 h-3 transition-all ${habit.doneToday ? "opacity-100" : "opacity-0 group-hover:opacity-30"}`} />
+                <Check
+                  className={`w-3 h-3 transition-all ${habit.doneToday ? "opacity-100" : "opacity-0 group-hover:opacity-30"}`}
+                />
               </button>
 
               {/* 习惯名 */}
-              <span className={`text-[12px] font-bold transition-all flex-1 ${
-                habit.doneToday
-                  ? "text-slate-400 dark:text-slate-500 line-through"
-                  : "text-slate-700 dark:text-slate-200"
-              }`}>
+              <span
+                className={`text-[12px] font-bold transition-all flex-1 ${
+                  habit.doneToday
+                    ? "text-slate-400 dark:text-slate-500 line-through"
+                    : "text-slate-700 dark:text-slate-200"
+                }`}
+              >
                 {habit.emoji} {habit.name}
               </span>
 

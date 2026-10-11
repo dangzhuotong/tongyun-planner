@@ -37,11 +37,11 @@ export function usePersonal(): PersonalState {
 
 export function PersonalProvider({ children }: { children: React.ReactNode }) {
   const [journal, setJournal] = useState<JournalEntry[]>(() =>
-    safeJsonParse(localStorage.getItem("tongyun_journal") || "[]", [])
+    safeJsonParse(localStorage.getItem("tongyun_journal") || "[]", []),
   );
   const [persistReady, setPersistReady] = useState(false);
   const [journalAddTodo, setJournalAddTodo] = useState<boolean>(() =>
-    safeJsonParse(localStorage.getItem("tongyun_journal_add_todo") || "false", false)
+    safeJsonParse(localStorage.getItem("tongyun_journal_add_todo") || "false", false),
   );
   const handleToggleJournalAddTodo = useCallback((value: boolean) => {
     setJournalAddTodo(value);
@@ -62,24 +62,30 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
   const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState<number>(new Date().getMonth());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>(
-    safeJsonParse(localStorage.getItem("tongyun_selected_date") || '""', "")
+    safeJsonParse(localStorage.getItem("tongyun_selected_date") || '""', ""),
   );
 
   // 等 SQLite 灌回 localStorage 后再持久化，避免开发启动时用空 [] 盖掉已有日记
   useEffect(() => {
     let cancelled = false;
-    storage.init().then(async () => {
-      if (cancelled) return;
-      const fresh = await journalRepository.load()
-        || safeJsonParse<JournalEntry[]>(localStorage.getItem("tongyun_journal") || "[]", []);
-      const migrated = await migrateLegacyJournalAttachments(fresh);
-      if (migrated !== fresh) journalRepository.syncSnapshot(migrated);
-      setJournal(migrated);
-      setPersistReady(true);
-    }).catch(() => {
-      if (!cancelled) setPersistReady(true);
-    });
-    return () => { cancelled = true; };
+    storage
+      .init()
+      .then(async () => {
+        if (cancelled) return;
+        const fresh =
+          (await journalRepository.load()) ||
+          safeJsonParse<JournalEntry[]>(localStorage.getItem("tongyun_journal") || "[]", []);
+        const migrated = await migrateLegacyJournalAttachments(fresh);
+        if (migrated !== fresh) journalRepository.syncSnapshot(migrated);
+        setJournal(migrated);
+        setPersistReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setPersistReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useDebouncedPersistence(journal, "tongyun_journal", 250, persistReady);
@@ -106,17 +112,32 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
     }
   }, [journal, persistReady]);
 
-  const value = useMemo<PersonalState>(() => ({
-    journal, handleUpsertJournal, handleDeleteJournal,
-    journalAddTodo, handleToggleJournalAddTodo,
-    calendarYear, setCalendarYear, calendarMonth, setCalendarMonth,
-    selectedCalendarDate, setSelectedCalendarDate,
-    setJournal,
-  }), [
-    journal, handleUpsertJournal, handleDeleteJournal,
-    journalAddTodo, handleToggleJournalAddTodo,
-    calendarYear, calendarMonth, selectedCalendarDate,
-  ]);
+  const value = useMemo<PersonalState>(
+    () => ({
+      journal,
+      handleUpsertJournal,
+      handleDeleteJournal,
+      journalAddTodo,
+      handleToggleJournalAddTodo,
+      calendarYear,
+      setCalendarYear,
+      calendarMonth,
+      setCalendarMonth,
+      selectedCalendarDate,
+      setSelectedCalendarDate,
+      setJournal,
+    }),
+    [
+      journal,
+      handleUpsertJournal,
+      handleDeleteJournal,
+      journalAddTodo,
+      handleToggleJournalAddTodo,
+      calendarYear,
+      calendarMonth,
+      selectedCalendarDate,
+    ],
+  );
 
   return <PersonalContext.Provider value={value}>{children}</PersonalContext.Provider>;
 }

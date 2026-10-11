@@ -45,7 +45,9 @@ export function getDataPath(filename: string): string {
   return `${DATA_PREFIX}/${filename}`;
 }
 
-export function parseAttachmentPath(path: string): { taskId: string; attachmentId: string; filename: string } | null {
+export function parseAttachmentPath(
+  path: string,
+): { taskId: string; attachmentId: string; filename: string } | null {
   const parts = path.split("/");
   if (parts[0] !== ATTACHMENTS_PREFIX || parts.length < 4) return null;
   return { taskId: parts[1], attachmentId: parts[2], filename: parts.slice(3).join("/") };

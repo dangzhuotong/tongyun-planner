@@ -1,7 +1,8 @@
 import type { StorageProvider, StorageBackendType } from "./types";
 import { invoke } from "@tauri-apps/api/core";
 
-const isTauri = () => typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
+const isTauri = () =>
+  typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
 /** Convert Uint8Array → base64 string (chunked to avoid call stack overflow on large arrays) */
 function uint8ToBase64(data: Uint8Array): string {
@@ -37,7 +38,9 @@ export class LocalStorageProvider implements StorageProvider {
       await invoke("file_save_b64", { path: "__test__.tmp", dataB64: btoa("ok") });
       await invoke("file_delete", { path: "__test__.tmp" });
       return true;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
   async uploadFile(path: string, data: Uint8Array, _mime: string): Promise<string> {

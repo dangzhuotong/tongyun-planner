@@ -1,7 +1,4 @@
-export type {
-  StorageProvider,
-  StorageBackendType,
-} from "./types";
+export type { StorageProvider, StorageBackendType } from "./types";
 
 export {
   ATTACHMENTS_PREFIX,

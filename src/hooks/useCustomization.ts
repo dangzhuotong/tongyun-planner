@@ -26,21 +26,26 @@ const DEFAULT_CUSTOMIZATION_CONFIG: CustomizationConfig = {
   aiAutoCategorize: false,
   enableAutoBackup: true,
   enableCelebration: true,
-      locale: (localStorage.getItem("tongyun_locale") === "en" ? "en" : "zh-CN") as "zh-CN" | "en",
+  locale: (localStorage.getItem("tongyun_locale") === "en" ? "en" : "zh-CN") as "zh-CN" | "en",
 };
 
 export function useCustomization() {
   const { syncState } = useSync();
-  const [customizationConfig, setCustomizationConfig] = useState<CustomizationConfig>(DEFAULT_CUSTOMIZATION_CONFIG);
+  const [customizationConfig, setCustomizationConfig] = useState<CustomizationConfig>(
+    DEFAULT_CUSTOMIZATION_CONFIG,
+  );
 
-  const handleConfigChange = useCallback((newConfig: CustomizationConfig) => {
-    setCustomizationConfig(newConfig);
-    // aero_customization_config 由 App.tsx 的 useDebouncedPersistence 统一落盘
-    if (newConfig.locale) {
-      localStorage.setItem("tongyun_locale", newConfig.locale);
-    }
-    syncState("settings", "settings_sync", JSON.stringify(newConfig));
-  }, [syncState]);
+  const handleConfigChange = useCallback(
+    (newConfig: CustomizationConfig) => {
+      setCustomizationConfig(newConfig);
+      // aero_customization_config 由 App.tsx 的 useDebouncedPersistence 统一落盘
+      if (newConfig.locale) {
+        localStorage.setItem("tongyun_locale", newConfig.locale);
+      }
+      syncState("settings", "settings_sync", JSON.stringify(newConfig));
+    },
+    [syncState],
+  );
 
   // Sunset mode auto-detection
   useEffect(() => {
@@ -54,13 +59,17 @@ export function useCustomization() {
       const start = customizationConfig.sunsetStartHour ?? 18;
       const end = customizationConfig.sunsetEndHour ?? 6;
 
-      const isSunset = start > end
-        ? currentHour >= start || currentHour < end
-        : currentHour >= start && currentHour < end;
+      const isSunset =
+        start > end
+          ? currentHour >= start || currentHour < end
+          : currentHour >= start && currentHour < end;
 
       if (isSunset) {
         document.documentElement.classList.add("theme-sunset");
-        document.documentElement.style.setProperty("--sunset-warmth", `${customizationConfig.sunsetWarmth ?? 50}%`);
+        document.documentElement.style.setProperty(
+          "--sunset-warmth",
+          `${customizationConfig.sunsetWarmth ?? 50}%`,
+        );
       } else {
         document.documentElement.classList.remove("theme-sunset");
       }
@@ -69,7 +78,12 @@ export function useCustomization() {
     checkSunsetTheme();
     const interval = setInterval(checkSunsetTheme, 60000);
     return () => clearInterval(interval);
-  }, [customizationConfig.enableSunsetMode, customizationConfig.sunsetStartHour, customizationConfig.sunsetEndHour, customizationConfig.sunsetWarmth]);
+  }, [
+    customizationConfig.enableSunsetMode,
+    customizationConfig.sunsetStartHour,
+    customizationConfig.sunsetEndHour,
+    customizationConfig.sunsetWarmth,
+  ]);
 
   // Dark mode auto-detection
   useEffect(() => {
@@ -103,10 +117,13 @@ export function useCustomization() {
     }
   }, [customizationConfig.darkMode]);
 
-  return useMemo(() => ({
-    customizationConfig,
-    setCustomizationConfig,
-    handleConfigChange,
-    DEFAULT_CUSTOMIZATION_CONFIG,
-  }), [customizationConfig, handleConfigChange]);
+  return useMemo(
+    () => ({
+      customizationConfig,
+      setCustomizationConfig,
+      handleConfigChange,
+      DEFAULT_CUSTOMIZATION_CONFIG,
+    }),
+    [customizationConfig, handleConfigChange],
+  );
 }

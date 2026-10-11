@@ -39,7 +39,9 @@ describe("conflict.ts pure helpers", () => {
     it("returns null if meta is null or exists is false", () => {
       expect(remoteFingerprint(null)).toBeNull();
       expect(remoteFingerprint({ exists: false, etag: "abc" })).toBeNull();
-      expect(remoteFingerprint({ exists: false, lastModified: "Mon, 01 Jan 2026 00:00:00 GMT" })).toBeNull();
+      expect(
+        remoteFingerprint({ exists: false, lastModified: "Mon, 01 Jan 2026 00:00:00 GMT" }),
+      ).toBeNull();
     });
 
     it("prefers etag over lastModified and manifestVersion", () => {
@@ -166,7 +168,9 @@ describe("conflict.ts pure helpers", () => {
 
       // Single-digit hours/minutes/seconds/month/day
       const earlyDate = new Date(2026, 0, 5, 4, 3, 2); // Jan 5, 2026 04:03:02
-      expect(conflictBackupFileName(earlyDate, "notes", "remote")).toBe("20260105-040302-notes-remote.json");
+      expect(conflictBackupFileName(earlyDate, "notes", "remote")).toBe(
+        "20260105-040302-notes-remote.json",
+      );
     });
   });
 });

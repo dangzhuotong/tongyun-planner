@@ -14,7 +14,9 @@ export function useSetting<T>(key: string, defaultValue: T): [T, (val: T) => voi
   useEffect(() => {
     try {
       localStorage.setItem(key, JSON.stringify(value));
-    } catch { /* quota exceeded, silently ignore */ }
+    } catch {
+      /* quota exceeded, silently ignore */
+    }
   }, [key, value]);
 
   return [value, setValue];

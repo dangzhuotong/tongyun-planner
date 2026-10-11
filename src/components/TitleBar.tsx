@@ -5,7 +5,8 @@ import { useTranslation } from "../i18n/LanguageContext";
 import logo from "../assets/logo.png";
 
 export const TitleBar: React.FC = React.memo(() => {
-  const { t } = useTranslation(); const tb = t.titleBar;
+  const { t } = useTranslation();
+  const tb = t.titleBar;
   const handleMinimize = () => getCurrentWebviewWindow().minimize();
   const handleToggleMaximize = () => getCurrentWebviewWindow().toggleMaximize();
   const handleClose = () => getCurrentWebviewWindow().hide();
@@ -22,7 +23,10 @@ export const TitleBar: React.FC = React.memo(() => {
         <span data-tauri-drag-region className="text-[11px] font-bold text-[#2D323A] tracking-wide">
           {t.app.title}
         </span>
-        <span data-tauri-drag-region className="text-[9px] text-[#8B6E3C] font-extrabold tracking-wider uppercase">
+        <span
+          data-tauri-drag-region
+          className="text-[9px] text-[#8B6E3C] font-extrabold tracking-wider uppercase"
+        >
           {tb.subtitle}
         </span>
       </div>

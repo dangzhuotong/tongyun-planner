@@ -45,7 +45,7 @@ export function clearCache(key?: string): void {
 export async function fetchWithRetry<T>(
   fetcher: () => Promise<T>,
   retries = 2,
-  delay = 1000
+  delay = 1000,
 ): Promise<T> {
   for (let i = 0; i <= retries; i++) {
     try {
