@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { X, CheckCircle2, ListTodo } from "lucide-react";
 import type { Task, PomodoroLog } from "../types";
 import { getLocalDateString, filterHomeActionableTasks } from "../utils/date";
@@ -21,55 +21,58 @@ export const FlowMode: React.FC<FlowModeProps> = ({
 
   const queue = useMemo(() => filterHomeActionableTasks(tasks, today), [tasks, today]);
 
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
   const [showComplete, setShowComplete] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const currentTask = queue[currentIndex];
-  const remaining = queue.length - currentIndex;
+  const currentTask = queue[0];
+  const remaining = queue.length;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onExit();
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [onExit]);
 
   const handleDone = useCallback(() => {
-    if (!currentTask) return;
-    handleComplete(currentTask.id);
+    if (!currentTask || showComplete) return;
+    const taskId = currentTask.id;
     setCompletedCount((c) => c + 1);
     setShowComplete(true);
-    setTimeout(() => {
+    timerRef.current = setTimeout(() => {
+      handleComplete(taskId);
       setShowComplete(false);
-      setCurrentIndex((i) => i + 1);
     }, 600);
-  }, [currentTask, handleComplete]);
+  }, [currentTask, showComplete, handleComplete]);
 
-  if (!currentTask && queue.length > 0) {
-    return (
-      <div className="fixed inset-0 z-[100] bg-[#FAF8F5] flex flex-col items-center justify-center animate-fade-in-up main-window-root">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-[#F0F5F1] flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-8 h-8 text-[#4D7C5D]" />
+  if (queue.length === 0) {
+    if (completedCount > 0) {
+      return (
+        <div className="fixed inset-0 z-[100] bg-[#FAF8F5] flex flex-col items-center justify-center animate-fade-in-up main-window-root">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-[#F0F5F1] flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8 text-[#4D7C5D]" />
+            </div>
+            <h2 className="text-xl font-bold text-[#2D323A]">全部完成！🎉</h2>
+            <p className="text-sm text-slate-400 font-medium">
+              今日 {completedCount} 个任务已全部完成
+            </p>
+            <button
+              onClick={onExit}
+              className="mt-4 px-6 py-2.5 rounded-xl bg-[#4D7C5D] text-white text-sm font-bold hover:bg-[#3F684C] transition-all cursor-pointer"
+            >
+              返回
+            </button>
           </div>
-          <h2 className="text-xl font-bold text-[#2D323A]">全部完成！🎉</h2>
-          <p className="text-sm text-slate-400 font-medium">
-            今日 {completedCount} 个任务已全部完成
-          </p>
-          <button
-            onClick={onExit}
-            className="mt-4 px-6 py-2.5 rounded-xl bg-[#4D7C5D] text-white text-sm font-bold hover:bg-[#3F684C] transition-all cursor-pointer"
-          >
-            返回
-          </button>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (!currentTask) {
     return (
       <div className="fixed inset-0 z-[100] bg-[#FAF8F5] flex flex-col items-center justify-center animate-fade-in-up main-window-root">
         <div className="text-center space-y-4">

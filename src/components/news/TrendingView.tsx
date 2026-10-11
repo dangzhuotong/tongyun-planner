@@ -39,7 +39,11 @@ async function fetchPlatformData(platform: string): Promise<TrendingItem[]> {
       : await (async () => {
           const raw = await fetchUrl("https://www.producthunt.com/feed");
           if (raw.trim().startsWith("{")) {
-            return JSON.parse(raw).contents;
+            try {
+              return JSON.parse(raw).contents;
+            } catch {
+              return raw;
+            }
           }
           return raw;
         })();
@@ -52,8 +56,12 @@ async function fetchPlatformData(platform: string): Promise<TrendingItem[]> {
   }
 
   const raw = await fetchUrl(`https://uapis.cn/api/v1/misc/hotboard?type=${platform}`);
-  const json = JSON.parse(raw);
-  return (json.list || []).slice(0, MAX_PER_CARD);
+  try {
+    const json = JSON.parse(raw);
+    return (json.list || []).slice(0, MAX_PER_CARD);
+  } catch {
+    return [];
+  }
 }
 
 async function fetchPlatformDataWithRetry(platform: string): Promise<TrendingItem[]> {

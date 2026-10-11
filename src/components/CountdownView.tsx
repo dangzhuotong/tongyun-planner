@@ -3,6 +3,7 @@ import { Plus, Trash2, X, Check, CalendarDays, Moon } from "lucide-react";
 import { Solar, Lunar } from "lunar-javascript";
 import type { CountdownEvent } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
+import { parseLocalDate } from "../utils/date";
 
 const EMOJI_OPTIONS = [
   "🎂",
@@ -118,7 +119,7 @@ function getDaysInfo(
 
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  const target = new Date(effectiveTargetDate);
+  const target = parseLocalDate(effectiveTargetDate) || new Date(effectiveTargetDate);
   target.setHours(0, 0, 0, 0);
   const diff = Math.round((target.getTime() - now.getTime()) / 86400000);
   return {
@@ -157,10 +158,11 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
       return [...countdowns].sort((a, b) => {
         const infoA = getDaysInfo(a.targetDate, a.isLunar);
         const infoB = getDaysInfo(b.targetDate, b.isLunar);
-        return (
-          new Date(infoA.effectiveTargetDate).getTime() -
-          new Date(infoB.effectiveTargetDate).getTime()
-        );
+        const dateA =
+          parseLocalDate(infoA.effectiveTargetDate) || new Date(infoA.effectiveTargetDate);
+        const dateB =
+          parseLocalDate(infoB.effectiveTargetDate) || new Date(infoB.effectiveTargetDate);
+        return dateA.getTime() - dateB.getTime();
       });
     }, [countdowns]);
 
@@ -403,7 +405,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                       >
                         {info.isToday
                           ? c.today
-                          : c[info.label].replace("{days}", `${info.days}${c.daysLabel}`)}
+                          : c[info.label].replace("{days}", String(info.days))}
                       </p>
 
                       {/* Target date info */}

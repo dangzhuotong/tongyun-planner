@@ -23,8 +23,8 @@ function getWeekRange(): { start: string; end: string } {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   return {
-    start: monday.toISOString().slice(0, 10),
-    end: sunday.toISOString().slice(0, 10),
+    start: getLocalDateString(monday),
+    end: getLocalDateString(sunday),
   };
 }
 
@@ -44,11 +44,11 @@ const WeeklyReviewCardInner: React.FC<
   const stats = useMemo(() => {
     const weekCompleted = completedTasks.filter((t) => {
       if (!t.completedAt) return false;
-      const d = new Date(t.completedAt).toISOString().slice(0, 10);
+      const d = getLocalDateString(new Date(t.completedAt));
       return d >= start && d <= end;
     });
     const weekPomodoros = pomodoroLogs.filter((p) => {
-      const d = new Date(p.timestamp).toISOString().slice(0, 10);
+      const d = getLocalDateString(new Date(p.timestamp));
       return d >= start && d <= end;
     });
     const weekJournals = journal.filter((j) => {
