@@ -296,7 +296,9 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
               <CalendarDays className="w-3.5 h-3.5 text-[#8B6E3C] dark:text-[#C4A066]" />
               <span>{localDateStr}</span>
               <span className="text-[#EFEBE4] dark:text-[#2E313A]">|</span>
-              <span className="text-[#8B6E3C] dark:text-[#C4A066] font-semibold">{d.cheerfulDay} ✨</span>
+              <span className="text-[#8B6E3C] dark:text-[#C4A066] font-semibold">
+                {d.cheerfulDay} ✨
+              </span>
             </div>
           </div>
 
@@ -309,8 +311,12 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
             <div className="flex flex-col items-end gap-1 shrink-0">
               <div className="flex items-center gap-2 bg-white/80 dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2E313A] px-4 py-2 rounded-2xl shadow-2xs">
                 <CloudSun className="w-4 h-4 text-[#8B6E3C] dark:text-[#C4A066] animate-pulse-soft" />
-                <span className="text-sm font-bold text-[#8B6E3C] dark:text-[#C4A066]">{weather.temp}°C</span>
-                <span className="text-xs text-slate-500 dark:text-slate-300 font-semibold">{weather.weather}</span>
+                <span className="text-sm font-bold text-[#8B6E3C] dark:text-[#C4A066]">
+                  {weather.temp}°C
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-300 font-semibold">
+                  {weather.weather}
+                </span>
                 <span className="text-[10px] text-slate-400 font-bold bg-[#FAF8F5] dark:bg-[#252830] px-1.5 py-0.5 rounded">
                   {weather.city}
                 </span>
@@ -405,7 +411,8 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
               </div>
               <div className="flex justify-between items-center pt-2 border-t border-slate-100/60 dark:border-[#282A30] mt-2">
                 <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-[#4D7C5D] dark:text-[#78C496]" /> Daily Inspiration
+                  <Sparkles className="w-3 h-3 text-[#4D7C5D] dark:text-[#78C496]" /> Daily
+                  Inspiration
                 </span>
                 <button
                   onClick={() => fetchHitokoto(true)}
@@ -543,16 +550,20 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                   const priorityBarClass = `task-bar-${task.category || "urgent-important"}`;
 
                   let quadLabel = "I";
-                  let quadColor = "text-[#E8A0BF] bg-[#FCF2F0] dark:bg-[#2B1B1F] border-[#F5DFDB] dark:border-[#42232B]";
+                  let quadColor =
+                    "text-[#E8A0BF] bg-[#FCF2F0] dark:bg-[#2B1B1F] border-[#F5DFDB] dark:border-[#42232B]";
                   if (task.category === "important-not-urgent") {
                     quadLabel = "II";
-                    quadColor = "text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#19261E] border-[#DEEAE2] dark:border-[#253A2D]";
+                    quadColor =
+                      "text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#19261E] border-[#DEEAE2] dark:border-[#253A2D]";
                   } else if (task.category === "urgent-not-important") {
                     quadLabel = "III";
-                    quadColor = "text-[#5B99B0] dark:text-[#77BED9] bg-[#EEF5F8] dark:bg-[#17232B] border-[#C5DEE8] dark:border-[#233742]";
+                    quadColor =
+                      "text-[#5B99B0] dark:text-[#77BED9] bg-[#EEF5F8] dark:bg-[#17232B] border-[#C5DEE8] dark:border-[#233742]";
                   } else if (task.category === "not-urgent-not-important") {
                     quadLabel = "IV";
-                    quadColor = "text-[#A08B30] dark:text-[#C7B14A] bg-[#FBF8EC] dark:bg-[#262417] border-[#EDE5C8] dark:border-[#3B3822]";
+                    quadColor =
+                      "text-[#A08B30] dark:text-[#C7B14A] bg-[#FBF8EC] dark:bg-[#262417] border-[#EDE5C8] dark:border-[#3B3822]";
                   }
 
                   const dueBadge =
@@ -566,7 +577,10 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                             text: d.noDueDate || "未设日期",
                             cls: "text-slate-400 bg-[#FAF8F5] dark:bg-[#202228] border-[#EFEBE4] dark:border-[#2E313A]",
                           }
-                        : { text: d.dueToday, cls: "text-slate-400 bg-[#FAF8F5] dark:bg-[#202228] border-[#EFEBE4] dark:border-[#2E313A]" };
+                        : {
+                            text: d.dueToday,
+                            cls: "text-slate-400 bg-[#FAF8F5] dark:bg-[#202228] border-[#EFEBE4] dark:border-[#2E313A]",
+                          };
 
                   return (
                     <div
@@ -593,7 +607,9 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                       </span>
 
                       <div className="flex-grow min-w-0">
-                        <p className="text-xs font-bold text-[#2D323A] dark:text-slate-100 truncate">{task.title}</p>
+                        <p className="text-xs font-bold text-[#2D323A] dark:text-slate-100 truncate">
+                          {task.title}
+                        </p>
                         {task.description && (
                           <p className="text-[9px] text-slate-400 font-semibold truncate mt-0.5">
                             {task.description}

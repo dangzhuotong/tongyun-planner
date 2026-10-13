@@ -256,11 +256,11 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
                     }}
                     className={`p-2 rounded-xl border transition-all duration-200 cursor-pointer text-left flex flex-col justify-between gap-1.5 hover:scale-105 active:scale-95 ${
                       isMatch
-                        ? "border-[#4D7C5D] bg-[#F0F5F1]/30 ring-1 ring-[#4D7C5D]/20 shadow-xs"
-                        : "bg-white border-[#EFEBE4] hover:border-slate-300"
+                        ? "border-[#4D7C5D] dark:border-[#6FAD84] bg-[#F0F5F1]/30 dark:bg-[#1E2722]/50 ring-1 ring-[#4D7C5D]/20 shadow-xs"
+                        : "bg-white dark:bg-[#202228] border-[#EFEBE4] dark:border-[#33353A] hover:border-slate-300 dark:hover:border-slate-500"
                     }`}
                   >
-                    <span className="text-[9px] font-bold text-slate-700 truncate block w-full">
+                    <span className="text-[9px] font-bold text-slate-700 dark:text-slate-200 truncate block w-full">
                       {preset.name.split(" ")[0]} {preset.darkMode === "dark" ? "🌙" : "☀️"}
                     </span>
                     <div className="flex gap-1">
@@ -280,7 +280,7 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
 
           {/* 0.5 城市 */}
           <div className="space-y-2">
-            <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+            <h4 className="text-[11px] font-bold text-[#8B6E3C] dark:text-[#E2C799] tracking-wide uppercase">
               {s.weatherCity}
             </h4>
             <input
@@ -288,12 +288,12 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
               defaultValue={config.weatherCity || ""}
               onChange={(e) => handleStyleChange("weatherCity", e.target.value)}
               placeholder={s.weatherCityPlaceholder}
-              className="w-full px-3 py-2 rounded-xl border border-[#EFEBE4] bg-white/80 text-xs font-bold text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#C4D7B2] focus:border-transparent transition-all"
+              className="w-full px-3 py-2 rounded-xl border border-[#EFEBE4] dark:border-[#383A42] bg-white/80 dark:bg-[#202228] text-xs font-bold text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#C4D7B2] dark:focus:ring-[#4D7C5D] focus:border-transparent transition-all"
             />
           </div>
           {/* 1.1 四象限色彩 */}
           <div className="space-y-3">
-            <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+            <h4 className="text-[11px] font-bold text-[#8B6E3C] dark:text-[#E2C799] tracking-wide uppercase">
               {s.quadColors}
             </h4>
             <div className="space-y-2.5">
@@ -301,7 +301,7 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
                 const selectedColor = config.qColors[quad.id];
                 return (
                   <div key={quad.id} className="flex items-center justify-between gap-4">
-                    <span className="text-xs font-bold text-slate-600 min-w-[90px]">
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300 min-w-[90px]">
                       {quad.label}
                     </span>
                     <div className="flex gap-2">
@@ -311,9 +311,9 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
                           <button
                             key={colorKey}
                             onClick={() => handleColorChange(quad.id, colorKey)}
-                            className={`w-5.5 h-5.5 rounded-full ${colorConfig.dot} border border-slate-200 transition-all hover:scale-110 cursor-pointer relative ${
+                            className={`w-5.5 h-5.5 rounded-full ${colorConfig.dot} border border-slate-200 dark:border-slate-700 transition-all hover:scale-110 cursor-pointer relative ${
                               isSelected
-                                ? "ring-2 ring-slate-400 ring-offset-2 scale-110 shadow-xs"
+                                ? "ring-2 ring-slate-400 dark:ring-slate-300 ring-offset-2 dark:ring-offset-[#1C1D21] scale-110 shadow-xs"
                                 : "opacity-80 hover:opacity-100"
                             }`}
                             title={colorConfig.name}
@@ -334,8 +334,8 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
           </div>
 
           {/* 1.2 卡片纹理 */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
-            <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-[#2D3038]">
+            <h4 className="text-[11px] font-bold text-[#8B6E3C] dark:text-[#E2C799] tracking-wide uppercase">
               {s.cardBg}
             </h4>
             <div className="grid grid-cols-5 gap-2">
@@ -353,8 +353,8 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
                     onClick={() => handleStyleChange("cardBackground", pattern.id as any)}
                     className={`py-2 rounded-xl text-[10px] font-extrabold border transition-all duration-200 cursor-pointer text-center hover:scale-105 active:scale-95 ${
                       isSelected
-                        ? "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36] shadow-xs"
-                        : "bg-white border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:border-slate-300"
+                        ? "bg-[#FCF2F0] dark:bg-[#2A2022] border-[#F5DFDB] dark:border-[#3F2B2E] text-[#A34E36] dark:text-[#E06D53] shadow-xs"
+                        : "bg-white dark:bg-[#202228] border-[#EFEBE4] dark:border-[#33353A] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#252830] hover:border-slate-300 dark:hover:border-slate-500"
                     }`}
                   >
                     {pattern.label}
@@ -365,8 +365,8 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
           </div>
 
           {/* 1.3 别针夹子 */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
-            <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-[#2D3038]">
+            <h4 className="text-[11px] font-bold text-[#8B6E3C] dark:text-[#E2C799] tracking-wide uppercase">
               {s.pinStyle}
             </h4>
             <div className="grid grid-cols-5 gap-2">
@@ -384,8 +384,8 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
                     onClick={() => handleStyleChange("pinType", pin.id as any)}
                     className={`py-2 rounded-xl text-[10px] font-extrabold border transition-all duration-200 cursor-pointer text-center hover:scale-105 active:scale-95 ${
                       isSelected
-                        ? "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36] shadow-xs"
-                        : "bg-white border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:border-slate-300"
+                        ? "bg-[#FCF2F0] dark:bg-[#2A2022] border-[#F5DFDB] dark:border-[#3F2B2E] text-[#A34E36] dark:text-[#E06D53] shadow-xs"
+                        : "bg-white dark:bg-[#202228] border-[#EFEBE4] dark:border-[#33353A] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#252830] hover:border-slate-300 dark:hover:border-slate-500"
                     }`}
                   >
                     {pin.label}
@@ -396,9 +396,9 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
           </div>
 
           {/* 1.4 毛玻璃及字体 */}
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-[#2D3038]">
             <div className="space-y-2">
-              <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+              <h4 className="text-[11px] font-bold text-[#8B6E3C] dark:text-[#E2C799] tracking-wide uppercase">
                 {s.glass}
               </h4>
               <div className="grid grid-cols-3 gap-1.5">
@@ -414,8 +414,8 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
                       onClick={() => handleStyleChange("interfaceGlass", glass.id as any)}
                       className={`py-2 rounded-xl text-[10px] font-extrabold border transition-all duration-200 cursor-pointer text-center hover:scale-105 active:scale-95 ${
                         isSelected
-                          ? "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36] shadow-xs"
-                          : "bg-white border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:border-slate-300"
+                          ? "bg-[#FCF2F0] dark:bg-[#2A2022] border-[#F5DFDB] dark:border-[#3F2B2E] text-[#A34E36] dark:text-[#E06D53] shadow-xs"
+                          : "bg-white dark:bg-[#202228] border-[#EFEBE4] dark:border-[#33353A] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#252830] hover:border-slate-300 dark:hover:border-slate-500"
                       }`}
                     >
                       {glass.label}
@@ -425,7 +425,7 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
               </div>
             </div>
             <div className="space-y-2">
-              <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+              <h4 className="text-[11px] font-bold text-[#8B6E3C] dark:text-[#E2C799] tracking-wide uppercase">
                 {s.font}
               </h4>
               <div className="grid grid-cols-3 gap-1.5">
@@ -441,8 +441,8 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
                       onClick={() => handleStyleChange("fontFamily", font.id as any)}
                       className={`py-2 rounded-xl text-[10px] font-extrabold border transition-all duration-200 cursor-pointer text-center hover:scale-105 active:scale-95 ${
                         isSelected
-                          ? "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36] shadow-xs"
-                          : "bg-white border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:border-slate-300"
+                          ? "bg-[#FCF2F0] dark:bg-[#2A2022] border-[#F5DFDB] dark:border-[#3F2B2E] text-[#A34E36] dark:text-[#E06D53] shadow-xs"
+                          : "bg-white dark:bg-[#202228] border-[#EFEBE4] dark:border-[#33353A] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#252830] hover:border-slate-300 dark:hover:border-slate-500"
                       }`}
                     >
                       {font.label}
@@ -454,8 +454,8 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
           </div>
 
           {/* 1.5 背景球 */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
-            <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-[#2D3038]">
+            <h4 className="text-[11px] font-bold text-[#8B6E3C] dark:text-[#E2C799] tracking-wide uppercase">
               {s.watercolorBg}
             </h4>
             <div className="grid grid-cols-4 gap-2">
@@ -472,8 +472,8 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
                     onClick={() => handleStyleChange("watercolorStyle", wc.id as any)}
                     className={`py-2 rounded-xl text-[10px] font-extrabold border transition-all duration-200 cursor-pointer text-center hover:scale-105 active:scale-95 ${
                       isSelected
-                        ? "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36] shadow-xs"
-                        : "bg-white border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:border-slate-300"
+                        ? "bg-[#FCF2F0] dark:bg-[#2A2022] border-[#F5DFDB] dark:border-[#3F2B2E] text-[#A34E36] dark:text-[#E06D53] shadow-xs"
+                        : "bg-white dark:bg-[#202228] border-[#EFEBE4] dark:border-[#33353A] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#252830] hover:border-slate-300 dark:hover:border-slate-500"
                     }`}
                   >
                     {wc.label}
@@ -486,17 +486,17 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
       </div>
 
       {/* 右侧实时预览面板 */}
-      <div className="lg:col-span-2 rounded-2xl bg-[#F4EFEA]/80 border border-[#EFEBE4] p-5 flex flex-col items-center justify-center gap-5 shadow-sm relative min-h-[360px]">
-        <span className="absolute top-3.5 left-4 text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">
+      <div className="lg:col-span-2 rounded-2xl bg-[#F4EFEA]/80 dark:bg-[#1E2026]/90 border border-[#EFEBE4] dark:border-[#33353A] p-5 flex flex-col items-center justify-center gap-5 shadow-xs relative min-h-[360px] transition-colors">
+        <span className="absolute top-3.5 left-4 text-[9px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
           {s.livePreview}
         </span>
 
         {/* 待办卡片效果预览 */}
-        <div className="w-full max-w-[250px] h-[165px] rounded-2xl p-4 flex flex-col justify-between shadow-md border border-[#EFEBE4] relative overflow-hidden bg-white select-none scale-95 transition-all">
+        <div className="w-full max-w-[250px] h-[165px] rounded-2xl p-4 flex flex-col justify-between shadow-md border border-[#EFEBE4] dark:border-[#33353A] relative overflow-hidden bg-white dark:bg-[#1C1D21] select-none scale-95 transition-all">
           <div className={`absolute inset-0 z-0 ${bgClassMap[config.cardBackground]}`} />
 
           {config.cardBackground === "doodle" && (
-            <div className="absolute right-4 bottom-12 opacity-10 pointer-events-none text-slate-700">
+            <div className="absolute right-4 bottom-12 opacity-10 pointer-events-none text-slate-700 dark:text-slate-300">
               <Sparkles className="w-9 h-9" />
             </div>
           )}
@@ -516,29 +516,29 @@ export const PersonalizationPanel: React.FC<PersonalizationPanelProps> = ({ conf
           </div>
 
           <div className="z-10 flex-grow flex flex-col justify-center my-1.5">
-            <h4 className="text-xs font-bold text-[#2D323A] line-clamp-1 leading-snug">
+            <h4 className="text-xs font-bold text-[#2D323A] dark:text-slate-100 line-clamp-1 leading-snug">
               {s.previewCardTitle}
             </h4>
-            <p className="text-[9px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">
               {s.previewCardDesc}
             </p>
           </div>
 
-          <div className="z-10 flex items-center justify-between border-t border-[#FAF8F5] pt-2 text-[7.5px] text-slate-400 tracking-wider font-bold">
+          <div className="z-10 flex items-center justify-between border-t border-[#FAF8F5] dark:border-[#282A30] pt-2 text-[7.5px] text-slate-400 dark:text-slate-500 tracking-wider font-bold">
             <span>{t.taskCard.swipeLeft}</span>
             <span>{t.taskCard.swipeRight}</span>
           </div>
         </div>
 
         {/* 拟物化便签预览 */}
-        <div className="w-full max-w-[250px] rounded-2xl border border-[#EFE5D3] bg-[#FAF5ED] p-4 pt-5 shadow-md flex flex-col justify-between min-h-[110px] relative scale-95 -rotate-1 select-none transition-all">
+        <div className="w-full max-w-[250px] rounded-2xl border border-[#EFE5D3] dark:border-[#3E372E] bg-[#FAF5ED] dark:bg-[#2B2721] p-4 pt-5 shadow-md flex flex-col justify-between min-h-[110px] relative scale-95 -rotate-1 select-none transition-all">
           <StickyPin type={config.pinType} />
 
-          <div className="text-[10px] font-semibold text-[#8B6E3C] leading-relaxed flex-grow">
+          <div className="text-[10px] font-semibold text-[#8B6E3C] dark:text-[#CBB182] leading-relaxed flex-grow">
             {s.previewNote}
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-dashed border-[#EFE5D3]/60 mt-1 text-[8px] text-[#8B6E3C]/60 font-bold">
+          <div className="flex items-center justify-between pt-2 border-t border-dashed border-[#EFE5D3]/60 dark:border-[#3E372E]/60 mt-1 text-[8px] text-[#8B6E3C]/60 dark:text-[#CBB182]/60 font-bold">
             <span>{s.previewSticky}</span>
             <span>{s.previewFixed}</span>
           </div>

@@ -793,6 +793,7 @@ function AppBody() {
         WebviewWindow.getByLabel(label)?.then((w) => w?.setFocus());
       });
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error("创建桌面便签贴失败", err);
     }
   }, []);
@@ -1475,22 +1476,7 @@ const MainLayout = React.memo(function MainLayout({
       editingNotes,
       setEditingNotes,
       detailTaskId,
-      aiHook.showAiInbox,
-      aiHook.setShowAiInbox,
-      aiHook.aiInputMessage,
-      aiHook.setAiInputMessage,
-      aiHook.aiPreviewTasks,
-      aiHook.setAiPreviewTasks,
-      aiHook.aiInputText,
-      aiHook.setAiInputText,
-      aiHook.aiInputLoading,
-      aiHook.handleAiBatchInput,
-      aiHook.searchQuery,
-      aiHook.setSearchQuery,
-      aiHook.categoryFilter,
-      aiHook.setCategoryFilter,
-      aiHook.tagFilter,
-      aiHook.setTagFilter,
+      aiHook,
       pomodoroHandleStartFocus,
       pomodoroLogs,
       alertSoundType,
@@ -1500,12 +1486,16 @@ const MainLayout = React.memo(function MainLayout({
       notesHook.stickyNotes,
       notesHook.handleAddNote,
       notesHook.handleEditNoteText,
+      notesHook.handleEditNoteTitle,
       notesHook.handleChangeNoteColor,
       notesHook.handleDeleteNote,
       countdownHook.countdowns,
       countdownHook.handleAddCountdown,
       countdownHook.handleDeleteCountdown,
-      habitsHook.habits,
+      habitsHook,
+      onNewsSaveTask,
+      onNewsSaveJournal,
+      setActiveTab,
       handlePinNoteToDesktop,
       resetTasks,
       handleClearCompleted,
@@ -1629,17 +1619,21 @@ class AppErrorBoundary extends React.Component<
     return { hasError: true, error };
   }
   componentDidCatch(error: Error, info: React.ErrorInfo) {
+    // eslint-disable-next-line no-console
     console.error("AppErrorBoundary caught:", error.message, error.stack);
+    // eslint-disable-next-line no-console
     console.error("Component stack:", info.componentStack);
   }
   render() {
     if (this.state.hasError) {
       return (
-        <div className="w-full h-screen bg-[#FAFAF8] flex items-center justify-center select-none">
+        <div className="w-full h-screen bg-[#FAFAF8] dark:bg-[#121316] flex items-center justify-center select-none">
           <div className="text-center space-y-4 max-w-md px-6">
             <span className="text-5xl block">🌿</span>
-            <h2 className="text-xl font-bold text-slate-500">出了点问题，请刷新页面</h2>
-            <p className="text-xs text-slate-400 font-mono bg-slate-100 rounded-lg p-3 text-left break-words max-h-32 overflow-y-auto">
+            <h2 className="text-xl font-bold text-slate-500 dark:text-slate-300">
+              出了点问题，请刷新页面
+            </h2>
+            <p className="text-xs text-slate-400 dark:text-slate-400 font-mono bg-slate-100 dark:bg-[#1E2026] border border-transparent dark:border-[#2D3039] rounded-lg p-3 text-left break-words max-h-32 overflow-y-auto">
               {this.state.error?.message}
             </p>
             <button

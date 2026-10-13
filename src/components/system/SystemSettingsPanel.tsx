@@ -93,7 +93,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
     <div className="space-y-6 flex-grow overflow-y-auto max-h-[380px] pr-1 custom-scrollbar">
       {/* 语言选择 */}
       <div className="space-y-2">
-        <h4 className="text-xs font-bold text-slate-700">{s.language}</h4>
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.language}</h4>
         <p className="text-[10px] text-slate-400 font-medium">{s.languageDesc}</p>
         <CustomSelect
           value={config.locale || "zh-CN"}
@@ -105,7 +105,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
 
       {/* 系统声音选择 */}
       <div className="space-y-2">
-        <h4 className="text-xs font-bold text-slate-700">{s.soundTitle}</h4>
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.soundTitle}</h4>
         <p className="text-[10px] text-slate-400 font-medium">{s.soundDesc}</p>
         <CustomSelect
           value={alertSoundType}
@@ -119,12 +119,14 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
       </div>
 
       {/* 任务到期系统通知 */}
-      <div className="space-y-3 pb-3 border-b border-[#EFEBE4]">
-        <h4 className="text-xs font-bold text-slate-700">{s.dueRemindTitle}</h4>
+      <div className="space-y-3 pb-3 border-b border-[#EFEBE4] dark:border-[#2D3039]">
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.dueRemindTitle}</h4>
         <p className="text-[10px] text-slate-400 font-medium">{s.dueRemindDesc}</p>
-        <div className="bg-[#FAF8F5] border border-[#EFEBE4] rounded-2xl p-3.5 flex items-center justify-between gap-3">
+        <div className="bg-[#FAF8F5] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] rounded-2xl p-3.5 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <span className="text-xs font-bold text-slate-700 block">{s.dueRemindToggle}</span>
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+              {s.dueRemindToggle}
+            </span>
             <span className="text-[10px] text-slate-400 mt-0.5 block">{s.dueRemindClickHint}</span>
           </div>
           <input
@@ -137,11 +139,13 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
         {dueRemindEnabled && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold text-slate-500">{s.dueRemindBefore}</span>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                {s.dueRemindBefore}
+              </span>
               <select
                 value={dueRemindBeforeMinutes}
                 onChange={(e) => setDueRemindBeforeMinutes(parseInt(e.target.value, 10))}
-                className="bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-700 focus:outline-none focus:border-[#4D7C5D] cursor-pointer"
+                className="bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6DAF7E] cursor-pointer"
               >
                 <option value={5}>5 {s.dueRemindMinutes}</option>
                 <option value={15}>15 {s.dueRemindMinutes}</option>
@@ -167,7 +171,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
                     triggerToast(s.dueRemindPermissionDenied || "通知被系统拒绝", "error");
                   }
                 }}
-                className="text-[10px] font-bold text-[#4D7C5D] bg-[#F0F5F1] border border-[#DEEAE2] px-3 py-1.5 rounded-lg hover:bg-[#E4EDE6] cursor-pointer transition-colors"
+                className="text-[10px] font-bold text-[#4D7C5D] dark:text-[#6DAF7E] bg-[#F0F5F1] dark:bg-[#1A261E] border border-[#DEEAE2] dark:border-[#294231] px-3 py-1.5 rounded-lg hover:bg-[#E4EDE6] dark:hover:bg-[#233527] cursor-pointer transition-colors"
               >
                 {s.dueRemindPermission || "开启系统通知权限"}
               </button>
@@ -177,8 +181,10 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
       </div>
 
       {/* 白噪音管理 */}
-      <div className="space-y-2 pb-3 border-b border-[#EFEBE4]">
-        <h4 className="text-xs font-bold text-slate-700">{s.noiseSelectTitle}</h4>
+      <div className="space-y-2 pb-3 border-b border-[#EFEBE4] dark:border-[#2D3039]">
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">
+          {s.noiseSelectTitle}
+        </h4>
         <p className="text-[10px] text-slate-400 font-medium">{s.noiseSelectDesc}</p>
         <div className="grid grid-cols-2 gap-1.5 mt-1">
           {NOISE_DEFINITIONS.map((def) => {
@@ -186,7 +192,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
             return (
               <div
                 key={def.id}
-                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${checked ? "bg-[#4D7C5D]/8 border-[#4D7C5D]/25" : "bg-white border-[#EFEBE4]"}`}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${checked ? "bg-[#4D7C5D]/8 dark:bg-[#4D7C5D]/15 border-[#4D7C5D]/25 dark:border-[#4D7C5D]/40" : "bg-white dark:bg-[#1E2026] border-[#EFEBE4] dark:border-[#2D3039]"}`}
               >
                 <button
                   onClick={() => {
@@ -194,7 +200,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
                     audioEngine.startNoise(def.id, 0.3);
                     setTimeout(() => audioEngine.stopNoise(), 2000);
                   }}
-                  className="flex-shrink-0 w-5 h-5 rounded-md bg-slate-100 hover:bg-[#4D7C5D]/15 flex items-center justify-center cursor-pointer transition-colors"
+                  className="flex-shrink-0 w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-[#4D7C5D]/15 dark:hover:bg-[#4D7C5D]/30 flex items-center justify-center cursor-pointer transition-colors text-slate-600 dark:text-slate-300"
                   title={`试听 ${(sb as any)[def.labelKey]}`}
                 >
                   <span className="text-[9px]">▶</span>
@@ -213,9 +219,11 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
                     className="sr-only"
                   />
                   <span
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${checked ? "bg-[#4D7C5D]" : "bg-slate-200"}`}
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${checked ? "bg-[#4D7C5D]" : "bg-slate-200 dark:bg-slate-700"}`}
                   />
-                  <span className={`font-medium ${checked ? "text-[#4D7C5D]" : "text-slate-400"}`}>
+                  <span
+                    className={`font-medium ${checked ? "text-[#4D7C5D] dark:text-[#6DAF7E]" : "text-slate-400 dark:text-slate-500"}`}
+                  >
                     {(sb as any)[def.labelKey]}
                   </span>
                 </label>
@@ -226,14 +234,14 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
       </div>
 
       {/* 软件更新 */}
-      <div className="space-y-3 pb-3 border-b border-[#EFEBE4]">
-        <h4 className="text-xs font-bold text-slate-700 flex items-center justify-between">
+      <div className="space-y-3 pb-3 border-b border-[#EFEBE4] dark:border-[#2D3039]">
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
-            <RefreshCw className="w-4 h-4 text-[#4D7C5D]" />
+            <RefreshCw className="w-4 h-4 text-[#4D7C5D] dark:text-[#6DAF7E]" />
             <span>{s.softwareUpdate || "软件更新"}</span>
           </span>
           {appVersion && (
-            <span className="text-[10px] font-mono text-slate-400 bg-[#FAF8F5] px-2 py-0.5 rounded-md border border-[#EFEBE4]">
+            <span className="text-[10px] font-mono text-slate-400 bg-[#FAF8F5] dark:bg-[#1E2026] px-2 py-0.5 rounded-md border border-[#EFEBE4] dark:border-[#2D3039]">
               v{appVersion.replace(/^v/, "")}
             </span>
           )}
@@ -246,7 +254,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
             type="button"
             disabled={checkingUpdate}
             onClick={handleManualCheckUpdate}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] bg-[#F0F5F1] hover:bg-[#E4EDE6] border border-[#DEEAE2] px-3.5 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] dark:text-[#6DAF7E] bg-[#F0F5F1] dark:bg-[#1A261E] hover:bg-[#E4EDE6] dark:hover:bg-[#233527] border border-[#DEEAE2] dark:border-[#294231] px-3.5 py-2 rounded-xl transition-all cursor-pointer disabled:opacity-50"
           >
             {checkingUpdate ? (
               <>
@@ -265,7 +273,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
             onClick={() =>
               openExternal("https://github.com/dangzhuotong/tongyun-planner/issues/new/choose")
             }
-            className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-[#EFEBE4] dark:border-slate-700 px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-[#1E2026] hover:bg-slate-50 dark:hover:bg-[#252830] border border-[#EFEBE4] dark:border-[#2D3039] px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs"
           >
             <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
             <span>{s.reportIssue || "反馈问题"}</span>
@@ -274,15 +282,15 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
       </div>
 
       {/* 清空及重置 */}
-      <div className="space-y-3 pt-5 border-t border-dashed border-[#EFEBE4]">
-        <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-          <AlertTriangle className="w-4 h-4 text-[#A34E36]" />
+      <div className="space-y-3 pt-5 border-t border-dashed border-[#EFEBE4] dark:border-[#2D3039]">
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+          <AlertTriangle className="w-4 h-4 text-[#A34E36] dark:text-[#E88C7D]" />
           <span>{s.dangerZone}</span>
         </h4>
         <p className="text-[10px] text-slate-400 font-medium">{s.dangerDesc}</p>
         <button
           onClick={() => setShowResetConfirm(true)}
-          className="bg-red-50 hover:bg-red-100 text-[#A34E36] border border-[#F5DFDB] px-4 py-2.5 rounded-xl text-[10px] font-extrabold hover:scale-105 transition-all shadow-xs cursor-pointer block"
+          className="bg-red-50 dark:bg-[#2F1D1F] hover:bg-red-100 dark:hover:bg-[#3D2528] text-[#A34E36] dark:text-[#E88C7D] border border-[#F5DFDB] dark:border-[#523330] px-4 py-2.5 rounded-xl text-[10px] font-extrabold hover:scale-105 transition-all shadow-xs cursor-pointer block"
         >
           {s.factoryReset}
         </button>
@@ -290,21 +298,23 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
 
       {showResetConfirm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs"
           onClick={() => setShowResetConfirm(false)}
         >
           <div
-            className="bg-white rounded-2xl p-6 max-w-sm mx-4 shadow-xl border border-[#EFEBE4]"
+            className="bg-white dark:bg-[#1E2026] rounded-2xl p-6 max-w-sm mx-4 shadow-xl border border-[#EFEBE4] dark:border-[#2D3039]"
             onClick={(e) => e.stopPropagation()}
           >
-            <h4 className="text-sm font-bold text-slate-800 mb-2">
+            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-2">
               {s.factoryResetConfirm || "确认重置？"}
             </h4>
-            <p className="text-xs text-slate-500 mb-5 leading-relaxed">{s.dangerDesc}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-5 leading-relaxed">
+              {s.dangerDesc}
+            </p>
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowResetConfirm(false)}
-                className="px-4 py-2 rounded-xl text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 cursor-pointer transition-all"
+                className="px-4 py-2 rounded-xl text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-[#282B34] hover:bg-slate-200 dark:hover:bg-[#323642] cursor-pointer transition-all"
               >
                 {t.common.cancel || "取消"}
               </button>

@@ -125,9 +125,9 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
 
   return (
     <div className="space-y-4 flex-grow overflow-y-auto max-h-[520px] pr-1 custom-scrollbar">
-      <div className="bg-[#FAF5ED] border border-[#EFE5D3] p-4 rounded-2xl flex items-start gap-3">
-        <Mail className="w-5 h-5 text-[#8B6E3C] mt-0.5 shrink-0" />
-        <div className="text-xs text-slate-600 leading-relaxed font-medium">
+      <div className="bg-[#FAF5ED] dark:bg-[#25221B] border border-[#EFE5D3] dark:border-[#3D3526] p-4 rounded-2xl flex items-start gap-3">
+        <Mail className="w-5 h-5 text-[#8B6E3C] dark:text-[#D4AF37] mt-0.5 shrink-0" />
+        <div className="text-xs text-slate-600 dark:text-[#E2D8C3] leading-relaxed font-medium">
           <strong>📧 {s.emailTitle}</strong>
           <p className="mt-1">{s.emailDesc}</p>
         </div>
@@ -135,13 +135,13 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-[11px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+          <h4 className="text-[11px] font-bold text-[#8B6E3C] dark:text-[#D4AF37] tracking-wide uppercase">
             {s.emailProvider}
           </h4>
           {emailConfig.smtpProvider !== "custom" && (
             <button
               onClick={() => setShowEmailHelp(!showEmailHelp)}
-              className="text-[10px] font-bold text-[#4D7C5D] hover:text-[#3F684C] flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[#F0F5F1] transition-all cursor-pointer"
+              className="text-[10px] font-bold text-[#4D7C5D] dark:text-[#6EA880] hover:text-[#3F684C] dark:hover:text-[#88C69B] flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[#F0F5F1] dark:hover:bg-[#222E26] transition-all cursor-pointer"
             >
               {showEmailHelp ? "收起帮助" : "❓ 如何获取授权码？"}
             </button>
@@ -160,7 +160,7 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
                 handleSelectEmailProvider(p.id);
                 setShowEmailHelp(false);
               }}
-              className={`py-2.5 rounded-xl text-[10px] font-extrabold border transition-all duration-200 cursor-pointer text-center hover:scale-105 active:scale-95 ${emailConfig.smtpProvider === p.id ? "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36] shadow-xs" : "bg-white border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:border-slate-300"}`}
+              className={`py-2.5 rounded-xl text-[10px] font-extrabold border transition-all duration-200 cursor-pointer text-center hover:scale-105 active:scale-95 ${emailConfig.smtpProvider === p.id ? "bg-[#FCF2F0] dark:bg-[#342422] border-[#F5DFDB] dark:border-[#523330] text-[#A34E36] dark:text-[#E88C7D] shadow-xs" : "bg-white dark:bg-[#1E2026] border-[#EFEBE4] dark:border-[#2D3039] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#252830]"}`}
             >
               {p.label}
             </button>
@@ -169,18 +169,21 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
       </div>
 
       {showEmailHelp && emailConfig.smtpProvider !== "custom" && (
-        <div className="bg-[#FAF5ED] border border-[#EFE5D3] p-4 rounded-2xl animate-fade-in-up">
-          <h5 className="text-xs font-bold text-[#8B6E3C] mb-2">
+        <div className="bg-[#FAF5ED] dark:bg-[#25221B] border border-[#EFE5D3] dark:border-[#3D3526] p-4 rounded-2xl animate-fade-in-up">
+          <h5 className="text-xs font-bold text-[#8B6E3C] dark:text-[#D4AF37] mb-2">
             📖 {EMAIL_HELP[emailConfig.smtpProvider]?.title || "帮助"}
           </h5>
           <ol className="space-y-1.5 ml-4">
             {EMAIL_HELP[emailConfig.smtpProvider]?.steps.map((step, i) => (
-              <li key={i} className="text-[11px] text-slate-600 leading-relaxed list-decimal">
+              <li
+                key={i}
+                className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed list-decimal"
+              >
                 {step}
               </li>
             ))}
           </ol>
-          <p className="text-[10px] text-[#A34E36] font-bold mt-2">
+          <p className="text-[10px] text-[#A34E36] dark:text-[#E88C7D] font-bold mt-2">
             ⚠️ 授权码是 16 位字符，不是你登录邮箱的密码
           </p>
         </div>
@@ -189,18 +192,18 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase block">
+            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block">
               {s.emailSmtpHost}
             </label>
             <input
               type="text"
               value={emailConfig.smtpHost}
               onChange={(e) => setEmailConfig((p) => ({ ...p, smtpHost: e.target.value }))}
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+              className="w-full bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6EA880]"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase block">
+            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block">
               {s.emailSmtpPort}
             </label>
             <input
@@ -209,13 +212,13 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
               onChange={(e) =>
                 setEmailConfig((p) => ({ ...p, smtpPort: parseInt(e.target.value) || 465 }))
               }
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+              className="w-full bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6EA880]"
             />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase block">
+            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block">
               📤 发件邮箱（SMTP 登录）
             </label>
             <input
@@ -223,11 +226,11 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
               value={emailConfig.smtpUser}
               onChange={(e) => setEmailConfig((p) => ({ ...p, smtpUser: e.target.value }))}
               placeholder="yourname@163.com"
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+              className="w-full bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6EA880]"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase block">
+            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block">
               {s.emailSmtpPass}
             </label>
             <input
@@ -235,12 +238,12 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
               value={emailConfig.smtpPass}
               onChange={(e) => setEmailConfig((p) => ({ ...p, smtpPass: e.target.value }))}
               placeholder="••••••••"
-              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+              className="w-full bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6EA880]"
             />
           </div>
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-500 uppercase block">
+          <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block">
             📥 接收提醒邮箱（收件箱）
           </label>
           <input
@@ -248,18 +251,18 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
             value={emailConfig.recipientEmail}
             onChange={(e) => setEmailConfig((p) => ({ ...p, recipientEmail: e.target.value }))}
             placeholder="yourname@163.com"
-            className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+            className="w-full bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6EA880]"
           />
         </div>
       </div>
 
-      <div className="border-t border-[#EFEBE4] pt-4">
-        <p className="text-[11px] text-[#A34E36] font-medium leading-relaxed bg-[#FCF2F0] border border-[#F5DFDB] rounded-xl px-3 py-2">
+      <div className="border-t border-[#EFEBE4] dark:border-[#2D3039] pt-4">
+        <p className="text-[11px] text-[#A34E36] dark:text-[#E88C7D] font-medium leading-relaxed bg-[#FCF2F0] dark:bg-[#2C2120] border border-[#F5DFDB] dark:border-[#4A2D2A] rounded-xl px-3 py-2">
           {s.emailRemindUnavailable || "⏳ 到期邮件提醒与每日汇总功能尚未实现，敬请期待。"}
         </p>
       </div>
 
-      <div className="flex gap-3 pt-1 sticky bottom-0 bg-white/90 pb-1">
+      <div className="flex gap-3 pt-1 sticky bottom-0 bg-white/90 dark:bg-[#16171B]/90 pb-1">
         <button
           type="button"
           onClick={() => {
@@ -283,14 +286,14 @@ export const EmailSettingsPanel: React.FC<EmailSettingsPanelProps> = ({ triggerT
 
       {emailSendResult && (
         <div
-          className={`p-3 rounded-xl border text-xs font-bold leading-relaxed ${emailSendResult.ok ? "bg-[#F0F5F1] border-[#DEEAE2] text-[#4D7C5D]" : "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36]"}`}
+          className={`p-3 rounded-xl border text-xs font-bold leading-relaxed ${emailSendResult.ok ? "bg-[#F0F5F1] dark:bg-[#1A261E] border-[#DEEAE2] dark:border-[#28402F] text-[#4D7C5D] dark:text-[#6EA880]" : "bg-[#FCF2F0] dark:bg-[#2C1F20] border-[#F5DFDB] dark:border-[#4A2D2F] text-[#A34E36] dark:text-[#E88C7D]"}`}
         >
           <div className="flex items-start gap-2">
             <span>{emailSendResult.ok ? "✅" : "❌"}</span>
             <span>{emailSendResult.msg}</span>
           </div>
           {!emailSendResult.ok && emailSendResult.msg.includes("535") && (
-            <div className="mt-2 pt-2 border-t border-[#F5DFDB] text-[10px] text-slate-600 font-medium space-y-1">
+            <div className="mt-2 pt-2 border-t border-[#F5DFDB] dark:border-[#4A2D2F] text-[10px] text-slate-600 dark:text-slate-300 font-medium space-y-1">
               <p>🔍 常见原因：</p>
               <ul className="list-disc ml-4 space-y-0.5">
                 <li>未开启邮箱的 SMTP 服务（点上方「如何获取授权码？」查看步骤）</li>

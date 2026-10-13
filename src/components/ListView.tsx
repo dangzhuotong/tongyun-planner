@@ -219,7 +219,9 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                         }}
                         title={tc.complete}
                         className={`w-5 h-5 rounded-full border border-slate-300 dark:border-slate-600 hover:border-[#4D7C5D] dark:hover:border-[#78C496] hover:bg-[#F0F5F1] dark:hover:bg-[#1F2C23] flex items-center justify-center transition-all flex-shrink-0 group/btn cursor-pointer ${
-                          isCompleting ? "border-[#4D7C5D] dark:border-[#78C496] bg-[#F0F5F1] dark:bg-[#1F2C23]" : ""
+                          isCompleting
+                            ? "border-[#4D7C5D] dark:border-[#78C496] bg-[#F0F5F1] dark:bg-[#1F2C23]"
+                            : ""
                         }`}
                       >
                         <Check

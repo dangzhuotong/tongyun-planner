@@ -442,8 +442,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                               a.click();
                               document.body.removeChild(a);
                               URL.revokeObjectURL(url);
-                            } catch (e) {
-                              console.error(e);
+                            } catch {
+                              /* ignore download error */
                             }
                           }}
                           className="w-10 h-10 rounded-lg bg-[#F0F5F1] dark:bg-[#202E24] flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-[#E3EBE5] dark:hover:bg-[#283C2F] transition-colors"
@@ -474,8 +474,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                               a.click();
                               document.body.removeChild(a);
                               URL.revokeObjectURL(url);
-                            } catch (e) {
-                              console.error("Download failed", e);
+                            } catch {
+                              /* ignore download error */
                             }
                           }}
                           className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
@@ -561,7 +561,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                         }
                       }
                     } catch (err: any) {
-                      console.error("Upload failed", err);
                       // Tauri invoke errors are plain strings, not Error objects
                       const msg =
                         typeof err === "string" ? err : err?.message || JSON.stringify(err);

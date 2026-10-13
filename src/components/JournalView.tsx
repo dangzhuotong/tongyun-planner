@@ -45,7 +45,6 @@ const JOURNAL_MOODS = [
 
 import { buildDefaultCommentPrompt } from "../utils/aiPrompts";
 
-
 interface JournalViewProps {
   tasks: Task[];
   completedTasks: Task[];
@@ -758,7 +757,9 @@ export function JournalView({
                 </button>
                 <span
                   className={`absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-bold rounded-full px-1.5 py-0.5 ${
-                    searchMatchCount > 0 ? "bg-[#F0F5F1] dark:bg-[#1F2C23] text-[#4D7C5D] dark:text-[#78C496]" : "bg-red-50 dark:bg-[#381E20] text-red-400 dark:text-red-300"
+                    searchMatchCount > 0
+                      ? "bg-[#F0F5F1] dark:bg-[#1F2C23] text-[#4D7C5D] dark:text-[#78C496]"
+                      : "bg-red-50 dark:bg-[#381E20] text-red-400 dark:text-red-300"
                   }`}
                 >
                   {searchMatchCount}
@@ -856,7 +857,9 @@ export function JournalView({
                   <div className="text-2xl font-bold text-[#5A4A33] dark:text-[#EADFC9] font-serif tracking-tight">
                     {headerDate.big}
                   </div>
-                  <div className="text-[10px] text-[#9A8866] dark:text-[#A89878] mt-0.5">{headerDate.small}</div>
+                  <div className="text-[10px] text-[#9A8866] dark:text-[#A89878] mt-0.5">
+                    {headerDate.small}
+                  </div>
                 </div>
                 <button
                   onClick={() => shiftDate(1)}
@@ -933,7 +936,9 @@ export function JournalView({
             </div>
             <div className="space-y-1 mb-3">
               {viewDone.length === 0 && (
-                <div className="text-[11px] text-slate-300 dark:text-slate-600">{j.noDone || "今天还没有完成任务"}</div>
+                <div className="text-[11px] text-slate-300 dark:text-slate-600">
+                  {j.noDone || "今天还没有完成任务"}
+                </div>
               )}
               {viewDone.slice(0, 8).map((task) => (
                 <button

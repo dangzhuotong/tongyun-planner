@@ -316,7 +316,9 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   {grp.label}
                 </h3>
-                <span className="text-[9px] text-slate-300 dark:text-slate-500 font-bold">{grp.events.length}</span>
+                <span className="text-[9px] text-slate-300 dark:text-slate-500 font-bold">
+                  {grp.events.length}
+                </span>
                 <span className="flex-1 h-px bg-[#EFEBE4] dark:bg-[#33353A]" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

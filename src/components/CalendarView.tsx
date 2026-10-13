@@ -236,24 +236,32 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
         const isSelected = dateStr === selectedCalendarDate;
         const meta = getDayMeta(dateStr);
 
-        let cellStyle = "bg-white dark:bg-[#202227] border-[#FAF8F5] dark:border-[#282A30] text-slate-700 dark:text-slate-200";
+        let cellStyle =
+          "bg-white dark:bg-[#202227] border-[#FAF8F5] dark:border-[#282A30] text-slate-700 dark:text-slate-200";
         let badgeText = "";
         let badgeStyle = "";
         if (meta.type === "休") {
-          cellStyle = "bg-[#FFF5F3] dark:bg-[#331D1A] border-[#FFD9D0] dark:border-[#4D2822] text-[#D4380D] dark:text-[#F06A4B]";
+          cellStyle =
+            "bg-[#FFF5F3] dark:bg-[#331D1A] border-[#FFD9D0] dark:border-[#4D2822] text-[#D4380D] dark:text-[#F06A4B]";
           badgeText = "休";
           badgeStyle = "bg-[#D4380D] text-white";
         } else if (meta.type === "班") {
-          cellStyle = "bg-[#FAFAFA] dark:bg-[#24272E] border-[#E8E4DE] dark:border-[#353A45] text-slate-500 dark:text-slate-400";
+          cellStyle =
+            "bg-[#FAFAFA] dark:bg-[#24272E] border-[#E8E4DE] dark:border-[#353A45] text-slate-500 dark:text-slate-400";
           badgeText = "班";
           badgeStyle = "bg-slate-400 text-white";
         } else if (meta.type === "weekend") {
-          cellStyle = "bg-[#FFF9F5] dark:bg-[#2A231F] border-[#F5EDE8] dark:border-[#3D332D] text-[#B88A6B] dark:text-[#D1A88A]";
+          cellStyle =
+            "bg-[#FFF9F5] dark:bg-[#2A231F] border-[#F5EDE8] dark:border-[#3D332D] text-[#B88A6B] dark:text-[#D1A88A]";
           badgeText = "休";
           badgeStyle = "bg-[#B88A6B]/70 text-white";
         }
-        if (isToday) cellStyle = "bg-[#F0F5F1] dark:bg-[#212E24] border-[#C4D7B2] dark:border-[#3C5B43] text-[#4D7C5D] dark:text-[#6FAD84] font-extrabold";
-        if (isSelected) cellStyle = "bg-[#FCF2F0]/80 dark:bg-[#3A2225] border-[#F5DFDB] dark:border-[#522D33] text-[#A34E36] dark:text-[#E27760]";
+        if (isToday)
+          cellStyle =
+            "bg-[#F0F5F1] dark:bg-[#212E24] border-[#C4D7B2] dark:border-[#3C5B43] text-[#4D7C5D] dark:text-[#6FAD84] font-extrabold";
+        if (isSelected)
+          cellStyle =
+            "bg-[#FCF2F0]/80 dark:bg-[#3A2225] border-[#F5DFDB] dark:border-[#522D33] text-[#A34E36] dark:text-[#E27760]";
 
         elements.push(
           <button

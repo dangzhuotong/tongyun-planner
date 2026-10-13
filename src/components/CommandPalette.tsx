@@ -360,15 +360,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/25 backdrop-blur-xs animate-fade-in-up"
+      className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] bg-black/40 backdrop-blur-xs animate-fade-in-up"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-xl mx-4 bg-white/95 border border-[#EFEBE4] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-xl mx-4 bg-white/95 dark:bg-[#1A1C20]/95 border border-[#EFEBE4] dark:border-[#2D3038] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         {/* 输入框 */}
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[#EFEBE4]">
-          <Search className="w-4 h-4 text-slate-400 shrink-0" />
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[#EFEBE4] dark:border-[#2D3038]">
+          <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -378,9 +378,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               setActiveIdx(0);
             }}
             placeholder="搜索任务、日记正文、便签，或输入命令..."
-            className="flex-grow bg-transparent focus:outline-none text-sm font-medium text-slate-800 placeholder-slate-400"
+            className="flex-grow bg-transparent focus:outline-none text-sm font-medium text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
           />
-          <kbd className="text-[9px] font-bold text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shrink-0">
+          <kbd className="text-[9px] font-bold text-slate-400 dark:text-slate-300 bg-slate-100 dark:bg-[#252830] border border-slate-200 dark:border-[#383C48] px-1.5 py-0.5 rounded shrink-0">
             ESC
           </kbd>
         </div>
@@ -388,13 +388,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         {/* 结果列表 */}
         <div ref={listRef} className="max-h-[50vh] overflow-y-auto custom-scrollbar py-1">
           {flatOrder.length === 0 ? (
-            <div className="text-center py-10 text-xs text-slate-400 font-medium">
+            <div className="text-center py-10 text-xs text-slate-400 dark:text-slate-500 font-medium">
               没有找到匹配项
             </div>
           ) : (
             grouped.map((group) => (
               <div key={group.section} className="px-1">
-                <div className="px-3 pt-2 pb-1 text-[9px] font-black text-slate-400 tracking-widest uppercase">
+                <div className="px-3 pt-2 pb-1 text-[9px] font-black text-slate-400 dark:text-slate-500 tracking-widest uppercase">
                   {sectionLabel[group.section]}
                 </div>
                 {group.items.map((item, idxInGroup) => {
@@ -413,23 +413,25 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       }}
                       className={`flex items-center gap-3 px-3 py-2 mx-1 rounded-xl cursor-pointer transition-colors ${
                         isActive
-                          ? "bg-[#FCF2F0] text-[#A34E36]"
-                          : "text-slate-700 hover:bg-slate-50"
+                          ? "bg-[#FCF2F0] dark:bg-[#342422] text-[#A34E36] dark:text-[#E88C7D]"
+                          : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#252830]"
                       }`}
                     >
                       <Icon
                         className={`w-3.5 h-3.5 shrink-0 ${
-                          isActive ? "text-[#A34E36]" : "text-slate-400"
+                          isActive
+                            ? "text-[#A34E36] dark:text-[#E88C7D]"
+                            : "text-slate-400 dark:text-slate-500"
                         }`}
                       />
                       <span className="text-xs font-bold flex-grow truncate">{item.label}</span>
                       {item.hint && (
-                        <span className="text-[10px] text-slate-400 font-medium truncate max-w-[180px]">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium truncate max-w-[180px]">
                           {item.hint}
                         </span>
                       )}
                       {isActive && (
-                        <kbd className="text-[8px] font-bold text-[#A34E36]/70 bg-white border border-[#F5DFDB] px-1 py-0.5 rounded shrink-0">
+                        <kbd className="text-[8px] font-bold text-[#A34E36]/70 dark:text-[#E88C7D]/80 bg-white dark:bg-[#252020] border border-[#F5DFDB] dark:border-[#4D2E30] px-1 py-0.5 rounded shrink-0">
                           ↵
                         </kbd>
                       )}
@@ -442,14 +444,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {/* 底部提示 */}
-        <div className="px-4 py-2 border-t border-[#EFEBE4] bg-[#FAF8F5]/60 flex items-center justify-between text-[9px] text-slate-400 font-bold">
+        <div className="px-4 py-2 border-t border-[#EFEBE4] dark:border-[#2D3038] bg-[#FAF8F5]/60 dark:bg-[#16171B]/80 flex items-center justify-between text-[9px] text-slate-400 dark:text-slate-500 font-bold">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="bg-white border border-slate-200 px-1 py-0.5 rounded">↑↓</kbd>
+              <kbd className="bg-white dark:bg-[#252830] border border-slate-200 dark:border-[#383C48] text-slate-500 dark:text-slate-300 px-1 py-0.5 rounded">
+                ↑↓
+              </kbd>
               选择
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="bg-white border border-slate-200 px-1 py-0.5 rounded">↵</kbd>
+              <kbd className="bg-white dark:bg-[#252830] border border-slate-200 dark:border-[#383C48] text-slate-500 dark:text-slate-300 px-1 py-0.5 rounded">
+                ↵
+              </kbd>
               确认
             </span>
           </div>

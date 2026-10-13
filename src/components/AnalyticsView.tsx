@@ -87,8 +87,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
           "tongyun_analytics_report",
           JSON.stringify({ date: getLocalDateString(), content }),
         );
-      } catch (e) {
-        console.error("生成报告失败", e);
+      } catch {
+        /* ignore error */
       } finally {
         setReportLoading(false);
       }
@@ -297,11 +297,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
       <div className="animate-fade-in-up flex flex-col gap-4 flex-grow z-10 relative select-none">
         {/* AI Report Card */}
         {customizationConfig?.aiApiKey && (
-          <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-4 shadow-sm ">
+          <div className="rounded-2xl bg-white/90 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-4 shadow-xs transition-colors">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-[#8B6E3C]" />
-                <span className="text-[10px] font-bold text-[#8B6E3C] tracking-wide uppercase">
+                <Sparkles className="w-3.5 h-3.5 text-[#8B6E3C] dark:text-[#E2C799]" />
+                <span className="text-[10px] font-bold text-[#8B6E3C] dark:text-[#E2C799] tracking-wide uppercase">
                   AI 效率报告
                 </span>
               </div>
@@ -309,7 +309,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
                 <select
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value as "daily" | "weekly")}
-                  className="bg-[#FAF8F5] border border-[#EFEBE4] px-2 py-1 rounded-lg text-[9px] text-slate-700 font-bold focus:outline-none focus:border-[#C4D7B2]"
+                  className="bg-[#FAF8F5] dark:bg-[#252830] border border-[#EFEBE4] dark:border-[#383A42] px-2 py-1 rounded-lg text-[9px] text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:border-[#C4D7B2] dark:focus:border-[#4D7C5D]"
                 >
                   <option value="daily">日报</option>
                   <option value="weekly">周报</option>
@@ -317,21 +317,21 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
                 <button
                   onClick={handleGenerateReport}
                   disabled={reportLoading}
-                  className={`text-[9px] font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${reportLoading ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-[#4D7C5D]/10 text-[#4D7C5D] hover:bg-[#4D7C5D]/20"}`}
+                  className={`text-[9px] font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${reportLoading ? "bg-slate-100 dark:bg-[#282A30] text-slate-400 cursor-not-allowed" : "bg-[#4D7C5D]/10 dark:bg-[#4D7C5D]/20 text-[#4D7C5D] dark:text-[#78C496] hover:bg-[#4D7C5D]/20 dark:hover:bg-[#4D7C5D]/30"}`}
                 >
                   {reportLoading ? "生成中..." : "生成报告"}
                 </button>
               </div>
             </div>
             {reportContent ? (
-              <div className="text-[11px] text-slate-700 leading-relaxed prose-body [&>p]:mb-1 [&>h3]:text-xs [&>h3]:font-bold [&>h3]:text-[#4D7C5D] [&>h3]:mb-1 [&>ul]:text-[10px] [&>ul]:pl-4 [&>ul]:list-disc">
+              <div className="text-[11px] text-slate-700 dark:text-slate-200 leading-relaxed prose-body [&>p]:mb-1 [&>h3]:text-xs [&>h3]:font-bold [&>h3]:text-[#4D7C5D] dark:[&>h3]:text-[#78C496] [&>h3]:mb-1 [&>ul]:text-[10px] [&>ul]:pl-4 [&>ul]:list-disc">
                 {reportContent.split("\n").map((line, i) => {
                   if (!line.trim()) return null;
                   return <p key={i}>{line.replace(/^[#*_]+/g, "")}</p>;
                 })}
               </div>
             ) : (
-              <p className="text-[10px] text-slate-400 font-medium">
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
                 点击生成 AI 效率报告，了解完成情况与建议
               </p>
             )}
@@ -340,56 +340,56 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
 
         {/* Top Metrics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 rounded-2xl bg-[#FCF2F0]/80 border border-[#F5DFDB] shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#A34E36] shadow-sm">
-              <Clock className="w-5 h-5 text-[#A34E36]" />
+          <div className="p-4 rounded-2xl bg-[#FCF2F0]/80 dark:bg-[#2A2022] border border-[#F5DFDB] dark:border-[#3F2B2E] shadow-xs flex items-center gap-3.5 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#1E191B] flex items-center justify-center text-[#A34E36] dark:text-[#E06D53] shadow-2xs border border-[#F5DFDB]/60 dark:border-[#3F2B2E]/60">
+              <Clock className="w-5 h-5 text-[#A34E36] dark:text-[#E06D53]" />
             </div>
             <div className="min-w-0">
-              <span className="text-[9px] font-extrabold text-[#A34E36]/80 uppercase tracking-wider block">
+              <span className="text-[9px] font-extrabold text-[#A34E36]/80 dark:text-[#E06D53]/80 uppercase tracking-wider block">
                 {a.totalHours}
               </span>
-              <span className="text-xs font-bold text-[#2D323A] block truncate">
+              <span className="text-xs font-bold text-[#2D323A] dark:text-slate-100 block truncate">
                 {a.hoursMinutes
                   .replace("{h}", String(totalHours))
                   .replace("{m}", String(totalMinutes))}
               </span>
             </div>
           </div>
-          <div className="p-4 rounded-2xl bg-[#F0F5F1]/80 border border-[#DEEAE2] shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#4D7C5D] shadow-sm">
-              <CheckCircle2 className="w-5 h-5 text-[#4D7C5D]" />
+          <div className="p-4 rounded-2xl bg-[#F0F5F1]/80 dark:bg-[#1F2722] border border-[#DEEAE2] dark:border-[#2C3B30] shadow-xs flex items-center gap-3.5 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#19221C] flex items-center justify-center text-[#4D7C5D] dark:text-[#6FAD84] shadow-2xs border border-[#DEEAE2]/60 dark:border-[#2C3B30]/60">
+              <CheckCircle2 className="w-5 h-5 text-[#4D7C5D] dark:text-[#6FAD84]" />
             </div>
             <div className="min-w-0">
-              <span className="text-[9px] font-extrabold text-[#4D7C5D]/80 uppercase tracking-wider block">
+              <span className="text-[9px] font-extrabold text-[#4D7C5D]/80 dark:text-[#6FAD84]/80 uppercase tracking-wider block">
                 {a.totalSessions}
               </span>
-              <span className="text-xs font-bold text-[#2D323A] block truncate">
+              <span className="text-xs font-bold text-[#2D323A] dark:text-slate-100 block truncate">
                 {a.sessionsCount.replace("{count}", String(pomodoroLogs.length))}
               </span>
             </div>
           </div>
-          <div className="p-4 rounded-2xl bg-[#F3F2F7]/80 border border-[#E5E2EE] shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#5C528B] shadow-sm">
-              <Heart className="w-5 h-5 text-[#5C528B] fill-[#E8A0BF]/10" />
+          <div className="p-4 rounded-2xl bg-[#F3F2F7]/80 dark:bg-[#22202B] border border-[#E5E2EE] dark:border-[#332F42] shadow-xs flex items-center gap-3.5 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#1C1A24] flex items-center justify-center text-[#5C528B] dark:text-[#8D82C4] shadow-2xs border border-[#E5E2EE]/60 dark:border-[#332F42]/60">
+              <Heart className="w-5 h-5 text-[#5C528B] dark:text-[#8D82C4] fill-[#E8A0BF]/10" />
             </div>
             <div className="min-w-0">
-              <span className="text-[9px] font-extrabold text-[#5C528B]/80 uppercase tracking-wider block">
+              <span className="text-[9px] font-extrabold text-[#5C528B]/80 dark:text-[#8D82C4]/80 uppercase tracking-wider block">
                 {a.todayFocus}
               </span>
-              <span className="text-xs font-bold text-[#2D323A] block truncate">
+              <span className="text-xs font-bold text-[#2D323A] dark:text-slate-100 block truncate">
                 {a.count.replace("{count}", String(todayPomodoros))}
               </span>
             </div>
           </div>
-          <div className="p-4 rounded-2xl bg-[#FAF5ED]/80 border border-[#EFE5D3] shadow-sm flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-[#8B6E3C] shadow-sm">
-              <Coffee className="w-5 h-5 text-[#8B6E3C]" />
+          <div className="p-4 rounded-2xl bg-[#FAF5ED]/80 dark:bg-[#29251E] border border-[#EFE5D3] dark:border-[#3D3528] shadow-xs flex items-center gap-3.5 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#211D17] flex items-center justify-center text-[#8B6E3C] dark:text-[#CBB182] shadow-2xs border border-[#EFE5D3]/60 dark:border-[#3D3528]/60">
+              <Coffee className="w-5 h-5 text-[#8B6E3C] dark:text-[#CBB182]" />
             </div>
             <div className="min-w-0">
-              <span className="text-[9px] font-extrabold text-[#8B6E3C]/80 uppercase tracking-wider block">
+              <span className="text-[9px] font-extrabold text-[#8B6E3C]/80 dark:text-[#CBB182]/80 uppercase tracking-wider block">
                 {a.avgDuration}
               </span>
-              <span className="text-xs font-bold text-[#2D323A] block truncate">
+              <span className="text-xs font-bold text-[#2D323A] dark:text-slate-100 block truncate">
                 {a.avgDurationValue.replace("{n}", String(avgDuration))}
               </span>
             </div>
@@ -403,10 +403,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
           </div>
 
           {/* 1. Time-of-day distribution */}
-          <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
-            <div className="pb-3 border-b border-[#EFEBE4] mb-3">
-              <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-[#7C5D9E]" />
+          <div className="rounded-2xl bg-white/90 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-5 flex flex-col shadow-xs transition-colors">
+            <div className="pb-3 border-b border-[#EFEBE4] dark:border-[#33353A] mb-3">
+              <h3 className="text-xs font-bold text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-[#7C5D9E] dark:text-[#A78BFA]" />
                 <span>{a.timeDist}</span>
               </h3>
             </div>
@@ -416,17 +416,17 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
                 const pct = Math.round((slot.count / maxSlot) * 100);
                 return (
                   <div key={slot.label} className="flex items-center gap-2.5">
-                    <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="text-[9px] font-bold text-slate-600 w-20 shrink-0">
+                    <Icon className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                    <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 w-20 shrink-0">
                       {slot.label}
                     </span>
-                    <div className="flex-grow h-2.5 rounded-full bg-slate-100 overflow-hidden border border-slate-200/40">
+                    <div className="flex-grow h-2.5 rounded-full bg-slate-100 dark:bg-[#252830] overflow-hidden border border-slate-200/40 dark:border-[#383A42]">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${slot.color}`}
-                        style={{ width: `${pct}%`, opacity: 0.6 }}
+                        style={{ width: `${pct}%`, opacity: 0.7 }}
                       />
                     </div>
-                    <span className="text-[10px] font-extrabold text-slate-500 min-w-[24px] text-right">
+                    <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 min-w-[24px] text-right">
                       {slot.count}
                     </span>
                   </div>
@@ -437,27 +437,29 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
         </div>
 
         {/* 4. Daily goal progress */}
-        <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
-          <div className="flex items-center justify-between pb-3.5 border-b border-[#EFEBE4] mb-4">
-            <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
-              <Target className="w-4 h-4 text-[#A34E36]" />
+        <div className="rounded-2xl bg-white/90 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-5 flex flex-col shadow-xs transition-colors">
+          <div className="flex items-center justify-between pb-3.5 border-b border-[#EFEBE4] dark:border-[#33353A] mb-4">
+            <h3 className="text-xs font-bold text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
+              <Target className="w-4 h-4 text-[#A34E36] dark:text-[#E06D53]" />
               <span>{a.dailyGoal}</span>
             </h3>
             <div className="flex items-center gap-2">
-              <span className="text-[9px] font-bold text-slate-500">{a.dailyGoalLabel}</span>
-              <div className="flex items-center gap-1 bg-[#FAF8F5] border border-[#EFEBE4] rounded-lg px-2 py-0.5">
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400">
+                {a.dailyGoalLabel}
+              </span>
+              <div className="flex items-center gap-1 bg-[#FAF8F5] dark:bg-[#252830] border border-[#EFEBE4] dark:border-[#383A42] rounded-lg px-2 py-0.5">
                 <button
                   onClick={() => setDailyGoal(Math.max(1, dailyGoal - 1))}
-                  className="w-4 h-4 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer font-bold text-xs"
+                  className="w-4 h-4 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer font-bold text-xs"
                 >
                   -
                 </button>
-                <span className="text-[11px] font-extrabold text-[#4D7C5D] min-w-[16px] text-center">
+                <span className="text-[11px] font-extrabold text-[#4D7C5D] dark:text-[#6FAD84] min-w-[16px] text-center">
                   {dailyGoal}
                 </span>
                 <button
                   onClick={() => setDailyGoal(Math.min(20, dailyGoal + 1))}
-                  className="w-4 h-4 flex items-center justify-center text-slate-500 hover:text-slate-700 cursor-pointer font-bold text-xs"
+                  className="w-4 h-4 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer font-bold text-xs"
                 >
                   +
                 </button>
@@ -465,44 +467,52 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-3 rounded-xl bg-[#F0F5F1]/60 border border-[#DEEAE2]">
-              <span className="text-lg font-black text-[#4D7C5D]">{goalStats.todayCount}</span>
-              <span className="text-[9px] font-bold text-slate-500 block mt-0.5">
+            <div className="text-center p-3 rounded-xl bg-[#F0F5F1]/60 dark:bg-[#1F2722]/60 border border-[#DEEAE2] dark:border-[#2C3B30]">
+              <span className="text-lg font-black text-[#4D7C5D] dark:text-[#6FAD84]">
+                {goalStats.todayCount}
+              </span>
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block mt-0.5">
                 {a.todayCompleted}
               </span>
               {goalStats.todayCount >= dailyGoal && (
-                <span className="text-[8px] text-[#4D7C5D] font-extrabold block mt-0.5">
+                <span className="text-[8px] text-[#4D7C5D] dark:text-[#6FAD84] font-extrabold block mt-0.5">
                   {a.goalReached}
                 </span>
               )}
             </div>
-            <div className="text-center p-3 rounded-xl bg-[#FCF2F0]/60 border border-[#F5DFDB]">
-              <span className="text-lg font-black text-[#A34E36]">{goalStats.streak}</span>
-              <span className="text-[9px] font-bold text-slate-500 block mt-0.5">
+            <div className="text-center p-3 rounded-xl bg-[#FCF2F0]/60 dark:bg-[#2A2022]/60 border border-[#F5DFDB] dark:border-[#3F2B2E]">
+              <span className="text-lg font-black text-[#A34E36] dark:text-[#E06D53]">
+                {goalStats.streak}
+              </span>
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block mt-0.5">
                 {a.streakLabel}
               </span>
               {goalStats.streak > 0 && (
-                <span className="text-[8px] text-[#A34E36] font-extrabold block mt-0.5">
+                <span className="text-[8px] text-[#A34E36] dark:text-[#E06D53] font-extrabold block mt-0.5">
                   {a.streakReached}
                 </span>
               )}
             </div>
-            <div className="text-center p-3 rounded-xl bg-[#F3F2F7]/60 border border-[#E5E2EE]">
-              <span className="text-lg font-black text-[#5C528B]">{goalStats.goalDays}</span>
-              <span className="text-[9px] font-bold text-slate-500 block mt-0.5">
+            <div className="text-center p-3 rounded-xl bg-[#F3F2F7]/60 dark:bg-[#22202B]/60 border border-[#E5E2EE] dark:border-[#332F42]">
+              <span className="text-lg font-black text-[#5C528B] dark:text-[#8D82C4]">
+                {goalStats.goalDays}
+              </span>
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block mt-0.5">
                 {a.goalDaysLabel}
               </span>
             </div>
-            <div className="text-center p-3 rounded-xl bg-[#FAF5ED]/60 border border-[#EFE5D3]">
-              <span className="text-lg font-black text-[#8B6E3C]">{goalStats.goalRate}%</span>
-              <span className="text-[9px] font-bold text-slate-500 block mt-0.5">
+            <div className="text-center p-3 rounded-xl bg-[#FAF5ED]/60 dark:bg-[#29251E]/60 border border-[#EFE5D3] dark:border-[#3D3528]">
+              <span className="text-lg font-black text-[#8B6E3C] dark:text-[#CBB182]">
+                {goalStats.goalRate}%
+              </span>
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block mt-0.5">
                 {a.goalRateLabel}
               </span>
             </div>
           </div>
           {bestDay.count > 0 && (
-            <div className="mt-3 pt-3 border-t border-dashed border-[#EFEBE4] text-center">
-              <span className="text-[9px] text-slate-500 font-medium">
+            <div className="mt-3 pt-3 border-t border-dashed border-[#EFEBE4] dark:border-[#33353A] text-center">
+              <span className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">
                 {a.bestDay
                   .replace("{date}", bestDay.date)
                   .replace("{count}", String(bestDay.count))}
@@ -515,10 +525,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
             {/* Quadrant distribution */}
-            <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
-              <div className="pb-3.5 border-b border-[#EFEBE4] mb-4">
-                <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#4D7C5D]" />
+            <div className="rounded-2xl bg-white/90 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-5 flex flex-col shadow-xs transition-colors">
+              <div className="pb-3.5 border-b border-[#EFEBE4] dark:border-[#33353A] mb-4">
+                <h3 className="text-xs font-bold text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-[#4D7C5D] dark:text-[#6FAD84]" />
                   <span>{a.quadrantDist}</span>
                 </h3>
               </div>
@@ -534,7 +544,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
                     <div key={cat.id} className="space-y-1">
                       <div className="flex justify-between items-center text-[10px] font-bold">
                         <span className={cat.textColor}>{cat.label}</span>
-                        <span className="text-slate-500 font-extrabold uppercase">
+                        <span className="text-slate-500 dark:text-slate-400 font-extrabold uppercase">
                           {a.distDetail
                             .replace("{completed}", String(completed))
                             .replace("{total}", String(total))
@@ -543,7 +553,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
                         </span>
                       </div>
                       <div
-                        className={`w-full h-2.5 rounded-full overflow-hidden relative border border-slate-200/40 ${cat.bgClass}`}
+                        className={`w-full h-2.5 rounded-full overflow-hidden relative border border-slate-200/40 dark:border-[#383A42] ${cat.bgClass} dark:bg-[#252830]`}
                       >
                         <div
                           className={`h-full opacity-35 ${cat.color} absolute left-0 top-0 transition-all duration-500`}
@@ -561,27 +571,31 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
             </div>
 
             {/* AI Weekly Summary */}
-            <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
-              <div className="pb-3.5 border-b border-[#EFEBE4] mb-4">
-                <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
-                  <BrainCircuit className="w-4 h-4 text-[#7C5D9E]" />
+            <div className="rounded-2xl bg-white/90 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-5 flex flex-col shadow-xs transition-colors">
+              <div className="pb-3.5 border-b border-[#EFEBE4] dark:border-[#33353A] mb-4">
+                <h3 className="text-xs font-bold text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
+                  <BrainCircuit className="w-4 h-4 text-[#7C5D9E] dark:text-[#A78BFA]" />
                   <span>{a.aiWeekly}</span>
                 </h3>
               </div>
               <div className="flex flex-col items-center gap-3">
                 {aiSummary ? (
-                  <p className="text-[11px] font-medium text-slate-700 leading-relaxed text-center">
+                  <p className="text-[11px] font-medium text-slate-700 dark:text-slate-200 leading-relaxed text-center">
                     {aiSummary}
                   </p>
                 ) : aiError ? (
-                  <p className="text-[11px] font-medium text-[#A34E36]">{aiError}</p>
+                  <p className="text-[11px] font-medium text-[#A34E36] dark:text-[#E06D53]">
+                    {aiError}
+                  </p>
                 ) : (
-                  <p className="text-[10px] text-slate-400 font-semibold">{a.aiWeeklyEmpty}</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">
+                    {a.aiWeeklyEmpty}
+                  </p>
                 )}
                 <button
                   onClick={generateWeeklySummary}
                   disabled={aiLoading}
-                  className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#C4D7B2] to-[#B2C8DF] text-white text-[10px] font-extrabold tracking-wider hover:shadow-xs transition-all duration-200 disabled:opacity-40 cursor-pointer"
+                  className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-[#C4D7B2] to-[#B2C8DF] dark:from-[#3E5C46] dark:to-[#445873] text-white text-[10px] font-extrabold tracking-wider hover:shadow-xs transition-all duration-200 disabled:opacity-40 cursor-pointer"
                 >
                   {aiLoading ? a.aiWeeklyGenerating : a.aiWeeklyGenerate}
                 </button>
@@ -590,10 +604,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
           </div>
 
           {/* Tag-based focus stats */}
-          <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
-            <div className="pb-3.5 border-b border-[#EFEBE4] mb-4">
-              <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
-                <Tags className="w-4 h-4 text-[#C97D3E]" />
+          <div className="rounded-2xl bg-white/90 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-5 flex flex-col shadow-xs transition-colors">
+            <div className="pb-3.5 border-b border-[#EFEBE4] dark:border-[#33353A] mb-4">
+              <h3 className="text-xs font-bold text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
+                <Tags className="w-4 h-4 text-[#C97D3E] dark:text-[#E59353]" />
                 <span>{a.tagDist}</span>
               </h3>
             </div>
@@ -603,16 +617,16 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
                   const pct = Math.round((stat.totalDuration / maxTagDuration) * 100);
                   return (
                     <div key={stat.tag} className="flex items-center gap-2">
-                      <div className="flex-shrink-0 px-1.5 py-0.5 rounded bg-slate-100 text-[8px] font-extrabold text-slate-600 border border-slate-200/40 max-w-[60px] truncate">
+                      <div className="flex-shrink-0 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#252830] text-[8px] font-extrabold text-slate-600 dark:text-slate-300 border border-slate-200/40 dark:border-[#383A42] max-w-[60px] truncate">
                         #{stat.tag}
                       </div>
-                      <div className="flex-grow h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/40">
+                      <div className="flex-grow h-2 bg-slate-100 dark:bg-[#252830] rounded-full overflow-hidden border border-slate-200/40 dark:border-[#383A42]">
                         <div
                           className="h-full bg-gradient-to-r from-[#E8A0BF] to-[#C97D3E] rounded-full transition-all duration-500"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
-                      <span className="text-[8px] font-extrabold text-slate-500 shrink-0">
+                      <span className="text-[8px] font-extrabold text-slate-500 dark:text-slate-400 shrink-0">
                         {a.tagItem
                           .replace("{count}", String(stat.count))
                           .replace("{duration}", String(stat.totalDuration))}
@@ -621,7 +635,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
                   );
                 })
               ) : (
-                <div className="text-center py-6 text-slate-400 text-xs font-semibold">
+                <div className="text-center py-6 text-slate-400 dark:text-slate-500 text-xs font-semibold">
                   {a.noTags}
                 </div>
               )}
@@ -631,10 +645,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
 
         {/* Task focus ranking */}
         <div className="grid grid-cols-1 gap-5">
-          <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 flex flex-col shadow-sm ">
-            <div className="pb-3.5 border-b border-[#EFEBE4] mb-4">
-              <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-[#A34E36]" />
+          <div className="rounded-2xl bg-white/90 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-5 flex flex-col shadow-xs transition-colors">
+            <div className="pb-3.5 border-b border-[#EFEBE4] dark:border-[#33353A] mb-4">
+              <h3 className="text-xs font-bold text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-[#A34E36] dark:text-[#E06D53]" />
                 <span>{a.taskBreakdown}</span>
               </h3>
             </div>
@@ -646,19 +660,19 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
                     <div key={stat.taskId} className="flex items-center gap-2">
                       <div className="flex-grow min-w-0">
                         <p
-                          className="text-[10px] font-bold text-slate-700 truncate"
+                          className="text-[10px] font-bold text-slate-700 dark:text-slate-200 truncate"
                           title={stat.taskTitle}
                         >
                           {stat.taskTitle}
                         </p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <div className="flex-grow h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/40">
+                          <div className="flex-grow h-2 bg-slate-100 dark:bg-[#252830] rounded-full overflow-hidden border border-slate-200/40 dark:border-[#383A42]">
                             <div
-                              className="h-full bg-gradient-to-r from-[#B2C8DF] to-[#C4D7B2] rounded-full transition-all duration-500"
+                              className="h-full bg-gradient-to-r from-[#B2C8DF] to-[#C4D7B2] dark:from-[#475C73] dark:to-[#44654D] rounded-full transition-all duration-500"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
-                          <span className="text-[8px] font-extrabold text-slate-500 shrink-0">
+                          <span className="text-[8px] font-extrabold text-slate-500 dark:text-slate-400 shrink-0">
                             {a.taskBreakdownItem
                               .replace("{count}", String(stat.tomatoCount))
                               .replace("{duration}", String(stat.totalDuration))}
@@ -669,7 +683,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
                   );
                 })
               ) : (
-                <div className="text-center py-6 text-slate-400 text-xs font-semibold">
+                <div className="text-center py-6 text-slate-400 dark:text-slate-500 text-xs font-semibold">
                   {a.noData}
                 </div>
               )}

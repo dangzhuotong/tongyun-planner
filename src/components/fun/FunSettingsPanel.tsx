@@ -21,9 +21,9 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
 
   return (
     <div className="space-y-6 flex-grow overflow-y-auto max-h-[380px] pr-1 custom-scrollbar">
-      <div className="bg-[#FAF8F5] border border-[#EFEBE4] rounded-2xl p-4 flex items-center justify-between">
+      <div className="bg-[#FAF8F5] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] rounded-2xl p-4 flex items-center justify-between">
         <div>
-          <span className="text-xs font-bold text-slate-700 block">
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
             {s.celebration || "🎉 夸夸模式"}
           </span>
           <span className="text-[10px] text-slate-400 mt-0.5 block">
@@ -39,9 +39,9 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
       </div>
 
       {config.enableCelebration !== false && (
-        <div className="bg-[#FAF8F5] border border-[#EFEBE4] rounded-2xl p-4 space-y-3">
+        <div className="bg-[#FAF8F5] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
               AI 夸夸词库（{aiPraiseList.length} 条）
             </span>
             {canUseAI(config) && (
@@ -63,7 +63,7 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
                   setGeneratingPraise(false);
                 }}
                 disabled={generatingPraise}
-                className="text-[10px] font-bold text-[#4D7C5D] hover:text-[#3F684C] flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#C4D7B2] hover:bg-[#F0F5F1] transition-all cursor-pointer disabled:opacity-50"
+                className="text-[10px] font-bold text-[#4D7C5D] dark:text-[#6DAF7E] hover:text-[#3F684C] dark:hover:text-[#88C69B] flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#C4D7B2] dark:border-[#2F4735] hover:bg-[#F0F5F1] dark:hover:bg-[#223326] transition-all cursor-pointer disabled:opacity-50"
               >
                 <Wand2 className={`w-3 h-3 ${generatingPraise ? "animate-spin" : ""}`} />
                 {generatingPraise ? "生成中..." : "用 AI 生成 5 条夸夸"}
@@ -75,16 +75,18 @@ export const FunSettingsPanel: React.FC<FunSettingsPanelProps> = ({ config, onCh
               {aiPraiseList.map((msg, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between bg-white border border-[#EFEBE4] rounded-lg px-3 py-1.5 group"
+                  className="flex items-center justify-between bg-white dark:bg-[#191B20] border border-[#EFEBE4] dark:border-[#2D3039] rounded-lg px-3 py-1.5 group"
                 >
-                  <span className="text-[11px] text-slate-700 font-medium truncate">{msg}</span>
+                  <span className="text-[11px] text-slate-700 dark:text-slate-200 font-medium truncate">
+                    {msg}
+                  </span>
                   <button
                     onClick={() => {
                       const updated = aiPraiseList.filter((_, j) => j !== i);
                       setAiPraiseList(updated);
                       localStorage.setItem("tongyun_ai_praise", JSON.stringify(updated));
                     }}
-                    className="p-0.5 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all cursor-pointer flex-shrink-0 ml-2"
+                    className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-rose-950/40 text-slate-300 dark:text-slate-500 hover:text-red-500 dark:hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-all cursor-pointer flex-shrink-0 ml-2"
                   >
                     <X className="w-3 h-3" />
                   </button>

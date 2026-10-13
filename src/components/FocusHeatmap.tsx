@@ -199,20 +199,20 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
   ];
 
   return (
-    <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 shadow-sm select-none flex flex-col justify-between">
+    <div className="rounded-2xl bg-white/90 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-5 shadow-xs select-none flex flex-col justify-between transition-colors">
       {/* 标题与统计图例 */}
-      <div className="flex items-center justify-between pb-3.5 border-b border-[#EFEBE4] mb-3.5">
-        <h3 className="text-xs font-bold text-[#2D323A] flex items-center gap-1.5">
-          <BarChart3 className="w-4 h-4 text-[#4D7C5D]" />
+      <div className="flex items-center justify-between pb-3.5 border-b border-[#EFEBE4] dark:border-[#33353A] mb-3.5">
+        <h3 className="text-xs font-bold text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
+          <BarChart3 className="w-4 h-4 text-[#4D7C5D] dark:text-[#6FAD84]" />
           <span>{title || a.heatmapTitle}</span>
         </h3>
         <div className="flex items-center gap-2.5">
           {stats.streak > 0 && (
-            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FCF2F0] border border-[#F5DFDB] text-[9px] font-bold text-[#A34E36]">
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FCF2F0] dark:bg-[#2B2123] border border-[#F5DFDB] dark:border-[#422D30] text-[9px] font-bold text-[#A34E36] dark:text-[#E06D53]">
               🔥 连续 {stats.streak} 天
             </span>
           )}
-          <div className="flex items-center gap-1 text-[8px] text-slate-400 font-bold uppercase tracking-wider">
+          <div className="flex items-center gap-1 text-[8px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
             <span>{a.low}</span>
             <div className="w-[10px] h-[10px] rounded-[2px] bg-[#ebedf0] dark:bg-[#2d333b]" />
             <div className="w-[10px] h-[10px] rounded-[2px] bg-[#9be9a8] dark:bg-[#0e4429]" />
@@ -237,7 +237,7 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
               x={LABEL_WIDTH + m.colIndex * STEP + CELL_SIZE / 2}
               y={10}
               textAnchor="middle"
-              className="fill-slate-400 font-bold"
+              className="fill-slate-400 dark:fill-slate-500 font-bold"
               fontSize={8}
             >
               {m.label}
@@ -251,7 +251,7 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
               x={12}
               y={MONTH_LABEL_HEIGHT + d.offset * STEP + CELL_SIZE - 2}
               textAnchor="end"
-              className="fill-slate-400 font-bold"
+              className="fill-slate-400 dark:fill-slate-500 font-bold"
               fontSize={8}
             >
               {d.label}
@@ -270,7 +270,7 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
                 rx={2.5}
                 ry={2.5}
                 className={`${LEVEL_CLASSES[getLevel(cell.count)]} transition-all duration-150 hover:brightness-110 cursor-help ${
-                  cell.isToday ? "stroke-[#A34E36] stroke-[1.8]" : ""
+                  cell.isToday ? "stroke-[#A34E36] dark:stroke-[#E06D53] stroke-[1.8]" : ""
                 }`}
               >
                 <title>{`${cell.date} · ${cell.count} 个番茄`}</title>
@@ -282,32 +282,37 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
 
       {/* 4 维数据速览与状态 */}
       {showStatsGlance && (
-        <div className="mt-4 pt-3.5 border-t border-[#EFEBE4]/80">
+        <div className="mt-4 pt-3.5 border-t border-[#EFEBE4]/80 dark:border-[#33353A]">
           <div className="flex items-center justify-between mb-2.5">
-            <span className="text-[9px] font-black text-[#4D7C5D] tracking-widest uppercase">
+            <span className="text-[9px] font-black text-[#4D7C5D] dark:text-[#6FAD84] tracking-widest uppercase">
               {a.weekGlance || "本周速览"}
             </span>
-            <span className="text-[9px] font-bold text-slate-400">
-              近 {weeks} 周累计 <span className="text-[#4D7C5D] font-extrabold">{stats.total}</span>{" "}
+            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500">
+              近 {weeks} 周累计{" "}
+              <span className="text-[#4D7C5D] dark:text-[#6FAD84] font-extrabold">
+                {stats.total}
+              </span>{" "}
               个番茄
             </span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <div className="rounded-xl bg-[#FAF8F5] border border-[#EFEBE4]/80 px-3 py-2.5 text-center">
-              <div className="text-base font-black text-[#2D323A] tracking-tight leading-none">
+            <div className="rounded-xl bg-[#FAF8F5] dark:bg-[#252830] border border-[#EFEBE4]/80 dark:border-[#383A42] px-3 py-2.5 text-center">
+              <div className="text-base font-black text-[#2D323A] dark:text-slate-100 tracking-tight leading-none">
                 {stats.thisWeekCount}
               </div>
-              <div className="text-[9px] font-bold text-slate-400 mt-1.5">
+              <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1.5">
                 {a.weekSessions || "个番茄 (本周)"}
               </div>
             </div>
 
-            <div className="rounded-xl bg-[#FAF8F5] border border-[#EFEBE4]/80 px-3 py-2.5 text-center">
-              <div className="text-base font-black text-[#2D323A] tracking-tight leading-none">
+            <div className="rounded-xl bg-[#FAF8F5] dark:bg-[#252830] border border-[#EFEBE4]/80 dark:border-[#383A42] px-3 py-2.5 text-center">
+              <div className="text-base font-black text-[#2D323A] dark:text-slate-100 tracking-tight leading-none">
                 {stats.thisWeekActiveDays}{" "}
-                <span className="text-[10px] text-slate-400 font-normal">/ 7</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
+                  / 7
+                </span>
               </div>
-              <div className="text-[9px] font-bold text-slate-400 mt-1.5">
+              <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1.5">
                 {a.weekActiveDaysShort || "活跃天数"}
               </div>
             </div>
@@ -315,42 +320,42 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
             <div
               className={`rounded-xl border px-3 py-2.5 text-center ${
                 stats.delta > 0
-                  ? "bg-[#F0F5F1] border-[#DEEAE2]"
+                  ? "bg-[#F0F5F1] dark:bg-[#212E24] border-[#DEEAE2] dark:border-[#3C5B43]"
                   : stats.delta < 0
-                    ? "bg-[#FCF2F0] border-[#F5DFDB]"
-                    : "bg-[#FAF8F5] border-[#EFEBE4]/80"
+                    ? "bg-[#FCF2F0] dark:bg-[#2B2123] border-[#F5DFDB] dark:border-[#422D30]"
+                    : "bg-[#FAF8F5] dark:bg-[#252830] border-[#EFEBE4]/80 dark:border-[#383A42]"
               }`}
             >
               <div
                 className={`text-base font-black tracking-tight leading-none flex items-center justify-center gap-1 ${
                   stats.delta > 0
-                    ? "text-[#4D7C5D]"
+                    ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                     : stats.delta < 0
-                      ? "text-[#A34E36]"
-                      : "text-slate-500"
+                      ? "text-[#A34E36] dark:text-[#E06D53]"
+                      : "text-slate-500 dark:text-slate-400"
                 }`}
               >
                 {stats.delta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : null}
                 {stats.delta < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : null}
                 {stats.delta === 0 ? "—" : `${stats.delta > 0 ? "+" : ""}${stats.delta}`}
               </div>
-              <div className="text-[9px] font-bold text-slate-400 mt-1.5">
+              <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1.5">
                 {a.weekVsLast || "对比上周"}
               </div>
             </div>
 
-            <div className="rounded-xl bg-[#FAF8F5] border border-[#EFEBE4]/80 px-3 py-2.5 text-center">
-              <div className="text-base font-black text-[#A34E36] tracking-tight leading-none flex items-center justify-center gap-1">
+            <div className="rounded-xl bg-[#FAF8F5] dark:bg-[#252830] border border-[#EFEBE4]/80 dark:border-[#383A42] px-3 py-2.5 text-center">
+              <div className="text-base font-black text-[#A34E36] dark:text-[#E06D53] tracking-tight leading-none flex items-center justify-center gap-1">
                 {stats.streak > 0 ? (
                   <>
-                    <Flame className="w-3.5 h-3.5 text-[#A34E36]" />
+                    <Flame className="w-3.5 h-3.5 text-[#A34E36] dark:text-[#E06D53]" />
                     <span>{stats.streak} 天</span>
                   </>
                 ) : (
                   <span>{stats.bestDayCount} 个</span>
                 )}
               </div>
-              <div className="text-[9px] font-bold text-slate-400 mt-1.5">
+              <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1.5">
                 {stats.streak > 0 ? "当前连续" : "单日最高"}
               </div>
             </div>

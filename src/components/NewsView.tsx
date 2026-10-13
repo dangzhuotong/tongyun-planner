@@ -188,34 +188,34 @@ export const NewsView: React.FC<NewsViewProps> = React.memo(
               className={
                 "px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer " +
                 (activeSubTab === tab.key
-                  ? "bg-[#2D323A] text-[#F5F1EA] shadow-sm"
-                  : "text-slate-500 hover:bg-white/60 hover:text-slate-700")
+                  ? "bg-[#2D323A] dark:bg-[#2A2E38] text-[#F5F1EA] dark:text-slate-100 shadow-sm border border-transparent dark:border-[#383D4A]"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-white/60 dark:hover:bg-[#202228] hover:text-slate-700 dark:hover:text-slate-200")
               }
             >
               <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
               {tab.key === "bookmarks" && bookmarks.length > 0 && (
-                <span className="bg-[#8B6E3C] text-white text-[8px] px-1.5 py-0.5 rounded-full ml-0.5 font-extrabold">
+                <span className="bg-[#8B6E3C] dark:bg-[#A3824A] text-white text-[8px] px-1.5 py-0.5 rounded-full ml-0.5 font-extrabold">
                   {bookmarks.length}
                 </span>
               )}
             </button>
           ))}
           <div className="ml-auto relative">
-            <Search className="w-3 h-3 text-slate-300 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-3 h-3 text-slate-400 dark:text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               ref={searchRef}
               type="text"
               placeholder="搜索文章..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-36 bg-white/60 border border-[#E8E0D0] pl-7 pr-2.5 py-1.5 rounded-lg text-[10px] text-slate-700 placeholder-slate-300 focus:outline-none focus:border-[#8B6E3C]/40 focus:bg-white transition-all font-medium"
+              className="w-36 bg-white/60 dark:bg-[#1E2026] border border-[#E8E0D0] dark:border-[#33353A] pl-7 pr-2.5 py-1.5 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#8B6E3C]/60 dark:focus:border-[#C9A96A] focus:bg-white dark:focus:bg-[#1E2026] transition-all font-medium"
             />
           </div>
         </div>
 
         {/* Content area */}
-        <div className="flex-grow bg-[#FCFAF4] border border-[#E8E0D0] rounded-2xl p-6 shadow-sm relative flex flex-col min-h-[400px]">
+        <div className="flex-grow bg-[#FCFAF4] dark:bg-[#18191E] border border-[#E8E0D0] dark:border-[#2C2E38] rounded-2xl p-6 shadow-xs relative flex flex-col min-h-[400px] transition-colors">
           {activeSubTab === "trending" && <TrendingView actions={actions} />}
           {activeSubTab === "github" && <GitHubView config={config} actions={actions} />}
           {activeSubTab === "rss" && (
@@ -265,7 +265,7 @@ export const NewsView: React.FC<NewsViewProps> = React.memo(
         )}
 
         {toast && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] px-4 py-2 rounded-xl bg-[#2D323A] text-[#F5F1EA] text-[11px] font-bold shadow-lg animate-[fadeIn_0.2s_ease-out]">
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] px-4 py-2 rounded-xl bg-[#2D323A] dark:bg-[#1C1D22] text-[#F5F1EA] dark:text-slate-100 text-[11px] font-bold shadow-lg border border-transparent dark:border-[#383A42] animate-[fadeIn_0.2s_ease-out]">
             {toast}
           </div>
         )}

@@ -144,7 +144,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
 
     return (
       <div className="animate-fade-in-up flex-grow select-none">
-        <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-5 shadow-sm">
+        <div className="rounded-2xl bg-white/90 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-5 shadow-xs transition-colors">
           {/* 设置搜索 */}
           <div className="relative mb-5">
             <input
@@ -152,7 +152,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="搜索设置…"
-              className="w-full pl-4 pr-10 py-2.5 text-sm bg-[#FAF8F5]/80 border border-[#EFEBE4] rounded-xl outline-none focus:border-[#C4D7B2] focus:ring-2 focus:ring-[#C4D7B2]/20 transition-all placeholder:text-slate-400 dark:bg-[#2A2A2A]/80 dark:border-[#3A3A3A] dark:text-slate-200 dark:placeholder:text-slate-500 dark:focus:border-[#6FAD84] dark:focus:ring-[#6FAD84]/20"
+              className="w-full pl-4 pr-10 py-2.5 text-sm bg-[#FAF8F5]/80 border border-[#EFEBE4] rounded-xl outline-none focus:border-[#C4D7B2] focus:ring-2 focus:ring-[#C4D7B2]/20 transition-all placeholder:text-slate-400 dark:bg-[#252830] dark:border-[#383A42] dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-[#6FAD84] dark:focus:ring-[#6FAD84]/20"
             />
             {searchQuery && (
               <button
@@ -170,10 +170,10 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
               <button
                 key={tab.id}
                 onClick={() => setSubTab(tab.id as any)}
-                className={`px-4 py-2 text-sm font-bold rounded-xl transition-all ${
+                className={`px-4 py-2 text-sm font-bold rounded-xl transition-all cursor-pointer ${
                   subTab === tab.id
-                    ? "bg-[#2D323A] text-white shadow-md"
-                    : "bg-[#FAF8F5] text-slate-600 hover:bg-[#F0EDE7] dark:bg-[#2A2A2A] dark:text-slate-400 dark:hover:bg-[#333]"
+                    ? "bg-[#2D323A] dark:bg-[#2A2E38] text-white dark:text-slate-100 shadow-sm border border-transparent dark:border-[#383D4A]"
+                    : "bg-[#FAF8F5] text-slate-600 hover:bg-[#F0EDE7] dark:bg-[#252830] dark:text-slate-400 dark:hover:bg-[#2D313B]"
                 }`}
               >
                 {tab.label}
