@@ -64,6 +64,75 @@ body,
   animation: pencilStrike 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   pointer-events: none;
 }
+:where(.dark, .dark *) .pencil-strike-through::after {
+  background: #78c496;
+}
+
+/* 手帐印泥红印盖章动效 */
+@keyframes stampIn {
+  0% {
+    transform: scale(2.2) rotate(-16deg);
+    opacity: 0;
+  }
+  65% {
+    transform: scale(0.92) rotate(-3deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1) rotate(-5deg);
+    opacity: 0.9;
+  }
+}
+
+.seal-stamp {
+  animation: stampIn 0.26s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* 暖纸环境漫反射微投影 */
+.shadow-paper {
+  box-shadow:
+    0 1px 3px 0 rgba(70, 50, 20, 0.04),
+    0 4px 12px -2px rgba(70, 50, 20, 0.06),
+    0 0 0 1px rgba(70, 50, 20, 0.04);
+}
+:where(.dark, .dark *) .shadow-paper {
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.25),
+    0 4px 14px -2px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.shadow-paper-hover {
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.shadow-paper-hover:hover {
+  box-shadow:
+    0 3px 8px 0 rgba(70, 50, 20, 0.06),
+    0 8px 20px -3px rgba(70, 50, 20, 0.1),
+    0 0 0 1px rgba(70, 50, 20, 0.06);
+}
+:where(.dark, .dark *) .shadow-paper-hover:hover {
+  box-shadow:
+    0 3px 8px 0 rgba(0, 0, 0, 0.35),
+    0 10px 24px -3px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+/* 手帐点阵底纹 (Dot Grid) */
+.paper-dot-grid {
+  background-image: radial-gradient(rgba(140, 115, 85, 0.1) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+:where(.dark, .dark *) .paper-dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+}
 
 /* 拖拽中的四象限卡片拟物姿态 */
 .paper-card-dragging {

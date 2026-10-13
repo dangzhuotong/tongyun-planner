@@ -8,6 +8,7 @@ export class AudioEngine {
   private brownBuffer: AudioBuffer | null = null;
   private pinkBuffer: AudioBuffer | null = null;
   private whiteBuffer: AudioBuffer | null = null;
+  private scratchBuffer: AudioBuffer | null = null;
 
   // Handles state protection to prevent overlapping context states during fading out
   private fadeTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -846,6 +847,86 @@ export class AudioEngine {
       gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + 0.09);
+    } catch {
+      // Ignored
+    }
+  }
+
+  private getScratchBuffer(ctx: AudioContext): AudioBuffer {
+    if (this.scratchBuffer) return this.scratchBuffer;
+    const sampleRate = ctx.sampleRate;
+    const bufferSize = Math.floor(0.09 * sampleRate);
+    const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (0.8 + 0.2 * Math.sin(i / 10));
+    }
+    this.scratchBuffer = buffer;
+    return buffer;
+  }
+
+  public playPencilScratchSound(): void {
+    try {
+      const ctx = this.init();
+      const now = ctx.currentTime;
+      const buffer = this.getScratchBuffer(ctx);
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(2600, now);
+      filter.frequency.linearRampToValueAtTime(3200, now + 0.05);
+      filter.frequency.exponentialRampToValueAtTime(1800, now + 0.09);
+      filter.Q.setValueAtTime(3.0, now);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      noise.start(now);
+      noise.stop(now + 0.09);
+    } catch {
+      // Ignored
+    }
+  }
+
+  public playStampSound(): void {
+    try {
+      const ctx = this.init();
+      const now = ctx.currentTime;
+
+      // 瞬态清脆触纸声
+      const clickOsc = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      clickOsc.type = "sine";
+      clickOsc.frequency.setValueAtTime(1400, now);
+      clickOsc.frequency.exponentialRampToValueAtTime(300, now + 0.02);
+      clickGain.gain.setValueAtTime(0.18, now);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+      clickOsc.connect(clickGain);
+      clickGain.connect(ctx.destination);
+      clickOsc.start(now);
+      clickOsc.stop(now + 0.025);
+
+      // 木质印章落下的饱满沉稳敲击
+      const thudOsc = ctx.createOscillator();
+      const thudGain = ctx.createGain();
+      thudOsc.type = "triangle";
+      thudOsc.frequency.setValueAtTime(160, now);
+      thudOsc.frequency.exponentialRampToValueAtTime(55, now + 0.07);
+      thudGain.gain.setValueAtTime(0.22, now);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      thudOsc.connect(thudGain);
+      thudGain.connect(ctx.destination);
+      thudOsc.start(now);
+      thudOsc.stop(now + 0.085);
     } catch {
       // Ignored
     }

@@ -17,6 +17,7 @@ import { CustomSelect } from "./CustomSelect";
 import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { audioEngine } from "../utils/audioEngine";
 
 interface ListViewProps {
   tasks: Task[];
@@ -89,6 +90,8 @@ export const ListView: React.FC<ListViewProps> = React.memo(
     const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
 
     const handleCompleteWithAnimation = (taskId: string) => {
+      if (completingTaskIds.has(taskId)) return;
+      audioEngine.playPencilScratchSound();
       setCompletingTaskIds((prev) => new Set(prev).add(taskId));
       setTimeout(() => {
         handleComplete(taskId);
@@ -196,7 +199,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
               return (
                 <div
                   key={task.id}
-                  className="rounded-xl bg-white/80 dark:bg-[#1A1C22]/80 border border-[#EFEBE4]/80 dark:border-[#282A30] hover:border-[#C4D7B2] dark:hover:border-[#3E5244] hover:bg-white dark:hover:bg-[#22242B] hover:shadow-xs transition-colors duration-200 group relative [content-visibility:auto] [contain-intrinsic-size:0_96px]"
+                  className="rounded-xl bg-white/80 dark:bg-[#1A1C22]/80 border border-[#EFEBE4]/80 dark:border-[#282A30] shadow-paper hover:border-[#C4D7B2] dark:hover:border-[#3E5244] hover:bg-white dark:hover:bg-[#22242B] hover:shadow-xs transition-colors duration-200 group relative [content-visibility:auto] [contain-intrinsic-size:0_96px]"
                 >
                   <div className="px-4 py-2.5 flex justify-between items-center gap-3">
                     <div className="flex items-center gap-3 min-w-0 flex-grow">
@@ -247,6 +250,11 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                           >
                             {task.title}
                           </h4>
+                          {isCompleting && (
+                            <span className="seal-stamp text-[8.5px] font-black text-red-600 dark:text-red-400 border border-red-500/70 dark:border-red-400/70 px-1 py-0.2 rounded-xs leading-none shrink-0 scale-90">
+                              済
+                            </span>
+                          )}
                           {task.isFavorite && (
                             <span title={lv.starred} className="flex-shrink-0 flex items-center">
                               <Heart className="w-3 h-3 text-[#E8A0BF] fill-[#E8A0BF]" />

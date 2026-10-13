@@ -16,6 +16,7 @@ import { StickyPin } from "./StickyPin";
 import { useTranslation } from "../i18n/LanguageContext";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { NOTE_COLORS } from "./noteThemes";
+import { audioEngine } from "../utils/audioEngine";
 
 interface StickyNotesViewProps {
   stickyNotes: StickyNoteType[];
@@ -77,7 +78,10 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(
           </div>
 
           <button
-            onClick={handleAddNote}
+            onClick={() => {
+              audioEngine.playStickSound();
+              handleAddNote();
+            }}
             className="group bg-[#4D7C5D] hover:bg-[#3F684C] text-white pl-3 pr-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-[0_3px_10px_-3px_rgba(77,124,93,0.5)] cursor-pointer hover:-translate-y-0.5 active:translate-y-0"
           >
             <Plus className="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-90" />
@@ -141,7 +145,9 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(
                     <div
                       key={note.id}
                       style={{
-                        transform: isGridMode ? "none" : `rotate(${note.rotate}deg)`,
+                        transform: isGridMode
+                          ? "none"
+                          : `rotate(${note.rotate ?? ((i % 5) - 2) * 0.8}deg)`,
                         animationDelay: `${Math.min(i * 45, 400)}ms`,
                       }}
                       onClick={() => setExpandedNote(note)}
@@ -196,6 +202,7 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(
                               key={colorKey}
                               onClick={(e) => {
                                 e.stopPropagation();
+                                audioEngine.playPopSound();
                                 handleChangeNoteColor(note.id, colorKey);
                               }}
                               className={`w-3.5 h-3.5 rounded-full ${c.bg} border ${c.border} shadow-sm transition-all hover:scale-125 cursor-pointer ${
@@ -220,6 +227,7 @@ export const StickyNotesView: React.FC<StickyNotesViewProps> = memo(
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              audioEngine.playPaperSwipeSound();
                               handleDeleteNote(note.id);
                             }}
                             className="p-1 rounded-md hover:bg-black/8 text-[#8a7350] hover:text-red-500 transition-all cursor-pointer"

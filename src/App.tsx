@@ -465,6 +465,7 @@ function AppBody() {
 
   const wrappedHandleDeleteTask = useCallback(
     (id: string) => {
+      audioEngine.playPaperSwipeSound();
       const victim =
         tasksHook.tasks.find((t) => t.id === id) ||
         tasksHook.completedTasks.find((t) => t.id === id);
@@ -485,6 +486,7 @@ function AppBody() {
       clearTimeout(deleteUndoTimerRef.current);
       deleteUndoTimerRef.current = null;
     }
+    audioEngine.playPopSound();
     tasksHook.handleUndoDelete();
     setDeleteUndoToast(null);
   }, [tasksHook.handleUndoDelete]);

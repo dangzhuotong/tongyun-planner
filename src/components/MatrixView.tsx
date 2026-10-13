@@ -19,6 +19,7 @@ import { PLANNER_COLORS, getDueDateCountdown, PRIORITY_META } from "../constants
 import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { audioEngine } from "../utils/audioEngine";
 
 interface MatrixViewProps {
   tasks: Task[];
@@ -76,6 +77,8 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
 
     const handleCompleteWithAnimation = (taskId: string) => {
+      if (completingTaskIds.has(taskId)) return;
+      audioEngine.playPencilScratchSound();
       setCompletingTaskIds((prev) => new Set(prev).add(taskId));
       setTimeout(() => {
         handleComplete(taskId);
@@ -407,7 +410,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                             setDraggingTaskId(null);
                             setDragOverQuadrant(null);
                           }}
-                          className={`p-3 rounded-xl ${cardBg} border ${cardBorder} hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-[#22242A] hover:shadow-xs transition-all duration-200 flex flex-col gap-1.5 relative overflow-hidden group cursor-grab active:cursor-grabbing [content-visibility:auto] [contain-intrinsic-size:0_120px] ${
+                          className={`p-3 rounded-xl ${cardBg} border ${cardBorder} shadow-paper hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-[#22242A] hover:shadow-xs transition-all duration-200 flex flex-col gap-1.5 relative overflow-hidden group cursor-grab active:cursor-grabbing [content-visibility:auto] [contain-intrinsic-size:0_120px] ${
                             isDragging ? "paper-card-dragging" : ""
                           } ${isCompleting ? "opacity-40 scale-[0.98]" : ""}`}
                         >
@@ -430,6 +433,11 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                               >
                                 {task.title}
                               </h4>
+                              {isCompleting && (
+                                <span className="seal-stamp text-[8.5px] font-black text-red-600 dark:text-red-400 border border-red-500/70 dark:border-red-400/70 px-1 py-0.2 rounded-xs leading-none shrink-0 scale-90">
+                                  済
+                                </span>
+                              )}
                               {task.isFavorite && (
                                 <span
                                   className="text-[10px] text-[#E8A0BF] shrink-0"
