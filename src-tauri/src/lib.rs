@@ -471,7 +471,7 @@ async fn ai_proxy(url: String, method: String, headers: std::collections::HashMa
     let status = res.status().as_u16();
     let text = res.text().await.map_err(|e| e.to_string())?;
 
-    if status < 200 || status >= 300 {
+    if !(200..300).contains(&status) {
         return Err(format!("E_HTTP_{}: {}", status, text));
     }
     Ok(text)
