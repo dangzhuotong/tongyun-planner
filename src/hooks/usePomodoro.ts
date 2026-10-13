@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { AlertSoundType, PomodoroLog } from "../types";
 import { useSync } from "./useSync";
 import { audioEngine } from "../utils/audioEngine";
+import { shouldAutoStartNoise } from "../utils/noisePolicy";
 
 export function usePomodoro() {
   const { syncState } = useSync();
@@ -28,6 +29,8 @@ export function usePomodoro() {
   const [isPlayingNoise, setIsPlayingNoise] = useState<boolean>(false);
   const [selectedNoiseType, setSelectedNoiseType] = useState<string>("brown");
   const [noiseVolume, setNoiseVolume] = useState<number>(0.35);
+  /** Manual mute wins over auto-noise and micro-break resume until the user presses play. */
+  const noiseManuallyStoppedRef = useRef(false);
 
   const syncPomodoro = useCallback(
     (
@@ -80,7 +83,14 @@ export function usePomodoro() {
         taskId,
         taskTitle,
       );
-      if (autoNoiseEnabled) {
+      if (
+        shouldAutoStartNoise({
+          autoNoiseEnabled,
+          active: true,
+          isBreak: false,
+          manuallyStopped: noiseManuallyStoppedRef.current,
+        })
+      ) {
         audioEngine.startNoise(selectedNoiseType, noiseVolume);
         setIsPlayingNoise(true);
       }
@@ -102,26 +112,37 @@ export function usePomodoro() {
   }, [alertSoundType]);
 
   const startNoise = useCallback((type: string, volume: number) => {
+    noiseManuallyStoppedRef.current = false;
     audioEngine.startNoise(type, volume);
     setIsPlayingNoise(true);
   }, []);
 
-  const stopNoise = useCallback(() => {
+  const stopNoise = useCallback((reason: "manual" | "auto" = "manual") => {
+    if (reason === "manual") noiseManuallyStoppedRef.current = true;
     audioEngine.stopNoise();
     setIsPlayingNoise(false);
   }, []);
 
-  /** Apply auto-noise policy: play only during active focus (not break). */
+  const isNoiseManuallyStopped = useCallback(() => noiseManuallyStoppedRef.current, []);
+
+  /** Apply auto-noise policy: play only during active focus (not break), unless the user muted. */
   const applyAutoNoise = useCallback(
     (active: boolean, isBreak: boolean) => {
       if (!autoNoiseEnabled) return;
-      if (active && !isBreak) {
+      if (
+        shouldAutoStartNoise({
+          autoNoiseEnabled,
+          active,
+          isBreak,
+          manuallyStopped: noiseManuallyStoppedRef.current,
+        })
+      ) {
         audioEngine.startNoise(selectedNoiseType, noiseVolume);
         setIsPlayingNoise(true);
-      } else {
-        audioEngine.stopNoise();
-        setIsPlayingNoise(false);
+        return;
       }
+      audioEngine.stopNoise();
+      setIsPlayingNoise(false);
     },
     [autoNoiseEnabled, selectedNoiseType, noiseVolume],
   );
@@ -164,6 +185,7 @@ export function usePomodoro() {
     playCompletionSound,
     startNoise,
     stopNoise,
+    isNoiseManuallyStopped,
     applyAutoNoise,
   };
 }

@@ -3,6 +3,13 @@ import type { usePomodoro } from "./usePomodoro";
 import type { useTranslation } from "../i18n/LanguageContext";
 import { audioEngine } from "../utils/audioEngine";
 import { createId } from "../utils/id";
+import {
+  announceMicroBreak,
+  nextThresholdAfterMicroBreak,
+  resolveMicroBreakSchedule,
+  shouldFireMicroBreak,
+} from "../utils/microBreak";
+import { shouldResumeNoiseAfterMicroBreak } from "../utils/noisePolicy";
 
 interface UsePomodoroTimerOptions {
   pomodoroHook: ReturnType<typeof usePomodoro>;
@@ -10,6 +17,7 @@ interface UsePomodoroTimerOptions {
   windowLabel: string;
   t: ReturnType<typeof useTranslation>["t"];
   onCelebration: (msg: string) => void;
+  onToast?: (text: string) => void;
 }
 
 export function usePomodoroTimer({
@@ -18,6 +26,7 @@ export function usePomodoroTimer({
   windowLabel,
   t,
   onCelebration,
+  onToast,
 }: UsePomodoroTimerOptions) {
   const windowLabelRef = useRef(windowLabel);
   useEffect(() => {
@@ -43,6 +52,9 @@ export function usePomodoroTimer({
     autoNoiseEnabled: pomodoroHook.autoNoiseEnabled,
     selectedNoiseType: pomodoroHook.selectedNoiseType,
     noiseVolume: pomodoroHook.noiseVolume,
+    onToast,
+    microBreakTitle: t.notification.microBreakTitle || "微休息",
+    microBreakBody: t.notification.microBreakBody || "休息 5 秒，看看远处，放松一下眼睛",
   });
 
   useEffect(() => {
@@ -65,10 +77,15 @@ export function usePomodoroTimer({
       autoNoiseEnabled: pomodoroHook.autoNoiseEnabled,
       selectedNoiseType: pomodoroHook.selectedNoiseType,
       noiseVolume: pomodoroHook.noiseVolume,
+      onToast,
+      microBreakTitle: t.notification.microBreakTitle || "微休息",
+      microBreakBody: t.notification.microBreakBody || "休息 5 秒，看看远处，放松一下眼睛",
     };
   });
 
   const nextRandomBreakRef = useRef<number | null>(null);
+  const suppressedForEndTimeRef = useRef<number | null>(null);
+  const prevRandomBreakEnabledRef = useRef(pomodoroHook.randomBreakEnabled);
   const isOnRandomBreakRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -76,16 +93,21 @@ export function usePomodoroTimer({
     const endTime = pomodoroHook.pomodoroEndTime;
     let fired = false;
 
-    if (
-      pomodoroHook.randomBreakEnabled &&
-      !pomodoroHook.pomodoroIsBreak &&
-      nextRandomBreakRef.current === null
-    ) {
-      const minGap = 180;
-      const maxGap = 420;
-      const totalSec = pomodoroHook.focusDuration * 60;
-      nextRandomBreakRef.current = totalSec - (minGap + Math.random() * (maxGap - minGap));
-    }
+    const enabledJustTurnedOn =
+      pomodoroHook.randomBreakEnabled && !prevRandomBreakEnabledRef.current;
+    prevRandomBreakEnabledRef.current = pomodoroHook.randomBreakEnabled;
+    const remainingAtStart = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+    const planned = resolveMicroBreakSchedule({
+      enabled: pomodoroHook.randomBreakEnabled,
+      isFocus: !pomodoroHook.pomodoroIsBreak,
+      remainingSec: remainingAtStart,
+      endTime,
+      previous: nextRandomBreakRef.current,
+      suppressedForEndTime: suppressedForEndTimeRef.current,
+      enabledJustTurnedOn,
+    });
+    nextRandomBreakRef.current = planned.next;
+    suppressedForEndTimeRef.current = planned.suppressedForEndTime;
 
     const tick = () => {
       const now = Date.now();
@@ -95,33 +117,39 @@ export function usePomodoroTimer({
       const ps = pomodoroStateRef.current;
 
       if (
+        ps.windowLabel === "main" &&
         ps.randomBreakEnabled &&
         !ps.isBreak &&
-        diff > 0 &&
-        nextRandomBreakRef.current !== null &&
-        diff <= nextRandomBreakRef.current &&
-        !isOnRandomBreakRef.current
+        shouldFireMicroBreak(diff, nextRandomBreakRef.current, isOnRandomBreakRef.current)
       ) {
         isOnRandomBreakRef.current = true;
         clearInterval(intervalId);
         const sounds = ["beep", "cuckoo", "meow", "chime", "ding", "marimba"];
         const randomSound = sounds[Math.floor(Math.random() * sounds.length)];
         audioEngine.playCompletionSound(randomSound);
+        announceMicroBreak(
+          { title: ps.microBreakTitle, body: ps.microBreakBody },
+          { onToast: ps.onToast },
+        );
         const wasPlayingNoise = ps.isPlayingNoise;
         if (wasPlayingNoise) {
-          pomodoroHook.stopNoise();
+          pomodoroHook.stopNoise("auto");
         }
-        const minGap = 180;
-        const maxGap = 420;
-        const nextGap = minGap + Math.random() * (maxGap - minGap);
-        nextRandomBreakRef.current = diff - nextGap;
-        if (nextRandomBreakRef.current < 30) {
-          nextRandomBreakRef.current = -1;
+        const nextThreshold = nextThresholdAfterMicroBreak(diff);
+        nextRandomBreakRef.current = nextThreshold;
+        if (nextThreshold < 0) {
+          suppressedForEndTimeRef.current = endTime + 5000;
         }
         setTimeout(() => {
           isOnRandomBreakRef.current = false;
           const psNow = pomodoroStateRef.current;
-          if (wasPlayingNoise || psNow.autoNoiseEnabled) {
+          if (
+            shouldResumeNoiseAfterMicroBreak({
+              wasPlayingNoise,
+              autoNoiseEnabled: psNow.autoNoiseEnabled,
+              manuallyStopped: pomodoroHook.isNoiseManuallyStopped(),
+            })
+          ) {
             pomodoroHook.startNoise(psNow.selectedNoiseType, psNow.noiseVolume);
           }
           pomodoroHook.setPomodoroEndTime(endTime + 5000);
@@ -139,7 +167,7 @@ export function usePomodoroTimer({
 
         pomodoroHook.playCompletionSound();
         if (pomodoroHook.autoNoiseEnabled) {
-          pomodoroHook.stopNoise();
+          pomodoroHook.stopNoise("auto");
         }
 
         if (s.isBreak) {
@@ -211,5 +239,10 @@ export function usePomodoroTimer({
     const intervalId = setInterval(tick, 1000);
     return () => clearInterval(intervalId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pomodoroHook.pomodoroIsActive, pomodoroHook.pomodoroEndTime]);
+  }, [
+    pomodoroHook.pomodoroIsActive,
+    pomodoroHook.pomodoroEndTime,
+    pomodoroHook.randomBreakEnabled,
+    pomodoroHook.pomodoroIsBreak,
+  ]);
 }

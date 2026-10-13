@@ -386,7 +386,14 @@ const zhCN: Translations = {
     syncDesc:
       "配置坚果云或其他 WebDAV 账户后，数据会在多台设备间自动同步；本机始终保留完整数据，离线也能正常使用。",
     syncSecurityNote:
-      "🔒 安全说明：云端同步不会上传任何 AI API Key 等敏感密钥，密钥仅保存在本机。在其他设备使用 AI 功能时，请在设置中单独填写密钥。",
+      "🔒 安全说明：默认不上传 AI API Key 等密钥。只有你打开「同步 API 密钥」并设置口令后，密钥才会加密上传。口令只留在本机。",
+    syncSecretsTitle: "同步 API 密钥（默认关闭）",
+    syncSecretsDesc: "开启后，AI API Key 与邮箱授权码会用口令加密再上传。关闭时密钥只留在本机。",
+    syncSecretsNeedPass: "请先设置加密口令，否则密钥仍不会上传",
+    syncSecretsPassphrase: "加密口令",
+    syncSecretsPassphraseHint: "仅保存在本机，不会上传",
+    syncSecretsTradeoff:
+      "云端只保存密文。口令太弱时，拿到文件的人仍可能离线破解；口令丢失则无法在其他设备解密。本机已经填写的密钥不会被云端空值覆盖。WebDAV 密码不会放进加密包。",
     syncConflictTitle: "云端数据有更新",
     syncConflictBody:
       "以下数据在上次同步后被其他设备修改过，为避免覆盖，本次没有上传。云端版本已另存为本地备份。请选择保留哪一份：",
@@ -574,6 +581,8 @@ const zhCN: Translations = {
     focusTimeBody: "休息结束啦，打起精神开始专注吧 🎯",
     pomodoroTime: "番茄时间到啦！",
     pomodoroTimeBody: "太棒了！完成了一个番茄钟，喝口水休息一下吧 🌿",
+    microBreakTitle: "微休息",
+    microBreakBody: "休息 5 秒，看看远处，放松一下眼睛",
   },
   dashboard: {
     morning: "早上好",

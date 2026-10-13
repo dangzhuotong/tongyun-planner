@@ -13,10 +13,13 @@ import {
   getLocalSyncData,
   reconcileTasksAndCompleted,
   protectAgainstEmptyOverwrite,
-  sanitizeConfigForSync,
 } from "./types";
-import type { WebDavConfig } from "../../types";
+import type { CustomizationConfig, WebDavConfig } from "../../types";
 import { invoke } from "@tauri-apps/api/core";
+import { isDesktopRuntime, WEBDAV_REQUIRES_DESKTOP } from "../tauriRuntime";
+import { importDecryptedSecrets, prepareConfigForUpload } from "./secretSync";
+import { peekForceConfigPull, clearForceConfigPull } from "./syncSecretsPref";
+import { categoryVersionAfterPull, shouldPullCategory } from "./pullDecision";
 import {
   remoteFingerprint,
   getFingerprint,
@@ -32,8 +35,13 @@ const MANIFEST_FILE = "manifest.json";
 const LEGACY_BACKUP_FILE = "tongyun_planner_backup.json";
 const REMOTE_DIR = "TongYunPlanner/";
 
-const isTauri = () =>
-  typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
+const isTauri = () => isDesktopRuntime();
+
+function assertDesktopWebDav(): void {
+  if (!isDesktopRuntime()) {
+    throw new Error(WEBDAV_REQUIRES_DESKTOP);
+  }
+}
 
 function invokeWithTimeout<T>(
   cmd: string,
@@ -57,35 +65,17 @@ export async function statFile(
   filename: string,
 ): Promise<{ exists: boolean; etag: string | null; lastModified: string | null }> {
   if (!config.url || !config.username) throw new Error("WebDAV config incomplete");
-
-  if (isTauri()) {
-    return await invokeWithTimeout<{
-      exists: boolean;
-      etag: string | null;
-      lastModified: string | null;
-    }>("webdav_stat", {
-      url: config.url,
-      username: config.username,
-      password: config.password || null,
-      filename,
-    });
-  }
-
-  const baseUrl = config.url.endsWith("/") ? config.url : config.url + "/";
-  const token = btoa(config.username + ":" + (config.password || ""));
-  const res = await fetch(baseUrl + filename, {
-    method: "HEAD",
-    headers: { Authorization: "Basic " + token },
+  assertDesktopWebDav();
+  return await invokeWithTimeout<{
+    exists: boolean;
+    etag: string | null;
+    lastModified: string | null;
+  }>("webdav_stat", {
+    url: config.url,
+    username: config.username,
+    password: config.password || null,
+    filename,
   });
-  if (res.status === 404) {
-    return { exists: false, etag: null, lastModified: null };
-  }
-  if (!res.ok) {
-    throw new Error("E_HTTP_" + res.status);
-  }
-  const etag = res.headers.get("ETag")?.trim() || null;
-  const lastModified = res.headers.get("Last-Modified")?.trim() || null;
-  return { exists: true, etag, lastModified };
 }
 
 export async function downloadWithMeta(
@@ -93,33 +83,18 @@ export async function downloadWithMeta(
   filename: string,
 ): Promise<{ exists: boolean; content: string; etag: string | null; lastModified: string | null }> {
   if (!config.url || !config.username) throw new Error("WebDAV config incomplete");
-
-  if (isTauri()) {
-    const res = await invokeWithTimeout<{
-      content: string;
-      etag: string | null;
-      lastModified: string | null;
-    }>("webdav_download_meta", {
-      url: config.url,
-      username: config.username,
-      password: config.password || null,
-      filename,
-    });
-    return { exists: true, ...res };
-  }
-
-  const baseUrl = config.url.endsWith("/") ? config.url : config.url + "/";
-  const token = btoa(config.username + ":" + (config.password || ""));
-  const res = await fetch(baseUrl + filename, {
-    method: "GET",
-    headers: { Authorization: "Basic " + token },
+  assertDesktopWebDav();
+  const res = await invokeWithTimeout<{
+    content: string;
+    etag: string | null;
+    lastModified: string | null;
+  }>("webdav_download_meta", {
+    url: config.url,
+    username: config.username,
+    password: config.password || null,
+    filename,
   });
-  if (res.status === 404) throw new Error("E_NOT_FOUND");
-  if (!res.ok) throw new Error("E_HTTP_" + res.status);
-  const content = await res.text();
-  const etag = res.headers.get("ETag")?.trim() || null;
-  const lastModified = res.headers.get("Last-Modified")?.trim() || null;
-  return { exists: true, content, etag, lastModified };
+  return { exists: true, ...res };
 }
 
 export async function uploadWithMeta(
@@ -128,32 +103,18 @@ export async function uploadWithMeta(
   content: string,
 ): Promise<{ exists: boolean; etag: string | null; lastModified: string | null }> {
   if (!config.url || !config.username) throw new Error("WebDAV config incomplete");
-
-  if (isTauri()) {
-    return await invokeWithTimeout<{
-      exists: boolean;
-      etag: string | null;
-      lastModified: string | null;
-    }>("webdav_upload_meta", {
-      url: config.url,
-      username: config.username,
-      password: config.password || null,
-      filename,
-      content,
-    });
-  }
-
-  const baseUrl = config.url.endsWith("/") ? config.url : config.url + "/";
-  const token = btoa(config.username + ":" + (config.password || ""));
-  const res = await fetch(baseUrl + filename, {
-    method: "PUT",
-    headers: { Authorization: "Basic " + token, "Content-Type": "application/json; charset=utf-8" },
-    body: content,
+  assertDesktopWebDav();
+  return await invokeWithTimeout<{
+    exists: boolean;
+    etag: string | null;
+    lastModified: string | null;
+  }>("webdav_upload_meta", {
+    url: config.url,
+    username: config.username,
+    password: config.password || null,
+    filename,
+    content,
   });
-  if (!res.ok) throw new Error("E_HTTP_" + res.status);
-  const etag = res.headers.get("ETag")?.trim() || null;
-  const lastModified = res.headers.get("Last-Modified")?.trim() || null;
-  return { exists: true, etag, lastModified };
 }
 
 async function writeLocalBackup(
@@ -209,27 +170,13 @@ async function downloadFile(config: WebDavConfig, filename: string): Promise<str
 async function ensureDir(config: WebDavConfig, dirname: string): Promise<void> {
   if (!config.url || !config.username) return;
 
-  if (isTauri()) {
-    await invokeWithTimeout("webdav_mkcol", {
-      url: config.url,
-      username: config.username,
-      password: config.password || null,
-      dirname,
-    });
-    return;
-  }
-
-  // Browser fallback: MKCOL via fetch
-  const baseUrl = config.url.endsWith("/") ? config.url : config.url + "/";
-  const token = btoa(config.username + ":" + (config.password || ""));
-  const res = await fetch(baseUrl + dirname, {
-    method: "MKCOL",
-    headers: { Authorization: "Basic " + token },
+  assertDesktopWebDav();
+  await invokeWithTimeout("webdav_mkcol", {
+    url: config.url,
+    username: config.username,
+    password: config.password || null,
+    dirname,
   });
-  // 405 = already exists, which is fine
-  if (!res.ok && res.status !== 405) {
-    throw new Error("E_HTTP_" + res.status);
-  }
 }
 
 async function tryDownload(config: WebDavConfig, filename: string): Promise<string | null> {
@@ -258,10 +205,15 @@ export class WebDAVProvider implements SyncProvider {
   }
 
   setConfig(config: WebDavConfig): void {
-    this.config = config;
+    this.config = {
+      url: config.url,
+      username: config.username,
+      password: config.password,
+    };
     localStorage.setItem("tongyun_webdav_url", config.url);
     localStorage.setItem("tongyun_webdav_user", config.username);
     if (config.password) localStorage.setItem("tongyun_webdav_pass", config.password);
+    else localStorage.removeItem("tongyun_webdav_pass");
   }
 
   loadFromStorage(): void {
@@ -393,9 +345,16 @@ export class WebDAVProvider implements SyncProvider {
           if (rPath) backupPaths.push(rPath);
         }
 
-        let localPayload = getCategoryPayload(data, cat);
+        let localPayload: unknown =
+          cat === "config" ? data.customizationConfig : getCategoryPayload(data, cat);
         if (cat === "config") {
-          localPayload = sanitizeConfigForSync(localPayload as any);
+          localPayload = await prepareConfigForUpload(localPayload as CustomizationConfig, {
+            secretSource: data.customizationConfig,
+            remoteEnvelope:
+              remotePayload && typeof remotePayload === "object"
+                ? (remotePayload as { encryptedSecrets?: unknown }).encryptedSecrets
+                : undefined,
+          });
         }
         const localContent = JSON.stringify(localPayload, null, 2);
         const lBackupName = conflictBackupFileName(now, cat, "local");
@@ -441,6 +400,9 @@ export class WebDAVProvider implements SyncProvider {
         console.warn(`[sync] skip empty overwrite for ${cat}`);
         if (remotePayload != null) {
           applyCategoryPayload(cat, remotePayload);
+          if (cat === "config") {
+            await importDecryptedSecrets(remotePayload, data.customizationConfig);
+          }
           if (remoteVersion > 0) {
             localStorage.setItem("tongyun_cat_ver_" + cat, String(remoteVersion));
             localManifest[cat].version = remoteVersion;
@@ -456,7 +418,13 @@ export class WebDAVProvider implements SyncProvider {
         applyCategoryPayload(cat, payload);
       }
       if (cat === "config") {
-        payload = sanitizeConfigForSync(payload as any);
+        payload = await prepareConfigForUpload(payload as CustomizationConfig, {
+          secretSource: data.customizationConfig,
+          remoteEnvelope:
+            remotePayload && typeof remotePayload === "object"
+              ? (remotePayload as { encryptedSecrets?: unknown }).encryptedSecrets
+              : undefined,
+        });
       }
 
       const json = JSON.stringify(payload);
@@ -509,21 +477,23 @@ export class WebDAVProvider implements SyncProvider {
 
     // 使用 PULL_CATEGORY_ORDER（completedTasks 优先），确保 tasks 去重时已完成列表已就位
     for (const cat of PULL_CATEGORY_ORDER) {
-      // 跳过用户主动变更的脏分类，避免远端覆盖本地已清空/已完成的正确状态
-      if (dirtyOnly?.has(cat)) {
+      const remoteVer = remoteManifest[cat]?.version || 0;
+      if (remoteVer === 0) continue; // 远端不存在该分类文件
+
+      const forceConfig = cat === "config" && peekForceConfigPull();
+      // 跳过用户主动变更的脏分类，避免远端覆盖本地已清空/已完成的正确状态。
+      // 打开「同步密钥」后的强制拉取只导入密文，不拿旧的远端公开配置盖掉本机。
+      if (dirtyOnly?.has(cat) && !forceConfig) {
         console.log(`[sync] pull skip dirty category: ${cat}`);
         continue;
       }
-
-      const remoteVer = remoteManifest[cat]?.version || 0;
-      if (remoteVer === 0) continue; // 远端不存在该分类文件
 
       const fileName = SYNC_CATEGORY_FILES[cat];
       const remoteFilePath = REMOTE_DIR + fileName;
 
       // 本地版本号 >= 远端 → 本地不旧于远端，不拉取（双重防线：dirty 标记丢失后版本号仍能保护）
       const localVer = getLocalCategoryVersion(cat);
-      if (localVer >= remoteVer) {
+      if (!shouldPullCategory(localVer, remoteVer, forceConfig)) {
         console.log(
           `[sync] pull skip newer category: ${cat} (local ${localVer} >= remote ${remoteVer})`,
         );
@@ -563,12 +533,28 @@ export class WebDAVProvider implements SyncProvider {
       }
 
       const remotePayload = JSON.parse(downloaded.content);
-      const localPayload = getCategoryPayload(localData, cat);
+      const localPayload =
+        cat === "config" ? localData.customizationConfig : getCategoryPayload(localData, cat);
+
+      // Newer local config: import encrypted secrets only, leave public fields and the version stamp.
+      if (forceConfig && localVer >= remoteVer) {
+        await importDecryptedSecrets(remotePayload, localPayload);
+        clearForceConfigPull();
+        anyUpdated = true;
+        continue;
+      }
 
       // 远端为主 + 本地补充合并
       const merged = mergeRemoteIntoLocal(cat, remotePayload, localPayload);
       applyCategoryPayload(cat, merged);
-      localStorage.setItem("tongyun_cat_ver_" + cat, String(remoteVer));
+      if (cat === "config") {
+        await importDecryptedSecrets(remotePayload, localPayload);
+        if (forceConfig) clearForceConfigPull();
+      }
+      localStorage.setItem(
+        "tongyun_cat_ver_" + cat,
+        String(categoryVersionAfterPull(localVer, remoteVer, forceConfig)),
+      );
       anyUpdated = true;
     }
 
@@ -600,6 +586,9 @@ export class WebDAVProvider implements SyncProvider {
         cat === "config" ? localData.customizationConfig : getCategoryPayload(localData, cat);
       const merged = mergeRemoteIntoLocal(cat, remotePayload, localPayload);
       applyCategoryPayload(cat, merged);
+      if (cat === "config") {
+        await importDecryptedSecrets(remotePayload, localPayload);
+      }
       anyUpdated = true;
     }
     if (anyUpdated) {
@@ -619,7 +608,9 @@ export class WebDAVProvider implements SyncProvider {
     await ensureDir(this.config, REMOTE_DIR);
 
     if (cat === "config") {
-      payload = sanitizeConfigForSync(payload as any);
+      payload = await prepareConfigForUpload(payload as CustomizationConfig, {
+        secretSource: payload as CustomizationConfig,
+      });
     }
 
     const fileName = SYNC_CATEGORY_FILES[cat];
@@ -650,17 +641,26 @@ export class WebDAVProvider implements SyncProvider {
    * 接受云端版本（用户选择保留云端版本时使用）：
    * 解析 remoteContent，完整替换该分类，写入分类版本号与指纹，并重新对齐 tasks 与 completed。
    */
-  acceptRemote(conflict: SyncConflict): void {
-    let payload = conflict.remotePayload;
-    if (!payload && conflict.remoteContent) {
+  async acceptRemote(conflict: SyncConflict): Promise<void> {
+    let remotePayload = conflict.remotePayload;
+    if (!remotePayload && conflict.remoteContent) {
       try {
-        payload = JSON.parse(conflict.remoteContent);
+        remotePayload = JSON.parse(conflict.remoteContent);
       } catch {
-        payload = null;
+        remotePayload = null;
       }
     }
 
+    const localConfig =
+      conflict.category === "config" ? getLocalSyncData().customizationConfig : null;
+    const payload =
+      conflict.category === "config"
+        ? mergeRemoteIntoLocal("config", remotePayload, localConfig)
+        : remotePayload;
     applyCategoryPayload(conflict.category, payload);
+    if (conflict.category === "config") {
+      await importDecryptedSecrets(remotePayload, localConfig);
+    }
 
     if (conflict.remoteManifestVersion > 0) {
       localStorage.setItem(
