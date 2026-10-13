@@ -1524,7 +1524,7 @@ const MainLayout = React.memo(function MainLayout({
         </React.Suspense>
       ) : (
         <div
-          className={`w-full h-full min-h-screen bg-[#FAFAF8] text-[#2D323A] flex flex-col select-none overflow-hidden relative theme-font-${fontFamily || "sans"} main-window-root`}
+          className={`w-full h-full min-h-screen bg-[#FAFAF8] dark:bg-[#121316] text-[#2D323A] dark:text-slate-100 flex flex-col select-none overflow-hidden relative theme-font-${fontFamily || "sans"} main-window-root`}
         >
           <TitleBar />
           <div className="flex flex-grow min-h-0 relative">
@@ -1553,7 +1553,7 @@ const MainLayout = React.memo(function MainLayout({
               />
             )}
             {deleteUndoToast && (
-              <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
+              <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#2D323A] dark:bg-[#1E2026] text-white text-xs font-bold shadow-lg dark:border dark:border-[#33353A] animate-fade-in-up">
                 <span className="max-w-[240px] truncate">
                   {(t.listView.deletedToast || "已删除「{title}」").replace(
                     "{title}",

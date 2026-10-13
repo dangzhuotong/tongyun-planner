@@ -25,40 +25,40 @@ const EMOJI_OPTIONS = [
 
 const CARD_COLORS = [
   {
-    bg: "bg-[#F0F5F1]",
-    border: "border-[#C4D7B2]",
-    text: "text-[#4D7C5D]",
-    dot: "bg-[#4D7C5D]",
+    bg: "bg-[#F0F5F1] dark:bg-[#1A251E]",
+    border: "border-[#C4D7B2] dark:border-[#2C4233]",
+    text: "text-[#4D7C5D] dark:text-[#78C496]",
+    dot: "bg-[#4D7C5D] dark:bg-[#78C496]",
   },
   {
-    bg: "bg-[#FCF2F0]",
-    border: "border-[#F5DFDB]",
-    text: "text-[#A34E36]",
-    dot: "bg-[#A34E36]",
+    bg: "bg-[#FCF2F0] dark:bg-[#2A1B1D]",
+    border: "border-[#F5DFDB] dark:border-[#4B292D]",
+    text: "text-[#A34E36] dark:text-[#E06D53]",
+    dot: "bg-[#A34E36] dark:bg-[#E06D53]",
   },
   {
-    bg: "bg-[#FBF4EC]",
-    border: "border-[#EDDCC8]",
-    text: "text-[#C97D3E]",
-    dot: "bg-[#C97D3E]",
+    bg: "bg-[#FBF4EC] dark:bg-[#2A2219]",
+    border: "border-[#EDDCC8] dark:border-[#4A3824]",
+    text: "text-[#C97D3E] dark:text-[#E5985A]",
+    dot: "bg-[#C97D3E] dark:bg-[#E5985A]",
   },
   {
-    bg: "bg-[#EEF5F8]",
-    border: "border-[#C5DEE8]",
-    text: "text-[#5B99B0]",
-    dot: "bg-[#5B99B0]",
+    bg: "bg-[#EEF5F8] dark:bg-[#17232B]",
+    border: "border-[#C5DEE8] dark:border-[#263E4D]",
+    text: "text-[#5B99B0] dark:text-[#77BED9]",
+    dot: "bg-[#5B99B0] dark:bg-[#77BED9]",
   },
   {
-    bg: "bg-[#F3F2F7]",
-    border: "border-[#E5E2EE]",
-    text: "text-[#5C528B]",
-    dot: "bg-[#5C528B]",
+    bg: "bg-[#F3F2F7] dark:bg-[#201E2B]",
+    border: "border-[#E5E2EE] dark:border-[#38334E]",
+    text: "text-[#5C528B] dark:text-[#9A8FE2]",
+    dot: "bg-[#5C528B] dark:bg-[#9A8FE2]",
   },
   {
-    bg: "bg-[#FBF8EC]",
-    border: "border-[#EDE5C8]",
-    text: "text-[#A08B30]",
-    dot: "bg-[#A08B30]",
+    bg: "bg-[#FBF8EC] dark:bg-[#272517]",
+    border: "border-[#EDE5C8] dark:border-[#474223]",
+    text: "text-[#A08B30] dark:text-[#D1B846]",
+    dot: "bg-[#A08B30] dark:bg-[#D1B846]",
   },
 ];
 
@@ -206,7 +206,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
       <div className="animate-fade-in-up flex flex-col gap-5 flex-grow z-10 relative select-none max-w-4xl mx-auto w-full pt-2">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-extrabold text-[#2D323A] tracking-tight">
+          <h2 className="text-lg font-extrabold text-[#2D323A] dark:text-slate-100 tracking-tight">
             {c.title}{" "}
             {countdowns.length > 0 && (
               <span className="text-sm text-slate-400 font-bold">· {countdowns.length}</span>
@@ -225,11 +225,11 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
         {showForm && (
           <form
             onSubmit={handleSubmit}
-            className="rounded-2xl bg-white/80 border border-[#EFEBE4] p-5 shadow-sm space-y-4"
+            className="rounded-2xl bg-white/80 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] p-5 shadow-sm space-y-4"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   {c.eventName}
                 </label>
                 <input
@@ -237,17 +237,17 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder={c.eventNamePlaceholder}
-                  className="w-full bg-white border border-[#EFEBE4] px-3 py-2 rounded-xl text-xs font-bold text-slate-700 placeholder-slate-300 focus:outline-none focus:border-[#4D7C5D] focus:ring-1 focus:ring-[#4D7C5D]/20 transition-all"
+                  className="w-full bg-white dark:bg-[#202228] border border-[#EFEBE4] dark:border-[#2E313A] px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-100 placeholder-slate-300 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#78C496] focus:ring-1 focus:ring-[#4D7C5D]/20 transition-all"
                   required
                   autoFocus
                 />
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                     {c.targetDate}
                   </label>
-                  <label className="flex items-center gap-1 text-[10px] font-bold text-[#4D7C5D] cursor-pointer">
+                  <label className="flex items-center gap-1 text-[10px] font-bold text-[#4D7C5D] dark:text-[#78C496] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={isLunar}
@@ -262,14 +262,14 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                   type="date"
                   value={newDate}
                   onChange={(e) => setNewDate(e.target.value)}
-                  className="w-full bg-white border border-[#EFEBE4] px-3 py-2 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-[#4D7C5D] focus:ring-1 focus:ring-[#4D7C5D]/20 transition-all"
+                  className="w-full bg-white dark:bg-[#202228] border border-[#EFEBE4] dark:border-[#2E313A] px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-100 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#78C496] focus:ring-1 focus:ring-[#4D7C5D]/20 transition-all"
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+              <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                 {c.emoji}
               </label>
               <div className="flex flex-wrap gap-2">
@@ -280,8 +280,8 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                     onClick={() => setNewEmoji(emoji)}
                     className={`w-8 h-8 flex items-center justify-center rounded-lg text-base transition-all cursor-pointer border ${
                       newEmoji === emoji
-                        ? "border-[#4D7C5D] bg-[#F0F5F1] scale-110 shadow-xs"
-                        : "border-transparent hover:bg-[#FAF8F5]"
+                        ? "border-[#4D7C5D] dark:border-[#78C496] bg-[#F0F5F1] dark:bg-[#1C2820] scale-110 shadow-xs"
+                        : "border-transparent hover:bg-[#FAF8F5] dark:hover:bg-[#202228]"
                     }`}
                   >
                     {emoji}
@@ -294,7 +294,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-[#FAF8F5] transition-all cursor-pointer border border-[#EFEBE4]"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#202228] transition-all cursor-pointer border border-[#EFEBE4] dark:border-[#2E313A]"
               >
                 {c.cancel}
               </button>
@@ -316,7 +316,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   {grp.label}
                 </h3>
-                <span className="text-[9px] text-slate-300 font-bold">{grp.events.length}</span>
+                <span className="text-[9px] text-slate-300 dark:text-slate-500 font-bold">{grp.events.length}</span>
                 <span className="flex-1 h-px bg-[#EFEBE4] dark:bg-[#33353A]" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -328,9 +328,9 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                       key={event.id}
                       className={`rounded-2xl border-2 p-5 shadow-sm hover:shadow-md transition-all duration-300 card-hover-lift relative group ${
                         info.isOverdue
-                          ? "bg-red-50 border-red-200"
+                          ? "bg-red-50 dark:bg-[#341B1E] border-red-200 dark:border-[#52252A]"
                           : info.isToday
-                            ? "bg-[#F0F5F1] border-[#C4D7B2]"
+                            ? "bg-[#F0F5F1] dark:bg-[#1A251E] border-[#C4D7B2] dark:border-[#2C4233]"
                             : `${color.bg} ${color.border}`
                       }`}
                     >
@@ -349,7 +349,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                           </button>
                           <button
                             onClick={() => setConfirmDelete(null)}
-                            className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center hover:bg-slate-300 transition-all cursor-pointer"
+                            className="w-6 h-6 rounded-full bg-slate-200 dark:bg-[#2B2D35] text-slate-500 dark:text-slate-300 flex items-center justify-center hover:bg-slate-300 dark:hover:bg-[#363942] transition-all cursor-pointer"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -357,7 +357,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                       ) : (
                         <button
                           onClick={() => setConfirmDelete(event.id)}
-                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-white/85 border border-[#EFEBE4] flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
+                          className="absolute top-3 right-3 w-6 h-6 rounded-full bg-white/85 dark:bg-[#202228]/85 border border-[#EFEBE4] dark:border-[#2E313A] flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-[#341B1E] opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
                           title={c.delete}
                         >
                           <Trash2 className="w-3 h-3" />
@@ -368,7 +368,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-4xl">{event.emoji || "📅"}</div>
                         {event.isLunar && (
-                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-0.5">
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-[#332918] text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-[#524125] flex items-center gap-0.5">
                             <Moon className="w-2.5 h-2.5" />
                             <span>农历重复</span>
                           </span>
@@ -376,7 +376,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                       </div>
 
                       {/* Title */}
-                      <h3 className="text-sm font-extrabold text-[#2D323A] truncate mb-2">
+                      <h3 className="text-sm font-extrabold text-[#2D323A] dark:text-slate-100 truncate mb-2">
                         {event.title}
                       </h3>
 
@@ -384,9 +384,9 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                       <div
                         className={`text-3xl font-black tracking-tight mb-1 ${
                           info.isOverdue
-                            ? "text-red-500"
+                            ? "text-red-500 dark:text-red-400"
                             : info.isToday
-                              ? "text-[#4D7C5D]"
+                              ? "text-[#4D7C5D] dark:text-[#78C496]"
                               : color.text
                         }`}
                       >
@@ -399,7 +399,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                           info.isOverdue
                             ? "text-red-400"
                             : info.isToday
-                              ? "text-[#4D7C5D]"
+                              ? "text-[#4D7C5D] dark:text-[#78C496]"
                               : "text-slate-400"
                         }`}
                       >
@@ -409,13 +409,13 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
                       </p>
 
                       {/* Target date info */}
-                      <div className="flex items-center justify-between mt-3 text-[9px] text-slate-400 font-medium pt-2 border-t border-black/5">
+                      <div className="flex items-center justify-between mt-3 text-[9px] text-slate-400 font-medium pt-2 border-t border-black/5 dark:border-white/10">
                         <div className="flex items-center gap-1">
                           <CalendarDays className="w-3 h-3" />
                           <span>{event.targetDate}</span>
                         </div>
                         {event.isLunar && (
-                          <span className="font-mono text-[#4D7C5D] font-bold">
+                          <span className="font-mono text-[#4D7C5D] dark:text-[#78C496] font-bold">
                             下一个目标日: {info.effectiveTargetDate}
                           </span>
                         )}
@@ -427,7 +427,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
             </div>
           ))
         ) : (
-          <div className="rounded-2xl bg-white/60 border-2 border-dashed border-[#EFEBE4] p-12 flex flex-col items-center justify-center gap-3 text-center">
+          <div className="rounded-2xl bg-white/60 dark:bg-[#16171B]/60 border-2 border-dashed border-[#EFEBE4] dark:border-[#282A30] p-12 flex flex-col items-center justify-center gap-3 text-center">
             <span className="text-5xl">⏳</span>
             <p className="text-sm text-slate-400 font-bold">{c.empty}</p>
           </div>

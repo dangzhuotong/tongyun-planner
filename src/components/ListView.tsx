@@ -132,9 +132,9 @@ export const ListView: React.FC<ListViewProps> = React.memo(
     }, [categoryFilter, debouncedQuery, showFavoritesOnly, tagFilter, tasks]);
 
     return (
-      <div className="animate-fade-in-up rounded-2xl bg-white/90 border border-[#EFEBE4] p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[600px] custom-scrollbar select-none shadow-sm relative">
+      <div className="animate-fade-in-up rounded-2xl bg-white/90 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[600px] custom-scrollbar select-none shadow-sm relative">
         {/* 筛选与搜索 */}
-        <div className="flex gap-3 pb-2 border-b border-[#EFEBE4] items-center">
+        <div className="flex gap-3 pb-2 border-b border-[#EFEBE4] dark:border-[#282A30] items-center">
           <div className="relative flex-grow">
             <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
             <input
@@ -142,7 +142,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
               placeholder={lv.search}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#FAF8F5]/80 border border-[#EFEBE4] pl-10 pr-4 py-2.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] transition-colors font-semibold"
+              className="w-full bg-[#FAF8F5]/80 dark:bg-[#202228] border border-[#EFEBE4] dark:border-[#2E313A] pl-10 pr-4 py-2.5 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#78C496] transition-colors font-semibold"
             />
           </div>
           <CustomSelect
@@ -163,8 +163,8 @@ export const ListView: React.FC<ListViewProps> = React.memo(
             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
             className={`px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-xs ${
               showFavoritesOnly
-                ? "bg-[#FCF2F0] text-[#A34E36] border-[#F5DFDB]"
-                : "bg-white text-slate-500 border-[#EFEBE4] hover:bg-[#FAF8F5]"
+                ? "bg-[#FCF2F0] dark:bg-[#3D2325] text-[#A34E36] dark:text-[#E06D53] border-[#F5DFDB] dark:border-[#522E31]"
+                : "bg-white dark:bg-[#202228] text-slate-500 dark:text-slate-400 border-[#EFEBE4] dark:border-[#2E313A] hover:bg-[#FAF8F5] dark:hover:bg-[#282A32]"
             }`}
             title={lv.search}
           >
@@ -196,7 +196,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
               return (
                 <div
                   key={task.id}
-                  className="rounded-xl bg-white/80 border border-[#EFEBE4]/80 hover:border-[#C4D7B2] hover:bg-white hover:shadow-xs transition-colors duration-200 group relative [content-visibility:auto] [contain-intrinsic-size:0_96px]"
+                  className="rounded-xl bg-white/80 dark:bg-[#1A1C22]/80 border border-[#EFEBE4]/80 dark:border-[#282A30] hover:border-[#C4D7B2] dark:hover:border-[#3E5244] hover:bg-white dark:hover:bg-[#22242B] hover:shadow-xs transition-colors duration-200 group relative [content-visibility:auto] [contain-intrinsic-size:0_96px]"
                 >
                   <div className="px-4 py-2.5 flex justify-between items-center gap-3">
                     <div className="flex items-center gap-3 min-w-0 flex-grow">
@@ -218,12 +218,12 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                           handleCompleteWithAnimation(task.id);
                         }}
                         title={tc.complete}
-                        className={`w-5 h-5 rounded-full border border-slate-300 hover:border-[#4D7C5D] hover:bg-[#F0F5F1] flex items-center justify-center transition-all flex-shrink-0 group/btn cursor-pointer ${
-                          isCompleting ? "border-[#4D7C5D] bg-[#F0F5F1]" : ""
+                        className={`w-5 h-5 rounded-full border border-slate-300 dark:border-slate-600 hover:border-[#4D7C5D] dark:hover:border-[#78C496] hover:bg-[#F0F5F1] dark:hover:bg-[#1F2C23] flex items-center justify-center transition-all flex-shrink-0 group/btn cursor-pointer ${
+                          isCompleting ? "border-[#4D7C5D] dark:border-[#78C496] bg-[#F0F5F1] dark:bg-[#1F2C23]" : ""
                         }`}
                       >
                         <Check
-                          className={`w-3 h-3 text-[#4D7C5D] transition-opacity ${
+                          className={`w-3 h-3 text-[#4D7C5D] dark:text-[#78C496] transition-opacity ${
                             isCompleting
                               ? "opacity-100 scale-110"
                               : "opacity-60 group-hover/btn:opacity-100"
@@ -234,11 +234,11 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                         <div className="flex items-center gap-2 min-w-0">
                           {task.isPinned && (
                             <span title={lv.pinned} className="flex-shrink-0 flex items-center">
-                              <Pin className="w-3 h-3 text-[#8B6E3C] fill-[#8B6E3C]" />
+                              <Pin className="w-3 h-3 text-[#8B6E3C] dark:text-[#C4A066] fill-[#8B6E3C] dark:fill-[#C4A066]" />
                             </span>
                           )}
                           <h4
-                            className={`text-xs font-bold text-slate-800 truncate leading-snug cursor-pointer hover:underline ${
+                            className={`text-xs font-bold text-slate-800 dark:text-slate-100 truncate leading-snug cursor-pointer hover:underline ${
                               isCompleting ? "pencil-strike-through" : ""
                             }`}
                             onClick={() => onTaskClick?.(task)}
@@ -253,7 +253,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                           {task.priority && PRIORITY_META[task.priority] && (
                             <span
                               title={`${tc.priority}: ${t.taskCard[("priority" + (task.priority.charAt(0).toUpperCase() + task.priority.slice(1))) as "priorityHigh"]}`}
-                              className={`text-[8.5px] px-1.5 py-0.5 rounded-lg border border-[#EFEBE4] font-bold flex items-center gap-1 flex-shrink-0 whitespace-nowrap ${PRIORITY_META[task.priority].text}`}
+                              className={`text-[8.5px] px-1.5 py-0.5 rounded-lg border border-[#EFEBE4] dark:border-[#2E313A] font-bold flex items-center gap-1 flex-shrink-0 whitespace-nowrap ${PRIORITY_META[task.priority].text}`}
                             >
                               <span
                                 className={`w-1.5 h-1.5 rounded-full ${PRIORITY_META[task.priority].dot}`}
@@ -269,7 +269,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                                   ? "bg-[#C4D7B2]"
                                   : task.category === "urgent-not-important"
                                     ? "bg-[#B2C8DF]"
-                                    : "bg-[#FAF5ED] border border-[#EFE5D3]"
+                                    : "bg-[#FAF5ED] dark:bg-[#2C271E] border border-[#EFE5D3] dark:border-[#423828]"
                             }`}
                           />
                         </div>
@@ -284,10 +284,10 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                           {countdown &&
                             (() => {
                               const badgeStyle = countdown.isOverdue
-                                ? "bg-[#FCF2F0] border-[#F5DFDB] text-[#A34E36] font-extrabold"
+                                ? "bg-[#FCF2F0] dark:bg-[#3D2325] border-[#F5DFDB] dark:border-[#522E31] text-[#A34E36] dark:text-[#E06D53] font-extrabold"
                                 : countdown.isToday
-                                  ? "bg-[#FBECE5] border-[#F6DCD2] text-[#A64424] font-extrabold"
-                                  : "bg-[#FAF8F5] border-[#EFEBE4] text-slate-500 font-semibold";
+                                  ? "bg-[#FBECE5] dark:bg-[#38231C] border-[#F6DCD2] dark:border-[#4D2E24] text-[#A64424] dark:text-[#E27E58] font-extrabold"
+                                  : "bg-[#FAF8F5] dark:bg-[#252830] border-[#EFEBE4] dark:border-[#2E313A] text-slate-500 dark:text-slate-400 font-semibold";
                               return (
                                 <span
                                   className={`text-[8.5px] px-1.5 py-0.5 rounded-lg border flex items-center gap-1 flex-shrink-0 whitespace-nowrap ${badgeStyle}`}
@@ -302,7 +302,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                             })()}
 
                           {task.repeat && task.repeat !== "none" && (
-                            <span className="text-[8.5px] px-1.5 py-0.5 rounded-lg border bg-[#F0F5F1] border-[#DEEAE2] text-[#4D7C5D] font-bold flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
+                            <span className="text-[8.5px] px-1.5 py-0.5 rounded-lg border bg-[#F0F5F1] dark:bg-[#1C2820] border-[#DEEAE2] dark:border-[#2B3E32] text-[#4D7C5D] dark:text-[#78C496] font-bold flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
                               <Repeat className="w-2.5 h-2.5" />
                               <span>
                                 {
@@ -343,13 +343,13 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                             task.tags.map((tag) => (
                               <span
                                 key={tag}
-                                className="text-[8.5px] px-1.5 py-0.5 rounded-md bg-[#F0F5F1] border border-[#DEEAE2] text-[#4D7C5D] font-bold flex-shrink-0"
+                                className="text-[8.5px] px-1.5 py-0.5 rounded-md bg-[#F0F5F1] dark:bg-[#1C2820] border border-[#DEEAE2] dark:border-[#2B3E32] text-[#4D7C5D] dark:text-[#78C496] font-bold flex-shrink-0"
                               >
                                 {tag}
                               </span>
                             ))}
                           {task.notes && (
-                            <span className="text-[#8B6E3C] italic font-semibold truncate max-w-[150px] flex-shrink-0">
+                            <span className="text-[#8B6E3C] dark:text-[#C4A066] italic font-semibold truncate max-w-[150px] flex-shrink-0">
                               {t.taskCard.notes}: {task.notes}
                             </span>
                           )}
@@ -362,11 +362,11 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                       {/* Pin button */}
                       <button
                         onClick={() => handleTogglePin(task.id)}
-                        className="p-1 rounded hover:bg-slate-100 flex-shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 transition-colors"
+                        className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#2B2D35] flex-shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                         title={task.isPinned ? lv.unpin : lv.pin}
                       >
                         <svg
-                          className={`w-3.5 h-3.5 ${task.isPinned ? "text-[#8B6E3C] fill-[#8B6E3C]" : "text-slate-300"}`}
+                          className={`w-3.5 h-3.5 ${task.isPinned ? "text-[#8B6E3C] dark:text-[#C4A066] fill-[#8B6E3C] dark:fill-[#C4A066]" : "text-slate-300 dark:text-slate-600"}`}
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -383,17 +383,17 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                       {/* Favorite button */}
                       <button
                         onClick={() => handleToggleFavorite(task.id)}
-                        className="p-1 rounded hover:bg-slate-100 flex-shrink-0 cursor-pointer text-slate-400"
+                        className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#2B2D35] flex-shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                         title={task.isFavorite ? lv.unfavorite : lv.favorite}
                       >
                         <Heart
-                          className={`w-3.5 h-3.5 text-[#E8A0BF] transition-all ${task.isFavorite ? "fill-[#E8A0BF]" : "text-slate-300"}`}
+                          className={`w-3.5 h-3.5 text-[#E8A0BF] transition-all ${task.isFavorite ? "fill-[#E8A0BF]" : "text-slate-300 dark:text-slate-600"}`}
                         />
                       </button>
 
                       <button
                         onClick={() => handleStartFocus(task.id, task.title)}
-                        className="p-1 rounded hover:bg-slate-100 flex-shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 transition-colors"
+                        className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#2B2D35] flex-shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                         title={lv.startFocus}
                       >
                         <Clock className="w-3.5 h-3.5" />
@@ -405,8 +405,8 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                         }}
                         className={`text-[10px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-extrabold flex items-center gap-1 shadow-xs ${
                           expandedNoteId === task.id
-                            ? "bg-[#FAF5ED] text-[#8B6E3C] border-[#EFE5D3]"
-                            : "bg-white text-slate-400 border-[#EFEBE4] hover:bg-[#FAF8F5] hover:text-slate-600"
+                            ? "bg-[#FAF5ED] dark:bg-[#2C271E] text-[#8B6E3C] dark:text-[#C4A066] border-[#EFE5D3] dark:border-[#423828]"
+                            : "bg-white dark:bg-[#202228] text-slate-400 dark:text-slate-400 border-[#EFEBE4] dark:border-[#2E313A] hover:bg-[#FAF8F5] dark:hover:bg-[#282A32] hover:text-slate-600 dark:hover:text-slate-200"
                         }`}
                       >
                         <FileEdit className="w-2.5 h-2.5" />
@@ -414,7 +414,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                       </button>
                       <button
                         onClick={() => handleDeleteTask(task.id)}
-                        className="text-[10px] hover:text-red-600 border border-[#EFEBE4] hover:border-red-100 hover:bg-red-50 p-1 rounded-lg bg-white text-slate-400 transition-all cursor-pointer shadow-xs"
+                        className="text-[10px] hover:text-red-600 dark:hover:text-red-400 border border-[#EFEBE4] dark:border-[#2E313A] hover:border-red-100 dark:hover:border-red-900/40 hover:bg-red-50 dark:hover:bg-[#381E20] p-1 rounded-lg bg-white dark:bg-[#202228] text-slate-400 transition-all cursor-pointer shadow-xs"
                         title={lv.deleteTask}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -424,27 +424,27 @@ export const ListView: React.FC<ListViewProps> = React.memo(
 
                   {/* 展开的备注编辑区 */}
                   {expandedNoteId === task.id && (
-                    <div className="px-4 pb-3.5 pt-1 border-t border-[#EFEBE4] bg-[#FAF8F5]/30 rounded-b-xl animate-fade-in-up">
-                      <label className="text-[9px] font-bold text-[#8B6E3C] uppercase tracking-wider block mb-1">
+                    <div className="px-4 pb-3.5 pt-1 border-t border-[#EFEBE4] dark:border-[#282A30] bg-[#FAF8F5]/30 dark:bg-[#15161A]/50 rounded-b-xl animate-fade-in-up">
+                      <label className="text-[9px] font-bold text-[#8B6E3C] dark:text-[#C4A066] uppercase tracking-wider block mb-1">
                         {lv.notesDetail}
                       </label>
                       <textarea
                         value={editingNotes}
                         onChange={(e) => setEditingNotes(e.target.value)}
                         placeholder={lv.notesPlaceholder}
-                        className="w-full bg-[#FAF8F5]/60 border border-[#EFEBE4] px-3 py-2 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] transition-all resize-none h-20 custom-scrollbar font-medium"
+                        className="w-full bg-[#FAF8F5]/60 dark:bg-[#202228] border border-[#EFEBE4] dark:border-[#2E313A] px-3 py-2 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#78C496] transition-all resize-none h-20 custom-scrollbar font-medium"
                         autoFocus
                       />
                       <div className="flex gap-2 mt-2 justify-end">
                         <button
                           onClick={() => setExpandedNoteId(null)}
-                          className="text-[10px] text-slate-500 hover:text-slate-700 px-3 py-1 rounded-lg border border-[#EFEBE4] transition-colors cursor-pointer"
+                          className="text-[10px] text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-3 py-1 rounded-lg border border-[#EFEBE4] dark:border-[#2E313A] dark:hover:bg-[#252830] transition-colors cursor-pointer"
                         >
                           {t.common.cancel}
                         </button>
                         <button
                           onClick={() => handleSaveNotes(task.id, editingNotes)}
-                          className="text-[10px] text-white bg-[#4D7C5D] hover:bg-[#3F684C] px-3.5 py-1 rounded-lg transition-colors font-bold cursor-pointer"
+                          className="text-[10px] text-white bg-[#4D7C5D] dark:bg-[#3D6E4C] hover:bg-[#3F684C] dark:hover:bg-[#4D7C5D] px-3.5 py-1 rounded-lg transition-colors font-bold cursor-pointer"
                         >
                           {lv.saveNotes}
                         </button>
@@ -457,7 +457,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
           </div>
         ) : (
           <div className="text-center py-16 flex flex-col items-center gap-3">
-            <Check className="w-10 h-10 text-[#EFEBE4]" />
+            <Check className="w-10 h-10 text-[#EFEBE4] dark:text-[#282A30]" />
             <p className="text-xs text-slate-400 font-bold">{lv.noTasks}</p>
           </div>
         )}

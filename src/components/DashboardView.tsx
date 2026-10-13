@@ -284,7 +284,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
     return (
       <div className="animate-fade-in-up flex flex-col gap-5 flex-grow z-10 relative select-none max-w-3xl mx-auto w-full pt-2">
         {/* 问候与天气头部模块 */}
-        <div className="flex items-center justify-between flex-wrap gap-4 bg-white/80 border border-[#EFEBE4]/80 p-5 rounded-3xl shadow-xs ">
+        <div className="flex items-center justify-between flex-wrap gap-4 bg-white/80 dark:bg-[#16171B]/90 border border-[#EFEBE4]/80 dark:border-[#282A30] p-5 rounded-3xl shadow-xs">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="text-2xl">{greetEmoji}</span>
@@ -292,31 +292,31 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                 {greeting}
               </h1>
             </div>
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-              <CalendarDays className="w-3.5 h-3.5 text-[#8B6E3C]" />
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400">
+              <CalendarDays className="w-3.5 h-3.5 text-[#8B6E3C] dark:text-[#C4A066]" />
               <span>{localDateStr}</span>
-              <span className="text-[#EFEBE4]">|</span>
-              <span className="text-[#8B6E3C] font-semibold">{d.cheerfulDay} ✨</span>
+              <span className="text-[#EFEBE4] dark:text-[#2E313A]">|</span>
+              <span className="text-[#8B6E3C] dark:text-[#C4A066] font-semibold">{d.cheerfulDay} ✨</span>
             </div>
           </div>
 
           {/* Weather Box */}
           {weatherLoading ? (
-            <div className="text-[11px] text-slate-400 font-bold animate-pulse bg-white/70 px-4 py-2.5 rounded-full border border-[#EFEBE4]">
+            <div className="text-[11px] text-slate-400 font-bold animate-pulse bg-white/70 dark:bg-[#1C1D22] px-4 py-2.5 rounded-full border border-[#EFEBE4] dark:border-[#2E313A]">
               {d.loading}
             </div>
           ) : weather ? (
             <div className="flex flex-col items-end gap-1 shrink-0">
-              <div className="flex items-center gap-2 bg-white/80 border border-[#EFEBE4] px-4 py-2 rounded-2xl shadow-2xs">
-                <CloudSun className="w-4 h-4 text-[#8B6E3C] animate-pulse-soft" />
-                <span className="text-sm font-bold text-[#8B6E3C]">{weather.temp}°C</span>
-                <span className="text-xs text-slate-500 font-semibold">{weather.weather}</span>
-                <span className="text-[10px] text-slate-400 font-bold bg-[#FAF8F5] px-1.5 py-0.5 rounded">
+              <div className="flex items-center gap-2 bg-white/80 dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2E313A] px-4 py-2 rounded-2xl shadow-2xs">
+                <CloudSun className="w-4 h-4 text-[#8B6E3C] dark:text-[#C4A066] animate-pulse-soft" />
+                <span className="text-sm font-bold text-[#8B6E3C] dark:text-[#C4A066]">{weather.temp}°C</span>
+                <span className="text-xs text-slate-500 dark:text-slate-300 font-semibold">{weather.weather}</span>
+                <span className="text-[10px] text-slate-400 font-bold bg-[#FAF8F5] dark:bg-[#252830] px-1.5 py-0.5 rounded">
                   {weather.city}
                 </span>
               </div>
               {weather.alerts.length > 0 && (
-                <div className="text-[9px] text-red-500 font-black bg-red-50/80 px-3 py-1 rounded-full border border-red-100 max-w-[200px] truncate">
+                <div className="text-[9px] text-red-500 dark:text-red-300 font-black bg-red-50/80 dark:bg-[#381E20] px-3 py-1 rounded-full border border-red-100 dark:border-[#4E2428] max-w-[200px] truncate">
                   ⚠ {weather.alerts[0].title}
                 </div>
               )}
@@ -330,13 +330,13 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
           <button
             type="button"
             onClick={() => onOpenJournal?.()}
-            className="w-full text-left rounded-2xl bg-white/90 border border-[#EFEBE4] p-4 shadow-2xs hover:shadow-xs card-hover-lift cursor-pointer transition-all"
+            className="w-full text-left rounded-2xl bg-white/90 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] p-4 shadow-2xs hover:shadow-xs card-hover-lift cursor-pointer transition-all"
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[9px] font-black text-[#4D7C5D] tracking-widest uppercase flex items-center gap-1.5">
+              <span className="text-[9px] font-black text-[#4D7C5D] dark:text-[#78C496] tracking-widest uppercase flex items-center gap-1.5">
                 <TrendingUp className="w-3.5 h-3.5" /> {d.reviewTitle || "今日回顾"}
               </span>
-              <span className="text-[9px] font-bold text-[#8B6E3C] opacity-80">
+              <span className="text-[9px] font-bold text-[#8B6E3C] dark:text-[#C4A066] opacity-80">
                 {d.reviewOpenJournal || "去写日记"} →
               </span>
             </div>
@@ -346,19 +346,19 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                   icon: <CheckCircle2 className="w-3.5 h-3.5" />,
                   label: d.reviewDone || "完成",
                   value: String(review.completedCount),
-                  tone: "text-[#4D7C5D] bg-[#F0F5F1]",
+                  tone: "text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#1C2820]",
                 },
                 {
                   icon: <ListTodo className="w-3.5 h-3.5" />,
                   label: d.reviewOpen || "待办",
                   value: String(review.openDueCount),
-                  tone: "text-[#8B6E3C] bg-[#FAF8F5]",
+                  tone: "text-[#8B6E3C] dark:text-[#C4A066] bg-[#FAF8F5] dark:bg-[#26241D]",
                 },
                 {
                   icon: <Timer className="w-3.5 h-3.5" />,
                   label: d.reviewFocus || "专注",
                   value: `${review.focusMinutes}${d.reviewMinutes || "分"}`,
-                  tone: "text-[#A64424] bg-[#FBECE5]",
+                  tone: "text-[#A64424] dark:text-[#E07A5F] bg-[#FBECE5] dark:bg-[#2D1F1C]",
                 },
               ].map((cell) => (
                 <div key={cell.label} className={`rounded-xl px-2.5 py-2.5 ${cell.tone}`}>
@@ -370,8 +370,8 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                 </div>
               ))}
             </div>
-            <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-500 font-medium">
-              <BookOpen className="w-3.5 h-3.5 text-[#4D7C5D] flex-shrink-0" />
+            <div className="mt-3 flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+              <BookOpen className="w-3.5 h-3.5 text-[#4D7C5D] dark:text-[#78C496] flex-shrink-0" />
               <span className="truncate">
                 {d.reviewJournal || "日记"}：
                 {review.hasJournal
@@ -384,15 +384,15 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
           {/* Quote + History in 2-column on wide screens */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Quote */}
-            <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-4.5 shadow-2xs hover:shadow-xs card-hover-lift flex flex-col justify-between min-h-[150px]">
+            <div className="rounded-2xl bg-white/90 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] p-4.5 shadow-2xs hover:shadow-xs card-hover-lift flex flex-col justify-between min-h-[150px]">
               <div className="quote-decoration space-y-2">
                 {hitokoto ? (
                   <>
-                    <p className="text-xs text-slate-700 leading-relaxed font-bold tracking-wide italic">
+                    <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-bold tracking-wide italic">
                       {hitokoto.text}
                     </p>
                     {hitokoto.from && (
-                      <p className="text-[9px] text-[#8B6E3C] font-black tracking-wider text-right pr-2">
+                      <p className="text-[9px] text-[#8B6E3C] dark:text-[#C4A066] font-black tracking-wider text-right pr-2">
                         —— {hitokoto.from}
                       </p>
                     )}
@@ -403,13 +403,13 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                   </span>
                 )}
               </div>
-              <div className="flex justify-between items-center pt-2 border-t border-slate-100/60 mt-2">
-                <span className="text-[8px] font-bold text-slate-400 tracking-wider uppercase flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-[#4D7C5D]" /> Daily Inspiration
+              <div className="flex justify-between items-center pt-2 border-t border-slate-100/60 dark:border-[#282A30] mt-2">
+                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-[#4D7C5D] dark:text-[#78C496]" /> Daily Inspiration
                 </span>
                 <button
                   onClick={() => fetchHitokoto(true)}
-                  className="text-[9px] font-black text-[#4D7C5D] hover:underline cursor-pointer"
+                  className="text-[9px] font-black text-[#4D7C5D] dark:text-[#78C496] hover:underline cursor-pointer"
                 >
                   {d.quoteRefresh || "换一句"}
                 </button>
@@ -417,11 +417,11 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
             </div>
 
             {/* History */}
-            <div className="rounded-2xl bg-white/90 border border-[#EFEBE4] p-3.5 shadow-2xs hover:shadow-xs card-hover-lift flex flex-col justify-between min-h-[130px]">
+            <div className="rounded-2xl bg-white/90 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] p-3.5 shadow-2xs hover:shadow-xs card-hover-lift flex flex-col justify-between min-h-[130px]">
               <div className="space-y-1.5">
-                <div className="flex items-center gap-1.5 border-b border-slate-100/60 pb-1 mb-1">
-                  <History className="w-3 h-3 text-[#8B6E3C]" />
-                  <h3 className="text-[9px] font-black text-[#8B6E3C] tracking-widest uppercase">
+                <div className="flex items-center gap-1.5 border-b border-slate-100/60 dark:border-[#282A30] pb-1 mb-1">
+                  <History className="w-3 h-3 text-[#8B6E3C] dark:text-[#C4A066]" />
+                  <h3 className="text-[9px] font-black text-[#8B6E3C] dark:text-[#C4A066] tracking-widest uppercase">
                     {d.todayInHistory}
                   </h3>
                 </div>
@@ -439,11 +439,11 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                           className="timeline-dot flex items-start gap-2"
                         >
                           {year && (
-                            <span className="text-[7px] font-black text-[#4D7C5D] bg-[#F0F5F1] px-1 py-0.5 rounded shrink-0">
+                            <span className="text-[7px] font-black text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#1F2C23] px-1 py-0.5 rounded shrink-0">
                               {year}
                             </span>
                           )}
-                          <span className="text-[9px] text-slate-600 font-bold leading-relaxed">
+                          <span className="text-[9px] text-slate-600 dark:text-slate-300 font-bold leading-relaxed">
                             {text}
                           </span>
                         </div>
@@ -458,8 +458,8 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
               </div>
 
               <div className="flex justify-end pt-0.5">
-                <span className="text-[7px] font-bold text-slate-400 tracking-wider uppercase flex items-center gap-0.5">
-                  <Clock className="w-2.5 h-2.5 text-[#8B6E3C]" /> Timeline
+                <span className="text-[7px] font-bold text-slate-400 dark:text-slate-500 tracking-wider uppercase flex items-center gap-0.5">
+                  <Clock className="w-2.5 h-2.5 text-[#8B6E3C] dark:text-[#C4A066]" /> Timeline
                 </span>
               </div>
             </div>
@@ -476,11 +476,11 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
 
         {/* AI 每日建议 —— 当日缓存，进入即用；右上角提供手动重新生成 */}
         {canUseAI(config) && (dailySuggestion || suggestionLoading || suggestionError) && (
-          <div className="rounded-2xl bg-gradient-to-r from-[#F0F5F1] to-[#EBF3F6] border border-[#DEEAE2] p-4.5 shadow-2xs">
+          <div className="rounded-2xl bg-gradient-to-r from-[#F0F5F1] to-[#EBF3F6] dark:from-[#18231C] dark:to-[#172228] border border-[#DEEAE2] dark:border-[#25392D] p-4.5 shadow-2xs">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#4D7C5D]" />
-                <span className="text-[9px] font-black text-[#4D7C5D] tracking-widest uppercase">
+                <Sparkles className="w-4 h-4 text-[#4D7C5D] dark:text-[#78C496]" />
+                <span className="text-[9px] font-black text-[#4D7C5D] dark:text-[#78C496] tracking-widest uppercase">
                   {d.aiSuggestionTitle || "AI 今日建议"}
                 </span>
               </div>
@@ -489,8 +489,8 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                 disabled={suggestionLoading}
                 className={`text-[9px] font-black flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                   suggestionLoading
-                    ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                    : "bg-white/60 text-[#4D7C5D] hover:bg-white hover:scale-105 border border-[#DEEAE2]"
+                    ? "bg-slate-100 dark:bg-[#202228] text-slate-400 cursor-not-allowed"
+                    : "bg-white/60 dark:bg-[#1E2E23] text-[#4D7C5D] dark:text-[#78C496] hover:bg-white dark:hover:bg-[#25392C] hover:scale-105 border border-[#DEEAE2] dark:border-[#2F4A37]"
                 }`}
                 title={d.aiSuggestionRegenTitle || "重新生成今日建议"}
               >
@@ -509,12 +509,12 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
               <button
                 type="button"
                 onClick={() => generateSuggestion(true)}
-                className="text-[11px] text-[#A34E36] font-medium hover:underline cursor-pointer"
+                className="text-[11px] text-[#A34E36] dark:text-[#E06D53] font-medium hover:underline cursor-pointer"
               >
                 {d.aiSuggestionRetry || "生成失败，点击重试"}
               </button>
             ) : (
-              <p className="text-[11px] text-slate-700 leading-relaxed font-medium">
+              <p className="text-[11px] text-slate-700 dark:text-slate-200 leading-relaxed font-medium">
                 {dailySuggestion}
               </p>
             )}
@@ -525,13 +525,13 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
         <ProseCard config={config} tasks={tasks} />
 
         {/* Today's Tasks — 含今日 / 逾期 / 未设日期 */}
-        <div className="rounded-3xl bg-white/90 border border-[#EFEBE4] shadow-2xs overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-[#EFEBE4]/60 flex items-center justify-between">
-            <h3 className="text-xs font-black text-[#8B6E3C] tracking-wider flex items-center gap-1.5 uppercase">
+        <div className="rounded-3xl bg-white/90 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] shadow-2xs overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-[#EFEBE4]/60 dark:border-[#282A30] flex items-center justify-between">
+            <h3 className="text-xs font-black text-[#8B6E3C] dark:text-[#C4A066] tracking-wider flex items-center gap-1.5 uppercase">
               <ListTodo className="w-4 h-4" />
               {d.todayTasks}
             </h3>
-            <span className="text-[9px] text-[#8B6E3C] font-black bg-[#FAF8F5] border border-[#EFEBE4]/60 px-2.5 py-0.5 rounded-full">
+            <span className="text-[9px] text-[#8B6E3C] dark:text-[#C4A066] font-black bg-[#FAF8F5] dark:bg-[#202228] border border-[#EFEBE4]/60 dark:border-[#2E313A] px-2.5 py-0.5 rounded-full">
               {todayTasks.length} / {tasks.length}
             </span>
           </div>
@@ -543,47 +543,47 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                   const priorityBarClass = `task-bar-${task.category || "urgent-important"}`;
 
                   let quadLabel = "I";
-                  let quadColor = "text-[#E8A0BF] bg-[#FCF2F0] border-[#F5DFDB]";
+                  let quadColor = "text-[#E8A0BF] bg-[#FCF2F0] dark:bg-[#2B1B1F] border-[#F5DFDB] dark:border-[#42232B]";
                   if (task.category === "important-not-urgent") {
                     quadLabel = "II";
-                    quadColor = "text-[#4D7C5D] bg-[#F0F5F1] border-[#DEEAE2]";
+                    quadColor = "text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#19261E] border-[#DEEAE2] dark:border-[#253A2D]";
                   } else if (task.category === "urgent-not-important") {
                     quadLabel = "III";
-                    quadColor = "text-[#5B99B0] bg-[#EEF5F8] border-[#C5DEE8]";
+                    quadColor = "text-[#5B99B0] dark:text-[#77BED9] bg-[#EEF5F8] dark:bg-[#17232B] border-[#C5DEE8] dark:border-[#233742]";
                   } else if (task.category === "not-urgent-not-important") {
                     quadLabel = "IV";
-                    quadColor = "text-[#A08B30] bg-[#FBF8EC] border-[#EDE5C8]";
+                    quadColor = "text-[#A08B30] dark:text-[#C7B14A] bg-[#FBF8EC] dark:bg-[#262417] border-[#EDE5C8] dark:border-[#3B3822]";
                   }
 
                   const dueBadge =
                     kind === "overdue"
                       ? {
                           text: d.overdue || "已逾期",
-                          cls: "text-[#A34E36] bg-[#FCF2F0] border-[#F5DFDB]",
+                          cls: "text-[#A34E36] dark:text-[#E06D53] bg-[#FCF2F0] dark:bg-[#2B1B1F] border-[#F5DFDB] dark:border-[#42232B]",
                         }
                       : kind === "undated"
                         ? {
                             text: d.noDueDate || "未设日期",
-                            cls: "text-slate-400 bg-[#FAF8F5] border-[#EFEBE4]",
+                            cls: "text-slate-400 bg-[#FAF8F5] dark:bg-[#202228] border-[#EFEBE4] dark:border-[#2E313A]",
                           }
-                        : { text: d.dueToday, cls: "text-slate-400 bg-[#FAF8F5] border-[#EFEBE4]" };
+                        : { text: d.dueToday, cls: "text-slate-400 bg-[#FAF8F5] dark:bg-[#202228] border-[#EFEBE4] dark:border-[#2E313A]" };
 
                   return (
                     <div
                       key={task.id}
                       onClick={() => onTaskClick(task)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-white/80 border border-[#EFEBE4]/40 hover:border-[#EFEBE4]/90 hover:bg-white hover:-translate-x-1 hover:shadow-2xs transition-all duration-300 cursor-pointer group ${priorityBarClass}`}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-white/80 dark:bg-[#1A1C22]/80 border border-[#EFEBE4]/40 dark:border-[#282A30] hover:border-[#EFEBE4]/90 dark:hover:border-[#383B44] hover:bg-white dark:hover:bg-[#22242B] hover:-translate-x-1 hover:shadow-2xs transition-all duration-300 cursor-pointer group ${priorityBarClass}`}
                     >
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleComplete(task.id);
                         }}
-                        className="shrink-0 text-slate-300 hover:text-[#4D7C5D] transition-colors cursor-pointer"
+                        className="shrink-0 text-slate-300 dark:text-slate-600 hover:text-[#4D7C5D] dark:hover:text-[#78C496] transition-colors cursor-pointer"
                         title={d.completed_task}
                       >
                         <Circle className="w-4 h-4 group-hover:hidden" />
-                        <CheckCircle2 className="w-4 h-4 hidden group-hover:block text-[#4D7C5D]" />
+                        <CheckCircle2 className="w-4 h-4 hidden group-hover:block text-[#4D7C5D] dark:text-[#78C496]" />
                       </button>
 
                       <span
@@ -593,7 +593,7 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
                       </span>
 
                       <div className="flex-grow min-w-0">
-                        <p className="text-xs font-bold text-[#2D323A] truncate">{task.title}</p>
+                        <p className="text-xs font-bold text-[#2D323A] dark:text-slate-100 truncate">{task.title}</p>
                         {task.description && (
                           <p className="text-[9px] text-slate-400 font-semibold truncate mt-0.5">
                             {task.description}

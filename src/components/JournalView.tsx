@@ -672,7 +672,7 @@ export function JournalView({
           <button
             type="button"
             onClick={jumpEarlier}
-            className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 border border-[#EFEBE4] bg-white hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer"
+            className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 dark:text-slate-400 border border-[#EFEBE4] dark:border-[#282A30] bg-white dark:bg-[#16171B] hover:bg-[#FAF8F5] dark:hover:bg-[#202228] hover:text-[#4D7C5D] dark:hover:text-[#78C496] cursor-pointer"
             title={j.jumpEarlier || "更早"}
           >
             ‹ {j.jumpEarlier || "更早"}
@@ -709,8 +709,8 @@ export function JournalView({
                   active
                     ? "bg-[#4D7C5D] text-white border-[#4D7C5D]"
                     : has
-                      ? "bg-[#F0F5F1] text-[#4D7C5D] border-[#C4D7B2] hover:bg-[#E4EEE6]"
-                      : "bg-white text-slate-400 border-[#EFEBE4] hover:bg-[#FAF8F5]"
+                      ? "bg-[#F0F5F1] dark:bg-[#1F2C23] text-[#4D7C5D] dark:text-[#78C496] border-[#C4D7B2] dark:border-[#2D4534] hover:bg-[#E4EEE6] dark:hover:bg-[#26372B]"
+                      : "bg-white dark:bg-[#16171B] text-slate-400 dark:text-slate-400 border-[#EFEBE4] dark:border-[#282A30] hover:bg-[#FAF8F5] dark:hover:bg-[#202228]"
                 }`}
                 title={ds}
               >
@@ -722,7 +722,7 @@ export function JournalView({
                   <span className="text-[10px] mt-0.5 leading-none">{entry.mood}</span>
                 ) : has ? (
                   <span
-                    className={`w-1 h-1 rounded-full mt-1 ${active ? "bg-white" : "bg-[#C4D7B2]"}`}
+                    className={`w-1 h-1 rounded-full mt-1 ${active ? "bg-white" : "bg-[#C4D7B2] dark:bg-[#78C496]"}`}
                   />
                 ) : null}
               </button>
@@ -731,7 +731,7 @@ export function JournalView({
           <button
             type="button"
             onClick={jumpLater}
-            className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 border border-[#EFEBE4] bg-white hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer"
+            className="flex-shrink-0 px-2 py-1 rounded-xl text-[10px] font-bold text-slate-400 dark:text-slate-400 border border-[#EFEBE4] dark:border-[#282A30] bg-white dark:bg-[#16171B] hover:bg-[#FAF8F5] dark:hover:bg-[#202228] hover:text-[#4D7C5D] dark:hover:text-[#78C496] cursor-pointer"
             title={j.jumpLater || "更晚"}
           >
             {j.jumpLater || "更晚"} ›
@@ -745,7 +745,7 @@ export function JournalView({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={j.search}
-              className="w-36 bg-white border border-[#EFEBE4] pl-8 pr-10 py-1.5 rounded-lg text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+              className="w-36 bg-white dark:bg-[#16171B] border border-[#EFEBE4] dark:border-[#282A30] pl-8 pr-10 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#78C496]"
             />
             {search.trim() && (
               <>
@@ -758,7 +758,7 @@ export function JournalView({
                 </button>
                 <span
                   className={`absolute right-1 top-1/2 -translate-y-1/2 text-[9px] font-bold rounded-full px-1.5 py-0.5 ${
-                    searchMatchCount > 0 ? "bg-[#F0F5F1] text-[#4D7C5D]" : "bg-red-50 text-red-400"
+                    searchMatchCount > 0 ? "bg-[#F0F5F1] dark:bg-[#1F2C23] text-[#4D7C5D] dark:text-[#78C496]" : "bg-red-50 dark:bg-[#381E20] text-red-400 dark:text-red-300"
                   }`}
                 >
                   {searchMatchCount}
@@ -772,15 +772,15 @@ export function JournalView({
                 onClick={() => setTagOpen((v) => !v)}
                 className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
                   tagOpen || activeTag
-                    ? "border-[#8B6E3C] text-[#8B6E3C] bg-[#8B6E3C]/10"
-                    : "border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5]"
+                    ? "border-[#8B6E3C] dark:border-[#CBB182] text-[#8B6E3C] dark:text-[#CBB182] bg-[#8B6E3C]/10 dark:bg-[#CBB182]/10"
+                    : "border-[#EFEBE4] dark:border-[#282A30] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#202228]"
                 }`}
                 title={j.tags}
               >
                 <TagIcon className="w-3.5 h-3.5" />
               </button>
               {tagOpen && (
-                <div className="absolute right-0 top-10 z-20 w-56 bg-white border border-[#EFEBE4] rounded-xl shadow-lg p-3 space-y-2">
+                <div className="absolute right-0 top-10 z-20 w-56 bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#282A30] rounded-xl shadow-lg p-3 space-y-2">
                   <div className="flex flex-wrap gap-1.5">
                     {allTags.map((tag) => (
                       <button
@@ -789,7 +789,7 @@ export function JournalView({
                         className={`text-[10px] rounded-full px-2 py-0.5 font-medium transition-colors cursor-pointer border ${
                           activeTag === tag
                             ? "bg-[#8B6E3C] text-white border-[#8B6E3C]"
-                            : "text-[#8B6E3C] bg-[#8B6E3C]/10 border-transparent hover:bg-[#8B6E3C]/20"
+                            : "text-[#8B6E3C] dark:text-[#CBB182] bg-[#8B6E3C]/10 dark:bg-[#CBB182]/10 border-transparent hover:bg-[#8B6E3C]/20"
                         }`}
                       >
                         #{tag}
@@ -810,14 +810,14 @@ export function JournalView({
           )}
           <button
             onClick={handleExportCurrent}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#EFEBE4] dark:border-[#282A30] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#202228] hover:text-[#4D7C5D] dark:hover:text-[#78C496] cursor-pointer transition-colors"
             title={j.exportCurrent}
           >
             <span className="text-[10px] font-bold">↓1</span>
           </button>
           <button
             onClick={handleExportAll}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#EFEBE4] text-slate-500 hover:bg-[#FAF8F5] hover:text-[#4D7C5D] cursor-pointer transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#EFEBE4] dark:border-[#282A30] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#202228] hover:text-[#4D7C5D] dark:hover:text-[#78C496] cursor-pointer transition-colors"
             title={j.exportAll}
           >
             <span className="text-[10px] font-bold">↓*</span>
@@ -847,20 +847,20 @@ export function JournalView({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => shiftDate(-1)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5D9C2] text-[#8B6E3C] hover:bg-[#F3ECDF] cursor-pointer transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5D9C2] dark:border-[#383A42] text-[#8B6E3C] dark:text-[#CBB182] hover:bg-[#F3ECDF] dark:hover:bg-[#282A30] cursor-pointer transition-colors"
                   title={j.prevDay || "前一天"}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <div className="flex-grow text-center">
-                  <div className="text-2xl font-bold text-[#5A4A33] font-serif tracking-tight">
+                  <div className="text-2xl font-bold text-[#5A4A33] dark:text-[#EADFC9] font-serif tracking-tight">
                     {headerDate.big}
                   </div>
-                  <div className="text-[10px] text-[#9A8866] mt-0.5">{headerDate.small}</div>
+                  <div className="text-[10px] text-[#9A8866] dark:text-[#A89878] mt-0.5">{headerDate.small}</div>
                 </div>
                 <button
                   onClick={() => shiftDate(1)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5D9C2] text-[#8B6E3C] hover:bg-[#F3ECDF] cursor-pointer transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5D9C2] dark:border-[#383A42] text-[#8B6E3C] dark:text-[#CBB182] hover:bg-[#F3ECDF] dark:hover:bg-[#282A30] cursor-pointer transition-colors"
                   title={j.prevDay || "后一天"}
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -870,14 +870,14 @@ export function JournalView({
                 {!isToday && (
                   <button
                     onClick={goToday}
-                    className="text-[10px] px-2 py-0.5 rounded-full bg-[#F0F5F1] text-[#4D7C5D] hover:bg-[#E4EEE6] cursor-pointer border border-[#C4D7B2]"
+                    className="text-[10px] px-2 py-0.5 rounded-full bg-[#F0F5F1] dark:bg-[#1F2C23] text-[#4D7C5D] dark:text-[#78C496] hover:bg-[#E4EEE6] dark:hover:bg-[#283C2D] cursor-pointer border border-[#C4D7B2] dark:border-[#2D4534]"
                   >
                     {j.goToday}
                   </button>
                 )}
                 {isFuture && <span className="text-[10px] text-slate-400">· {j.futureDay}</span>}
                 {/* 今日心情：与「回到今天」同行，省一行 */}
-                <span className="mx-1 text-[#E5D9C2]">|</span>
+                <span className="mx-1 text-[#E5D9C2] dark:text-[#383A42]">|</span>
                 {JOURNAL_MOODS.map((m) => {
                   const active = selected?.mood === m.emoji;
                   return (
@@ -888,8 +888,8 @@ export function JournalView({
                       title={m.label}
                       className={`w-7 h-7 flex items-center justify-center rounded-full text-sm transition-all cursor-pointer border ${
                         active
-                          ? "bg-[#F0F5F1] border-[#4D7C5D] scale-110 shadow-sm"
-                          : "bg-transparent border-transparent hover:bg-[#F3ECDF]/80 opacity-60 hover:opacity-100"
+                          ? "bg-[#F0F5F1] dark:bg-[#1F2C23] border-[#4D7C5D] dark:border-[#78C496] scale-110 shadow-sm"
+                          : "bg-transparent border-transparent hover:bg-[#F3ECDF]/80 dark:hover:bg-[#282A30] opacity-60 hover:opacity-100"
                       }`}
                     >
                       {m.emoji}
@@ -904,9 +904,9 @@ export function JournalView({
         </section>
 
         {/* 右：今日关联 */}
-        <aside className="w-56 flex-shrink-0 flex flex-col gap-4 border-l border-[#EFEBE4] pl-3 overflow-y-auto custom-scrollbar">
+        <aside className="w-56 flex-shrink-0 flex flex-col gap-4 border-l border-[#EFEBE4] dark:border-[#282A30] pl-3 overflow-y-auto custom-scrollbar">
           <div>
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] mb-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] dark:text-[#78C496] mb-2">
               <ListChecks className="w-3.5 h-3.5" />
               {j.todayLinks}
             </div>
@@ -915,13 +915,13 @@ export function JournalView({
             </div>
             <div className="space-y-1 mb-3">
               {viewTasks.length === 0 && (
-                <div className="text-[11px] text-slate-300">{j.noTasks}</div>
+                <div className="text-[11px] text-slate-300 dark:text-slate-600">{j.noTasks}</div>
               )}
               {viewTasks.map((task) => (
                 <button
                   key={task.id}
                   onClick={() => insertLine(task.title)}
-                  className="w-full text-left text-[11px] text-slate-600 bg-white border border-[#EFEBE4] hover:border-[#4D7C5D] rounded-lg px-2 py-1.5 cursor-pointer transition-colors truncate"
+                  className="w-full text-left text-[11px] text-slate-600 dark:text-slate-300 bg-white dark:bg-[#16171B] border border-[#EFEBE4] dark:border-[#282A30] hover:border-[#4D7C5D] dark:hover:border-[#78C496] rounded-lg px-2 py-1.5 cursor-pointer transition-colors truncate"
                   title={task.title}
                 >
                   {task.title}
@@ -933,13 +933,13 @@ export function JournalView({
             </div>
             <div className="space-y-1 mb-3">
               {viewDone.length === 0 && (
-                <div className="text-[11px] text-slate-300">{j.noDone || "今天还没有完成任务"}</div>
+                <div className="text-[11px] text-slate-300 dark:text-slate-600">{j.noDone || "今天还没有完成任务"}</div>
               )}
               {viewDone.slice(0, 8).map((task) => (
                 <button
                   key={task.id}
                   onClick={() => insertLine(`✓ ${task.title}`)}
-                  className="w-full text-left text-[11px] text-[#4D7C5D] bg-[#F0F5F1] border border-[#C4D7B2]/60 hover:border-[#4D7C5D] rounded-lg px-2 py-1.5 cursor-pointer transition-colors truncate"
+                  className="w-full text-left text-[11px] text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#1F2C23] border border-[#C4D7B2]/60 dark:border-[#2D4534] hover:border-[#4D7C5D] dark:hover:border-[#78C496] rounded-lg px-2 py-1.5 cursor-pointer transition-colors truncate"
                   title={task.title}
                 >
                   ✓ {task.title}
@@ -951,7 +951,7 @@ export function JournalView({
                 onClick={() =>
                   insertLine(`🍅 专注 ${viewFocus.minutes} 分钟（${viewFocus.count} 个番茄）`)
                 }
-                className="w-full text-left text-[11px] text-[#A64424] bg-[#FBECE5] border border-[#F6DCD2] hover:border-[#E57C58] rounded-lg px-2 py-1.5 cursor-pointer transition-colors mt-2"
+                className="w-full text-left text-[11px] text-[#A64424] dark:text-[#E07A5F] bg-[#FBECE5] dark:bg-[#2D1F1C] border border-[#F6DCD2] dark:border-[#472E27] hover:border-[#E57C58] dark:hover:border-[#E07A5F] rounded-lg px-2 py-1.5 cursor-pointer transition-colors mt-2"
                 title={j.insertFocus || "插入到日记"}
               >
                 🍅 {j.todayFocus || "今日专注"}：{viewFocus.minutes} 分钟 · {viewFocus.count} 个番茄
