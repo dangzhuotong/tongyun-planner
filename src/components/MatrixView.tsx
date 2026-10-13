@@ -12,6 +12,7 @@ import {
   Zap,
   Target,
   Info,
+  Inbox,
 } from "lucide-react";
 import type { Task, TaskCategory } from "../types";
 import { PLANNER_COLORS, getDueDateCountdown, PRIORITY_META } from "../constants";
@@ -175,7 +176,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
       });
 
       return grouped;
-    }, [effectiveQuery, tasks]);
+    }, [debouncedQuery, tasks]);
 
     // Total tasks count for ratio calculation
     const totalMatchingTasks = useMemo(() => {
@@ -604,8 +605,14 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                       );
                     })
                   ) : (
-                    <div className="h-full flex items-center justify-center py-10 text-slate-400 dark:text-slate-500 text-[10px] font-bold tracking-wider">
-                      {t.listView.noTasks}
+                    <div className="h-full min-h-[100px] flex flex-col items-center justify-center py-6 px-4 rounded-xl border border-dashed border-[#EFEBE4] dark:border-[#383A42] bg-white/40 dark:bg-[#1C1D21]/40 text-slate-400 dark:text-slate-500 text-center gap-1.5 transition-colors">
+                      <Inbox className="w-5 h-5 text-slate-300 dark:text-slate-600 stroke-[1.5]" />
+                      <p className="text-[10px] font-bold tracking-wider text-slate-400 dark:text-slate-500">
+                        {t.listView.noTasks}
+                      </p>
+                      <p className="text-[9px] font-medium text-slate-400/80 dark:text-slate-600">
+                        可拖拽卡片至此象限
+                      </p>
                     </div>
                   )}
                 </div>

@@ -184,7 +184,7 @@ export const CountdownView: React.FC<CountdownViewProps> = React.memo(
         else g[3].events.push(e);
       });
       return g.filter((grp) => grp.events.length > 0);
-    }, [sorted]);
+    }, [sorted, c]);
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();

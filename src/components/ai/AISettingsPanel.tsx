@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Sparkles, Save, Link2, RefreshCw } from "lucide-react";
 import type { CustomizationConfig } from "../../types";
 import { testAIConnection, fetchAvailableModels } from "../../utils/aiEngine";
-import { buildDefaultCommentPrompt } from "../JournalView";
+import { buildDefaultCommentPrompt } from "../../utils/aiPrompts";
 import { useTranslation } from "../../i18n/LanguageContext";
 
 interface AISettingsPanelProps {

@@ -97,22 +97,34 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
       };
     }, [task.attachments]);
 
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") onClose();
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }, [onClose]);
+
     return (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-black/50 backdrop-blur-sm"
         onClick={onClose}
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div
-          className="bg-white rounded-2xl shadow-xl border border-[#EFEBE4] w-full max-w-md mx-4 max-h-[80vh] flex flex-col animate-fade-in-up"
+          className="bg-white dark:bg-[#1E2025] rounded-2xl shadow-xl border border-[#EFEBE4] dark:border-[#33353A] w-full max-w-md mx-4 max-h-[80vh] flex flex-col animate-fade-in-up"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#EFEBE4]">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#EFEBE4] dark:border-[#33353A]">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-sm font-bold text-slate-800 truncate">{task.title}</span>
+              <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
+                {task.title}
+              </span>
               {task.repeat && task.repeat !== "none" && (
-                <span className="text-[8.5px] px-1.5 py-0.5 rounded-lg border bg-[#F0F5F1] border-[#DEEAE2] text-[#4D7C5D] font-bold flex items-center gap-1 flex-shrink-0">
+                <span className="text-[8.5px] px-1.5 py-0.5 rounded-lg border bg-[#F0F5F1] dark:bg-[#202E24] border-[#DEEAE2] dark:border-[#2D4534] text-[#4D7C5D] dark:text-[#78C496] font-bold flex items-center gap-1 flex-shrink-0">
                   <Repeat className="w-2.5 h-2.5" />
                   <span>
                     {tc["repeat" + task.repeat.charAt(0).toUpperCase() + task.repeat.slice(1)]}
@@ -123,7 +135,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
             <button
               onClick={onClose}
               aria-label="关闭"
-              className="p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer text-slate-400 hover:text-slate-600 flex-shrink-0"
+              className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#2A2D35] transition-colors cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex-shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -134,8 +146,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
             {/* Tags */}
             <div>
               <div className="flex items-center gap-1.5 mb-1.5">
-                <Tag className="w-3 h-3 text-slate-500" />
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                <Tag className="w-3 h-3 text-slate-500 dark:text-slate-400" />
+                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                   {tc.tags}
                 </span>
               </div>
@@ -143,7 +155,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                 {tags.map((tag, i) => (
                   <span
                     key={tag}
-                    className="text-[9px] px-1.5 py-0.5 rounded-md bg-[#F0F5F1] border border-[#DEEAE2] text-[#4D7C5D] font-bold flex items-center gap-1"
+                    className="text-[9px] px-1.5 py-0.5 rounded-md bg-[#F0F5F1] dark:bg-[#202E24] border border-[#DEEAE2] dark:border-[#2D4534] text-[#4D7C5D] dark:text-[#78C496] font-bold flex items-center gap-1"
                   >
                     {tag}
                     <button
@@ -169,14 +181,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                     }
                     setTagInput("");
                   }}
-                  className="flex items-center bg-[#FAF8F5] border border-[#EFEBE4] px-2 rounded-xl"
+                  className="flex items-center bg-[#FAF8F5] dark:bg-[#26282E] border border-[#EFEBE4] dark:border-[#33353A] px-2 rounded-xl"
                 >
                   <input
                     type="text"
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     placeholder={tc.tagPlaceholder}
-                    className="w-20 bg-transparent border-none text-[10px] text-slate-700 placeholder-slate-400 focus:outline-none font-medium py-1"
+                    className="w-20 bg-transparent border-none text-[10px] text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none font-medium py-1"
                   />
                 </form>
               </div>
@@ -184,12 +196,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
 
             {/* Description */}
             {task.description && (
-              <p className="text-xs text-slate-600 leading-relaxed">{task.description}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                {task.description}
+              </p>
             )}
 
             {/* Meta info */}
             <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium bg-[#FAF8F5] px-2.5 py-1.5 rounded-lg border border-[#EFEBE4]">
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-medium bg-[#FAF8F5] dark:bg-[#26282E] px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#33353A]">
                 <Flag className="w-3 h-3" />
                 <span>
                   {task.category === "urgent-important"
@@ -201,7 +215,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                         : t.matrix.notUrgentNotImportant}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium bg-[#FAF8F5] px-2.5 py-1.5 rounded-lg border border-[#EFEBE4]">
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-medium bg-[#FAF8F5] dark:bg-[#26282E] px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#33353A]">
                 <span className="font-bold uppercase tracking-wider">{tc.priority}</span>
                 <CustomSelect
                   value={priority}
@@ -214,7 +228,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                   dropdownAlign="top"
                 />
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium bg-[#FAF8F5] px-2.5 py-1.5 rounded-lg border border-[#EFEBE4]">
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-medium bg-[#FAF8F5] dark:bg-[#26282E] px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#33353A]">
                 <Calendar className="w-3 h-3" />
                 <input
                   type="date"
@@ -223,7 +237,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                     setEditDueDate(e.target.value);
                     onEditTask(task.id, { dueDate: e.target.value || undefined });
                   }}
-                  className="bg-transparent border-none text-[10px] text-slate-700 font-bold focus:outline-none cursor-pointer w-24"
+                  className="bg-transparent border-none text-[10px] text-slate-700 dark:text-slate-200 font-bold focus:outline-none cursor-pointer w-24"
                   title={t.taskCard.dueDate}
                 />
                 <input
@@ -233,7 +247,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                     setEditDueTime(e.target.value);
                     onEditTask(task.id, { dueTime: e.target.value || undefined });
                   }}
-                  className="bg-transparent border-none text-[10px] text-slate-700 font-bold focus:outline-none cursor-pointer w-16"
+                  className="bg-transparent border-none text-[10px] text-slate-700 dark:text-slate-200 font-bold focus:outline-none cursor-pointer w-16"
                 />
                 {/* Natural date parser */}
                 <NLPDateInputDetail
@@ -254,8 +268,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
               {allTasks && allTasks.length > 0 && (
                 <div>
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <Link2 className="w-3 h-3 text-slate-500" />
-                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                    <Link2 className="w-3 h-3 text-slate-500 dark:text-slate-400" />
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       前置任务
                     </span>
                   </div>
@@ -265,14 +279,14 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                       return (
                         <div
                           key={depId}
-                          className="flex items-center gap-2 bg-[#FAF8F5] px-2.5 py-1.5 rounded-lg border border-[#EFEBE4]"
+                          className="flex items-center gap-2 bg-[#FAF8F5] dark:bg-[#26282E] px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#33353A]"
                         >
-                          <span className="flex-1 text-[10px] text-slate-700 font-medium truncate">
+                          <span className="flex-1 text-[10px] text-slate-700 dark:text-slate-200 font-medium truncate">
                             {depTask?.title || "已删除"}
                           </span>
                           {depTask && (
                             <span
-                              className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${depTask.dueDate ? "bg-[#F0F5F1] text-[#4D7C5D]" : "text-slate-400"}`}
+                              className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${depTask.dueDate ? "bg-[#F0F5F1] dark:bg-[#202E24] text-[#4D7C5D] dark:text-[#78C496]" : "text-slate-400"}`}
                             >
                               {depTask.dueDate || "无日期"}
                             </span>
@@ -306,8 +320,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
             {/* Subtasks */}
             <div>
               <div className="flex items-center gap-1.5 mb-2">
-                <ListTodo className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                <ListTodo className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                   {tc.subtasks}
                 </span>
                 {task.subtasks && task.subtasks.length > 0 && (
@@ -324,13 +338,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                       className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${
                         sub.completed
                           ? "bg-[#4D7C5D] border-[#4D7C5D]"
-                          : "border-slate-300 hover:border-[#4D7C5D]"
+                          : "border-slate-300 dark:border-slate-600 hover:border-[#4D7C5D]"
                       }`}
                     >
                       {sub.completed && <Check className="w-2.5 h-2.5 text-white" />}
                     </button>
                     <span
-                      className={`text-xs font-medium ${sub.completed ? "text-slate-400 line-through" : "text-slate-700"}`}
+                      className={`text-xs font-medium ${sub.completed ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-700 dark:text-slate-200"}`}
                     >
                       {sub.title}
                     </span>
@@ -345,7 +359,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                     setNewSubtaskTitle("");
                   }
                 }}
-                className="flex items-center gap-2 bg-[#FAF8F5] border border-[#EFEBE4] px-3 py-1.5 rounded-xl"
+                className="flex items-center gap-2 bg-[#FAF8F5] dark:bg-[#26282E] border border-[#EFEBE4] dark:border-[#33353A] px-3 py-1.5 rounded-xl"
               >
                 <Plus className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                 <input
@@ -353,21 +367,21 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                   value={newSubtaskTitle}
                   onChange={(e) => setNewSubtaskTitle(e.target.value)}
                   placeholder={tc.subtaskPlaceholder}
-                  className="w-full bg-transparent border-none text-[11px] text-slate-700 placeholder-slate-400 focus:outline-none font-medium"
+                  className="w-full bg-transparent border-none text-[11px] text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none font-medium"
                 />
               </form>
             </div>
 
             {/* Notes */}
             <div>
-              <label className="text-[10px] font-bold text-[#8B6E3C] uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-bold text-[#8B6E3C] dark:text-[#E2C799] uppercase tracking-wider block mb-1.5">
                 {tc.notes}
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t.listView.notesPlaceholder}
-                className="w-full bg-[#FAF8F5]/60 border border-[#EFEBE4] px-3 py-2 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] transition-all resize-none h-20 custom-scrollbar font-medium"
+                className="w-full bg-[#FAF8F5]/60 dark:bg-[#26282E]/60 border border-[#EFEBE4] dark:border-[#33353A] px-3 py-2 rounded-xl text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] transition-all resize-none h-20 custom-scrollbar font-medium"
               />
               <div className="flex justify-end mt-2">
                 <button
@@ -382,8 +396,8 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
             {/* Attachments */}
             <div>
               <div className="flex items-center gap-1.5 mb-2">
-                <Paperclip className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                <Paperclip className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                   附件
                 </span>
                 {attachments.length > 0 && (
@@ -400,12 +414,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                   return (
                     <div
                       key={att.id}
-                      className="flex items-center gap-2 px-1 py-1.5 bg-[#FAF8F5] border border-[#EFEBE4] rounded-lg"
+                      className="flex items-center gap-2 px-1 py-1.5 bg-[#FAF8F5] dark:bg-[#26282E] border border-[#EFEBE4] dark:border-[#33353A] rounded-lg"
                     >
                       {isImage && previewSrc ? (
                         <button
                           onClick={() => setPreviewUrl(previewSrc)}
-                          className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100 cursor-pointer hover:opacity-80 transition-opacity"
+                          className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-slate-800 cursor-pointer hover:opacity-80 transition-opacity"
                         >
                           <img
                             src={previewSrc}
@@ -432,13 +446,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                               console.error(e);
                             }
                           }}
-                          className="w-10 h-10 rounded-lg bg-[#F0F5F1] flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-[#E3EBE5] transition-colors"
+                          className="w-10 h-10 rounded-lg bg-[#F0F5F1] dark:bg-[#202E24] flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-[#E3EBE5] dark:hover:bg-[#283C2F] transition-colors"
                         >
-                          <File className="w-4 h-4 text-[#4D7C5D]" />
+                          <File className="w-4 h-4 text-[#4D7C5D] dark:text-[#78C496]" />
                         </button>
                       )}
                       <div className="flex-1 min-w-0">
-                        <span className="text-[10px] font-medium text-slate-700 truncate block">
+                        <span className="text-[10px] font-medium text-slate-700 dark:text-slate-200 truncate block">
                           {att.name}
                         </span>
                         <span className="text-[8px] text-slate-400">
@@ -464,7 +478,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                               console.error("Download failed", e);
                             }
                           }}
-                          className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                          className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
                           title="下载"
                         >
                           <Download className="w-3 h-3" />
@@ -474,7 +488,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                             href={storageManager.getPublicUrl(att.path)!}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-blue-600 transition-colors"
+                            className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                             title="在新标签页打开"
                           >
                             <ExternalLink className="w-3 h-3" />
@@ -486,7 +500,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                             setAttachments(next);
                             onEditTask(task.id, { attachments: next });
                           }}
-                          className="p-1 rounded hover:bg-red-100 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+                          className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-950/40 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
                           title="删除"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -500,7 +514,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading || !storageManager.isConfigured()}
-                  className="flex items-center gap-1.5 text-[10px] bg-white border border-[#EFEBE4] hover:border-[#4D7C5D] disabled:opacity-40 text-slate-600 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 text-[10px] bg-white dark:bg-[#26282E] border border-[#EFEBE4] dark:border-[#33353A] hover:border-[#4D7C5D] dark:hover:border-[#4D7C5D] disabled:opacity-40 text-slate-600 dark:text-slate-200 px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer"
                 >
                   {uploading ? (
                     <RefreshCw className="w-3 h-3 animate-spin" />
@@ -609,19 +623,19 @@ const DepTaskSearch: React.FC<{ allTasks: Task[]; onSelect: (id: string) => void
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-[#4D7C5D] transition-colors cursor-pointer"
+        className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#78C496] transition-colors cursor-pointer"
       >
         <Plus className="w-3 h-3" /> 添加依赖
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#EFEBE4] rounded-xl shadow-lg p-2 w-64 animate-fade-in-up">
+        <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-[#202227] border border-[#EFEBE4] dark:border-[#33353A] rounded-xl shadow-lg p-2 w-64 animate-fade-in-up">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="搜索任务..."
             autoFocus
-            className="w-full bg-[#FAF8F5] border border-[#EFEBE4] px-2 py-1.5 rounded-lg text-[10px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#C4D7B2] mb-1.5"
+            className="w-full bg-[#FAF8F5] dark:bg-[#26282E] border border-[#EFEBE4] dark:border-[#33353A] px-2 py-1.5 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#C4D7B2] dark:focus:border-[#4D7C5D] mb-1.5"
           />
           <div className="max-h-32 overflow-y-auto space-y-0.5">
             {filtered.map((t) => (
@@ -632,7 +646,7 @@ const DepTaskSearch: React.FC<{ allTasks: Task[]; onSelect: (id: string) => void
                   setOpen(false);
                   setQuery("");
                 }}
-                className="w-full text-left px-2 py-1.5 rounded-lg text-[10px] text-slate-600 hover:bg-[#F0F5F1] transition-colors cursor-pointer truncate"
+                className="w-full text-left px-2 py-1.5 rounded-lg text-[10px] text-slate-600 dark:text-slate-300 hover:bg-[#F0F5F1] dark:hover:bg-[#283C2F] transition-colors cursor-pointer truncate"
               >
                 {t.title}
               </button>
@@ -666,13 +680,13 @@ const NLPDateInputDetail: React.FC<{ onParse: (date?: string, time?: string) => 
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+        className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
         title="自然语言解析日期"
       >
         <Zap className="w-3 h-3" />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#EFEBE4] rounded-xl shadow-lg p-2 animate-fade-in-up min-w-[180px]">
+        <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-[#202227] border border-[#EFEBE4] dark:border-[#33353A] rounded-xl shadow-lg p-2 animate-fade-in-up min-w-[180px]">
           <div className="flex items-center gap-1.5">
             <input
               type="text"
@@ -683,7 +697,7 @@ const NLPDateInputDetail: React.FC<{ onParse: (date?: string, time?: string) => 
                 if (e.key === "Escape") setOpen(false);
               }}
               placeholder="明天下午3点"
-              className="flex-grow bg-[#FAF8F5] border border-[#EFEBE4] px-2 py-1 rounded-lg text-[10px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#C4D7B2]"
+              className="flex-grow bg-[#FAF8F5] dark:bg-[#26282E] border border-[#EFEBE4] dark:border-[#33353A] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#C4D7B2] dark:focus:border-[#4D7C5D]"
             />
             <button
               type="button"

@@ -134,7 +134,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
       );
       const maxDur = sortedList.length > 0 ? sortedList[0].totalDuration : 1;
       return { taskStatsList: sortedList, maxDuration: maxDur };
-    }, [pomodoroLogs]);
+    }, [pomodoroLogs, a.untitledTask]);
 
     const timeSlots = useMemo(() => {
       const slots = [

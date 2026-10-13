@@ -129,7 +129,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
           if (!a.isPinned && b.isPinned) return 1;
           return 0;
         });
-    }, [categoryFilter, searchQuery, showFavoritesOnly, tagFilter, tasks]);
+    }, [categoryFilter, debouncedQuery, showFavoritesOnly, tagFilter, tasks]);
 
     return (
       <div className="animate-fade-in-up rounded-2xl bg-white/90 border border-[#EFEBE4] p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[600px] custom-scrollbar select-none shadow-sm relative">
