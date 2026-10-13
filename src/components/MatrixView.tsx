@@ -56,6 +56,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     handleToggleFavorite,
     handleTogglePin,
     onTaskClick,
+    onEditTask,
     searchQuery,
     setSearchQuery,
   }) => {
@@ -67,6 +68,23 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     // Fullscreen expand/collapse for a specific quadrant
     const [expandedQuadrant, setExpandedQuadrant] = useState<TaskCategory | null>(null);
     const [showMethodologyHelp, setShowMethodologyHelp] = useState(false);
+
+    // 拖拽与微交互状态
+    const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
+    const [dragOverQuadrant, setDragOverQuadrant] = useState<TaskCategory | null>(null);
+    const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
+
+    const handleCompleteWithAnimation = (taskId: string) => {
+      setCompletingTaskIds((prev) => new Set(prev).add(taskId));
+      setTimeout(() => {
+        handleComplete(taskId);
+        setCompletingTaskIds((prev) => {
+          const next = new Set(prev);
+          next.delete(taskId);
+          return next;
+        });
+      }, 220);
+    };
 
     const quadrants = useMemo(
       () =>
@@ -254,10 +272,37 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                 ? Math.round((quadrantTasks.length / totalMatchingTasks) * 100)
                 : 0;
 
+            const isDropTarget = dragOverQuadrant === quad.id;
+
             return (
               <div
                 key={quad.id}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  if (dragOverQuadrant !== quad.id) {
+                    setDragOverQuadrant(quad.id);
+                  }
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    if (dragOverQuadrant === quad.id) {
+                      setDragOverQuadrant(null);
+                    }
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const taskId = e.dataTransfer.getData("text/plain") || draggingTaskId;
+                  setDragOverQuadrant(null);
+                  setDraggingTaskId(null);
+                  if (taskId && onEditTask) {
+                    onEditTask(taskId, { category: quad.id });
+                  }
+                }}
                 className={`rounded-2xl border ${borderClass} ${bgClass} shadow-2xs transition-all duration-300 p-4 flex flex-col gap-2.5 relative overflow-hidden ${
+                  isDropTarget ? "dropzone-highlight" : ""
+                } ${
                   expandedQuadrant
                     ? "flex-grow min-h-[480px] shadow-md"
                     : "min-h-[230px] max-h-[340px] hover:-translate-y-0.5"
@@ -345,10 +390,25 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                         (task.tags && task.tags.length > 0) ||
                         (task.priority && PRIORITY_META[task.priority]);
 
+                      const isDragging = draggingTaskId === task.id;
+                      const isCompleting = completingTaskIds.has(task.id);
+
                       return (
                         <div
                           key={task.id}
-                          className={`p-3 rounded-xl ${cardBg} border ${cardBorder} hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-[#22242A] hover:shadow-xs transition-colors duration-200 flex flex-col gap-1.5 relative overflow-hidden group [content-visibility:auto] [contain-intrinsic-size:0_120px]`}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", task.id);
+                            e.dataTransfer.effectAllowed = "move";
+                            setDraggingTaskId(task.id);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingTaskId(null);
+                            setDragOverQuadrant(null);
+                          }}
+                          className={`p-3 rounded-xl ${cardBg} border ${cardBorder} hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-[#22242A] hover:shadow-xs transition-all duration-200 flex flex-col gap-1.5 relative overflow-hidden group cursor-grab active:cursor-grabbing [content-visibility:auto] [contain-intrinsic-size:0_120px] ${
+                            isDragging ? "paper-card-dragging" : ""
+                          } ${isCompleting ? "opacity-40 scale-[0.98]" : ""}`}
                         >
                           {/* Row 1: Header (Title + Hover Actions) */}
                           <div className="flex items-center justify-between gap-2 min-w-0">
@@ -362,7 +422,9 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                                 </span>
                               )}
                               <h4
-                                className={`text-xs font-bold text-[#2D323A] dark:text-slate-100 group-hover:${textClass} transition-colors truncate cursor-pointer hover:underline`}
+                                className={`text-xs font-bold text-[#2D323A] dark:text-slate-100 group-hover:${textClass} transition-colors truncate cursor-pointer hover:underline ${
+                                  isCompleting ? "pencil-strike-through" : ""
+                                }`}
                                 onClick={() => onTaskClick?.(task)}
                               >
                                 {task.title}
@@ -397,7 +459,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                                   <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
-                                    strokeWidth="2"
+                                    strokeWidth={2}
                                     d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
                                   />
                                 </svg>
@@ -424,11 +486,17 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                               </button>
 
                               <button
-                                onClick={() => handleComplete(task.id)}
-                                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                onClick={() => handleCompleteWithAnimation(task.id)}
+                                className={`p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors ${
+                                  isCompleting
+                                    ? "text-[#4D7C5D] bg-[#F0F5F1] dark:bg-[#232924]"
+                                    : ""
+                                }`}
                                 title={m.complete}
                               >
-                                <Check className="w-3.5 h-3.5" />
+                                <Check
+                                  className={`w-3.5 h-3.5 ${isCompleting ? "text-[#4D7C5D]" : ""}`}
+                                />
                               </button>
                             </div>
                           </div>

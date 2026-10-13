@@ -85,6 +85,21 @@ export const ListView: React.FC<ListViewProps> = React.memo(
       toastTimer.current = window.setTimeout(() => setToast(null), 2200);
     };
 
+    // 划掉动画状态
+    const [completingTaskIds, setCompletingTaskIds] = useState<Set<string>>(new Set());
+
+    const handleCompleteWithAnimation = (taskId: string) => {
+      setCompletingTaskIds((prev) => new Set(prev).add(taskId));
+      setTimeout(() => {
+        handleComplete(taskId);
+        setCompletingTaskIds((prev) => {
+          const next = new Set(prev);
+          next.delete(taskId);
+          return next;
+        });
+      }, 220);
+    };
+
     const tagOptions = useMemo(() => {
       const allTags = [...new Set(tasks.flatMap((t) => t.tags || []))];
       return [{ value: "all", label: lv.allTags }, ...allTags.map((t) => ({ value: t, label: t }))];
@@ -176,6 +191,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
           <div className="space-y-2 pr-1 custom-scrollbar overflow-y-auto">
             {filteredTasks.map((task) => {
               const countdown = getDueDateCountdown(task.dueDate, task.dueTime);
+              const isCompleting = completingTaskIds.has(task.id);
 
               return (
                 <div
@@ -199,12 +215,20 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                               return;
                             }
                           }
-                          handleComplete(task.id);
+                          handleCompleteWithAnimation(task.id);
                         }}
                         title={tc.complete}
-                        className="w-5 h-5 rounded-full border border-slate-300 hover:border-[#4D7C5D] hover:bg-[#F0F5F1] flex items-center justify-center transition-all flex-shrink-0 group/btn cursor-pointer"
+                        className={`w-5 h-5 rounded-full border border-slate-300 hover:border-[#4D7C5D] hover:bg-[#F0F5F1] flex items-center justify-center transition-all flex-shrink-0 group/btn cursor-pointer ${
+                          isCompleting ? "border-[#4D7C5D] bg-[#F0F5F1]" : ""
+                        }`}
                       >
-                        <Check className="w-3 h-3 text-[#4D7C5D] opacity-60 group-hover/btn:opacity-100 transition-opacity" />
+                        <Check
+                          className={`w-3 h-3 text-[#4D7C5D] transition-opacity ${
+                            isCompleting
+                              ? "opacity-100 scale-110"
+                              : "opacity-60 group-hover/btn:opacity-100"
+                          }`}
+                        />
                       </button>
                       <div className="min-w-0 flex-grow">
                         <div className="flex items-center gap-2 min-w-0">
@@ -214,7 +238,9 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                             </span>
                           )}
                           <h4
-                            className="text-xs font-bold text-slate-800 truncate leading-snug cursor-pointer hover:underline"
+                            className={`text-xs font-bold text-slate-800 truncate leading-snug cursor-pointer hover:underline ${
+                              isCompleting ? "pencil-strike-through" : ""
+                            }`}
                             onClick={() => onTaskClick?.(task)}
                           >
                             {task.title}

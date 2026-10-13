@@ -25,6 +25,62 @@ body,
   -moz-osx-font-smoothing: grayscale;
 }
 
+::selection {
+  background-color: rgba(196, 215, 178, 0.45); /* 抹茶淡绿高亮文本选区 */
+  color: #1e232a;
+}
+
+/* 纸质手账铅笔划掉动效 */
+@keyframes pencilStrike {
+  0% {
+    width: 0%;
+    opacity: 0.2;
+  }
+  60% {
+    width: 100%;
+    opacity: 0.85;
+  }
+  100% {
+    width: 100%;
+    opacity: 0.65;
+  }
+}
+
+.pencil-strike-through {
+  position: relative;
+  display: inline-block;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+.pencil-strike-through::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: 50%;
+  height: 2px;
+  background: #4d7c5d;
+  border-radius: 9999px;
+  animation: pencilStrike 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+/* 拖拽中的四象限卡片拟物姿态 */
+.paper-card-dragging {
+  opacity: 0.55;
+  transform: scale(0.98) rotate(-1.5deg);
+  box-shadow: 0 16px 32px -8px rgba(154, 142, 128, 0.25);
+  cursor: grabbing !important;
+}
+
+/* 拖拽悬停象限呼吸高亮 */
+.dropzone-highlight {
+  outline: 2px dashed #4d7c5d !important;
+  outline-offset: -3px;
+  background-color: rgba(240, 245, 241, 0.75) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 html.transparent-window,
 html.transparent-window body {
   background-color: transparent !important;

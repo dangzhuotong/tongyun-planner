@@ -136,6 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     const [tasksExpanded, setTasksExpanded] = useState(() => TASKS_GROUP.includes(activeTab));
     const [focusExpanded, setFocusExpanded] = useState(() => FOCUS_GROUP.includes(activeTab));
     const [archiveExpanded, setArchiveExpanded] = useState(() => ARCHIVE_GROUP.includes(activeTab));
+    const [noiseControlsExpanded, setNoiseControlsExpanded] = useState(false);
 
     const commitMinutes = (raw: string) => {
       const val = parseInt(raw, 10);
@@ -754,101 +755,121 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                 </button>
               </div>
 
-              {/* White Noise — collapsed by default */}
+              {/* White Noise — collapsible */}
               <div className="pt-1.5 border-t border-slate-100 space-y-1.5">
                 <div className="flex justify-between items-center text-[10px] font-semibold text-slate-500">
-                  <span className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setNoiseControlsExpanded((prev) => !prev)}
+                    className="flex items-center gap-1.5 hover:text-[#4D7C5D] transition-colors cursor-pointer select-none"
+                  >
                     <Coffee className="w-3 h-3 text-slate-400" />
                     <span>{s.noise}</span>
-                  </span>
-                  <button
-                    onClick={() => {
-                      if (isPlayingNoise) {
-                        stopNoise();
-                      } else {
-                        startNoise(selectedNoiseType, noiseVolume);
-                      }
-                    }}
-                    className={`px-2 py-0.5 rounded-md border text-[9px] font-semibold transition-all cursor-pointer ${
-                      isPlayingNoise
-                        ? "bg-[#4D7C5D]/10 border-[#4D7C5D]/20 text-[#4D7C5D]"
-                        : "bg-slate-50 border-slate-200 text-slate-500"
-                    }`}
-                  >
-                    {isPlayingNoise ? s.mute : s.play}
+                    {noiseControlsExpanded ? (
+                      <ChevronDown className="w-3 h-3 text-slate-400" />
+                    ) : (
+                      <ChevronRight className="w-3 h-3 text-slate-400" />
+                    )}
                   </button>
-                </div>
-
-                <div className="grid grid-cols-4 gap-1">
-                  {visibleNoiseDefs.map((sound) => (
+                  <div className="flex items-center gap-1.5">
+                    {isPlayingNoise && !noiseControlsExpanded && (
+                      <span className="text-[9px] text-[#4D7C5D] font-bold animate-pulse">
+                        播放中
+                      </span>
+                    )}
                     <button
-                      key={sound.id}
                       onClick={() => {
-                        setSelectedNoiseType(sound.id);
-                        if (isPlayingNoise) startNoise(sound.id, noiseVolume);
+                        if (isPlayingNoise) {
+                          stopNoise();
+                        } else {
+                          startNoise(selectedNoiseType, noiseVolume);
+                        }
                       }}
-                      className={`h-5.5 rounded-md text-[9px] font-medium flex items-center justify-center transition-all cursor-pointer ${
-                        selectedNoiseType === sound.id
-                          ? "bg-[#4D7C5D]/10 text-[#4D7C5D] font-semibold"
-                          : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                      className={`px-2 py-0.5 rounded-md border text-[9px] font-semibold transition-all cursor-pointer ${
+                        isPlayingNoise
+                          ? "bg-[#4D7C5D]/10 border-[#4D7C5D]/20 text-[#4D7C5D]"
+                          : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
                       }`}
-                      title={(s as any)[sound.titleKey]}
                     >
-                      {(s as any)[sound.labelKey]}
+                      {isPlayingNoise ? s.mute : s.play}
                     </button>
-                  ))}
+                  </div>
                 </div>
 
-                {isPlayingNoise && (
-                  <div className="flex items-center gap-2 animate-fade-in-up">
-                    <span className="text-[8px] text-slate-400 font-medium uppercase flex-shrink-0">
-                      {s.volume}
-                    </span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={noiseVolume}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value);
-                        setNoiseVolume(val);
-                        audioEngine.setVolume(val);
-                      }}
-                      className="flex-grow accent-[#4D7C5D] h-0.5 bg-slate-100 rounded-lg cursor-pointer"
-                    />
+                {noiseControlsExpanded && (
+                  <div className="space-y-1.5 pt-1 animate-fade-in-up">
+                    <div className="grid grid-cols-4 gap-1">
+                      {visibleNoiseDefs.map((sound) => (
+                        <button
+                          key={sound.id}
+                          onClick={() => {
+                            setSelectedNoiseType(sound.id);
+                            if (isPlayingNoise) startNoise(sound.id, noiseVolume);
+                          }}
+                          className={`h-5.5 rounded-md text-[9px] font-medium flex items-center justify-center transition-all cursor-pointer ${
+                            selectedNoiseType === sound.id
+                              ? "bg-[#4D7C5D]/10 text-[#4D7C5D] font-semibold border border-[#4D7C5D]/20"
+                              : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                          }`}
+                          title={(s as any)[sound.titleKey]}
+                        >
+                          {(s as any)[sound.labelKey]}
+                        </button>
+                      ))}
+                    </div>
+
+                    {isPlayingNoise && (
+                      <div className="flex items-center gap-2 pt-0.5 animate-fade-in-up">
+                        <span className="text-[8px] text-slate-400 font-medium uppercase flex-shrink-0">
+                          {s.volume}
+                        </span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={noiseVolume}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setNoiseVolume(val);
+                            audioEngine.setVolume(val);
+                          }}
+                          className="flex-grow accent-[#4D7C5D] h-0.5 bg-slate-100 rounded-lg cursor-pointer"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-0.5 text-[9px] text-slate-400 font-medium">
+                      <span>{s.soundSelect}</span>
+                      <select
+                        value={alertSoundType}
+                        onChange={(e) => {
+                          const val = e.target.value as AlertSoundType;
+                          setAlertSoundType(val);
+                          localStorage.setItem("aero_alert_sound_type", val);
+                          setTimeout(() => audioEngine.playCompletionSound(val), 50);
+                        }}
+                        className="text-[9px] bg-white border border-slate-200 rounded-md px-1.5 py-0.5 text-slate-600 font-medium cursor-pointer outline-none focus:border-[#4D7C5D]/40"
+                      >
+                        {[
+                          { id: "beep", label: s.beep },
+                          { id: "cuckoo", label: s.cuckoo },
+                          { id: "meow", label: s.meow },
+                          { id: "chime", label: s.chime },
+                          { id: "ding", label: s.ding },
+                          { id: "phone", label: s.phone },
+                          { id: "marimba", label: s.marimba },
+                          { id: "bells", label: s.bells },
+                          { id: "alarm", label: s.alarm },
+                        ].map((snd) => (
+                          <option key={snd.id} value={snd.id}>
+                            {snd.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 )}
-
-                <div className="flex items-center justify-between pt-0.5 text-[9px] text-slate-400 font-medium">
-                  <span>{s.soundSelect}</span>
-                  <select
-                    value={alertSoundType}
-                    onChange={(e) => {
-                      const val = e.target.value as AlertSoundType;
-                      setAlertSoundType(val);
-                      localStorage.setItem("aero_alert_sound_type", val);
-                      setTimeout(() => audioEngine.playCompletionSound(val), 50);
-                    }}
-                    className="text-[9px] bg-white border border-slate-200 rounded-md px-1.5 py-0.5 text-slate-600 font-medium cursor-pointer outline-none focus:border-[#4D7C5D]/40"
-                  >
-                    {[
-                      { id: "beep", label: s.beep },
-                      { id: "cuckoo", label: s.cuckoo },
-                      { id: "meow", label: s.meow },
-                      { id: "chime", label: s.chime },
-                      { id: "ding", label: s.ding },
-                      { id: "phone", label: s.phone },
-                      { id: "marimba", label: s.marimba },
-                      { id: "bells", label: s.bells },
-                      { id: "alarm", label: s.alarm },
-                    ].map((snd) => (
-                      <option key={snd.id} value={snd.id}>
-                        {snd.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
             </div>
           )}
