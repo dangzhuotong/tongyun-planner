@@ -69,6 +69,6 @@ description: >-
 
 ### 空包保护（2026-07-23）
 
-Push 时：本地 `journal` 为空且远端非空 → **跳过上传**并拉回远端；本地 `config` 为空而远端非空时，合并远端的非密钥配置（本地优先，`aiEndpoint`/`aiModel`/`aiProvider` 本地为空时取远端）并经 `sanitizeConfigForSync` 脱敏后再推。敏感密钥（`aiApiKey`、`providerApiKeys`、`smtpPass` 及键名以 apiKey/secret/password/passwd/token 结尾的字段）从不上传到 WebDAV，拉取远端 `config` 时保留本机密钥。防止开发时空本地盖掉云端。
+Push 时：本地 `journal` 为空且远端非空 → **跳过上传**并拉回远端；本地 `config` 为空而远端非空时，合并远端的非密钥配置（本地优先，`aiEndpoint`/`aiModel`/`aiProvider` 本地为空时取远端）并经 `sanitizeConfigForSync` 脱敏后再推。敏感密钥（`aiApiKey`、`providerApiKeys`、`smtpPass` 及键名以 apiKey/secret/password/passwd/token 结尾的字段）默认不上传。仅当用户在设置里打开「同步 API 密钥」（`syncSecrets`，默认关）并在本机保存口令后，这些字段才会以 PBKDF2-SHA256 + AES-GCM 密文写入 `config.json`。口令与 WebDAV 密码永不上传。拉取时本机已有的非空密钥优先，远端空值或缺失不能覆盖。解密失败时记下 `tongyun_sync_secrets_decrypt_failed`，上传原样保留远端密文，并在设置里提示口令不一致。能解开时按字段合并（本机非空字段优先，云端独有字段保留）后再加密。冲突选择「保留本机」也会先读远端 `encryptedSecrets` 再走同一套规则。防止开发时空本地盖掉云端。
 
 桌面设置里的「复制 AI 工具定义」**仍然保留**，给 ChatGPT 等外部助手粘贴用；复制出的内容不含 WebDAV 密码或任何密钥，用占位符 / 环境变量 `TONGYUN_WEBDAV_PASS` 代替，需用户自己在本机填写。本仓库内 Agent 优先读本 Skill。

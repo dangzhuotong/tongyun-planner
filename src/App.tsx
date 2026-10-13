@@ -159,6 +159,13 @@ function AppBody() {
   }, [syncConflicts]);
 
   const [celebrationMessage, setCelebrationMessage] = useState<string | null>(null);
+  const [microBreakToast, setMicroBreakToast] = useState<string | null>(null);
+  const microBreakToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showMicroBreakToast = useCallback((text: string) => {
+    setMicroBreakToast(text);
+    if (microBreakToastTimer.current) clearTimeout(microBreakToastTimer.current);
+    microBreakToastTimer.current = setTimeout(() => setMicroBreakToast(null), 5000);
+  }, []);
   const [deleteUndoToast, setDeleteUndoToast] = useState<string | null>(null);
   const deleteUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -306,6 +313,7 @@ function AppBody() {
     windowLabel,
     t,
     onCelebration: setCelebrationMessage,
+    onToast: showMicroBreakToast,
   });
 
   // Audio cleanup
@@ -900,6 +908,11 @@ function AppBody() {
         onNewsSaveTask={handleNewsSaveTask}
         onNewsSaveJournal={handleNewsSaveJournal}
       />
+      {microBreakToast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
+          {microBreakToast}
+        </div>
+      )}
       {activeUpdate && (
         <UpdateModal
           update={activeUpdate}

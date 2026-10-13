@@ -1,10 +1,10 @@
 import type { StorageProvider, StorageBackendType } from "./types";
 import type { WebDavConfig } from "../../types";
 import { invoke } from "@tauri-apps/api/core";
+import { isDesktopRuntime, WEBDAV_REQUIRES_DESKTOP } from "../tauriRuntime";
 
 const REMOTE_DIR = "TongYunPlanner/";
-const isTauri = () =>
-  typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
+const isTauri = () => isDesktopRuntime();
 
 function base64Encode(data: Uint8Array): string {
   const chars: string[] = [];
@@ -54,6 +54,15 @@ export class WebDAVStorageProvider implements StorageProvider {
     return !!(this.config?.url && this.config?.username);
   }
 
+  /** Keep the in-memory account aligned when settings are edited, not only after a restart. */
+  setConfig(config: WebDavConfig): void {
+    this.config = {
+      url: config.url,
+      username: config.username,
+      password: config.password,
+    };
+  }
+
   async test(): Promise<boolean> {
     try {
       await this.ensureDir("");
@@ -82,14 +91,7 @@ export class WebDAVStorageProvider implements StorageProvider {
         if (!msg.includes("E_HTTP_405") && !msg.includes("E_HTTP_409")) throw e;
       }
     } else {
-      const baseUrl = c.url.endsWith("/") ? c.url : c.url + "/";
-      const token = btoa(c.username + ":" + (c.password || ""));
-      const res = await fetch(baseUrl + REMOTE_DIR, {
-        method: "MKCOL",
-        headers: { Authorization: "Basic " + token },
-      });
-      if (!res.ok && res.status !== 405 && res.status !== 409)
-        throw new Error("E_HTTP_" + res.status);
+      throw new Error(WEBDAV_REQUIRES_DESKTOP);
     }
     if (!dirname) return;
 
@@ -113,14 +115,7 @@ export class WebDAVStorageProvider implements StorageProvider {
         }
         continue;
       }
-      const baseUrl = c.url.endsWith("/") ? c.url : c.url + "/";
-      const token = btoa(c.username + ":" + (c.password || ""));
-      const res = await fetch(baseUrl + acc, {
-        method: "MKCOL",
-        headers: { Authorization: "Basic " + token },
-      });
-      if (!res.ok && res.status !== 405 && res.status !== 409)
-        throw new Error("E_HTTP_" + res.status);
+      throw new Error(WEBDAV_REQUIRES_DESKTOP);
     }
   }
 
@@ -152,16 +147,7 @@ export class WebDAVStorageProvider implements StorageProvider {
       return fullPath;
     }
 
-    const baseUrl = c.url.endsWith("/") ? c.url : c.url + "/";
-    const token = btoa(c.username + ":" + (c.password || ""));
-    const blob = new Blob([data], { type: mime });
-    const res = await fetch(baseUrl + fullPath, {
-      method: "PUT",
-      headers: { Authorization: "Basic " + token, "Content-Type": mime },
-      body: blob,
-    });
-    if (!res.ok) throw new Error("E_HTTP_" + res.status);
-    return fullPath;
+    throw new Error(WEBDAV_REQUIRES_DESKTOP);
   }
 
   async downloadFile(path: string): Promise<Uint8Array | null> {
@@ -184,16 +170,7 @@ export class WebDAVStorageProvider implements StorageProvider {
       }
     }
 
-    const baseUrl = c.url.endsWith("/") ? c.url : c.url + "/";
-    const token = btoa(c.username + ":" + (c.password || ""));
-    const res = await fetch(baseUrl + fullPath, {
-      method: "GET",
-      headers: { Authorization: "Basic " + token },
-    });
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error("E_HTTP_" + res.status);
-    const blob = await res.blob();
-    return new Uint8Array(await blob.arrayBuffer());
+    throw new Error(WEBDAV_REQUIRES_DESKTOP);
   }
 
   async deleteFile(path: string): Promise<void> {
@@ -215,13 +192,7 @@ export class WebDAVStorageProvider implements StorageProvider {
       return;
     }
 
-    const baseUrl = c.url.endsWith("/") ? c.url : c.url + "/";
-    const token = btoa(c.username + ":" + (c.password || ""));
-    const res = await fetch(baseUrl + fullPath, {
-      method: "DELETE",
-      headers: { Authorization: "Basic " + token },
-    });
-    if (!res.ok && res.status !== 404) throw new Error("E_HTTP_" + res.status);
+    throw new Error(WEBDAV_REQUIRES_DESKTOP);
   }
 
   async listFiles(_prefix: string): Promise<string[]> {
@@ -254,17 +225,7 @@ export class WebDAVStorageProvider implements StorageProvider {
       return;
     }
 
-    const baseUrl = c.url.endsWith("/") ? c.url : c.url + "/";
-    const token = btoa(c.username + ":" + (c.password || ""));
-    const res = await fetch(baseUrl + fullPath, {
-      method: "PUT",
-      headers: {
-        Authorization: "Basic " + token,
-        "Content-Type": "application/json; charset=utf-8",
-      },
-      body: content,
-    });
-    if (!res.ok) throw new Error("E_HTTP_" + res.status);
+    throw new Error(WEBDAV_REQUIRES_DESKTOP);
   }
 
   async readText(path: string): Promise<string | null> {
@@ -286,14 +247,6 @@ export class WebDAVStorageProvider implements StorageProvider {
       }
     }
 
-    const baseUrl = c.url.endsWith("/") ? c.url : c.url + "/";
-    const token = btoa(c.username + ":" + (c.password || ""));
-    const res = await fetch(baseUrl + fullPath, {
-      method: "GET",
-      headers: { Authorization: "Basic " + token },
-    });
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error("E_HTTP_" + res.status);
-    return await res.text();
+    throw new Error(WEBDAV_REQUIRES_DESKTOP);
   }
 }

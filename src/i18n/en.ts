@@ -388,7 +388,19 @@ const en: Translations = {
     syncDesc:
       "Configure Jianguoyun or other WebDAV accounts to automatically sync data across multiple devices. Complete data is always preserved locally and works offline.",
     syncSecurityNote:
-      "🔒 Security note: Cloud sync does not upload AI API keys or other secrets; keys are stored locally on this device only. Please configure your API keys separately on other devices.",
+      "🔒 Security note: API keys stay on this device unless you turn on encrypted secret sync and set a passphrase. The passphrase is never uploaded.",
+    syncSecretsTitle: "Sync API keys (off by default)",
+    syncSecretsDesc:
+      "When enabled, AI API keys and the mailbox password are encrypted before upload. When off, secrets stay on this device.",
+    syncSecretsNeedPass:
+      "Set an encryption passphrase first, or secrets will still not be uploaded",
+    syncSecretsPassphrase: "Encryption passphrase",
+    syncSecretsPassphraseHint: "Stored on this device only",
+    syncSecretsTradeoff:
+      "The cloud stores ciphertext only. A weak passphrase can be guessed offline, and a lost passphrase cannot be recovered. Keys already set on this device are not replaced by an empty cloud copy. The WebDAV password is not included.",
+    syncSecretsDecryptFailed:
+      "This passphrase does not match the cloud copy. The cloud envelope was left unchanged. Enter the passphrase used to encrypt it, then sync again.",
+    syncUrlInsecure: "Only https is allowed. http is limited to localhost.",
     syncConflictTitle: "Cloud Data Updated",
     syncConflictBody:
       "The following data was modified on another device after your last sync. To prevent overwriting, it was not uploaded. The cloud version has been saved as a local backup. Please choose which version to keep:",
@@ -584,6 +596,8 @@ const en: Translations = {
     focusTimeBody: "Break is over, time to focus!",
     pomodoroTime: "Pomodoro is up!",
     pomodoroTimeBody: "Great job! Take a break and hydrate.",
+    microBreakTitle: "Micro-break",
+    microBreakBody: "Rest for 5 seconds and look away from the screen",
   },
   dashboard: {
     morning: "Good morning",

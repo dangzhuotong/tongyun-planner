@@ -10,7 +10,9 @@ export class AudioEngine {
   private whiteBuffer: AudioBuffer | null = null;
 
   // Handles state protection to prevent overlapping context states during fading out
-  private fadeTimeoutId: any = null;
+  private fadeTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  /** Bumped on every start/stop so a fade timeout cannot tear down a newer graph. */
+  private playbackEpoch = 0;
 
   private init(): AudioContext {
     if (!this.ctx) {
@@ -122,6 +124,7 @@ export class AudioEngine {
   }
 
   public startNoise(type: string, volume: number): void {
+    this.playbackEpoch += 1;
     // Cancel any pending fade-out stops
     if (this.fadeTimeoutId) {
       clearTimeout(this.fadeTimeoutId);
@@ -494,6 +497,7 @@ export class AudioEngine {
   }
 
   public stopNoise(): void {
+    const epoch = ++this.playbackEpoch;
     if (this.fadeTimeoutId) {
       clearTimeout(this.fadeTimeoutId);
       this.fadeTimeoutId = null;
@@ -505,15 +509,20 @@ export class AudioEngine {
       const sourceNode = this.source;
       const lfoNode = this.lfo;
 
-      // Smooth fade-out (0.4s)
+      // Cancel the fade-in ramp first. A later automation event would otherwise
+      // climb back to full volume after this fade-out and the noise would not stop.
       try {
-        gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
+        const now = ctx.currentTime;
+        gainNode.gain.cancelScheduledValues(now);
+        const current = Number.isFinite(gainNode.gain.value) ? gainNode.gain.value : 0;
+        gainNode.gain.setValueAtTime(current, now);
+        gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
       } catch {
         // Fallback if AudioContext is state issues
       }
 
       this.fadeTimeoutId = setTimeout(() => {
+        if (epoch !== this.playbackEpoch) return;
         // Clear periodic sound intervals (bell/pendulum/ring/thunder)
         if ((this as any)._crackleInterval) {
           clearInterval((this as any)._crackleInterval);
@@ -556,9 +565,9 @@ export class AudioEngine {
           // Ignored
         }
 
-        this.source = null;
-        this.lfo = null;
-        this.gain = null;
+        if (this.source === sourceNode) this.source = null;
+        if (this.lfo === lfoNode) this.lfo = null;
+        if (this.gain === gainNode) this.gain = null;
         this.fadeTimeoutId = null;
       }, 450);
     } else {

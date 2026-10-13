@@ -112,6 +112,8 @@ describe("Sync Security & Sanitization", () => {
     });
 
     it("rejects non-secret keys correctly (negatives)", () => {
+      expect(isSecretConfigKey("syncSecrets")).toBe(false);
+      expect(isSecretConfigKey("encryptedSecrets")).toBe(false);
       expect(isSecretConfigKey("aiMaxTokens")).toBe(false);
       expect(isSecretConfigKey("darkMode")).toBe(false);
       expect(isSecretConfigKey("syncInterval")).toBe(false);

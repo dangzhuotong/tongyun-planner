@@ -295,12 +295,15 @@ export class SyncEngine {
         for (const conflict of this._conflicts) {
           // 选择本机版本：刷新版本戳为当前时间，保证其他设备的清单比较能拉到这份数据
           bumpCategoryVersion(conflict.category);
-          const payload = getCategoryPayload(freshData, conflict.category);
+          const payload =
+            conflict.category === "config"
+              ? freshData.customizationConfig
+              : getCategoryPayload(freshData, conflict.category);
           await this.webdavProvider.uploadCategory(conflict.category, payload);
         }
       } else {
         for (const conflict of this._conflicts) {
-          this.webdavProvider.acceptRemote(conflict);
+          await this.webdavProvider.acceptRemote(conflict);
         }
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));

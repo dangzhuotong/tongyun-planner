@@ -6,6 +6,7 @@ import type {
   CustomizationConfig,
   JournalEntry,
 } from "../../types";
+import { isSyncSecretsOptIn } from "./syncSecretsPref";
 
 export interface SyncData {
   version: number;
@@ -156,6 +157,8 @@ const SECRET_SUFFIXES = [
  * 注意：aiMaxTokens 以 "tokens" 结尾，不属于 secret。
  */
 export function isSecretConfigKey(key: string): boolean {
+  // 开关和密文包本身不是明文密钥。syncSecrets 若按后缀会被误判成 secret。
+  if (key === "syncSecrets" || key === "encryptedSecrets") return false;
   if (key === "aiApiKey" || key === "providerApiKeys" || key === "smtpPass") return true;
   const normalized = key.toLowerCase().replace(/[-_]/g, "");
   return SECRET_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
@@ -164,7 +167,8 @@ export function isSecretConfigKey(key: string): boolean {
 /**
  * 从配置对象中剥离所有敏感的 API Key / Token / Password 字段。
  * 返回浅拷贝，保留 null / undefined 直通行为。
- * 密钥只保存在本机，不上传至任何云端存储（如 WebDAV），也不包含在快照导出文件中。
+ * 默认不上传明文密钥。可选的加密同步由 prepareConfigForUpload 在脱敏之后附加密文。
+ * 快照导出仍只走本函数，因此快照里没有密钥，也没有密文包。
  */
 export function sanitizeConfigForSync<T extends object | null | undefined>(config: T): T {
   if (!config || typeof config !== "object") return config;
@@ -174,6 +178,9 @@ export function sanitizeConfigForSync<T extends object | null | undefined>(confi
       delete sanitized[key];
     }
   }
+  delete sanitized.encryptedSecrets;
+  delete sanitized.syncSecretsPassphrase;
+  delete sanitized.secretsPassphrase;
   return sanitized as T;
 }
 
@@ -209,6 +216,9 @@ export function withLocalSecrets<T extends object>(
   // 3. 保持现有默认行为：当 local 中没有时，aiApiKey 回退为空字符串，providerApiKeys 回退为空对象
   result.aiApiKey = (localRecord?.aiApiKey as string) || "";
   result.providerApiKeys = (localRecord?.providerApiKeys as Record<string, string>) || {};
+  // Ciphertext is recreated on upload. Do not keep a stale envelope in local config.
+  delete result.encryptedSecrets;
+  delete result.syncSecretsPassphrase;
 
   return result as T;
 }
@@ -327,9 +337,16 @@ export function mergeRemoteIntoLocal(
     const remote = remotePayload ? (remotePayload as Record<string, unknown>) : null;
     const local = localPayload ? (localPayload as Record<string, unknown>) : null;
     if (!remote) return local;
-    if (!local) return withLocalSecrets(remote, null);
-    // config 按字段合并：远端为主，但本地 Key 优先保留
-    return withLocalSecrets({ ...local, ...remote }, local);
+    if (!local) {
+      const fresh = withLocalSecrets(remote, null) as Record<string, unknown>;
+      fresh.syncSecrets = isSyncSecretsOptIn(null);
+      return fresh;
+    }
+    // config 按字段合并：远端为主，但本地 Key 优先保留。
+    // 是否加密同步密钥是本机选择，不能被远端打开或关掉。
+    const merged = withLocalSecrets({ ...local, ...remote }, local) as Record<string, unknown>;
+    merged.syncSecrets = isSyncSecretsOptIn(local);
+    return merged;
   }
 
   // 数组分类：按 id 合并

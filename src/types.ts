@@ -179,6 +179,12 @@ export interface CustomizationConfig {
   journalCommentPrompt?: string; // 暖评自定义系统提示词（留空则用内置默认）
   enableAutoBackup?: boolean;
   syncInterval?: number; // seconds: 15, 30, 60, 300, 900, 1800, 3600, 0(manual)
+  /**
+   * Opt-in sync of API keys and other secrets. Off by default.
+   * When true, secrets are encrypted with a device-local passphrase before upload.
+   * The passphrase is never stored in this object.
+   */
+  syncSecrets?: boolean;
 }
 
 export interface TimeBlock {

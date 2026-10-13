@@ -18,6 +18,19 @@ import type { SyncBackendType } from "../../utils/sync/types";
 import { storageManager, type StorageBackendType } from "../../utils/storage";
 import { syncEngine } from "../../utils/sync/engine";
 import {
+  JIANGUOYUN_WEBDAV_URL,
+  commitWebDavDraftAt,
+  isWebDavUrlLocked,
+  urlForPreset,
+} from "../../utils/sync/webdavForm";
+import {
+  hasSyncSecretsDecryptFailed,
+  readSyncSecretsPassphrase,
+  secretSyncDecryptWarning,
+  setSyncSecretsOptIn,
+  writeSyncSecretsPassphrase,
+} from "../../utils/sync/syncSecretsPref";
+import {
   normalizeSyncData,
   applySyncData,
   bumpCategoryVersion,
@@ -57,11 +70,9 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
   const { t } = useTranslation();
   const s = t.settings;
 
-  const JIANGUOYUN_URL = "https://dav.jianguoyun.com/dav/";
-
   const [webdavUrl, setWebdavUrl] = useState(() => {
     const saved = localStorage.getItem("tongyun_webdav_url");
-    if (!saved) return JIANGUOYUN_URL;
+    if (!saved) return JIANGUOYUN_WEBDAV_URL;
     return saved;
   });
   const [webdavUser, setWebdavUser] = useState(
@@ -75,6 +86,11 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
     const saved = localStorage.getItem("tongyun_webdav_url") || "";
     return !saved || saved.startsWith("https://dav.jianguoyun.com") ? "jianguoyun" : "custom";
   });
+  const [syncPassphrase, setSyncPassphrase] = useState(() => readSyncSecretsPassphrase());
+  const [secretsDecryptFailed, setSecretsDecryptFailed] = useState(() =>
+    hasSyncSecretsDecryptFailed(),
+  );
+  const [urlError, setUrlError] = useState("");
 
   const [storageBackend, setStorageBackend] = useState<StorageBackendType>(
     () => storageManager.current,
@@ -165,35 +181,44 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
     }
   };
 
-  // 选择坚果云预设且尚未保存地址时，持久化默认地址，保证启动时能从本地配置恢复 WebDAV
-  useEffect(() => {
-    if (webdavPreset === "jianguoyun" && !localStorage.getItem("tongyun_webdav_url")) {
-      localStorage.setItem("tongyun_webdav_url", JIANGUOYUN_URL);
+  // 地址在失焦或点击测试/同步时提交。按键只改草稿，避免半截 http 地址带着 Basic 认证发出去。
+  const persistWebDavDraft = (
+    point: "blur" | "save",
+    draft: { url: string; username: string; password: string },
+  ) => {
+    const saved = commitWebDavDraftAt(point, draft, (config) => {
+      syncEngine.webdavProvider.setConfig(config);
+      storageManager.webdav.setConfig(config);
+    });
+    if (!saved && draft.url.trim()) {
+      setUrlError(s.syncUrlInsecure || "只允许 https。http 仅可用于本机 localhost / 127.0.0.1。");
+      return false;
     }
-  }, [webdavPreset]);
+    setUrlError("");
+    return saved != null;
+  };
 
   const handleSelectPreset = (preset: "jianguoyun" | "custom") => {
     setWebdavPreset(preset);
-    if (preset === "jianguoyun") {
-      setWebdavUrl(JIANGUOYUN_URL);
-      localStorage.setItem("tongyun_webdav_url", JIANGUOYUN_URL);
-    }
+    const nextUrl = urlForPreset(preset, webdavUrl);
+    setWebdavUrl(nextUrl);
+    persistWebDavDraft("save", { url: nextUrl, username: webdavUser, password: webdavPass });
   };
 
   const applySyncProviderConfig = () => {
-    if (syncBackend === "webdav") {
-      syncEngine.webdavProvider.setConfig({
-        url: webdavUrl,
-        username: webdavUser,
-        password: webdavPass || undefined,
-      });
-    }
+    if (syncBackend !== "webdav") return true;
+    return persistWebDavDraft("save", {
+      url: webdavUrl,
+      username: webdavUser,
+      password: webdavPass,
+    });
   };
 
   useEffect(() => {
     return syncEngine.subscribe((state) => {
       setSyncStatus(state.status);
       setSyncLastTime(state.lastSyncTime);
+      setSecretsDecryptFailed(hasSyncSecretsDecryptFailed());
     });
   }, []);
 
@@ -306,17 +331,25 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
             </label>
             <input
               type="text"
-              readOnly={webdavPreset === "jianguoyun"}
+              readOnly={isWebDavUrlLocked(webdavPreset)}
               placeholder="https://dav.jianguoyun.com/dav/"
               value={webdavUrl}
               onChange={(e) => {
                 setWebdavUrl(e.target.value);
-                localStorage.setItem("tongyun_webdav_url", e.target.value);
+                setUrlError("");
               }}
-              className={`w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] ${
-                webdavPreset === "jianguoyun" ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""
-              }`}
+              onBlur={(e) =>
+                persistWebDavDraft("blur", {
+                  url: e.target.value,
+                  username: webdavUser,
+                  password: webdavPass,
+                })
+              }
+              className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
             />
+            {urlError && (
+              <p className="text-[10px] text-red-600 mt-1 leading-relaxed">{urlError}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -327,10 +360,14 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                 type="text"
                 placeholder="your-email@example.com"
                 value={webdavUser}
-                onChange={(e) => {
-                  setWebdavUser(e.target.value);
-                  localStorage.setItem("tongyun_webdav_user", e.target.value);
-                }}
+                onChange={(e) => setWebdavUser(e.target.value)}
+                onBlur={(e) =>
+                  persistWebDavDraft("blur", {
+                    url: webdavUrl,
+                    username: e.target.value,
+                    password: webdavPass,
+                  })
+                }
                 className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
               />
             </div>
@@ -342,13 +379,85 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                 type="password"
                 placeholder="••••••••"
                 value={webdavPass}
-                onChange={(e) => {
-                  setWebdavPass(e.target.value);
-                  localStorage.setItem("tongyun_webdav_pass", e.target.value);
-                }}
+                onChange={(e) => setWebdavPass(e.target.value)}
+                onBlur={(e) =>
+                  persistWebDavDraft("blur", {
+                    url: webdavUrl,
+                    username: webdavUser,
+                    password: e.target.value,
+                  })
+                }
                 className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
               />
             </div>
+          </div>
+
+          {secretsDecryptFailed && (
+            <div className="flex items-start gap-1.5 text-[11px] text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5 rounded-xl">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>
+                {secretSyncDecryptWarning(
+                  s.syncSecretsDecryptFailed ||
+                    "口令与云端不一致，已保留云端密文，没有用本机口令覆盖。请改成加密时使用的口令后再同步。",
+                )}
+              </span>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-[#EFEBE4] dark:border-slate-700 bg-white/60 p-3 space-y-2">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.syncSecrets === true}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  setSyncSecretsOptIn(enabled);
+                  onChange({ ...config, syncSecrets: enabled });
+                  if (enabled && !syncPassphrase) {
+                    triggerToast(
+                      s.syncSecretsNeedPass || "请先设置加密口令，否则密钥仍不会上传",
+                      "error",
+                    );
+                  }
+                }}
+                className="mt-0.5 w-4 h-4 accent-[#4D7C5D] cursor-pointer"
+              />
+              <span>
+                <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                  {s.syncSecretsTitle || "同步 API 密钥（默认关闭）"}
+                </span>
+                <span className="block text-[10px] text-slate-400 mt-0.5 leading-relaxed">
+                  {s.syncSecretsDesc ||
+                    "开启后，AI API Key 与邮箱授权码会用口令加密再上传。关闭时密钥只留在本机。"}
+                </span>
+              </span>
+            </label>
+            {config.syncSecrets === true && (
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
+                  {s.syncSecretsPassphrase || "加密口令"}
+                </label>
+                <input
+                  type="password"
+                  value={syncPassphrase}
+                  autoComplete="new-password"
+                  placeholder={s.syncSecretsPassphraseHint || "仅保存在本机，不会上传"}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setSyncPassphrase(next);
+                    writeSyncSecretsPassphrase(next);
+                  }}
+                  onBlur={() => {
+                    if (config.syncSecrets && syncPassphrase) setSyncSecretsOptIn(true);
+                  }}
+                  className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
+                />
+                <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+                  {s.syncSecretsTradeoff ||
+                    "云端只保存密文。口令太弱时，拿到文件的人仍可能离线破解；口令丢失则无法在其他设备解密。本机已经填写的密钥不会被云端空值覆盖。WebDAV 密码不会放进加密包。"}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -408,7 +517,13 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
           <div className="flex gap-2">
             <button
               onClick={async () => {
-                applySyncProviderConfig();
+                if (!applySyncProviderConfig()) {
+                  triggerToast(
+                    s.syncUrlInsecure || "只允许 https。http 仅可用于本机 localhost / 127.0.0.1。",
+                    "error",
+                  );
+                  return;
+                }
                 setIsLoading(true);
                 const ok = await syncEngine.testConnection();
                 setIsLoading(false);
@@ -426,7 +541,13 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
             </button>
             <button
               onClick={async () => {
-                applySyncProviderConfig();
+                if (!applySyncProviderConfig()) {
+                  triggerToast(
+                    s.syncUrlInsecure || "只允许 https。http 仅可用于本机 localhost / 127.0.0.1。",
+                    "error",
+                  );
+                  return;
+                }
                 setIsLoading(true);
                 await syncEngine.sync();
                 setIsLoading(false);

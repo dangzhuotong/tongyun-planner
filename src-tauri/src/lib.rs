@@ -137,13 +137,11 @@ fn webdav_mkcol(
     password: Option<String>,
     dirname: String,
 ) -> Result<(), String> {
+    let target_url = build_target_url(&url, &dirname)?;
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()
         .map_err(|e| e.to_string())?;
-
-    let base_url = if url.ends_with('/') { url } else { format!("{}/", url) };
-    let target_url = format!("{}{}", base_url, dirname);
 
     let mut req = client.request(reqwest::Method::from_bytes(b"MKCOL").unwrap(), &target_url);
 
@@ -171,13 +169,11 @@ fn webdav_upload(
     filename: String,
     content: String,
 ) -> Result<(), String> {
+    let target_url = build_target_url(&url, &filename)?;
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| e.to_string())?;
-
-    let base_url = if url.ends_with('/') { url } else { format!("{}/", url) };
-    let target_url = format!("{}{}", base_url, filename);
 
     let mut req = client.put(&target_url)
         .header("Content-Type", "application/json; charset=utf-8")
@@ -205,13 +201,11 @@ fn webdav_download(
     password: Option<String>,
     filename: String,
 ) -> Result<String, String> {
+    let target_url = build_target_url(&url, &filename)?;
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| e.to_string())?;
-
-    let base_url = if url.ends_with('/') { url } else { format!("{}/", url) };
-    let target_url = format!("{}{}", base_url, filename);
 
     let mut req = client.get(&target_url);
 
@@ -245,13 +239,11 @@ fn webdav_upload_binary(
     content_base64: String,
     content_type: String,
 ) -> Result<(), String> {
+    let target_url = build_target_url(&url, &filename)?;
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|e| e.to_string())?;
-
-    let base_url = if url.ends_with('/') { url } else { format!("{}/", url) };
-    let target_url = format!("{}{}", base_url, filename);
 
     use base64::Engine;
     let bytes = base64::engine::general_purpose::STANDARD
@@ -283,13 +275,11 @@ fn webdav_download_binary(
     password: Option<String>,
     filename: String,
 ) -> Result<String, String> {
+    let target_url = build_target_url(&url, &filename)?;
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|e| e.to_string())?;
-
-    let base_url = if url.ends_with('/') { url } else { format!("{}/", url) };
-    let target_url = format!("{}{}", base_url, filename);
 
     let mut req = client.get(&target_url);
     if let Some(pass) = password {
@@ -319,13 +309,11 @@ fn webdav_delete(
     password: Option<String>,
     filename: String,
 ) -> Result<(), String> {
+    let target_url = build_target_url(&url, &filename)?;
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| e.to_string())?;
-
-    let base_url = if url.ends_with('/') { url } else { format!("{}/", url) };
-    let target_url = format!("{}{}", base_url, filename);
 
     let mut req = client.delete(&target_url);
     if let Some(pass) = password {
