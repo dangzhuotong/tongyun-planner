@@ -394,6 +394,9 @@ const zhCN: Translations = {
     syncSecretsPassphraseHint: "仅保存在本机，不会上传",
     syncSecretsTradeoff:
       "云端只保存密文。口令太弱时，拿到文件的人仍可能离线破解；口令丢失则无法在其他设备解密。本机已经填写的密钥不会被云端空值覆盖。WebDAV 密码不会放进加密包。",
+    syncSecretsDecryptFailed:
+      "口令与云端不一致，已保留云端密文，没有用本机口令覆盖。请改成加密时使用的口令后再同步。",
+    syncUrlInsecure: "只允许 https。http 仅可用于本机 localhost / 127.0.0.1。",
     syncConflictTitle: "云端数据有更新",
     syncConflictBody:
       "以下数据在上次同步后被其他设备修改过，为避免覆盖，本次没有上传。云端版本已另存为本地备份。请选择保留哪一份：",

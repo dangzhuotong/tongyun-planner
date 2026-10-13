@@ -4,6 +4,11 @@ export const SYNC_SECRETS_ENABLED_KEY = "tongyun_sync_secrets_enabled";
 export const SYNC_SECRETS_PASSPHRASE_KEY = "tongyun_sync_secrets_passphrase";
 /** Ask the next pull to download config even when the local version is newer. */
 export const FORCE_CONFIG_PULL_KEY = "tongyun_force_pull_config";
+/**
+ * Set when the cloud secret envelope could not be decrypted with this device's passphrase.
+ * While set, uploads keep the cloud ciphertext unchanged.
+ */
+export const SYNC_SECRETS_DECRYPT_FAILED_KEY = "tongyun_sync_secrets_decrypt_failed";
 
 export function readSyncSecretsPassphrase(): string {
   if (typeof localStorage === "undefined") return "";
@@ -42,4 +47,26 @@ export function peekForceConfigPull(): boolean {
 export function clearForceConfigPull(): void {
   if (typeof localStorage === "undefined") return;
   localStorage.removeItem(FORCE_CONFIG_PULL_KEY);
+}
+
+export function markSyncSecretsDecryptFailed(): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(SYNC_SECRETS_DECRYPT_FAILED_KEY, "1");
+}
+
+export function clearSyncSecretsDecryptFailed(): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.removeItem(SYNC_SECRETS_DECRYPT_FAILED_KEY);
+}
+
+export function hasSyncSecretsDecryptFailed(): boolean {
+  return (
+    typeof localStorage !== "undefined" &&
+    localStorage.getItem(SYNC_SECRETS_DECRYPT_FAILED_KEY) === "1"
+  );
+}
+
+/** Settings copy shown while the cloud envelope is being preserved after a bad passphrase. */
+export function secretSyncDecryptWarning(message: string): string | null {
+  return hasSyncSecretsDecryptFailed() ? message : null;
 }

@@ -9,8 +9,11 @@ import {
   prepareConfigForUpload,
 } from "../secretSync";
 import {
+  SYNC_SECRETS_DECRYPT_FAILED_KEY,
   SYNC_SECRETS_ENABLED_KEY,
   SYNC_SECRETS_PASSPHRASE_KEY,
+  hasSyncSecretsDecryptFailed,
+  secretSyncDecryptWarning,
   setSyncSecretsOptIn,
   writeSyncSecretsPassphrase,
 } from "../syncSecretsPref";
@@ -186,6 +189,63 @@ describe("opt-in encrypted secret sync", () => {
     );
     expect(imported).toBe(false);
     expect(JSON.parse(localStorage.getItem("aero_customization_config") || "{}").aiApiKey).toBe("");
+  });
+
+  it("keeps the cloud envelope when decrypt fails, and the next upload does not re-encrypt it", async () => {
+    setSyncSecretsOptIn(true);
+    writeSyncSecretsPassphrase("wrong-pass");
+    const remoteEnvelope = await encryptSecretFields(
+      { aiApiKey: "sk-from-device-a", providerApiKeys: { x: "X" } },
+      "right-pass",
+      FAST,
+    );
+
+    const imported = await importDecryptedSecrets(
+      { encryptedSecrets: remoteEnvelope },
+      { aiApiKey: "sk-only-on-b", syncSecrets: true },
+    );
+    expect(imported).toBe(false);
+    expect(hasSyncSecretsDecryptFailed()).toBe(true);
+    expect(localStorage.getItem(SYNC_SECRETS_DECRYPT_FAILED_KEY)).toBe("1");
+    expect(secretSyncDecryptWarning("口令与云端不一致")).toBe("口令与云端不一致");
+
+    const uploaded = await prepareConfigForUpload(
+      {
+        darkMode: "dark",
+        syncSecrets: true,
+        aiApiKey: "sk-only-on-b",
+      } as unknown as CustomizationConfig,
+      { remoteEnvelope, iterations: FAST },
+    );
+    expect(uploaded?.encryptedSecrets).toEqual(remoteEnvelope);
+    const stillCloud = await decryptSecretFields(uploaded?.encryptedSecrets, "right-pass");
+    expect(stillCloud).toEqual({ aiApiKey: "sk-from-device-a", providerApiKeys: { x: "X" } });
+    await expect(decryptSecretFields(uploaded?.encryptedSecrets, "wrong-pass")).rejects.toThrow();
+    expect(JSON.stringify(uploaded)).not.toContain("sk-only-on-b");
+  });
+
+  it("merges cloud-only secret fields before encrypting a partial local set", async () => {
+    setSyncSecretsOptIn(true);
+    writeSyncSecretsPassphrase("right-pass");
+    const remoteEnvelope = await encryptSecretFields(
+      { aiApiKey: "sk-a", providerApiKeys: { x: "X", y: "Y" }, smtpPass: "smtp-cloud" },
+      "right-pass",
+      FAST,
+    );
+
+    const uploaded = await prepareConfigForUpload(
+      {
+        syncSecrets: true,
+        aiApiKey: "sk-b2",
+        providerApiKeys: { x: "X2" },
+      } as unknown as CustomizationConfig,
+      { remoteEnvelope, iterations: FAST },
+    );
+    const restored = await decryptSecretFields(uploaded?.encryptedSecrets, "right-pass");
+    expect(restored.aiApiKey).toBe("sk-b2");
+    expect(restored.providerApiKeys).toEqual({ x: "X2", y: "Y" });
+    expect(restored.smtpPass).toBe("smtp-cloud");
+    expect(uploaded?.encryptedSecrets).not.toEqual(remoteEnvelope);
   });
 
   it("uses a high PBKDF2 cost in production and strips leftover ciphertext from plain sanitize", () => {

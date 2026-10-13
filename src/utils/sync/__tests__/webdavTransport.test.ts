@@ -6,8 +6,17 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import { invoke } from "@tauri-apps/api/core";
 import { WebDAVProvider, downloadWithMeta, statFile, uploadWithMeta } from "../webdavProvider";
-import { commitWebDavDraft, isWebDavUrlLocked, urlForPreset } from "../webdavForm";
+import {
+  commitWebDavDraft,
+  commitWebDavDraftAt,
+  isAllowedWebDavUrl,
+  isWebDavUrlLocked,
+  shouldCommitWebDavDraft,
+  urlForPreset,
+} from "../webdavForm";
 import { categoryVersionAfterPull, shouldPullCategory } from "../pullDecision";
+import { encryptSecretFields } from "../secretSync";
+import { secretSyncDecryptWarning, setSyncSecretsOptIn } from "../syncSecretsPref";
 
 class LocalStorageMock {
   private store: Record<string, string> = {};
@@ -106,6 +115,101 @@ describe("WebDAV desktop transport", () => {
       "https://dav.jianguoyun.com/dav/",
     );
     expect(urlForPreset("custom", "https://old.example/dav/")).toBe("https://old.example/dav/");
+  });
+
+  it("rejects cleartext WebDAV URLs and does not persist them", () => {
+    expect(isAllowedWebDavUrl("https://dav.jianguoyun.com/dav/")).toBe(true);
+    expect(isAllowedWebDavUrl("http://localhost:8080/dav/")).toBe(true);
+    expect(isAllowedWebDavUrl("http://127.0.0.1/dav/")).toBe(true);
+    expect(isAllowedWebDavUrl("http://[::1]/dav/")).toBe(true);
+    expect(isAllowedWebDavUrl("http://evil.example/dav/")).toBe(false);
+    expect(isAllowedWebDavUrl("http://ex")).toBe(false);
+
+    const applied: unknown[] = [];
+    expect(
+      commitWebDavDraft(
+        { url: "http://evil.example/dav/", username: "me@example.com", password: "secret" },
+        (next) => applied.push(next),
+      ),
+    ).toBeNull();
+    expect(applied).toEqual([]);
+    expect(localStorage.getItem("tongyun_webdav_url")).toBeNull();
+  });
+
+  it("commits the URL on blur or save, not on each keystroke", () => {
+    expect(shouldCommitWebDavDraft("change")).toBe(false);
+    expect(shouldCommitWebDavDraft("blur")).toBe(true);
+    expect(shouldCommitWebDavDraft("save")).toBe(true);
+
+    const provider = new WebDAVProvider();
+    const draft = {
+      url: "https://dav.example.com/dav/",
+      username: "me@example.com",
+      password: "secret",
+    };
+    expect(commitWebDavDraftAt("change", draft, (next) => provider.setConfig(next))).toBeNull();
+    expect(localStorage.getItem("tongyun_webdav_url")).toBeNull();
+
+    expect(commitWebDavDraftAt("blur", draft, (next) => provider.setConfig(next))?.url).toBe(
+      "https://dav.example.com/dav/",
+    );
+    expect(localStorage.getItem("tongyun_webdav_url")).toBe("https://dav.example.com/dav/");
+    expect(secretSyncDecryptWarning("口令与云端不一致")).toBeNull();
+  });
+
+  it("keeps the cloud secret envelope when keep-local uploads config without a passphrase", async () => {
+    vi.stubGlobal("window", { isTauri: true, __TAURI_INTERNALS__: {} });
+    setSyncSecretsOptIn(true);
+    const envelope = await encryptSecretFields(
+      { aiApiKey: "sk-cloud-only", providerApiKeys: { x: "X" } },
+      "right-pass",
+      1_000,
+    );
+    const uploads: { filename: string; content: string }[] = [];
+    vi.mocked(invoke).mockImplementation(async (cmd: string, args?: unknown) => {
+      const payload = (args ?? {}) as { filename?: string; content?: string };
+      const filename = String(payload.filename ?? "");
+      if (cmd === "webdav_mkcol") return null;
+      if (cmd === "webdav_download_meta") {
+        if (filename.endsWith("config.json")) {
+          return {
+            content: JSON.stringify({ darkMode: "dark", encryptedSecrets: envelope }),
+            etag: "etag-config",
+            lastModified: null,
+          };
+        }
+        if (filename.endsWith("manifest.json")) {
+          return {
+            content: JSON.stringify({ config: { version: 1 } }),
+            etag: "etag-manifest",
+            lastModified: null,
+          };
+        }
+        throw "E_NOT_FOUND";
+      }
+      if (cmd === "webdav_upload_meta") {
+        uploads.push({ filename, content: String(payload.content ?? "") });
+        return { exists: true, etag: "etag-new", lastModified: "Mon, 01 Jan 2026 00:00:00 GMT" };
+      }
+      if (cmd === "webdav_stat") {
+        return { exists: true, etag: "etag-new", lastModified: "Mon, 01 Jan 2026 00:00:00 GMT" };
+      }
+      return null;
+    });
+
+    const provider = new WebDAVProvider(config);
+    localStorage.setItem("tongyun_cat_ver_config", "10");
+    await provider.uploadCategory("config", {
+      darkMode: "light",
+      syncSecrets: true,
+      aiApiKey: "",
+    });
+
+    const configUpload = uploads.find((item) => item.filename.endsWith("config.json"));
+    expect(configUpload).toBeTruthy();
+    const uploaded = JSON.parse(configUpload?.content || "{}");
+    expect(uploaded.encryptedSecrets).toEqual(envelope);
+    expect(configUpload?.content).not.toContain("sk-cloud-only");
   });
 
   it("still pulls config when a secret import is forced, without rolling a newer local version backward", () => {

@@ -17,13 +17,57 @@ export function urlForPreset(preset: WebDavPreset, currentUrl: string): string {
   return currentUrl;
 }
 
-/** Persist URL, account, and password as soon as the draft changes, not only on a button click. */
+/**
+ * https is required. http is accepted only for localhost, 127.0.0.1, and ::1.
+ * A half-typed or cleartext URL must not be written into the sync engine.
+ */
+export function isAllowedWebDavUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol === "https:") return true;
+  if (parsed.protocol !== "http:") return false;
+  const host = parsed.hostname.replace(/^\[|\]$/g, "");
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+export type WebDavCommitPoint = "change" | "blur" | "save";
+
+/** Keystrokes stay in the draft. The engine is updated on blur or an explicit save. */
+export function shouldCommitWebDavDraft(point: WebDavCommitPoint): boolean {
+  return point !== "change";
+}
+
+/**
+ * Persist URL, account, and password on blur or an explicit save.
+ * A "change" point and a disallowed URL both leave storage unchanged.
+ */
+export function commitWebDavDraftAt(
+  point: WebDavCommitPoint,
+  draft: { url: string; username: string; password: string },
+  apply: (config: WebDavConfig) => void,
+): WebDavConfig | null {
+  if (!shouldCommitWebDavDraft(point)) return null;
+  return commitWebDavDraft(draft, apply);
+}
+
+/**
+ * Persist URL, account, and password on blur or an explicit save.
+ * Returns null and leaves storage unchanged when the URL is not allowed.
+ */
 export function commitWebDavDraft(
   draft: { url: string; username: string; password: string },
   apply: (config: WebDavConfig) => void,
-): WebDavConfig {
+): WebDavConfig | null {
+  const url = draft.url.trim();
+  if (!isAllowedWebDavUrl(url)) return null;
   const config: WebDavConfig = {
-    url: draft.url.trim(),
+    url,
     username: draft.username.trim(),
     password: draft.password ? draft.password : undefined,
   };

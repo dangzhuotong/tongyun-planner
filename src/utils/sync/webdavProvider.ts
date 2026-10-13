@@ -179,6 +179,19 @@ async function ensureDir(config: WebDavConfig, dirname: string): Promise<void> {
   });
 }
 
+/** Cloud ciphertext for config uploads. A network error aborts the upload instead of dropping it. */
+async function readRemoteSecretEnvelope(config: WebDavConfig): Promise<unknown> {
+  const json = await tryDownload(config, REMOTE_DIR + SYNC_CATEGORY_FILES.config);
+  if (!json) return undefined;
+  try {
+    const parsed = JSON.parse(json) as { encryptedSecrets?: unknown };
+    if (!parsed || typeof parsed !== "object") return undefined;
+    return parsed.encryptedSecrets;
+  } catch {
+    return undefined;
+  }
+}
+
 async function tryDownload(config: WebDavConfig, filename: string): Promise<string | null> {
   try {
     return await downloadFile(config, filename);
@@ -608,8 +621,10 @@ export class WebDAVProvider implements SyncProvider {
     await ensureDir(this.config, REMOTE_DIR);
 
     if (cat === "config") {
+      const remoteEnvelope = await readRemoteSecretEnvelope(this.config);
       payload = await prepareConfigForUpload(payload as CustomizationConfig, {
         secretSource: payload as CustomizationConfig,
+        remoteEnvelope,
       });
     }
 

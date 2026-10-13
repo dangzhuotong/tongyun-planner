@@ -398,6 +398,9 @@ const en: Translations = {
     syncSecretsPassphraseHint: "Stored on this device only",
     syncSecretsTradeoff:
       "The cloud stores ciphertext only. A weak passphrase can be guessed offline, and a lost passphrase cannot be recovered. Keys already set on this device are not replaced by an empty cloud copy. The WebDAV password is not included.",
+    syncSecretsDecryptFailed:
+      "This passphrase does not match the cloud copy. The cloud envelope was left unchanged. Enter the passphrase used to encrypt it, then sync again.",
+    syncUrlInsecure: "Only https is allowed. http is limited to localhost.",
     syncConflictTitle: "Cloud Data Updated",
     syncConflictBody:
       "The following data was modified on another device after your last sync. To prevent overwriting, it was not uploaded. The cloud version has been saved as a local backup. Please choose which version to keep:",

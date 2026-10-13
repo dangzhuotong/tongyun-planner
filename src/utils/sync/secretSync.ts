@@ -1,6 +1,12 @@
 import type { CustomizationConfig } from "../../types";
 import { isSecretConfigKey, sanitizeConfigForSync } from "./types";
-import { isSyncSecretsOptIn, readSyncSecretsPassphrase } from "./syncSecretsPref";
+import {
+  clearSyncSecretsDecryptFailed,
+  hasSyncSecretsDecryptFailed,
+  isSyncSecretsOptIn,
+  markSyncSecretsDecryptFailed,
+  readSyncSecretsPassphrase,
+} from "./syncSecretsPref";
 
 /** OWASP-aligned PBKDF2-SHA256 cost. Envelope records the count used to encrypt. */
 export const SYNC_SECRET_KDF_ITERATIONS = 210_000;
@@ -96,6 +102,31 @@ export function isSecretsEmpty(secrets: Record<string, unknown>): boolean {
   return Object.keys(secrets).length === 0;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * Local non-empty fields win. Cloud-only fields, including keys inside `providerApiKeys`, stay.
+ * Empty local values do not erase a cloud field.
+ */
+export function mergeSecretFields(
+  remoteSecrets: Record<string, unknown>,
+  localSecrets: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...remoteSecrets };
+  for (const [key, value] of Object.entries(localSecrets)) {
+    if (isEmptySecretValue(value)) continue;
+    const existing = merged[key];
+    if (isPlainObject(value) && isPlainObject(existing)) {
+      merged[key] = mergeSecretFields(existing, value);
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
 function isEnvelope(value: unknown): value is EncryptedSecretsEnvelope {
   if (!value || typeof value !== "object") return false;
   const envelope = value as EncryptedSecretsEnvelope;
@@ -188,6 +219,8 @@ export interface PrepareConfigOptions {
  * Default (opt-in off): strip every secret and any previous ciphertext.
  * Opt-in on: encrypt secrets with the device passphrase. The passphrase itself is never included.
  * An empty local secret set does not replace a remote envelope, so a new device cannot wipe keys.
+ * A failed decrypt records a local flag and keeps the cloud envelope byte-for-byte.
+ * A successful decrypt merges cloud-only fields with local fields before encrypting.
  */
 export type UploadedConfig = CustomizationConfig & {
   encryptedSecrets?: EncryptedSecretsEnvelope;
@@ -211,15 +244,28 @@ export async function prepareConfigForUpload(
     return record as unknown as UploadedConfig;
   }
   record.syncSecrets = true;
+  const remoteEnvelope = options.remoteEnvelope;
+  const keepRemoteEnvelope = () => {
+    if (isEnvelope(remoteEnvelope)) record.encryptedSecrets = remoteEnvelope;
+    return record as unknown as UploadedConfig;
+  };
+  if (hasSyncSecretsDecryptFailed()) return keepRemoteEnvelope();
+
   const passphrase = readSyncSecretsPassphrase();
   const secrets = collectSecretFields(source);
-  if (!passphrase || isSecretsEmpty(secrets)) {
-    if (isEnvelope(options.remoteEnvelope)) {
-      record.encryptedSecrets = options.remoteEnvelope;
+  if (!passphrase || isSecretsEmpty(secrets)) return keepRemoteEnvelope();
+
+  let toEncrypt = secrets;
+  if (isEnvelope(remoteEnvelope)) {
+    try {
+      const remoteSecrets = await decryptSecretFields(remoteEnvelope, passphrase);
+      toEncrypt = mergeSecretFields(remoteSecrets, secrets);
+    } catch {
+      markSyncSecretsDecryptFailed();
+      return keepRemoteEnvelope();
     }
-    return record as unknown as UploadedConfig;
   }
-  record.encryptedSecrets = await encryptSecretFields(secrets, passphrase, options.iterations);
+  record.encryptedSecrets = await encryptSecretFields(toEncrypt, passphrase, options.iterations);
   return record as unknown as UploadedConfig;
 }
 
@@ -241,9 +287,11 @@ export async function importDecryptedSecrets(
   try {
     secrets = await decryptSecretFields(envelope, passphrase);
   } catch {
+    markSyncSecretsDecryptFailed();
     console.warn("[sync] failed to decrypt synced secrets");
     return false;
   }
+  clearSyncSecretsDecryptFailed();
 
   const local = (localBefore && typeof localBefore === "object" ? localBefore : {}) as Record<
     string,

@@ -19,12 +19,14 @@ import { storageManager, type StorageBackendType } from "../../utils/storage";
 import { syncEngine } from "../../utils/sync/engine";
 import {
   JIANGUOYUN_WEBDAV_URL,
-  commitWebDavDraft,
+  commitWebDavDraftAt,
   isWebDavUrlLocked,
   urlForPreset,
 } from "../../utils/sync/webdavForm";
 import {
+  hasSyncSecretsDecryptFailed,
   readSyncSecretsPassphrase,
+  secretSyncDecryptWarning,
   setSyncSecretsOptIn,
   writeSyncSecretsPassphrase,
 } from "../../utils/sync/syncSecretsPref";
@@ -85,6 +87,10 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
     return !saved || saved.startsWith("https://dav.jianguoyun.com") ? "jianguoyun" : "custom";
   });
   const [syncPassphrase, setSyncPassphrase] = useState(() => readSyncSecretsPassphrase());
+  const [secretsDecryptFailed, setSecretsDecryptFailed] = useState(() =>
+    hasSyncSecretsDecryptFailed(),
+  );
+  const [urlError, setUrlError] = useState("");
 
   const [storageBackend, setStorageBackend] = useState<StorageBackendType>(
     () => storageManager.current,
@@ -175,33 +181,44 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
     }
   };
 
-  // 地址、账号、密码在编辑时写入同步引擎和附件存储，不必等到点击「测试」或「立即同步」
-  useEffect(() => {
-    commitWebDavDraft({ url: webdavUrl, username: webdavUser, password: webdavPass }, (config) => {
+  // 地址在失焦或点击测试/同步时提交。按键只改草稿，避免半截 http 地址带着 Basic 认证发出去。
+  const persistWebDavDraft = (
+    point: "blur" | "save",
+    draft: { url: string; username: string; password: string },
+  ) => {
+    const saved = commitWebDavDraftAt(point, draft, (config) => {
       syncEngine.webdavProvider.setConfig(config);
       storageManager.webdav.setConfig(config);
     });
-  }, [webdavUrl, webdavUser, webdavPass]);
+    if (!saved && draft.url.trim()) {
+      setUrlError(s.syncUrlInsecure || "只允许 https。http 仅可用于本机 localhost / 127.0.0.1。");
+      return false;
+    }
+    setUrlError("");
+    return saved != null;
+  };
 
   const handleSelectPreset = (preset: "jianguoyun" | "custom") => {
     setWebdavPreset(preset);
-    setWebdavUrl((current) => urlForPreset(preset, current));
+    const nextUrl = urlForPreset(preset, webdavUrl);
+    setWebdavUrl(nextUrl);
+    persistWebDavDraft("save", { url: nextUrl, username: webdavUser, password: webdavPass });
   };
 
   const applySyncProviderConfig = () => {
-    if (syncBackend === "webdav") {
-      syncEngine.webdavProvider.setConfig({
-        url: webdavUrl,
-        username: webdavUser,
-        password: webdavPass || undefined,
-      });
-    }
+    if (syncBackend !== "webdav") return true;
+    return persistWebDavDraft("save", {
+      url: webdavUrl,
+      username: webdavUser,
+      password: webdavPass,
+    });
   };
 
   useEffect(() => {
     return syncEngine.subscribe((state) => {
       setSyncStatus(state.status);
       setSyncLastTime(state.lastSyncTime);
+      setSecretsDecryptFailed(hasSyncSecretsDecryptFailed());
     });
   }, []);
 
@@ -317,9 +334,22 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
               readOnly={isWebDavUrlLocked(webdavPreset)}
               placeholder="https://dav.jianguoyun.com/dav/"
               value={webdavUrl}
-              onChange={(e) => setWebdavUrl(e.target.value)}
+              onChange={(e) => {
+                setWebdavUrl(e.target.value);
+                setUrlError("");
+              }}
+              onBlur={(e) =>
+                persistWebDavDraft("blur", {
+                  url: e.target.value,
+                  username: webdavUser,
+                  password: webdavPass,
+                })
+              }
               className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
             />
+            {urlError && (
+              <p className="text-[10px] text-red-600 mt-1 leading-relaxed">{urlError}</p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -331,6 +361,13 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                 placeholder="your-email@example.com"
                 value={webdavUser}
                 onChange={(e) => setWebdavUser(e.target.value)}
+                onBlur={(e) =>
+                  persistWebDavDraft("blur", {
+                    url: webdavUrl,
+                    username: e.target.value,
+                    password: webdavPass,
+                  })
+                }
                 className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
               />
             </div>
@@ -343,10 +380,29 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                 placeholder="••••••••"
                 value={webdavPass}
                 onChange={(e) => setWebdavPass(e.target.value)}
+                onBlur={(e) =>
+                  persistWebDavDraft("blur", {
+                    url: webdavUrl,
+                    username: webdavUser,
+                    password: e.target.value,
+                  })
+                }
                 className="w-full bg-white border border-[#EFEBE4] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D]"
               />
             </div>
           </div>
+
+          {secretsDecryptFailed && (
+            <div className="flex items-start gap-1.5 text-[11px] text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5 rounded-xl">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              <span>
+                {secretSyncDecryptWarning(
+                  s.syncSecretsDecryptFailed ||
+                    "口令与云端不一致，已保留云端密文，没有用本机口令覆盖。请改成加密时使用的口令后再同步。",
+                )}
+              </span>
+            </div>
+          )}
 
           <div className="rounded-xl border border-[#EFEBE4] dark:border-slate-700 bg-white/60 p-3 space-y-2">
             <label className="flex items-start gap-2 cursor-pointer">
@@ -461,7 +517,13 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
           <div className="flex gap-2">
             <button
               onClick={async () => {
-                applySyncProviderConfig();
+                if (!applySyncProviderConfig()) {
+                  triggerToast(
+                    s.syncUrlInsecure || "只允许 https。http 仅可用于本机 localhost / 127.0.0.1。",
+                    "error",
+                  );
+                  return;
+                }
                 setIsLoading(true);
                 const ok = await syncEngine.testConnection();
                 setIsLoading(false);
@@ -479,7 +541,13 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
             </button>
             <button
               onClick={async () => {
-                applySyncProviderConfig();
+                if (!applySyncProviderConfig()) {
+                  triggerToast(
+                    s.syncUrlInsecure || "只允许 https。http 仅可用于本机 localhost / 127.0.0.1。",
+                    "error",
+                  );
+                  return;
+                }
                 setIsLoading(true);
                 await syncEngine.sync();
                 setIsLoading(false);

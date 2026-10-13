@@ -65,13 +65,40 @@ pub fn extract_xml_tag_value(xml: &str, tag_name: &str) -> Option<String> {
     None
 }
 
-fn build_target_url(url: &str, filename: &str) -> String {
+/// https is required. http is allowed only for localhost, 127.0.0.1, and ::1,
+/// so Basic auth is not sent in cleartext to an arbitrary host.
+pub fn assert_webdav_url_allowed(url: &str) -> Result<(), String> {
+    let parsed = reqwest::Url::parse(url).map_err(|_| "E_WEBDAV_URL: invalid URL".to_string())?;
+    match parsed.scheme() {
+        "https" => Ok(()),
+        "http" => {
+            if is_local_http_host(parsed.host_str()) {
+                Ok(())
+            } else {
+                Err("E_WEBDAV_URL: http is only allowed for localhost".to_string())
+            }
+        }
+        _ => Err("E_WEBDAV_URL: only https is allowed".to_string()),
+    }
+}
+
+fn is_local_http_host(host: Option<&str>) -> bool {
+    let Some(host) = host else {
+        return false;
+    };
+    let host = host.trim_matches(|c| c == '[' || c == ']');
+    host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1" || host == "::1"
+}
+
+pub fn build_target_url(url: &str, filename: &str) -> Result<String, String> {
+    let url = url.trim();
+    assert_webdav_url_allowed(url)?;
     let base_url = if url.ends_with('/') {
         url.to_string()
     } else {
         format!("{}/", url)
     };
-    format!("{}{}", base_url, filename)
+    Ok(format!("{}{}", base_url, filename))
 }
 
 fn apply_auth(
@@ -96,7 +123,10 @@ pub async fn stat_internal(
     let head_req = client.head(target_url);
     let head_req = apply_auth(head_req, username, password);
 
-    let res = head_req.send().await.map_err(|e| format!("E_NETWORK: {}", e))?;
+    let res = head_req
+        .send()
+        .await
+        .map_err(|e| format!("E_NETWORK: {}", e))?;
     let status = res.status();
 
     if status == reqwest::StatusCode::NOT_FOUND {
@@ -134,8 +164,8 @@ pub async fn stat_internal(
     }
 
     // PROPFIND fallback
-    let propfind_method = reqwest::Method::from_bytes(b"PROPFIND")
-        .map_err(|e| format!("E_NETWORK: {}", e))?;
+    let propfind_method =
+        reqwest::Method::from_bytes(b"PROPFIND").map_err(|e| format!("E_NETWORK: {}", e))?;
     let prop_req = client
         .request(propfind_method, target_url)
         .header("Depth", "0")
@@ -143,7 +173,10 @@ pub async fn stat_internal(
         .body(r#"<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:getetag/><d:getlastmodified/></d:prop></d:propfind>"#);
     let prop_req = apply_auth(prop_req, username, password);
 
-    let prop_res = prop_req.send().await.map_err(|e| format!("E_NETWORK: {}", e))?;
+    let prop_res = prop_req
+        .send()
+        .await
+        .map_err(|e| format!("E_NETWORK: {}", e))?;
     let prop_status = prop_res.status();
 
     if prop_status == reqwest::StatusCode::NOT_FOUND {
@@ -155,7 +188,10 @@ pub async fn stat_internal(
     }
 
     if prop_status.is_success() || prop_status.as_u16() == 207 {
-        let body = prop_res.text().await.map_err(|e| format!("E_NETWORK: {}", e))?;
+        let body = prop_res
+            .text()
+            .await
+            .map_err(|e| format!("E_NETWORK: {}", e))?;
         let etag = extract_xml_tag_value(&body, "getetag");
         let last_modified = extract_xml_tag_value(&body, "getlastmodified");
         return Ok(WebDavMeta {
@@ -180,7 +216,7 @@ pub async fn webdav_stat(
         .build()
         .map_err(|e| e.to_string())?;
 
-    let target_url = build_target_url(&url, &filename);
+    let target_url = build_target_url(&url, &filename)?;
     stat_internal(&client, &target_url, &username, &password).await
 }
 
@@ -196,7 +232,7 @@ pub async fn webdav_download_meta(
         .build()
         .map_err(|e| e.to_string())?;
 
-    let target_url = build_target_url(&url, &filename);
+    let target_url = build_target_url(&url, &filename)?;
     let req = client.get(&target_url);
     let req = apply_auth(req, &username, &password);
 
@@ -245,7 +281,7 @@ pub async fn webdav_upload_meta(
         .build()
         .map_err(|e| e.to_string())?;
 
-    let target_url = build_target_url(&url, &filename);
+    let target_url = build_target_url(&url, &filename)?;
     let req = client
         .put(&target_url)
         .header("Content-Type", "application/json; charset=utf-8")
@@ -302,8 +338,14 @@ mod tests {
   </d:response>
 </d:multistatus>"#;
 
-        assert_eq!(extract_xml_tag_value(xml, "getetag"), Some("\"tag-d-123\"".to_string()));
-        assert_eq!(extract_xml_tag_value(xml, "getlastmodified"), Some("Sun, 27 Sep 2026 12:00:00 GMT".to_string()));
+        assert_eq!(
+            extract_xml_tag_value(xml, "getetag"),
+            Some("\"tag-d-123\"".to_string())
+        );
+        assert_eq!(
+            extract_xml_tag_value(xml, "getlastmodified"),
+            Some("Sun, 27 Sep 2026 12:00:00 GMT".to_string())
+        );
     }
 
     #[test]
@@ -321,8 +363,14 @@ mod tests {
   </D:response>
 </D:multistatus>"#;
 
-        assert_eq!(extract_xml_tag_value(xml, "getetag"), Some("\"tag-D-456\"".to_string()));
-        assert_eq!(extract_xml_tag_value(xml, "getlastmodified"), Some("Mon, 28 Sep 2026 08:30:00 GMT".to_string()));
+        assert_eq!(
+            extract_xml_tag_value(xml, "getetag"),
+            Some("\"tag-D-456\"".to_string())
+        );
+        assert_eq!(
+            extract_xml_tag_value(xml, "getlastmodified"),
+            Some("Mon, 28 Sep 2026 08:30:00 GMT".to_string())
+        );
     }
 
     #[test]
@@ -340,8 +388,14 @@ mod tests {
   </response>
 </multistatus>"#;
 
-        assert_eq!(extract_xml_tag_value(xml, "getetag"), Some("\"tag-no-prefix\"".to_string()));
-        assert_eq!(extract_xml_tag_value(xml, "getlastmodified"), Some("Tue, 29 Sep 2026 15:45:00 GMT".to_string()));
+        assert_eq!(
+            extract_xml_tag_value(xml, "getetag"),
+            Some("\"tag-no-prefix\"".to_string())
+        );
+        assert_eq!(
+            extract_xml_tag_value(xml, "getlastmodified"),
+            Some("Tue, 29 Sep 2026 15:45:00 GMT".to_string())
+        );
     }
 
     #[test]
@@ -360,5 +414,24 @@ mod tests {
 
         assert_eq!(extract_xml_tag_value(xml, "getetag"), None);
         assert_eq!(extract_xml_tag_value(xml, "getlastmodified"), None);
+    }
+
+    #[test]
+    fn http_is_limited_to_localhost() {
+        assert!(assert_webdav_url_allowed("https://dav.jianguoyun.com/dav/").is_ok());
+        assert!(assert_webdav_url_allowed("http://localhost:8080/dav/").is_ok());
+        assert!(assert_webdav_url_allowed("http://127.0.0.1/dav/").is_ok());
+        assert!(assert_webdav_url_allowed("http://[::1]/dav/").is_ok());
+        assert!(assert_webdav_url_allowed("http://evil.example/dav/").is_err());
+        assert!(assert_webdav_url_allowed("http://localhost.evil.example/dav/").is_err());
+        assert!(assert_webdav_url_allowed("ftp://localhost/dav/").is_err());
+        assert!(
+            build_target_url("http://evil.example/dav/", "TongYunPlanner/config.json").is_err()
+        );
+        assert!(build_target_url(
+            "https://dav.jianguoyun.com/dav/",
+            "TongYunPlanner/config.json"
+        )
+        .is_ok());
     }
 }
