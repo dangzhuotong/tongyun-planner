@@ -434,4 +434,54 @@ mod tests {
         )
         .is_ok());
     }
+
+    #[test]
+    fn test_build_target_url_handling() {
+        assert_eq!(
+            build_target_url("https://dav.jianguoyun.com/dav", "file.json").unwrap(),
+            "https://dav.jianguoyun.com/dav/file.json"
+        );
+        assert_eq!(
+            build_target_url("https://dav.jianguoyun.com/dav/", "file.json").unwrap(),
+            "https://dav.jianguoyun.com/dav/file.json"
+        );
+        assert_eq!(
+            build_target_url("  https://dav.jianguoyun.com/dav/  ", "sub/dir.json").unwrap(),
+            "https://dav.jianguoyun.com/dav/sub/dir.json"
+        );
+    }
+
+    #[test]
+    fn test_extract_xml_with_attributes_and_entities() {
+        let xml = r#"<d:multistatus xmlns:d="DAV:"><d:prop><d:getetag attr="test">&quot;tag-with-attr&quot;</d:getetag></d:prop></d:multistatus>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml, "getetag"),
+            Some("\"tag-with-attr\"".to_string())
+        );
+
+        let empty_xml = r#"<d:multistatus xmlns:d="DAV:"><d:prop><d:getetag></d:getetag></d:prop></d:multistatus>"#;
+        assert_eq!(extract_xml_tag_value(empty_xml, "getetag"), None);
+    }
+
+    #[test]
+    fn test_webdav_meta_and_file_serialization() {
+        let meta = WebDavMeta {
+            exists: true,
+            etag: Some("\"etag-123\"".to_string()),
+            last_modified: Some("Mon, 28 Sep 2026 08:30:00 GMT".to_string()),
+        };
+        let json = serde_json::to_string(&meta).expect("serialize meta");
+        assert!(json.contains("\"lastModified\":"));
+        let de_meta: WebDavMeta = serde_json::from_str(&json).expect("deserialize meta");
+        assert_eq!(de_meta.exists, true);
+        assert_eq!(de_meta.etag.as_deref(), Some("\"etag-123\""));
+
+        let file = WebDavFile {
+            content: "{}".to_string(),
+            etag: Some("\"etag-456\"".to_string()),
+            last_modified: None,
+        };
+        let file_json = serde_json::to_string(&file).expect("serialize file");
+        assert!(file_json.contains("\"content\":\"{}\""));
+    }
 }
