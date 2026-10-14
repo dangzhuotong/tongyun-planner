@@ -98,7 +98,15 @@ export function usePomodoroTimer({
   const microBreakTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!pomodoroHook.pomodoroIsActive || !pomodoroHook.pomodoroEndTime) return;
+    if (!pomodoroHook.pomodoroIsActive || !pomodoroHook.pomodoroEndTime) {
+      nextRandomBreakRef.current = null;
+      if (isOnRandomBreakRef.current) {
+        isOnRandomBreakRef.current = false;
+        pomodoroStateRef.current.onMicroBreak?.(null);
+      }
+      suppressedForEndTimeRef.current = null;
+      return;
+    }
     const endTime = pomodoroHook.pomodoroEndTime;
     let fired = false;
 
@@ -290,6 +298,10 @@ export function usePomodoroTimer({
       if (microBreakTimeoutRef.current) {
         clearTimeout(microBreakTimeoutRef.current);
         microBreakTimeoutRef.current = null;
+      }
+      if (isOnRandomBreakRef.current) {
+        isOnRandomBreakRef.current = false;
+        pomodoroStateRef.current.onMicroBreak?.(null);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

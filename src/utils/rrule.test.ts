@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  parseRRule,
-  rruleToLabel,
-  getNextRRuleDate,
-  buildRRule,
-} from "./rrule";
+import { parseRRule, rruleToLabel, getNextRRuleDate, buildRRule } from "./rrule";
 
 describe("rrule utils", () => {
   describe("parseRRule", () => {
@@ -68,7 +63,6 @@ describe("rrule utils", () => {
       expect(rruleToLabel("FREQ=WEEKLY;INTERVAL=2;BYDAY=SA,SU")).toBe("每2每周六、日");
     });
 
-
     it("should accept custom localization dictionary", () => {
       const customT = {
         daily: "Daily",
@@ -116,9 +110,9 @@ describe("rrule utils", () => {
     it("should calculate next monthly date with bySetPos", () => {
       // 2026-05-10: Next month is June 2026.
       // Last Friday of June 2026: June 30 is Tuesday, June 26 is Friday.
-      expect(
-        getNextRRuleDate("2026-05-10", "FREQ=MONTHLY;BYDAY=FR;BYSETPOS=-1"),
-      ).toBe("2026-06-26");
+      expect(getNextRRuleDate("2026-05-10", "FREQ=MONTHLY;BYDAY=FR;BYSETPOS=-1")).toBe(
+        "2026-06-26",
+      );
     });
   });
 
@@ -135,12 +129,8 @@ describe("rrule utils", () => {
     });
 
     it("should include byDay and map day numbers to iCal codes", () => {
-      expect(buildRRule("WEEKLY", { byDay: [1, 3, 5] })).toBe(
-        "FREQ=WEEKLY;BYDAY=MO,WE,FR",
-      );
-      expect(buildRRule("WEEKLY", { byDay: [0, 6] })).toBe(
-        "FREQ=WEEKLY;BYDAY=SU,SA",
-      );
+      expect(buildRRule("WEEKLY", { byDay: [1, 3, 5] })).toBe("FREQ=WEEKLY;BYDAY=MO,WE,FR");
+      expect(buildRRule("WEEKLY", { byDay: [0, 6] })).toBe("FREQ=WEEKLY;BYDAY=SU,SA");
     });
 
     it("should include bySetPos when provided", () => {

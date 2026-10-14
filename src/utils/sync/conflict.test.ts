@@ -45,7 +45,7 @@ describe("sync conflict utilities", () => {
     it("should strip weak prefix W/ and surrounding quotes", () => {
       expect(normalizeEtag('W/"12345"')).toBe("12345");
       expect(normalizeEtag('"abcdef"')).toBe("abcdef");
-      expect(normalizeEtag("w/\"xyz\"")).toBe("xyz");
+      expect(normalizeEtag('w/"xyz"')).toBe("xyz");
       expect(normalizeEtag('"""quoted"""')).toBe("quoted");
     });
   });

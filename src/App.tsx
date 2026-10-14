@@ -500,6 +500,10 @@ function AppBody() {
         tasksHook.tasks.find((t) => t.id === id) ||
         tasksHook.completedTasks.find((t) => t.id === id);
       tasksHook.handleDeleteTask(id);
+      if (pomodoroHook.pomodoroTaskId === id) {
+        pomodoroHook.setPomodoroTaskId(null);
+        pomodoroHook.setPomodoroTaskTitle(null);
+      }
       if (!victim) return;
       if (deleteUndoTimerRef.current) clearTimeout(deleteUndoTimerRef.current);
       setDeleteUndoToast(victim.title);
@@ -508,7 +512,17 @@ function AppBody() {
         deleteUndoTimerRef.current = null;
       }, 5000);
     },
-    [tasksHook.tasks, tasksHook.completedTasks, tasksHook.handleDeleteTask],
+    [tasksHook.tasks, tasksHook.completedTasks, tasksHook.handleDeleteTask, pomodoroHook],
+  );
+
+  const wrappedHandleEditTask = useCallback(
+    (id: string, updates: Partial<Task>) => {
+      tasksHook.handleEditTask(id, updates);
+      if (pomodoroHook.pomodoroTaskId === id && updates.title !== undefined) {
+        pomodoroHook.setPomodoroTaskTitle(updates.title);
+      }
+    },
+    [tasksHook.handleEditTask, pomodoroHook],
   );
 
   const handleUndoDeleteClick = useCallback(() => {
@@ -905,7 +919,7 @@ function AppBody() {
         handleAddSubtask={tasksHook.handleAddSubtask}
         handleSaveNotes={tasksHook.handleSaveNotes}
         handleUpdateTags={tasksHook.handleUpdateTags}
-        handleEditTask={tasksHook.handleEditTask}
+        handleEditTask={wrappedHandleEditTask}
         handleUndoComplete={tasksHook.handleUndoComplete}
         handleToggleFavorite={tasksHook.handleToggleFavorite}
         handleTogglePin={tasksHook.handleTogglePin}

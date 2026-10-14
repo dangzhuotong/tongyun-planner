@@ -127,9 +127,7 @@ describe("sync types & pure core logic", () => {
         { id: "1", title: "Active 1", category: "urgent-important" },
         { id: "2", title: "Active 2", category: "urgent-important" },
       ];
-      const completed: Task[] = [
-        { id: "2", title: "Completed 2", category: "urgent-important" },
-      ];
+      const completed: Task[] = [{ id: "2", title: "Completed 2", category: "urgent-important" }];
 
       const deduped = dedupeActiveTasks(active, completed);
       expect(deduped.map((t) => t.id)).toEqual(["1"]);

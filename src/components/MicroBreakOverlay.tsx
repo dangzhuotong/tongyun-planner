@@ -32,6 +32,7 @@ export const MicroBreakOverlay: React.FC<MicroBreakOverlayProps> = React.memo(
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
           e.preventDefault();
+          e.stopPropagation();
           onSkipRef.current();
         }
       };
@@ -51,13 +52,17 @@ export const MicroBreakOverlay: React.FC<MicroBreakOverlayProps> = React.memo(
 
     return (
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/40 dark:bg-black/60 backdrop-blur-md animate-fade-in select-none"
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/40 dark:bg-black/60 backdrop-blur-md animate-fade-in select-none cursor-pointer"
         role="dialog"
         aria-modal="true"
         aria-label={mb.title || "微休息时刻"}
+        onClick={onSkip}
       >
         {/* Soft floating paper card */}
-        <div className="relative max-w-sm w-full mx-auto p-7 rounded-3xl bg-[#FDFBF7] dark:bg-[#1E2024] border border-[#E5DEC9] dark:border-[#33353A] shadow-2xl flex flex-col items-center text-center overflow-hidden animate-celebration-bounce">
+        <div
+          className="relative max-w-sm w-full mx-auto p-7 rounded-3xl bg-[#FDFBF7] dark:bg-[#1E2024] border border-[#E5DEC9] dark:border-[#33353A] shadow-2xl flex flex-col items-center text-center overflow-hidden animate-celebration-bounce cursor-default"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Subtle paper dot grid */}
           <div className="absolute inset-0 paper-dot-grid opacity-35 pointer-events-none" />
 

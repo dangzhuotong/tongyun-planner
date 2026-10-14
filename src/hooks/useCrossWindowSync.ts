@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { subscribeDevSync } from "./useSync";
 import type { Task, JournalEntry, Locale } from "../types";
@@ -23,6 +23,11 @@ export function useCrossWindowSync(
   windowLabelRef: React.MutableRefObject<string>,
   setJournal: (v: JournalEntry[]) => void,
 ) {
+  const setJournalRef = useRef(setJournal);
+  useEffect(() => {
+    setJournalRef.current = setJournal;
+  });
+
   useEffect(() => {
     const handleSyncPayload = (p: any) => {
       if (p.source_window && p.source_window === windowLabelRef.current) return;
@@ -190,7 +195,7 @@ export function useCrossWindowSync(
             tH.setCompletedTasks(completed);
             tH.saveCompleted(completed);
             nH.setStickyNotes(notes);
-            setJournal(restored.journal || []);
+            setJournalRef.current(restored.journal || []);
             localStorage.setItem("tongyun_journal", JSON.stringify(restored.journal || []));
             cH.setCustomizationConfig(
               restored.customizationConfig || cH.DEFAULT_CUSTOMIZATION_CONFIG,

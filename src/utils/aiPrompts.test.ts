@@ -4,7 +4,7 @@ import { buildDefaultCommentPrompt } from "./aiPrompts";
 describe("aiPrompts utils", () => {
   it("should generate system prompt containing the requested language", () => {
     const promptZh = buildDefaultCommentPrompt("中文");
-    expect(promptZh).toContain("你是\"暖评\"");
+    expect(promptZh).toContain('你是"暖评"');
     expect(promptZh).toContain("用中文写一段简短、温暖、真诚的回应");
     expect(promptZh).toContain("事实");
     expect(promptZh).toContain("情绪");
