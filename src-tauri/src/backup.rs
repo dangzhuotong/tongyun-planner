@@ -218,4 +218,28 @@ mod tests {
         let long_name = format!("{}.json", "a".repeat(125));
         assert_eq!(validate_backup_name(&long_name).unwrap_err(), "E_INVALID_BACKUP_NAME");
     }
+
+    #[test]
+    fn test_validate_backup_name_edge_cases() {
+        assert_eq!(validate_backup_name("backup 1.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("test\\foo.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("test.JSON").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("backup@1.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("备份.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+    }
+
+    #[test]
+    fn test_backup_entry_serialization() {
+        let entry = BackupEntry {
+            name: "2026-09-27.json".to_string(),
+            size: 1024,
+            modified_ms: 1727438400000,
+        };
+        let json = serde_json::to_string(&entry).expect("serialize");
+        assert!(json.contains("\"modifiedMs\":1727438400000"));
+        let deserialized: BackupEntry = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized.name, "2026-09-27.json");
+        assert_eq!(deserialized.size, 1024);
+        assert_eq!(deserialized.modified_ms, 1727438400000);
+    }
 }

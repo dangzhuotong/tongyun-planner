@@ -100,7 +100,7 @@ npm run tauri dev      # 开发
 npm run tauri build    # 产出安装包
 ```
 
-常用脚本：`npm run typecheck` / `npm run check`（前端类型 + Rust）。
+常用脚本：`npm run typecheck`（类型检查）/ `npm test`（单元测试）/ `npm run check`（前端类型 + 单元测试 + Rust 编译全量检查）。
 
 ---
 
