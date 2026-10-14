@@ -81,7 +81,8 @@ const zhCN: Translations = {
     bells: "铃音",
     alarm: "警报",
     randomBreak: "随机微休息",
-    randomBreakDesc: "专注中随机响铃，暂停5秒休息",
+    randomBreakDesc: "专注中每 3~7 分钟随机提醒，停顿 5 秒望远护眼",
+    randomBreakSoundPreview: "试听微休息清风铃声",
   },
 
   header: {
@@ -727,6 +728,14 @@ const zhCN: Translations = {
     addImage: "添加图片",
     pasteImage: "粘贴图片到此处",
     images: "图片",
+  },
+  microBreak: {
+    title: "微休息时刻 · 眺望窗外",
+    subtitle: "将视线移向窗外 6 米远方，深呼吸，让眼球睫状肌彻底放松",
+    remainingSec: "秒",
+    ruleTip: "20-20-20 科学护眼：每专注 20 分钟，远眺 20 英尺（6米）20 秒",
+    skip: "跳过休息",
+    soundTested: "已播放微休息清风铃声 🌿",
   },
 };
 

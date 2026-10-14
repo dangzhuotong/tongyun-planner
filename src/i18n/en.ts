@@ -81,7 +81,8 @@ const en: Translations = {
     bells: "Bells",
     alarm: "Alarm",
     randomBreak: "Random Micro-Breaks",
-    randomBreakDesc: "Random chimes during focus with 5s pause",
+    randomBreakDesc: "Random reminders every 3-7 mins during focus to rest eyes",
+    randomBreakSoundPreview: "Preview micro-break chime",
   },
 
   header: {
@@ -739,6 +740,14 @@ const en: Translations = {
     addImage: "Add image",
     pasteImage: "Paste image here",
     images: "Images",
+  },
+  microBreak: {
+    title: "Micro-Break · Look Out the Window",
+    subtitle: "Gaze at something 20 feet (6m) away, take a deep breath, and relax your eyes",
+    remainingSec: "s",
+    ruleTip: "20-20-20 Rule: Every 20 mins, look at something 20 ft away for 20s",
+    skip: "Skip Break",
+    soundTested: "Micro-break chime played 🌿",
   },
 };
 

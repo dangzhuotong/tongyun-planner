@@ -15,9 +15,37 @@ export class AudioEngine {
   /** Bumped on every start/stop so a fade timeout cannot tear down a newer graph. */
   private playbackEpoch = 0;
 
+  public async ensureAudioContext(): Promise<AudioContext> {
+    if (!this.ctx) {
+      const AudioCtx =
+        typeof window !== "undefined"
+          ? window.AudioContext || (window as any).webkitAudioContext
+          : undefined;
+      if (!AudioCtx) {
+        throw new Error("Web Audio API is not supported in this environment");
+      }
+      this.ctx = new AudioCtx();
+    }
+    if (this.ctx.state === "suspended") {
+      try {
+        await this.ctx.resume();
+      } catch (e) {
+        console.warn("Failed to resume AudioContext", e);
+      }
+    }
+    return this.ctx;
+  }
+
   private init(): AudioContext {
     if (!this.ctx) {
-      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioCtx =
+        typeof window !== "undefined"
+          ? window.AudioContext || (window as any).webkitAudioContext
+          : undefined;
+      if (!AudioCtx) {
+        throw new Error("Web Audio API is not supported in this environment");
+      }
+      this.ctx = new AudioCtx();
     }
     if (this.ctx.state === "suspended") {
       this.ctx.resume().catch((e) => console.warn("Failed to resume AudioContext", e));
@@ -581,6 +609,11 @@ export class AudioEngine {
       const ctx = this.init();
       const now = ctx.currentTime;
 
+      if (soundType === "microBreak") {
+        void this.playMicroBreakSound();
+        return;
+      }
+
       if (soundType === "cuckoo") {
         const osc1 = ctx.createOscillator();
         const gain1 = ctx.createGain();
@@ -929,6 +962,107 @@ export class AudioEngine {
       thudOsc.stop(now + 0.085);
     } catch {
       // Ignored
+    }
+  }
+
+  /**
+   * 专属随机微休息清脆提示音：双音清风铃（E6 -> B6 空灵正弦波与微泛音长衰减），
+   * 通透明亮、温和不刺耳，提醒视线离开屏幕。
+   */
+  public async playMicroBreakSound(): Promise<void> {
+    try {
+      const ctx = await this.ensureAudioContext();
+      const now = ctx.currentTime;
+
+      // 音 1: E6 (1318.5 Hz)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(1318.5, now);
+      gain1.gain.setValueAtTime(0.001, now);
+      gain1.gain.linearRampToValueAtTime(0.35, now + 0.012);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 1.25);
+
+      // 音 1 谐波微泛音 (2.5x)
+      const harm1 = ctx.createOscillator();
+      const harmGain1 = ctx.createGain();
+      harm1.type = "sine";
+      harm1.frequency.setValueAtTime(1318.5 * 2.5, now);
+      harmGain1.gain.setValueAtTime(0.001, now);
+      harmGain1.gain.linearRampToValueAtTime(0.045, now + 0.012);
+      harmGain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      harm1.connect(harmGain1);
+      harmGain1.connect(ctx.destination);
+      harm1.start(now);
+      harm1.stop(now + 0.65);
+
+      // 音 2: B6 (1975.5 Hz)，在 130ms 后起音，纯五度高八度协和音
+      const t2 = now + 0.13;
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(1975.5, t2);
+      gain2.gain.setValueAtTime(0.001, t2);
+      gain2.gain.linearRampToValueAtTime(0.28, t2 + 0.012);
+      gain2.gain.exponentialRampToValueAtTime(0.001, t2 + 1.0);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(t2);
+      osc2.stop(t2 + 1.05);
+
+      // 音 2 谐波微泛音 (2x)
+      const harm2 = ctx.createOscillator();
+      const harmGain2 = ctx.createGain();
+      harm2.type = "sine";
+      harm2.frequency.setValueAtTime(1975.5 * 2.0, t2);
+      harmGain2.gain.setValueAtTime(0.001, t2);
+      harmGain2.gain.linearRampToValueAtTime(0.03, t2 + 0.012);
+      harmGain2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.5);
+      harm2.connect(harmGain2);
+      harmGain2.connect(ctx.destination);
+      harm2.start(t2);
+      harm2.stop(t2 + 0.55);
+    } catch (e) {
+      console.warn("无法播放微休息提示音:", e);
+    }
+  }
+
+  /**
+   * 专属随机微休息结束提示音：晨露滑落清脆水滴（1150Hz -> 880Hz 微滑音），
+   * 柔和宣告 5 秒休息结束，继续专注。
+   */
+  public async playMicroBreakEndSound(): Promise<void> {
+    try {
+      const ctx = await this.ensureAudioContext();
+      const now = ctx.currentTime;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(1150, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.24, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(2200, now);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.32);
+    } catch (e) {
+      console.warn("无法播放微休息结束提示音:", e);
     }
   }
 

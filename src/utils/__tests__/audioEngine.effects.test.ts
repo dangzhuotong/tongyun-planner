@@ -109,7 +109,7 @@ describe("AudioEngine Sound Effects", () => {
     expect(anyEngine.ctx?.createGain).toHaveBeenCalledTimes(2);
   });
 
-  it("handles missing AudioContext gracefully without throwing", () => {
+  it("handles missing AudioContext gracefully without throwing", async () => {
     vi.stubGlobal("AudioContext", undefined);
     vi.stubGlobal("window", {});
     const engine = new AudioEngine();
@@ -119,5 +119,26 @@ describe("AudioEngine Sound Effects", () => {
     expect(() => engine.playPaperSwipeSound()).not.toThrow();
     expect(() => engine.playPopSound()).not.toThrow();
     expect(() => engine.playStickSound()).not.toThrow();
+    await expect(engine.playMicroBreakSound()).resolves.toBeUndefined();
+    await expect(engine.playMicroBreakEndSound()).resolves.toBeUndefined();
+  });
+
+  it("plays micro-break chime and end sound with appropriate oscillators and gains", async () => {
+    const engine = createTestEngine();
+
+    await engine.playMicroBreakSound();
+    const anyEngine = engine as unknown as { ctx: FakeContext | null };
+    expect(anyEngine.ctx).toBeTruthy();
+    // 4 oscillators (osc1, harm1, osc2, harm2)
+    expect(anyEngine.ctx?.createOscillator).toHaveBeenCalledTimes(4);
+    expect(anyEngine.ctx?.createGain).toHaveBeenCalledTimes(4);
+
+    // End sound
+    await engine.playMicroBreakEndSound();
+    // 4 + 1 = 5 oscillators
+    expect(anyEngine.ctx?.createOscillator).toHaveBeenCalledTimes(5);
+    // 4 + 1 = 5 gains
+    expect(anyEngine.ctx?.createGain).toHaveBeenCalledTimes(5);
+    expect(anyEngine.ctx?.createBiquadFilter).toHaveBeenCalledTimes(1);
   });
 });

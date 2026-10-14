@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Timer,
+  Volume2,
   Archive,
   Newspaper,
   BookOpen,
@@ -711,29 +712,45 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                 />
               </div>
 
-              {/* Random Micro-Break Toggle */}
+              {/* Random Micro-Break Toggle & Sound Preview */}
               <div className="flex items-center justify-between pt-1.5 text-[9px] text-slate-400 font-medium">
-                <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-1.5" title={s.randomBreakDesc}>
                   <Timer className="w-3 h-3 text-slate-400" />
                   <span>{s.randomBreak}</span>
                 </span>
-                <button
-                  onClick={() => {
-                    const next = !randomBreakEnabled;
-                    setRandomBreakEnabled(next);
-                    localStorage.setItem("tongyun_random_break", String(next));
-                  }}
-                  className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer ${
-                    randomBreakEnabled ? "bg-[#4D7C5D]" : "bg-slate-200 dark:bg-[#33353A]"
-                  }`}
-                  title={s.randomBreakDesc}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-transform ${
-                      randomBreakEnabled ? "translate-x-3.5" : "translate-x-0"
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void audioEngine.playMicroBreakSound();
+                    }}
+                    className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#33353A] text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#78A887] transition-colors cursor-pointer"
+                    title={s.randomBreakSoundPreview || "试听微休息清风铃声"}
+                  >
+                    <Volume2 className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      const next = !randomBreakEnabled;
+                      setRandomBreakEnabled(next);
+                      localStorage.setItem("tongyun_random_break", String(next));
+                      if (next) {
+                        void audioEngine.playMicroBreakSound();
+                      }
+                    }}
+                    className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer ${
+                      randomBreakEnabled ? "bg-[#4D7C5D]" : "bg-slate-200 dark:bg-[#33353A]"
                     }`}
-                  />
-                </button>
+                    title={s.randomBreakDesc}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-transform ${
+                        randomBreakEnabled ? "translate-x-3.5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
 
               {/* Auto Noise on Focus */}

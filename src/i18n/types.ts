@@ -25,4 +25,5 @@ export interface Translations {
   notification: Record<string, string>;
   habits: Record<string, string>;
   journal: Record<string, string>;
+  microBreak: Record<string, string>;
 }

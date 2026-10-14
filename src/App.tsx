@@ -97,7 +97,8 @@ import {
 } from "./utils/sync/types";
 import { beginSyncApply, endSyncApply, isSyncApplying } from "./utils/sync/syncApplyGuard";
 import { canUseAI } from "./utils/aiEngine";
-import { usePomodoroTimer } from "./hooks/usePomodoroTimer";
+import { usePomodoroTimer, type MicroBreakSession } from "./hooks/usePomodoroTimer";
+import { MicroBreakOverlay } from "./components/MicroBreakOverlay";
 import { useDueNotifications } from "./hooks/useDueNotifications";
 import { useCrossWindowSync } from "./hooks/useCrossWindowSync";
 import { useStoreInit } from "./hooks/useStoreInit";
@@ -173,6 +174,7 @@ function AppBody() {
     },
     [],
   );
+  const [microBreakSession, setMicroBreakSession] = useState<MicroBreakSession | null>(null);
   const [microBreakToast, setMicroBreakToast] = useState<string | null>(null);
   const microBreakToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showMicroBreakToast = useCallback((text: string) => {
@@ -328,6 +330,7 @@ function AppBody() {
     t,
     onCelebration: setCelebrationMessage,
     onToast: showMicroBreakToast,
+    onMicroBreak: setMicroBreakSession,
   });
 
   // Audio cleanup
@@ -940,7 +943,8 @@ function AppBody() {
         onNewsSaveTask={handleNewsSaveTask}
         onNewsSaveJournal={handleNewsSaveJournal}
       />
-      {microBreakToast && (
+      {microBreakSession && <MicroBreakOverlay onSkip={microBreakSession.skip} />}
+      {microBreakToast && !microBreakSession && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
           {microBreakToast}
         </div>
