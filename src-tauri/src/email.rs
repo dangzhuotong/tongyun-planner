@@ -122,3 +122,113 @@ pub async fn send_test_email(config: SmtpConfig) -> Result<String, String> {
 
     Ok("✅ 测试邮件发送成功，请检查收件箱".to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_smtp_config_deserialize_valid() {
+        let json = r#"{
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 465,
+            "smtp_user": "test@example.com",
+            "smtp_pass": "secret123",
+            "recipient_email": "recipient@example.com"
+        }"#;
+
+        let config: SmtpConfig = serde_json::from_str(json).expect("should deserialize SmtpConfig");
+        assert_eq!(config.smtp_host, "smtp.example.com");
+        assert_eq!(config.smtp_port, 465);
+        assert_eq!(config.smtp_user, "test@example.com");
+        assert_eq!(config.smtp_pass, "secret123");
+        assert_eq!(config.recipient_email, "recipient@example.com");
+    }
+
+    #[test]
+    fn test_smtp_config_deserialize_missing_fields() {
+        let json = r#"{
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 587
+        }"#;
+
+        let result: Result<SmtpConfig, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_smtp_config_deserialize_invalid_port() {
+        let json = r#"{
+            "smtp_host": "smtp.example.com",
+            "smtp_port": "invalid_port",
+            "smtp_user": "user@example.com",
+            "smtp_pass": "secret123",
+            "recipient_email": "recipient@example.com"
+        }"#;
+
+        let result: Result<SmtpConfig, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_smtp_config_debug() {
+        let config = SmtpConfig {
+            smtp_host: "smtp.example.com".to_string(),
+            smtp_port: 587,
+            smtp_user: "user@example.com".to_string(),
+            smtp_pass: "pass".to_string(),
+            recipient_email: "recipient@example.com".to_string(),
+        };
+
+        let debug_str = format!("{:?}", config);
+        assert!(debug_str.contains("smtp.example.com"));
+        assert!(debug_str.contains("587"));
+        assert!(debug_str.contains("user@example.com"));
+    }
+
+    #[test]
+    fn test_credentials_new() {
+        let creds = Credentials::new("user@example.com".to_string(), "pass".to_string());
+        let creds_debug = format!("{:?}", creds);
+        assert!(!creds_debug.is_empty());
+    }
+
+    #[test]
+    fn test_email_mailbox_parsing() {
+        let sender = format!("橦云手帐 <{}>", "test@example.com");
+        let parsed_sender: Result<lettre::message::Mailbox, _> = sender.parse();
+        assert!(parsed_sender.is_ok());
+
+        let recipient = "target@example.com";
+        let parsed_recipient: Result<lettre::message::Mailbox, _> = recipient.parse();
+        assert!(parsed_recipient.is_ok());
+
+        let empty = "";
+        let parsed_empty: Result<lettre::message::Mailbox, _> = empty.parse();
+        assert!(parsed_empty.is_err());
+
+        let invalid = "invalid mailbox with spaces <not-an-email>";
+        let parsed_invalid: Result<lettre::message::Mailbox, _> = invalid.parse();
+        assert!(parsed_invalid.is_err());
+    }
+
+    #[test]
+    fn test_email_message_builder() {
+        let from_box: lettre::message::Mailbox =
+            format!("橦云手帐 <{}>", "sender@example.com").parse().unwrap();
+        let to_box: lettre::message::Mailbox = "recipient@example.com".parse().unwrap();
+
+        let email = Message::builder()
+            .from(from_box)
+            .to(to_box)
+            .subject("📧 橦云手帐 · SMTP 配置测试")
+            .singlepart(
+                SinglePart::builder()
+                    .header(ContentType::TEXT_HTML)
+                    .body("<!DOCTYPE html><html><body>Test</body></html>".to_string()),
+            );
+
+        assert!(email.is_ok());
+    }
+}
+

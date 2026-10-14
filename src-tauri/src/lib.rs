@@ -616,3 +616,179 @@ pub fn run() {
             }
         });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_todo_sync_payload_deserialization_full() {
+        let json = r#"{
+            "task_id": "task-100",
+            "action": "complete",
+            "source_window": "main",
+            "title": "My Task",
+            "description": "Task description",
+            "notes": "Some notes",
+            "category": "work",
+            "due_date": "2026-10-14",
+            "due_time": "18:00",
+            "timestamp": 1728900000000
+        }"#;
+
+        let payload: TodoSyncPayload =
+            serde_json::from_str(json).expect("should deserialize full TodoSyncPayload");
+        assert_eq!(payload.task_id, "task-100");
+        assert_eq!(payload.action, "complete");
+        assert_eq!(payload.source_window.as_deref(), Some("main"));
+        assert_eq!(payload.title.as_deref(), Some("My Task"));
+        assert_eq!(payload.description.as_deref(), Some("Task description"));
+        assert_eq!(payload.notes.as_deref(), Some("Some notes"));
+        assert_eq!(payload.category.as_deref(), Some("work"));
+        assert_eq!(payload.due_date.as_deref(), Some("2026-10-14"));
+        assert_eq!(payload.due_time.as_deref(), Some("18:00"));
+        assert_eq!(payload.timestamp, 1728900000000);
+    }
+
+    #[test]
+    fn test_todo_sync_payload_deserialization_with_nulls() {
+        let json = r#"{
+            "task_id": "task-200",
+            "action": "delete",
+            "source_window": null,
+            "title": null,
+            "description": null,
+            "notes": null,
+            "category": null,
+            "due_date": null,
+            "due_time": null,
+            "timestamp": 12345
+        }"#;
+
+        let payload: TodoSyncPayload =
+            serde_json::from_str(json).expect("should deserialize null fields");
+        assert_eq!(payload.task_id, "task-200");
+        assert_eq!(payload.action, "delete");
+        assert_eq!(payload.source_window, None);
+        assert_eq!(payload.title, None);
+        assert_eq!(payload.description, None);
+        assert_eq!(payload.notes, None);
+        assert_eq!(payload.category, None);
+        assert_eq!(payload.due_date, None);
+        assert_eq!(payload.due_time, None);
+        assert_eq!(payload.timestamp, 12345);
+    }
+
+    #[test]
+    fn test_todo_sync_payload_serialization_roundtrip() {
+        let original = TodoSyncPayload {
+            task_id: "task-300".to_string(),
+            action: "update".to_string(),
+            source_window: Some("tray".to_string()),
+            title: Some("New Title".to_string()),
+            description: None,
+            notes: Some("Some notes".to_string()),
+            category: Some("work".to_string()),
+            due_date: Some("2026-10-15".to_string()),
+            due_time: None,
+            timestamp: 987654321,
+        };
+
+        let json = serde_json::to_string(&original).expect("should serialize TodoSyncPayload");
+        assert!(json.contains("\"task_id\":\"task-300\""));
+        assert!(json.contains("\"action\":\"update\""));
+        assert!(json.contains("\"source_window\":\"tray\""));
+        assert!(json.contains("\"timestamp\":987654321"));
+
+        let restored: TodoSyncPayload =
+            serde_json::from_str(&json).expect("should deserialize TodoSyncPayload");
+        assert_eq!(restored.task_id, original.task_id);
+        assert_eq!(restored.action, original.action);
+        assert_eq!(restored.source_window, original.source_window);
+        assert_eq!(restored.title, original.title);
+        assert_eq!(restored.description, original.description);
+        assert_eq!(restored.notes, original.notes);
+        assert_eq!(restored.category, original.category);
+        assert_eq!(restored.due_date, original.due_date);
+        assert_eq!(restored.due_time, original.due_time);
+        assert_eq!(restored.timestamp, original.timestamp);
+    }
+
+    #[test]
+    fn test_todo_sync_payload_explicit_empty_strings() {
+        let json = r#"{
+            "task_id": "task-400",
+            "action": "clear",
+            "source_window": null,
+            "title": "",
+            "description": "",
+            "notes": "",
+            "category": "",
+            "due_date": "",
+            "due_time": "",
+            "timestamp": 111222
+        }"#;
+
+        let payload: TodoSyncPayload =
+            serde_json::from_str(json).expect("should deserialize empty strings");
+        assert_eq!(payload.title, Some("".to_string()));
+        assert_eq!(payload.description, Some("".to_string()));
+        assert_eq!(payload.notes, Some("".to_string()));
+        assert_eq!(payload.category, Some("".to_string()));
+        assert_eq!(payload.due_date, Some("".to_string()));
+        assert_eq!(payload.due_time, Some("".to_string()));
+    }
+
+    #[test]
+    fn test_todo_sync_payload_clone_and_debug() {
+        let payload = TodoSyncPayload {
+            task_id: "widget_lock".to_string(),
+            action: "toggle_lock_from_tray".to_string(),
+            source_window: Some("tray".to_string()),
+            title: None,
+            description: None,
+            notes: None,
+            category: None,
+            due_date: None,
+            due_time: None,
+            timestamp: 0,
+        };
+
+        let cloned = payload.clone();
+        assert_eq!(cloned.task_id, "widget_lock");
+        assert_eq!(cloned.action, "toggle_lock_from_tray");
+
+        let debug_str = format!("{:?}", payload);
+        assert!(debug_str.contains("widget_lock"));
+        assert!(debug_str.contains("toggle_lock_from_tray"));
+    }
+
+    #[test]
+    fn test_reexported_backup_validation() {
+        assert!(validate_backup_kind("daily").is_ok());
+        assert!(validate_backup_kind("conflicts").is_ok());
+        assert_eq!(validate_backup_kind("invalid_kind").unwrap_err(), "E_INVALID_BACKUP_KIND");
+
+        assert!(validate_backup_name("backup.json").is_ok());
+        assert_eq!(validate_backup_name("").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("backup.txt").unwrap_err(), "E_INVALID_BACKUP_NAME");
+    }
+
+    #[test]
+    fn test_reexported_webdav_helpers() {
+        assert!(assert_webdav_url_allowed("https://example.com/dav/").is_ok());
+        assert!(assert_webdav_url_allowed("http://localhost:8080/dav/").is_ok());
+        assert!(assert_webdav_url_allowed("http://insecure.example.com/dav/").is_err());
+
+        assert_eq!(
+            build_target_url("https://example.com/dav", "file.json").unwrap(),
+            "https://example.com/dav/file.json"
+        );
+        let xml = r#"<d:prop><d:getetag>"etag-lib-test"</d:getetag></d:prop>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml, "getetag"),
+            Some("\"etag-lib-test\"".to_string())
+        );
+    }
+}
+
