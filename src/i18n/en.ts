@@ -164,6 +164,12 @@ const en: Translations = {
     priorityMedium: "Medium",
     priorityLow: "Low",
     detail: "Details",
+    focusing: "Focusing...",
+    pomodorosSpent: "{count} pomodoros ({minutes}m)",
+    estimatedPomodoros: "Estimated Pomodoros",
+    startFocusToast: 'Started focus on: "{title}" 🍅',
+    markTaskDone: "Mark Task Done ✓",
+    continueLater: "Continue Later",
   },
 
   listView: {
@@ -703,6 +709,8 @@ const en: Translations = {
     updatedAt: "Updated",
     todayFocus: "Today's Focus",
     insertFocus: "Insert into journal",
+    insertAllFocus: "Insert all focus logs into journal",
+    focusTasks: "Today's Focus Tasks",
     aiCommentTitle: "Warm Note",
     aiGenerate: "Finish today, get your warm note",
     aiThinking: "Writing a warm note...",

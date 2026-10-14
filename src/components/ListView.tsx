@@ -11,13 +11,14 @@ import {
   Repeat,
   ListTodo,
 } from "lucide-react";
-import type { Task } from "../types";
+import type { Task, PomodoroLog } from "../types";
 import { FILTER_OPTIONS, getDueDateCountdown, PRIORITY_META } from "../constants";
 import { CustomSelect } from "./CustomSelect";
 import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { audioEngine } from "../utils/audioEngine";
+import { getTaskPomodoroStats, formatTaskPomodoroBadge } from "../utils/pomodoroTaskStats";
 
 interface ListViewProps {
   tasks: Task[];
@@ -47,6 +48,9 @@ interface ListViewProps {
   handleToggleFavorite: (id: string) => void;
   handleTogglePin: (id: string) => void;
   onTaskClick?: (task: Task) => void;
+  pomodoroLogs?: PomodoroLog[];
+  activeFocusTaskId?: string | null;
+  isPomodoroActive?: boolean;
 }
 
 export const ListView: React.FC<ListViewProps> = React.memo(
@@ -70,6 +74,9 @@ export const ListView: React.FC<ListViewProps> = React.memo(
     handleToggleFavorite,
     handleTogglePin,
     onTaskClick,
+    pomodoroLogs,
+    activeFocusTaskId,
+    isPomodoroActive,
   }) => {
     const { t } = useTranslation();
     const lv = t.listView;
@@ -195,11 +202,19 @@ export const ListView: React.FC<ListViewProps> = React.memo(
             {filteredTasks.map((task) => {
               const countdown = getDueDateCountdown(task.dueDate, task.dueTime);
               const isCompleting = completingTaskIds.has(task.id);
+              const isFocusing = activeFocusTaskId === task.id && isPomodoroActive;
+              const pomodoroStats = getTaskPomodoroStats(task.id, pomodoroLogs || []);
+              const pomodoroBadge = formatTaskPomodoroBadge(
+                pomodoroStats.count,
+                task.estimatedPomodoros,
+              );
 
               return (
                 <div
                   key={task.id}
-                  className="rounded-xl bg-white/80 dark:bg-[#1A1C22]/80 border border-[#EFEBE4]/80 dark:border-[#282A30] shadow-paper hover:border-[#C4D7B2] dark:hover:border-[#3E5244] hover:bg-white dark:hover:bg-[#22242B] hover:shadow-xs transition-colors duration-200 group relative [content-visibility:auto] [contain-intrinsic-size:0_96px]"
+                  className={`rounded-xl bg-white/80 dark:bg-[#1A1C22]/80 border border-[#EFEBE4]/80 dark:border-[#282A30] shadow-paper hover:border-[#C4D7B2] dark:hover:border-[#3E5244] hover:bg-white dark:hover:bg-[#22242B] hover:shadow-xs transition-all duration-200 group relative [content-visibility:auto] [contain-intrinsic-size:0_96px] ${
+                    isFocusing ? "ring-2 ring-red-400/70 dark:ring-red-400/50 shadow-md" : ""
+                  }`}
                 >
                   <div className="px-4 py-2.5 flex justify-between items-center gap-3">
                     <div className="flex items-center gap-3 min-w-0 flex-grow">
@@ -250,6 +265,12 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                           >
                             {task.title}
                           </h4>
+                          {isFocusing && (
+                            <span className="inline-flex items-center gap-1 text-[8px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/40 px-1.5 py-0.2 rounded-full leading-none shrink-0 animate-pulse">
+                              <span>🍅</span>
+                              <span>{tc.focusing || "专注中"}</span>
+                            </span>
+                          )}
                           {isCompleting && (
                             <span className="seal-stamp text-[8.5px] font-black text-red-600 dark:text-red-400 border border-red-500/70 dark:border-red-400/70 px-1 py-0.2 rounded-xs leading-none shrink-0 scale-90">
                               済
@@ -288,6 +309,21 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                             <p className="truncate max-w-[200px] flex-grow min-w-0">
                               {task.description}
                             </p>
+                          )}
+
+                          {/* Pomodoro Badge */}
+                          {pomodoroBadge && (
+                            <span
+                              className="text-[8.5px] px-1.5 py-0.5 rounded-lg border bg-[#FCF2F0] dark:bg-[#332224] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53] font-bold flex items-center gap-1 flex-shrink-0 whitespace-nowrap"
+                              title={(
+                                tc.pomodorosSpent || "已专注 {count} 个番茄（{minutes} 分钟）"
+                              )
+                                .replace("{count}", String(pomodoroStats.count))
+                                .replace("{minutes}", String(pomodoroStats.minutes))}
+                            >
+                              <span>🍅</span>
+                              <span>{pomodoroBadge}</span>
+                            </span>
                           )}
 
                           {/* Beautiful non-wrapping Pill Badge for Due Date */}
@@ -403,10 +439,16 @@ export const ListView: React.FC<ListViewProps> = React.memo(
 
                       <button
                         onClick={() => handleStartFocus(task.id, task.title)}
-                        className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#2B2D35] flex-shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                        title={lv.startFocus}
+                        className={`p-1 rounded flex-shrink-0 cursor-pointer transition-colors ${
+                          isFocusing
+                            ? "text-red-500 bg-red-50 dark:bg-red-950/60 animate-pulse"
+                            : "hover:bg-slate-100 dark:hover:bg-[#2B2D35] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        }`}
+                        title={isFocusing ? tc.focusing || "专注中" : lv.startFocus}
                       >
-                        <Clock className="w-3.5 h-3.5" />
+                        <Clock
+                          className={`w-3.5 h-3.5 ${isFocusing ? "text-red-500 fill-red-500/20" : ""}`}
+                        />
                       </button>
                       <button
                         onClick={() => {

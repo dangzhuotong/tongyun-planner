@@ -14,12 +14,13 @@ import {
   Info,
   Inbox,
 } from "lucide-react";
-import type { Task, TaskCategory } from "../types";
+import type { Task, TaskCategory, PomodoroLog } from "../types";
 import { PLANNER_COLORS, getDueDateCountdown, PRIORITY_META } from "../constants";
 import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { audioEngine } from "../utils/audioEngine";
+import { getTaskPomodoroStats, formatTaskPomodoroBadge } from "../utils/pomodoroTaskStats";
 
 interface MatrixViewProps {
   tasks: Task[];
@@ -46,6 +47,9 @@ interface MatrixViewProps {
   onEditTask?: (id: string, updates: Partial<Task>) => void;
   searchQuery?: string;
   setSearchQuery?: (q: string) => void;
+  pomodoroLogs?: PomodoroLog[];
+  activeFocusTaskId?: string | null;
+  isPomodoroActive?: boolean;
 }
 
 export const MatrixView: React.FC<MatrixViewProps> = React.memo(
@@ -61,6 +65,9 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     onEditTask,
     searchQuery,
     setSearchQuery,
+    pomodoroLogs,
+    activeFocusTaskId,
+    isPomodoroActive,
   }) => {
     const { t } = useTranslation();
     const lv = t.listView;
@@ -387,12 +394,20 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                         ? "border-[#F5DFDB] dark:border-[#422D30]"
                         : borderClass;
 
+                      const isFocusing = activeFocusTaskId === task.id && isPomodoroActive;
+                      const pomodoroStats = getTaskPomodoroStats(task.id, pomodoroLogs || []);
+                      const pomodoroBadge = formatTaskPomodoroBadge(
+                        pomodoroStats.count,
+                        task.estimatedPomodoros,
+                      );
+
                       const hasBadges =
                         countdown ||
                         (task.repeat && task.repeat !== "none") ||
                         (task.subtasks && task.subtasks.length > 0) ||
                         (task.tags && task.tags.length > 0) ||
-                        (task.priority && PRIORITY_META[task.priority]);
+                        (task.priority && PRIORITY_META[task.priority]) ||
+                        pomodoroBadge !== "";
 
                       const isDragging = draggingTaskId === task.id;
                       const isCompleting = completingTaskIds.has(task.id);
@@ -412,7 +427,11 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                           }}
                           className={`p-3 rounded-xl ${cardBg} border ${cardBorder} shadow-paper hover:border-slate-300 dark:hover:border-slate-600 hover:bg-white dark:hover:bg-[#22242A] hover:shadow-xs transition-all duration-200 flex flex-col gap-1.5 relative overflow-hidden group cursor-grab active:cursor-grabbing [content-visibility:auto] [contain-intrinsic-size:0_120px] ${
                             isDragging ? "paper-card-dragging" : ""
-                          } ${isCompleting ? "opacity-40 scale-[0.98]" : ""}`}
+                          } ${isCompleting ? "opacity-40 scale-[0.98]" : ""} ${
+                            isFocusing
+                              ? "ring-2 ring-red-400/70 dark:ring-red-400/50 shadow-md"
+                              : ""
+                          }`}
                         >
                           {/* Row 1: Header (Title + Hover Actions) */}
                           <div className="flex items-center justify-between gap-2 min-w-0">
@@ -433,6 +452,12 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                               >
                                 {task.title}
                               </h4>
+                              {isFocusing && (
+                                <span className="inline-flex items-center gap-1 text-[8px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/40 px-1.5 py-0.2 rounded-full leading-none shrink-0 animate-pulse">
+                                  <span>🍅</span>
+                                  <span>{tc.focusing || "专注中"}</span>
+                                </span>
+                              )}
                               {isCompleting && (
                                 <span className="seal-stamp text-[8.5px] font-black text-red-600 dark:text-red-400 border border-red-500/70 dark:border-red-400/70 px-1 py-0.2 rounded-xs leading-none shrink-0 scale-90">
                                   済
@@ -488,10 +513,16 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
 
                               <button
                                 onClick={() => handleStartFocus(task.id, task.title)}
-                                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0 cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                                title={m.startFocus}
+                                className={`p-1 rounded shrink-0 cursor-pointer transition-colors ${
+                                  isFocusing
+                                    ? "text-red-500 bg-red-50 dark:bg-red-950/60 animate-pulse"
+                                    : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                }`}
+                                title={isFocusing ? tc.focusing || "专注中" : m.startFocus}
                               >
-                                <Clock className="w-3.5 h-3.5" />
+                                <Clock
+                                  className={`w-3.5 h-3.5 ${isFocusing ? "text-red-500 fill-red-500/20" : ""}`}
+                                />
                               </button>
 
                               <button
@@ -520,6 +551,20 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                           {/* Row 3: Badges (if present) */}
                           {hasBadges && (
                             <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                              {/* Pomodoro Badge */}
+                              {pomodoroBadge && (
+                                <span
+                                  className="text-[8.5px] px-2 py-0.5 rounded-lg border bg-[#FCF2F0] dark:bg-[#332224] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53] font-bold flex items-center gap-1 shrink-0 whitespace-nowrap"
+                                  title={(
+                                    tc.pomodorosSpent || "已专注 {count} 个番茄（{minutes} 分钟）"
+                                  )
+                                    .replace("{count}", String(pomodoroStats.count))
+                                    .replace("{minutes}", String(pomodoroStats.minutes))}
+                                >
+                                  <span>🍅</span>
+                                  <span>{pomodoroBadge}</span>
+                                </span>
+                              )}
                               {/* Due Date Badge */}
                               {countdown &&
                                 (() => {

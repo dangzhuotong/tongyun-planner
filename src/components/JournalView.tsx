@@ -23,6 +23,7 @@ import { extractJournalTags } from "../constants";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
 import { pomodoroStatsOn, taskCompletedOn } from "../utils/dailyReview";
+import { getDailyTaskPomodoroSummaries } from "../utils/pomodoroTaskStats";
 import { useTranslation } from "../i18n/LanguageContext";
 import { callAI } from "../utils/aiEngine";
 import { usePersonal } from "../context/PersonalContext";
@@ -270,6 +271,11 @@ export function JournalView({
 
   const viewFocus = useMemo(
     () => pomodoroStatsOn(pomodoroLogs, viewDate),
+    [pomodoroLogs, viewDate],
+  );
+
+  const dailyFocusSummaries = useMemo(
+    () => getDailyTaskPomodoroSummaries(viewDate, pomodoroLogs as any),
     [pomodoroLogs, viewDate],
   );
 
@@ -961,6 +967,43 @@ export function JournalView({
               >
                 🍅 {j.todayFocus || "今日专注"}：{viewFocus.minutes} 分钟 · {viewFocus.count} 个番茄
               </button>
+            )}
+
+            {dailyFocusSummaries.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-[#EFEBE4] dark:border-[#33353A] space-y-1.5">
+                <div className="flex items-center justify-between text-[9px] font-semibold text-slate-400 uppercase tracking-wider">
+                  <span>{j.focusTasks || "今日专注任务"}</span>
+                  <button
+                    onClick={() => {
+                      const lines = dailyFocusSummaries.map(
+                        (s) => `🍅 ${s.taskTitle}（${s.count} 个番茄 · ${s.minutes} 分钟）`,
+                      );
+                      insertLine(lines.join("\n"));
+                    }}
+                    className="text-[9px] text-[#A64424] dark:text-[#E07A5F] hover:underline cursor-pointer"
+                    title={j.insertAllFocus || "全部专注记录插入日记"}
+                  >
+                    {j.insertAllFocus || "全部插入"}
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  {dailyFocusSummaries.map((s, idx) => (
+                    <button
+                      key={s.taskId || `untracked-${idx}`}
+                      onClick={() =>
+                        insertLine(`🍅 ${s.taskTitle}（${s.count} 个番茄 · ${s.minutes} 分钟）`)
+                      }
+                      className="w-full text-left text-[10.5px] text-[#A64424] dark:text-[#E07A5F] bg-[#FBECE5]/70 dark:bg-[#2D1F1C]/70 border border-[#F6DCD2]/80 dark:border-[#472E27]/80 hover:border-[#E57C58] dark:hover:border-[#E07A5F] rounded-lg px-2 py-1 cursor-pointer transition-colors flex items-center justify-between gap-1"
+                      title={j.insertFocus || "点击插入到日记"}
+                    >
+                      <span className="truncate">🍅 {s.taskTitle}</span>
+                      <span className="text-[9.5px] opacity-80 shrink-0 font-medium">
+                        {s.count} 🍅 · {s.minutes}m
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 

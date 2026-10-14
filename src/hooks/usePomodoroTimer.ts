@@ -16,7 +16,7 @@ interface UsePomodoroTimerOptions {
   locale: string;
   windowLabel: string;
   t: ReturnType<typeof useTranslation>["t"];
-  onCelebration: (msg: string) => void;
+  onCelebration: (msg: string, task?: { id: string; title: string }) => void;
   onToast?: (text: string) => void;
 }
 
@@ -212,8 +212,12 @@ export function usePomodoroTimer({
           };
           pomodoroHook.setPomodoroLogs((prev: any[]) => [newLog, ...prev]);
 
+          const celebrationTask =
+            s.taskId && s.taskTitle ? { id: s.taskId, title: s.taskTitle } : undefined;
+
           onCelebration(
             s.locale === "en" ? "Focus session done! Keep going 💪" : "专注一关完成！继续加油 💪",
+            celebrationTask,
           );
 
           pomodoroHook.setPomodoroTaskId(null);

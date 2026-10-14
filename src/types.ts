@@ -39,6 +39,8 @@ export interface Task {
   journalId?: string; // 关联自某篇日记（addToTodo 时创建）
   /** 完成时刻（ms）；撤销完成时清除。旧数据可能缺失 */
   completedAt?: number;
+  /** 预估番茄数（目标），可选 */
+  estimatedPomodoros?: number;
 }
 
 export interface PomodoroLog {

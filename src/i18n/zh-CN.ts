@@ -164,6 +164,12 @@ const zhCN: Translations = {
     priorityMedium: "中",
     priorityLow: "低",
     detail: "详情",
+    focusing: "专注中...",
+    pomodorosSpent: "已专注 {count} 个番茄（{minutes} 分钟）",
+    estimatedPomodoros: "预估番茄数",
+    startFocusToast: "已开始专注任务：「{title}」🍅",
+    markTaskDone: "标记任务已完成 ✓",
+    continueLater: "稍后继续",
   },
 
   listView: {
@@ -691,6 +697,8 @@ const zhCN: Translations = {
     updatedAt: "更新于",
     todayFocus: "今日专注",
     insertFocus: "插入到日记",
+    insertAllFocus: "全部专注记录插入日记",
+    focusTasks: "今日专注任务",
     aiCommentTitle: "暖评",
     aiGenerate: "完成今天，收下今天的暖评",
     aiThinking: "正在写暖评...",

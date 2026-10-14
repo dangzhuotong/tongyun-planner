@@ -19,13 +19,14 @@ import {
   ExternalLink,
   RefreshCw,
 } from "lucide-react";
-import type { Task, Attachment, TaskPriority } from "../types";
+import type { Task, Attachment, TaskPriority, PomodoroLog } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
 import { parseNaturalDate, formatNaturalPreview } from "../utils/dateParser";
 import { storageManager, getAttachmentPath } from "../utils/storage";
 import { PRIORITY_LEVELS } from "../constants";
 import { CustomSelect } from "./CustomSelect";
 import { createId } from "../utils/id";
+import { getTaskPomodoroStats } from "../utils/pomodoroTaskStats";
 
 interface TaskDetailModalProps {
   task: Task;
@@ -36,6 +37,9 @@ interface TaskDetailModalProps {
   onUpdateTags: (taskId: string, tags: string[]) => void;
   onEditTask: (taskId: string, updates: Partial<Task>) => void;
   allTasks?: Task[]; // for dependency selection
+  pomodoroLogs?: PomodoroLog[];
+  handleStartFocus?: (taskId: string, taskTitle: string) => void;
+  isFocusing?: boolean;
 }
 
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
@@ -48,6 +52,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
     onUpdateTags,
     onEditTask,
     allTasks,
+    pomodoroLogs,
+    handleStartFocus,
+    isFocusing,
   }) => {
     const { t } = useTranslation();
     const tc = t.taskCard;
@@ -58,6 +65,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
     const [editDueDate, setEditDueDate] = useState(task.dueDate || "");
     const [editDueTime, setEditDueTime] = useState(task.dueTime || "");
     const [priority, setPriority] = useState<TaskPriority>(task.priority || "medium");
+    const [estimatedPomodoros, setEstimatedPomodoros] = useState<number>(
+      task.estimatedPomodoros || 0,
+    );
+    const pomodoroStats = React.useMemo(
+      () => getTaskPomodoroStats(task.id, pomodoroLogs || []),
+      [task.id, pomodoroLogs],
+    );
     const [attachments, setAttachments] = useState<Attachment[]>(task.attachments || []);
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
@@ -143,6 +157,81 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
 
           {/* Body */}
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 custom-scrollbar">
+            {/* Pomodoro Focus & Estimation */}
+            <div className="bg-[#FAF8F5] dark:bg-[#23252B] p-3 rounded-xl border border-[#EFEBE4] dark:border-[#383A42] space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">🍅</span>
+                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                    {tc.focus || "番茄专注"}
+                  </span>
+                </div>
+                {handleStartFocus && !task.completedAt && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleStartFocus(task.id, task.title);
+                      onClose();
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      isFocusing
+                        ? "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 animate-pulse"
+                        : "bg-[#4D7C5D] hover:bg-[#3E654C] text-white shadow-xs"
+                    }`}
+                  >
+                    {isFocusing
+                      ? tc.focusing || "⏱️ 正在专注中"
+                      : `▶ ${tc.focusThisTask || "专注此任务"}`}
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 pt-1.5 border-t border-[#EFEBE4]/60 dark:border-[#383A42]/60">
+                <div className="flex items-center gap-1">
+                  <span className="text-slate-500 dark:text-slate-400">已累计：</span>
+                  <span className="font-bold text-[#A34E36] dark:text-[#E06D53]">
+                    {pomodoroStats.count} 个番茄
+                  </span>
+                  <span className="text-slate-400 text-[10px]">({pomodoroStats.minutes} 分钟)</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 dark:text-slate-400 text-[10px]">
+                    {tc.estimatedPomodoros || "预估番茄"}：
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={estimatedPomodoros <= 0}
+                      onClick={() => {
+                        const next = Math.max(0, estimatedPomodoros - 1);
+                        setEstimatedPomodoros(next);
+                        onEditTask(task.id, { estimatedPomodoros: next || undefined });
+                      }}
+                      className="w-5 h-5 rounded flex items-center justify-center bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] text-xs font-bold hover:bg-slate-100 dark:hover:bg-[#282A30] disabled:opacity-40 cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="font-mono font-bold text-xs w-4 text-center">
+                      {estimatedPomodoros}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={estimatedPomodoros >= 12}
+                      onClick={() => {
+                        const next = estimatedPomodoros + 1;
+                        setEstimatedPomodoros(next);
+                        onEditTask(task.id, { estimatedPomodoros: next });
+                      }}
+                      className="w-5 h-5 rounded flex items-center justify-center bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#383A42] text-xs font-bold hover:bg-slate-100 dark:hover:bg-[#282A30] disabled:opacity-40 cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Tags */}
             <div>
               <div className="flex items-center gap-1.5 mb-1.5">

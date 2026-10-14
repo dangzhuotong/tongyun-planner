@@ -158,7 +158,21 @@ function AppBody() {
       .join("|");
   }, [syncConflicts]);
 
-  const [celebrationMessage, setCelebrationMessage] = useState<string | null>(null);
+  const [celebrationData, setCelebrationData] = useState<{
+    message: string;
+    task?: { id: string; title: string };
+  } | null>(null);
+
+  const setCelebrationMessage = useCallback(
+    (msg: string | null, task?: { id: string; title: string }) => {
+      if (msg === null) {
+        setCelebrationData(null);
+      } else {
+        setCelebrationData({ message: msg, task });
+      }
+    },
+    [],
+  );
   const [microBreakToast, setMicroBreakToast] = useState<string | null>(null);
   const microBreakToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showMicroBreakToast = useCallback((text: string) => {
@@ -322,6 +336,19 @@ function AppBody() {
       audioEngine.close();
     };
   }, []);
+
+  const handleStartFocusWithToast = useCallback(
+    (taskId: string, taskTitle: string) => {
+      pomodoroHook.handleStartFocus(taskId, taskTitle);
+      showMicroBreakToast(
+        (t.taskCard.startFocusToast || "已开始专注任务：「{title}」🍅").replace(
+          "{title}",
+          taskTitle,
+        ),
+      );
+    },
+    [pomodoroHook.handleStartFocus, showMicroBreakToast, t.taskCard.startFocusToast],
+  );
 
   // ============ 任务到期系统通知 ============
   useDueNotifications({
@@ -846,7 +873,7 @@ function AppBody() {
           setPomodoroTaskTitle={pomodoroHook.setPomodoroTaskTitle}
           handleStartFocus={pomodoroHook.handleStartFocus}
           handleToggleFavorite={tasksHook.handleToggleFavorite}
-          celebrationMessage={celebrationMessage}
+          celebrationMessage={celebrationData?.message || null}
           onClearCelebration={() => setCelebrationMessage(null)}
           handleUndoComplete={tasksHook.handleUndoComplete}
         />
@@ -893,8 +920,8 @@ function AppBody() {
         customizationHook={customizationHook}
         habitsHook={habitsHook}
         handlePinNoteToDesktop={handlePinNoteToDesktop}
-        celebrationMessage={celebrationMessage}
-        setCelebrationMessage={setCelebrationMessage}
+        celebrationData={celebrationData}
+        onClearCelebration={() => setCelebrationData(null)}
         deleteUndoToast={deleteUndoToast}
         onUndoDelete={handleUndoDeleteClick}
         syncStatus={syncStatus}
@@ -903,7 +930,9 @@ function AppBody() {
         setCommandPaletteOpen={setCommandPaletteOpen}
         windowLabel={windowLabel}
         resetTasks={tasksHook.resetTasks}
-        pomodoroHandleStartFocus={pomodoroHook.handleStartFocus}
+        handleStartFocus={handleStartFocusWithToast}
+        activeFocusTaskId={pomodoroHook.pomodoroTaskId}
+        isPomodoroActive={pomodoroHook.pomodoroIsActive}
         pomodoroLogs={pomodoroHook.pomodoroLogs}
         alertSoundType={pomodoroHook.alertSoundType}
         setAlertSoundType={pomodoroHook.setAlertSoundType}
@@ -982,7 +1011,9 @@ interface MainLayoutProps {
   // 仅传递「跨秒级 tick 稳定」的 pomodoro 派生字段（函数/日志/音效类型），
   // 避免把整个每帧变化的 pomodoroHook 传给 MainLayout 导致其随每秒 tick 重渲染。
   // 实时倒计时由 Sidebar 通过 PomodoroContext 自行消费。
-  pomodoroHandleStartFocus: ReturnType<typeof usePomodoro>["handleStartFocus"];
+  handleStartFocus: (taskId: string, taskTitle: string) => void;
+  activeFocusTaskId: string | null;
+  isPomodoroActive: boolean;
   pomodoroLogs: ReturnType<typeof usePomodoro>["pomodoroLogs"];
   alertSoundType: ReturnType<typeof usePomodoro>["alertSoundType"];
   setAlertSoundType: ReturnType<typeof usePomodoro>["setAlertSoundType"];
@@ -991,8 +1022,8 @@ interface MainLayoutProps {
   aiHook: ReturnType<typeof useAI>;
   customizationHook: ReturnType<typeof useCustomization>;
   handlePinNoteToDesktop: (id: string) => void;
-  celebrationMessage: string | null;
-  setCelebrationMessage: (msg: string | null) => void;
+  celebrationData: { message: string; task?: { id: string; title: string } } | null;
+  onClearCelebration: () => void;
   deleteUndoToast: string | null;
   onUndoDelete: () => void;
   syncStatus: "synced" | "syncing" | "error";
@@ -1042,13 +1073,15 @@ const MainLayout = React.memo(function MainLayout({
   habitsHook,
   aiHook,
   customizationHook,
-  pomodoroHandleStartFocus,
+  handleStartFocus,
+  activeFocusTaskId,
+  isPomodoroActive,
   pomodoroLogs,
   alertSoundType,
   setAlertSoundType,
   handlePinNoteToDesktop,
-  celebrationMessage,
-  setCelebrationMessage,
+  celebrationData,
+  onClearCelebration,
   deleteUndoToast,
   onUndoDelete,
   syncStatus,
@@ -1337,7 +1370,7 @@ const MainLayout = React.memo(function MainLayout({
             tasks={tasks}
             handleComplete={wrappedHandleComplete}
             qColors={customizationHook.customizationConfig.qColors}
-            handleStartFocus={pomodoroHandleStartFocus}
+            handleStartFocus={handleStartFocus}
             handleAddTask={handleAddTaskWithAI}
             handleToggleFavorite={handleToggleFavorite}
             handleTogglePin={handleTogglePin}
@@ -1345,6 +1378,9 @@ const MainLayout = React.memo(function MainLayout({
             onEditTask={handleEditTask}
             searchQuery={aiHook.searchQuery}
             setSearchQuery={aiHook.setSearchQuery}
+            pomodoroLogs={pomodoroLogs}
+            activeFocusTaskId={activeFocusTaskId}
+            isPomodoroActive={isPomodoroActive}
           />
         )}
         {activeTab === "list" && (
@@ -1363,11 +1399,14 @@ const MainLayout = React.memo(function MainLayout({
             editingNotes={editingNotes}
             setEditingNotes={setEditingNotes}
             handleSaveNotes={handleSaveNotes}
-            handleStartFocus={pomodoroHandleStartFocus}
+            handleStartFocus={handleStartFocus}
             handleAddTask={handleAddTaskWithAI}
             handleToggleFavorite={handleToggleFavorite}
             handleTogglePin={handleTogglePin}
             onTaskClick={handleTaskClick}
+            pomodoroLogs={pomodoroLogs}
+            activeFocusTaskId={activeFocusTaskId}
+            isPomodoroActive={isPomodoroActive}
           />
         )}
         {activeTab === "calendar" && (
@@ -1479,7 +1518,9 @@ const MainLayout = React.memo(function MainLayout({
       setEditingNotes,
       detailTaskId,
       aiHook,
-      pomodoroHandleStartFocus,
+      handleStartFocus,
+      activeFocusTaskId,
+      isPomodoroActive,
       pomodoroLogs,
       alertSoundType,
       setAlertSoundType,
@@ -1538,10 +1579,12 @@ const MainLayout = React.memo(function MainLayout({
             />
             <React.Suspense fallback={viewFallback}>{mainContent}</React.Suspense>
 
-            {celebrationMessage && (
+            {celebrationData && (
               <CelebrationOverlay
-                message={celebrationMessage}
-                onDone={() => setCelebrationMessage(null)}
+                message={celebrationData.message}
+                task={celebrationData.task}
+                onCompleteTask={(taskId) => wrappedHandleComplete(taskId)}
+                onDone={onClearCelebration}
               />
             )}
             {deleteUndoToast && (
@@ -1580,6 +1623,9 @@ const MainLayout = React.memo(function MainLayout({
                     onUpdateTags={handleUpdateTags}
                     onEditTask={handleEditTask}
                     allTasks={tasks}
+                    pomodoroLogs={pomodoroLogs}
+                    handleStartFocus={handleStartFocus}
+                    isFocusing={activeFocusTaskId === task.id && isPomodoroActive}
                   />
                 );
               })()}
@@ -1602,7 +1648,7 @@ const MainLayout = React.memo(function MainLayout({
             setFlowMode(false);
           }}
           onCreateTask={() => {}}
-          onStartFocus={pomodoroHandleStartFocus}
+          onStartFocus={handleStartFocus}
           onToggleWidget={widgetHook.handleToggleWidget}
           onToggleWidgetLock={() => widgetHook.handleToggleWidgetLock()}
           onEnterFlowMode={() => setFlowMode(true)}
