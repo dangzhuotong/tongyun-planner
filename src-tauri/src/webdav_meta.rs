@@ -484,4 +484,125 @@ mod tests {
         let file_json = serde_json::to_string(&file).expect("serialize file");
         assert!(file_json.contains("\"content\":\"{}\""));
     }
+
+    #[test]
+    fn test_extract_xml_skips_empty_tag_and_finds_subsequent() {
+        let xml = r#"<d:multistatus xmlns:d="DAV:">
+  <d:response>
+    <d:propstat>
+      <d:prop>
+        <d:getetag></d:getetag>
+        <d:getetag>   </d:getetag>
+        <d:getetag>&quot;second-valid-etag&quot;</d:getetag>
+      </d:prop>
+    </d:propstat>
+  </d:response>
+</d:multistatus>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml, "getetag"),
+            Some("\"second-valid-etag\"".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_xml_self_closing_and_closing_tags() {
+        let xml = r#"<d:multistatus xmlns:d="DAV:">
+  <d:getetag/>
+  <d:getetag />
+  </d:getetag>
+  <d:getetag>&quot;valid-after-self-closing&quot;</d:getetag>
+</d:multistatus>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml, "getetag"),
+            Some("\"valid-after-self-closing\"".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_xml_case_insensitivity_and_whitespace() {
+        let xml = r#"<D:MULTISTATUS xmlns:D="DAV:">
+  <D:PROPSTAT>
+    <D:PROP>
+      <D:GETETAG>
+         &quot;uppercase-tag&quot;
+      </D:GETETAG>
+    </D:PROP>
+  </D:PROPSTAT>
+</D:MULTISTATUS>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml, "GetETag"),
+            Some("\"uppercase-tag\"".to_string())
+        );
+        assert_eq!(
+            extract_xml_tag_value(xml, "getetag"),
+            Some("\"uppercase-tag\"".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_xml_malformed_and_edge_inputs() {
+        assert_eq!(extract_xml_tag_value("", "getetag"), None);
+        assert_eq!(extract_xml_tag_value("<d:getetag", "getetag"), None);
+        assert_eq!(extract_xml_tag_value("<d:getetag>no closing bracket", "getetag"), None);
+        assert_eq!(extract_xml_tag_value("plain text without xml tags", "getetag"), None);
+        assert_eq!(extract_xml_tag_value("<d:other>value</d:other>", "getetag"), None);
+    }
+
+    #[test]
+    fn test_is_local_http_host() {
+        assert!(is_local_http_host(Some("localhost")));
+        assert!(is_local_http_host(Some("LocalHost")));
+        assert!(is_local_http_host(Some("127.0.0.1")));
+        assert!(is_local_http_host(Some("::1")));
+        assert!(is_local_http_host(Some("[::1]")));
+        assert!(!is_local_http_host(Some("192.168.1.1")));
+        assert!(!is_local_http_host(Some("example.com")));
+        assert!(!is_local_http_host(Some("")));
+        assert!(!is_local_http_host(None));
+    }
+
+    #[test]
+    fn test_assert_webdav_url_allowed_extended() {
+        assert!(assert_webdav_url_allowed("http://[::1]:8080/dav").is_ok());
+        assert!(assert_webdav_url_allowed("http://LOCALHOST:8080/dav").is_ok());
+        assert!(assert_webdav_url_allowed("http://127.0.0.1:3000/").is_ok());
+        assert!(assert_webdav_url_allowed("https://localhost:8080/").is_ok());
+        assert!(assert_webdav_url_allowed("https://example.com/dav").is_ok());
+
+        assert_eq!(
+            assert_webdav_url_allowed("http://192.168.1.1/dav").unwrap_err(),
+            "E_WEBDAV_URL: http is only allowed for localhost"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("http://10.0.0.1:8080/").unwrap_err(),
+            "E_WEBDAV_URL: http is only allowed for localhost"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("file:///local/path").unwrap_err(),
+            "E_WEBDAV_URL: only https is allowed"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("").unwrap_err(),
+            "E_WEBDAV_URL: invalid URL"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("not a valid url").unwrap_err(),
+            "E_WEBDAV_URL: invalid URL"
+        );
+    }
+
+    #[test]
+    fn test_build_target_url_extended() {
+        assert_eq!(
+            build_target_url("http://localhost:8080/dav", "backup.json").unwrap(),
+            "http://localhost:8080/dav/backup.json"
+        );
+        assert_eq!(
+            build_target_url("http://127.0.0.1:8080/dav/", "daily/2026.json").unwrap(),
+            "http://127.0.0.1:8080/dav/daily/2026.json"
+        );
+        assert!(build_target_url("http://not-localhost.com/dav", "file.json").is_err());
+        assert!(build_target_url("invalid-url", "file.json").is_err());
+    }
 }
+

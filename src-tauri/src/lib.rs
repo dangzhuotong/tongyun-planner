@@ -616,3 +616,88 @@ pub fn run() {
             }
         });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_todo_sync_payload_serialization_full() {
+        let payload = TodoSyncPayload {
+            task_id: "task-101".to_string(),
+            action: "update".to_string(),
+            source_window: Some("main".to_string()),
+            title: Some("Complete report".to_string()),
+            description: Some("Q3 summary".to_string()),
+            notes: Some("Check metrics".to_string()),
+            category: Some("urgent_important".to_string()),
+            due_date: Some("2026-10-20".to_string()),
+            due_time: Some("18:00".to_string()),
+            timestamp: 1729000000000,
+        };
+
+        let json = serde_json::to_string(&payload).expect("serialize payload");
+        let de: TodoSyncPayload = serde_json::from_str(&json).expect("deserialize payload");
+
+        assert_eq!(de.task_id, "task-101");
+        assert_eq!(de.action, "update");
+        assert_eq!(de.source_window.as_deref(), Some("main"));
+        assert_eq!(de.title.as_deref(), Some("Complete report"));
+        assert_eq!(de.description.as_deref(), Some("Q3 summary"));
+        assert_eq!(de.notes.as_deref(), Some("Check metrics"));
+        assert_eq!(de.category.as_deref(), Some("urgent_important"));
+        assert_eq!(de.due_date.as_deref(), Some("2026-10-20"));
+        assert_eq!(de.due_time.as_deref(), Some("18:00"));
+        assert_eq!(de.timestamp, 1729000000000);
+    }
+
+    #[test]
+    fn test_todo_sync_payload_explicit_clear_semantics() {
+        // Option<String> semantics:
+        // None    -> "do not change"
+        // Some("") -> "explicitly clear"
+        let payload = TodoSyncPayload {
+            task_id: "task-102".to_string(),
+            action: "update".to_string(),
+            source_window: None,
+            title: None,
+            description: Some("".to_string()),
+            notes: Some("".to_string()),
+            category: None,
+            due_date: None,
+            due_time: None,
+            timestamp: 1729000000001,
+        };
+
+        let json = serde_json::to_string(&payload).expect("serialize payload");
+        let de: TodoSyncPayload = serde_json::from_str(&json).expect("deserialize payload");
+
+        assert_eq!(de.title, None);
+        assert_eq!(de.description, Some("".to_string()));
+        assert_eq!(de.notes, Some("".to_string()));
+        assert_eq!(de.source_window, None);
+    }
+
+    #[test]
+    fn test_todo_sync_payload_deserialization_from_sparse_json() {
+        let json = r#"{
+            "task_id": "task-103",
+            "action": "complete",
+            "source_window": null,
+            "title": null,
+            "description": null,
+            "notes": null,
+            "category": null,
+            "due_date": null,
+            "due_time": null,
+            "timestamp": 1729000000002
+        }"#;
+
+        let de: TodoSyncPayload = serde_json::from_str(json).expect("deserialize sparse");
+        assert_eq!(de.task_id, "task-103");
+        assert_eq!(de.action, "complete");
+        assert_eq!(de.title, None);
+        assert_eq!(de.timestamp, 1729000000002);
+    }
+}
+

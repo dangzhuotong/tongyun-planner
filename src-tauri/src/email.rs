@@ -122,3 +122,69 @@ pub async fn send_test_email(config: SmtpConfig) -> Result<String, String> {
 
     Ok("✅ 测试邮件发送成功，请检查收件箱".to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_smtp_config_deserialization_valid() {
+        let json = r#"{
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 465,
+            "smtp_user": "notify@example.com",
+            "smtp_pass": "app_specific_pwd",
+            "recipient_email": "user@example.com"
+        }"#;
+
+        let config: SmtpConfig = serde_json::from_str(json).expect("deserialize smtp config");
+        assert_eq!(config.smtp_host, "smtp.example.com");
+        assert_eq!(config.smtp_port, 465);
+        assert_eq!(config.smtp_user, "notify@example.com");
+        assert_eq!(config.smtp_pass, "app_specific_pwd");
+        assert_eq!(config.recipient_email, "user@example.com");
+    }
+
+    #[test]
+    fn test_smtp_config_deserialization_with_extra_fields() {
+        let json = r#"{
+            "smtp_host": "smtp.mail.com",
+            "smtp_port": 587,
+            "smtp_user": "sender@mail.com",
+            "smtp_pass": "pass123",
+            "recipient_email": "receiver@mail.com",
+            "extra_field": "ignored_value"
+        }"#;
+
+        let res: Result<SmtpConfig, _> = serde_json::from_str(json);
+        assert!(res.is_ok());
+        let config = res.unwrap();
+        assert_eq!(config.smtp_port, 587);
+    }
+
+    #[test]
+    fn test_smtp_config_deserialization_missing_fields() {
+        let json = r#"{
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 465
+        }"#;
+
+        let res: Result<SmtpConfig, _> = serde_json::from_str(json);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_smtp_config_deserialization_invalid_port() {
+        let json = r#"{
+            "smtp_host": "smtp.example.com",
+            "smtp_port": "not_a_number",
+            "smtp_user": "u",
+            "smtp_pass": "p",
+            "recipient_email": "r@example.com"
+        }"#;
+
+        let res: Result<SmtpConfig, _> = serde_json::from_str(json);
+        assert!(res.is_err());
+    }
+}
+

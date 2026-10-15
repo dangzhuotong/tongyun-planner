@@ -242,4 +242,68 @@ mod tests {
         assert_eq!(deserialized.size, 1024);
         assert_eq!(deserialized.modified_ms, 1727438400000);
     }
+
+    #[test]
+    fn test_validate_backup_kind_strictness() {
+        assert_eq!(validate_backup_kind("Daily").unwrap_err(), "E_INVALID_BACKUP_KIND");
+        assert_eq!(validate_backup_kind("CONFLICTS").unwrap_err(), "E_INVALID_BACKUP_KIND");
+        assert_eq!(validate_backup_kind("daily ").unwrap_err(), "E_INVALID_BACKUP_KIND");
+        assert_eq!(validate_backup_kind(" conflicts").unwrap_err(), "E_INVALID_BACKUP_KIND");
+        assert_eq!(validate_backup_kind("daily\0").unwrap_err(), "E_INVALID_BACKUP_KIND");
+    }
+
+    #[test]
+    fn test_validate_backup_name_length_boundaries() {
+        // Exactly 128 chars: 123 chars + ".json" (5 chars) = 128 chars
+        let exact_128 = format!("{}.json", "a".repeat(123));
+        assert_eq!(exact_128.len(), 128);
+        assert!(validate_backup_name(&exact_128).is_ok());
+
+        // 129 chars: 124 chars + ".json" = 129 chars
+        let too_long_129 = format!("{}.json", "a".repeat(124));
+        assert_eq!(too_long_129.len(), 129);
+        assert_eq!(validate_backup_name(&too_long_129).unwrap_err(), "E_INVALID_BACKUP_NAME");
+
+        // Single letter valid
+        assert!(validate_backup_name("a.json").is_ok());
+        // Hyphens, underscores, dots inside name
+        assert!(validate_backup_name("backup-2026_09.27.json").is_ok());
+    }
+
+    #[test]
+    fn test_validate_backup_name_disallowed_characters() {
+        assert_eq!(validate_backup_name("test\n.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("test\t.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("test\0.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("test:name.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("test?name.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("test*name.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+        assert_eq!(validate_backup_name("test|name.json").unwrap_err(), "E_INVALID_BACKUP_NAME");
+    }
+
+    #[test]
+    fn test_backup_entry_descending_sort() {
+        let mut entries = vec![
+            BackupEntry {
+                name: "2026-09-25.json".to_string(),
+                size: 100,
+                modified_ms: 1000,
+            },
+            BackupEntry {
+                name: "2026-09-27.json".to_string(),
+                size: 300,
+                modified_ms: 3000,
+            },
+            BackupEntry {
+                name: "2026-09-26.json".to_string(),
+                size: 200,
+                modified_ms: 2000,
+            },
+        ];
+        entries.sort_by(|a, b| b.name.cmp(&a.name));
+        assert_eq!(entries[0].name, "2026-09-27.json");
+        assert_eq!(entries[1].name, "2026-09-26.json");
+        assert_eq!(entries[2].name, "2026-09-25.json");
+    }
 }
+
