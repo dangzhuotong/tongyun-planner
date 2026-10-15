@@ -5,6 +5,13 @@ import {
   getVisibleNoises,
   setVisibleNoises,
   NOISE_DEFINITIONS,
+  PLANNER_COLORS,
+  CATEGORY_META,
+  JOURNAL_TEMPLATES,
+  DEFAULT_AI_CLASSIFY_PROMPT,
+  PRIORITY_OPTIONS,
+  PRIORITY_LEVELS,
+  PRIORITY_META,
 } from "./constants";
 
 describe("constants & pure helpers", () => {
@@ -119,6 +126,81 @@ describe("constants & pure helpers", () => {
     it("should store and retrieve customized visible noises", () => {
       setVisibleNoises(["rain", "ocean"]);
       expect(getVisibleNoises()).toEqual(["rain", "ocean"]);
+    });
+  });
+
+  describe("task priority & category metadata", () => {
+    it("should define 4 Eisenhower matrix priority options", () => {
+      expect(PRIORITY_OPTIONS.length).toBe(4);
+      const values = PRIORITY_OPTIONS.map((o) => o.value);
+      expect(values).toContain("urgent-important");
+      expect(values).toContain("important-not-urgent");
+      expect(values).toContain("urgent-not-important");
+      expect(values).toContain("not-urgent-not-important");
+    });
+
+    it("should define priority levels and priority metadata", () => {
+      expect(PRIORITY_LEVELS.length).toBe(3);
+      expect(PRIORITY_META.high.label).toBe("高");
+      expect(PRIORITY_META.medium.label).toBe("中");
+      expect(PRIORITY_META.low.label).toBe("低");
+    });
+
+    it("should define complete styling for all 4 quadrants in CATEGORY_META", () => {
+      const quadrants = [
+        "urgent-important",
+        "important-not-urgent",
+        "urgent-not-important",
+        "not-urgent-not-important",
+      ] as const;
+      for (const q of quadrants) {
+        expect(CATEGORY_META[q]).toBeDefined();
+        expect(CATEGORY_META[q].label.length).toBeGreaterThan(0);
+        expect(CATEGORY_META[q].dot).toMatch(/^bg-\[#[0-9a-fA-F]{6}\]$/);
+        expect(CATEGORY_META[q].text).toMatch(/^text-\[#[0-9a-fA-F]{6}\]$/);
+      }
+    });
+  });
+
+  describe("PLANNER_COLORS palette", () => {
+    it("should define 6 warm theme colors with complete attributes", () => {
+      const expectedKeys = ["rose", "mint", "sky", "lavender", "coral", "yellow"];
+      expect(Object.keys(PLANNER_COLORS).sort()).toEqual(expectedKeys.sort());
+
+      for (const color of Object.values(PLANNER_COLORS)) {
+        expect(color.bg).toMatch(/^bg-\[#[0-9a-fA-F]{6}\]$/);
+        expect(color.border).toMatch(/^border-\[#[0-9a-fA-F]{6}\]$/);
+        expect(color.text).toMatch(/^text-\[#[0-9a-fA-F]{6}\]$/);
+        expect(color.dot).toMatch(/^bg-\[#[0-9a-fA-F]{6}\]$/);
+        expect(color.accent).toMatch(/^#[0-9a-fA-F]{6}$/);
+        expect(color.name.length).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe("JOURNAL_TEMPLATES", () => {
+    it("should contain default journal templates including blank, morning and review", () => {
+      expect(JOURNAL_TEMPLATES.length).toBeGreaterThanOrEqual(4);
+      const ids = JOURNAL_TEMPLATES.map((t) => t.id);
+      expect(ids).toContain("blank");
+      expect(ids).toContain("morning");
+      expect(ids).toContain("review");
+      expect(ids).toContain("weekly");
+
+      for (const template of JOURNAL_TEMPLATES) {
+        expect(template.id).toBeTruthy();
+        expect(template.name).toBeTruthy();
+        expect(typeof template.content).toBe("string");
+      }
+    });
+  });
+
+  describe("DEFAULT_AI_CLASSIFY_PROMPT", () => {
+    it("should contain all four quadrant identifiers", () => {
+      expect(DEFAULT_AI_CLASSIFY_PROMPT).toContain("urgent-important");
+      expect(DEFAULT_AI_CLASSIFY_PROMPT).toContain("important-not-urgent");
+      expect(DEFAULT_AI_CLASSIFY_PROMPT).toContain("urgent-not-important");
+      expect(DEFAULT_AI_CLASSIFY_PROMPT).toContain("not-urgent-not-important");
     });
   });
 });
