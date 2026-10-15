@@ -15,6 +15,8 @@ import {
   getLocalManifest,
   getLocalSyncVersion,
   bumpSyncVersion,
+  getCategoryPayload,
+  type SyncData,
 } from "./types";
 import type { Task, CustomizationConfig } from "../../types";
 
@@ -276,4 +278,53 @@ describe("sync types & pure core logic", () => {
       expect(getLocalSyncVersion()).toBe(globalTs);
     });
   });
+
+  describe("getCategoryPayload", () => {
+    it("should extract each corresponding category from SyncData and sanitize config", () => {
+      const syncData: SyncData = {
+        version: 12345,
+        tasks: [{ id: "t1", title: "Task 1", category: "urgent-important" }],
+        completedTasks: [{ id: "c1", title: "Done 1", category: "urgent-important" }],
+        stickyNotes: [{ id: "n1", text: "Note", color: "tea", rotate: 0 }],
+        pomodoroLogs: [{ id: "p1", timestamp: 1000, duration: 1500 }],
+        countdowns: [{ id: "cd1", title: "Holiday", targetDate: "2026-12-25" }],
+        customizationConfig: {
+          qColors: {
+            "urgent-important": "",
+            "important-not-urgent": "",
+            "urgent-not-important": "",
+            "not-urgent-not-important": "",
+          },
+          cardBackground: "white",
+          pinType: "pin",
+          aiApiKey: "sensitive-secret-key",
+          aiModel: "gpt-4o",
+        },
+        journal: [
+          {
+            id: "j1",
+            linkKey: "2026-10-15",
+            title: "2026-10-15",
+            content: "Journal text",
+            date: "2026-10-15",
+            isDaily: true,
+            createdAt: 0,
+            updatedAt: 0,
+          },
+        ],
+      };
+
+      expect(getCategoryPayload(syncData, "tasks")).toEqual(syncData.tasks);
+      expect(getCategoryPayload(syncData, "completedTasks")).toEqual(syncData.completedTasks);
+      expect(getCategoryPayload(syncData, "stickyNotes")).toEqual(syncData.stickyNotes);
+      expect(getCategoryPayload(syncData, "pomodoroLogs")).toEqual(syncData.pomodoroLogs);
+      expect(getCategoryPayload(syncData, "countdowns")).toEqual(syncData.countdowns);
+      expect(getCategoryPayload(syncData, "journal")).toEqual(syncData.journal);
+
+      const configPayload = getCategoryPayload(syncData, "config") as any;
+      expect(configPayload.aiModel).toBe("gpt-4o");
+      expect(configPayload.aiApiKey).toBeUndefined(); // Stripped by sanitizeConfigForSync
+    });
+  });
 });
+
