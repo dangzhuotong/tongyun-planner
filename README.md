@@ -2,7 +2,9 @@
   <img src="src-tauri/icons/icon.png" alt="橦云手帐" width="96" height="96" />
 
   <h1>橦云手帐</h1>
-  <p><strong>TongYun Planner</strong> · 在纷繁世界里，为你留出一块温暖、安宁的心流角落</p>
+  <p><strong>TongYun Planner</strong></p>
+  <p>一个本地优先的桌面手帐：待办、日记、番茄钟放在同一个窗口，数据默认只在你电脑上。</p>
+  <p><em>A local-first desktop journal: to-dos, diary, and pomodoro in one window — data stays on your machine by default.</em></p>
 
   <p>
     <a href="https://github.com/dangzhuotong/tongyun-planner/releases/latest"><strong>⬇ 下载最新版</strong></a>
@@ -16,17 +18,19 @@
     <img src="https://img.shields.io/badge/i18n-中文%20%7C%20English-5B99B0?style=flat-square" alt="i18n" />
     <img src="https://img.shields.io/badge/Tauri-2-FFC131?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
   </p>
-
-  <br />
-
-  <img src="screenshots/dashboard.png" alt="橦云手帐主页：问候、天气、今日待办与 AI 散文" width="920" />
 </div>
 
-**写给谁：** 想把日记写成仪式、又在意隐私的人——学生、上班族，或任何不想把日常交给云笔记的人。
+- **写给谁：** 想把日记写成仪式、又在意隐私的人——学生、上班族，或任何不想把日常交给云笔记的人。
+- **解决什么：** 待办散落、日记没处写、资讯看完就忘。四象限任务、翻页日记、番茄钟和资讯一键存成待办，都在同一个本地窗口里。
+- **有何不同：** 数据默认只在你的电脑上；日记是带书脊与横格的拟物手帐，而不是表单；可选 AI 给出克制的暖评，而不是催促你「更高效」。
 
-**解决什么：** 待办散落、日记没处写、资讯看完就忘。四象限任务、翻页日记、番茄钟和资讯一键存成待办，都在同一个本地窗口里。
-
-**有何不同：** 数据默认只在你的电脑上；日记是带书脊与横格的拟物手帐，而不是表单；可选 AI 给出克制的暖评，而不是催促你「更高效」。
+<div align="center">
+  <br />
+  <!-- TODO(gif): 录制后放到 screenshots/gif/ 并替换下方 hero
+       计划文件：matrix-drag.gif · journal-flip.gif · news-to-task.gif
+       需阿橦 Mac 屏幕录制权限（Kap/ffmpeg）；每段 ≤8s、≤5MB、宽 960 -->
+  <img src="screenshots/dashboard.png" alt="橦云手帐主页：问候、天气、今日待办与 AI 散文" width="920" />
+</div>
 
 <details>
 <summary><strong>English</strong></summary>
@@ -50,6 +54,20 @@
 | <img src="screenshots/widget.png" alt="桌面挂件" width="280" /> | <img src="screenshots/pomodoro.png" alt="番茄钟与白噪音" width="280" /> | <img src="screenshots/settings.png" alt="设置" width="280" /> |
 
 完整能力清单见 [docs/FEATURES.md](docs/FEATURES.md)。仓库根目录的 [docs/social-preview.png](docs/social-preview.png) 可上传到 GitHub Settings → Social preview（1280×640）。
+
+### 和常见工具比
+
+| | 橦云手帐 | Notion | 滴答清单 | Obsidian |
+|---|---|---|---|---|
+| 数据位置 | 默认本机 SQLite，可选自建 WebDAV | 云端账号 | 云端账号同步 | 本地 Markdown 文件 |
+| 四象限 | 内置 | 需自建模板 | 有四象限视图 | 需插件 |
+| 番茄钟+白噪音 | 内置 | 无内置 | 有番茄与白噪音 | 需插件 |
+| 拟物翻页日记 | 内置 | 无 | 无 | 无 |
+| 开源 | MIT | 否 | 否 | 否（免费但闭源） |
+
+*Vs common tools (short): local-first SQLite + optional WebDAV; built-in Eisenhower matrix, pomodoro with white noise, and flip-page diary — MIT open source. Notion/TickTick are cloud accounts; Obsidian is local Markdown (matrix/pomodoro via plugins; core is free but closed-source).*
+
+（本表只写可核实差异，不写价格、不写「比 X 好」。滴答清单四象限/番茄/白噪音见其[帮助中心](https://help.dida365.com/)。）
 
 ---
 
