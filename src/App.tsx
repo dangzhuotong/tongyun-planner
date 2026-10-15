@@ -57,6 +57,10 @@ import { UpdateModal } from "./components/UpdateModal";
 import { checkForAppUpdate } from "./utils/updater";
 import { LegacySyncNotice } from "./components/sync/LegacySyncNotice";
 import { detectLegacySyncBackend } from "./utils/sync/legacyBackends";
+import { SunsetShutdownModal } from "./components/sunset/SunsetShutdownModal";
+import { EnergyTimeBlockModal } from "./components/energy/EnergyTimeBlockModal";
+import { QuickCaptureModal } from "./components/QuickCaptureModal";
+import { shouldPromptSunsetShutdown } from "./utils/sunsetShutdown";
 
 const viewFallback = (
   <div className="flex-grow flex items-center justify-center text-slate-400 text-sm py-20">
@@ -202,13 +206,29 @@ function AppBody() {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [flowMode, setFlowMode] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [sunsetShutdownOpen, setSunsetShutdownOpen] = useState(false);
+  const [energyTimeBlockOpen, setEnergyTimeBlockOpen] = useState(false);
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
 
-  // Cmd/Ctrl+K 全局快捷键
+  // 傍晚下班自动提醒日落离线（18:00后且今日未做）
+  useEffect(() => {
+    if (shouldPromptSunsetShutdown()) {
+      setSunsetShutdownOpen(true);
+    }
+  }, []);
+
+  // Cmd/Ctrl+K 全局快捷键与极速捕捉胶囊 (Alt+N / Ctrl+Shift+K)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setCommandPaletteOpen((prev) => !prev);
+      } else if (
+        (e.altKey && e.key.toLowerCase() === "n") ||
+        ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "k")
+      ) {
+        e.preventDefault();
+        setQuickCaptureOpen((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handler);
@@ -858,6 +878,81 @@ function AppBody() {
     }
   }, []);
 
+  const handleQuickCaptureTask = useCallback(
+    (taskData: { title: string; category?: any; tags?: string[]; dueDate?: string }) => {
+      handleAddTaskWithAI({
+        title: taskData.title,
+        description: "",
+        notes: "",
+        category: taskData.category || "important-urgent",
+        dueDate: taskData.dueDate || getLocalDateString(),
+        priority: "medium",
+        tags: taskData.tags || [],
+      });
+    },
+    [handleAddTaskWithAI],
+  );
+
+  const handleQuickCaptureNote = useCallback(
+    (text: string) => {
+      notesHook.handleAddNote(text);
+    },
+    [notesHook],
+  );
+
+  const handleQuickCaptureJournal = useCallback(
+    (text: string) => {
+      const today = getLocalDateString();
+      const existing = journal.find((e) => e.isDaily && e.date === today);
+      if (existing) {
+        handleUpsertJournal({
+          ...existing,
+          content: existing.content ? `${existing.content}\n\n${text}` : text,
+          updatedAt: Date.now(),
+        });
+      } else {
+        handleUpsertJournal({
+          id: createId(),
+          linkKey: today,
+          title: today,
+          date: today,
+          content: text,
+          isDaily: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+    },
+    [journal, handleUpsertJournal],
+  );
+
+  const handleSunsetTomorrowAnchor = useCallback(
+    (anchorText: string) => {
+      const today = getLocalDateString();
+      const existing = journal.find((e) => e.isDaily && e.date === today);
+      const anchorFormatted = `\n\n📌 **明日启动锚点**：${anchorText}`;
+      if (existing) {
+        handleUpsertJournal({
+          ...existing,
+          content: existing.content ? `${existing.content}${anchorFormatted}` : `📌 **明日启动锚点**：${anchorText}`,
+          updatedAt: Date.now(),
+        });
+      } else {
+        handleUpsertJournal({
+          id: createId(),
+          linkKey: today,
+          title: today,
+          date: today,
+          content: `📌 **明日启动锚点**：${anchorText}`,
+          isDaily: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+    },
+    [journal, handleUpsertJournal],
+  );
+
   // Watercolor blobs removed — clean background for calm precision design
 
   // ============ FloatingNote / Widget / Main Render ============
@@ -971,6 +1066,38 @@ function AppBody() {
         onNewsSaveTask={handleNewsSaveTask}
         onNewsSaveJournal={handleNewsSaveJournal}
         onTestMicroBreak={handleTestMicroBreak}
+        onOpenSunsetShutdown={() => setSunsetShutdownOpen(true)}
+        onOpenEnergyTimeBlock={() => setEnergyTimeBlockOpen(true)}
+        onOpenQuickCapture={() => setQuickCaptureOpen(true)}
+      />
+      <SunsetShutdownModal
+        isOpen={sunsetShutdownOpen}
+        onClose={() => setSunsetShutdownOpen(false)}
+        tasks={tasksHook.tasks}
+        completedTasks={tasksHook.completedTasks}
+        pomodoroLogs={pomodoroHook.pomodoroLogs}
+        onUpdateTasks={(updated) => tasksHook.saveTasks(updated)}
+        onAppendJournalNote={handleSunsetTomorrowAnchor}
+      />
+      <EnergyTimeBlockModal
+        isOpen={energyTimeBlockOpen}
+        onClose={() => setEnergyTimeBlockOpen(false)}
+        tasks={tasksHook.tasks}
+        onStartFocus={(taskId, title) => {
+          setEnergyTimeBlockOpen(false);
+          handleStartFocusWithToast(taskId, title);
+        }}
+        onUpdateTask={(task) => {
+          wrappedHandleEditTask(task.id, task);
+        }}
+      />
+      <QuickCaptureModal
+        isOpen={quickCaptureOpen}
+        onClose={() => setQuickCaptureOpen(false)}
+        onAddTask={handleQuickCaptureTask}
+        onAddNote={handleQuickCaptureNote}
+        onAppendJournal={handleQuickCaptureJournal}
+        onToast={showMicroBreakToast}
       />
       {microBreakSession && <MicroBreakOverlay onSkip={microBreakSession.skip} />}
       {microBreakToast && !microBreakSession && (
@@ -1069,6 +1196,9 @@ interface MainLayoutProps {
   onNewsSaveTask: (ref: { title: string; url: string }) => void;
   onNewsSaveJournal: (ref: { title: string; url: string; description?: string }) => void;
   onTestMicroBreak: () => void;
+  onOpenSunsetShutdown: () => void;
+  onOpenEnergyTimeBlock: () => void;
+  onOpenQuickCapture: () => void;
 }
 
 const MainLayout = React.memo(function MainLayout({
@@ -1128,6 +1258,9 @@ const MainLayout = React.memo(function MainLayout({
   onNewsSaveTask,
   onNewsSaveJournal,
   onTestMicroBreak,
+  onOpenSunsetShutdown,
+  onOpenEnergyTimeBlock,
+  onOpenQuickCapture,
 }: MainLayoutProps) {
   const mainContent = useMemo(
     () => (
@@ -1612,6 +1745,9 @@ const MainLayout = React.memo(function MainLayout({
               lastBackupTime={lastBackupTime}
               onEnterFlowMode={() => setFlowMode(true)}
               onTestMicroBreak={onTestMicroBreak}
+              onOpenSunsetShutdown={onOpenSunsetShutdown}
+              onOpenEnergyTimeBlock={onOpenEnergyTimeBlock}
+              onOpenQuickCapture={onOpenQuickCapture}
             />
             <React.Suspense fallback={viewFallback}>{mainContent}</React.Suspense>
 

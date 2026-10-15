@@ -64,10 +64,8 @@
 
 ---
 
-## 二、后续版本规划表 (Release Planning)
+## 二、版本发布与落地记录 (Release Progress)
 
-| 版本阶段 | 核心主题 | 规划落地特性 |
+| 版本阶段 | 核心主题 | 落地特性与状态 |
 | :--- | :--- | :--- |
-| **v1.2.0** | **深度专注与安心离线** | ① 日落离线仪轨 (Sunset Shutdown)<br>② 全局极速捕捉胶囊快捷窗 (Quick Capture) |
-| **v1.3.0** | **精力节律与四象限时间盒** | ① 精力潮汐时间盒 (Energy Flow & Time-Blocking)<br>② 专注热力图多维精力透视 |
-| **v1.4.0** | **手帐美学与记忆温存** | ① 复古朱砂印章与和纸胶带 (Stamps & Tapes)<br>② 今日走心问答与拍立得卡片 (Prompt & Polaroid) |
+| **v1.2.0 (已落地)** | **离线仪轨、精力时间盒与手帐美学** | ✅ ① **日落离线仪轨 (Sunset Work-Shutdown Ritual)**：四步关机流（清点收获、顺延未完成、写下明日启动锚点、暮色钟声锁屏歇息）<br>✅ ② **精力潮汐与时间盒 (Energy Flow & Time-Blocking)**：昼夜三段生理潮汐匹配、任务精力分类、专注联动<br>✅ ③ **手帐百宝贴纸与复古印章 (Journal Stamps & Washi Tapes)**：朱砂木刻印章（完工/大吉/及格/神速/行云）、四款拟真和纸胶带、完成弹窗盖印<br>✅ ④ **全局极速捕捉胶囊 (Global Quick-Capture Capsule)**：Alt+N / Ctrl+Shift+K 快捷唤起、前缀智能解析（待办 / `//` 便签 / `..` 日记随想）<br>✅ ⑤ **今日走心问答与拍立得手帐 (Daily Journal Prompt & Polaroid)**：心理学治愈微问答引导换一换、照片自动转拍立得质感相框 |

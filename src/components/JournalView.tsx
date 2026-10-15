@@ -10,7 +10,12 @@ import {
   Plus,
   Camera,
   X,
+  Lightbulb,
+  Bookmark,
 } from "lucide-react";
+import { getDailyJournalPrompt, formatPromptForJournal } from "../utils/journalPrompts";
+import { PolaroidCard } from "./journal/PolaroidCard";
+import { WashiTape, VintageStamp, type WashiTapeType, type StampType } from "./journal/JournalStickers";
 import type {
   JournalEntry,
   Task,
@@ -175,6 +180,37 @@ export function JournalView({
     },
     [selected, onUpsert, viewDate],
   );
+
+  const [promptOffset, setPromptOffset] = useState(0);
+  const [showPrompt, setShowPrompt] = useState(true);
+  const dailyPrompt = useMemo(
+    () => getDailyJournalPrompt(currentDate, promptOffset),
+    [currentDate, promptOffset],
+  );
+
+  const handleInsertPrompt = useCallback(() => {
+    const promptText = formatPromptForJournal(dailyPrompt);
+    const cur = draftDirtyRef.current ? draftContentRef.current : (selected?.content || "");
+    const next = cur ? `${promptText}${cur}` : promptText;
+    setDraftContent(next);
+    draftDirtyRef.current = true;
+    draftContentRef.current = next;
+    commit({ content: next });
+  }, [dailyPrompt, selected?.content, commit]);
+
+  const handleCycleTape = useCallback(() => {
+    const tapes: WashiTapeType[] = ["bamboo", "sakura", "kraft", "cloud"];
+    const cur = selected?.washiTape || "bamboo";
+    const nextIndex = (tapes.indexOf(cur as WashiTapeType) + 1) % tapes.length;
+    commit({ washiTape: tapes[nextIndex] });
+  }, [selected?.washiTape, commit]);
+
+  const handleCycleStamp = useCallback(() => {
+    const stamps: StampType[] = ["done", "great", "pass", "fast", "super"];
+    const cur = selected?.stamp;
+    const nextStamp = !cur ? "done" : stamps[(stamps.indexOf(cur as StampType) + 1) % stamps.length];
+    commit({ stamp: nextStamp });
+  }, [selected?.stamp, commit]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handlePickImage = useCallback(() => fileInputRef.current?.click(), []);
@@ -549,7 +585,49 @@ export function JournalView({
         </div>
       )}
 
-      <div className="flex items-center gap-2">
+      {showPrompt && (
+        <div className="rounded-xl p-3 bg-[#FAF7F0] dark:bg-[#23252B] border border-[#EFE8D8] dark:border-[#383A42] flex flex-col gap-1.5 text-xs transition-all shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-[#8B6E3C] dark:text-[#CBB182] flex items-center gap-1.5 text-[11px]">
+              <Lightbulb className="w-3.5 h-3.5 text-[#D4A373]" />
+              今日走心微问 · {dailyPrompt.category === "gratitude" ? "感恩" : dailyPrompt.category === "reflection" ? "复盘" : dailyPrompt.category === "discovery" ? "发现" : "治愈"}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPromptOffset((p) => p + 1)}
+                className="text-[10px] text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#78C496] cursor-pointer"
+                title="换一个问题"
+              >
+                换一换 ↻
+              </button>
+              <button
+                type="button"
+                onClick={handleInsertPrompt}
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#4D7C5D] text-white hover:bg-[#3F684C] cursor-pointer transition-colors"
+              >
+                写入日记
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPrompt(false)}
+                className="text-[10px] text-slate-300 hover:text-slate-500 cursor-pointer ml-1"
+                title="收起"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <p className="text-slate-700 dark:text-slate-300 font-medium text-[13px] leading-snug">
+            {dailyPrompt.question}
+          </p>
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">
+            {dailyPrompt.hint}
+          </p>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap">
         <input
           ref={fileInputRef}
           type="file"
@@ -564,6 +642,22 @@ export function JournalView({
         >
           <Camera className="w-3 h-3" />
           {j.addImage}
+        </button>
+        <button
+          onClick={handleCycleTape}
+          className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] text-slate-500 hover:text-[#8B6E3C] hover:border-[#8B6E3C] hover:bg-[#FAF7F0] cursor-pointer transition-colors dark:border-[#3A3A3A] dark:text-slate-400 dark:hover:text-[#CBB182] dark:hover:border-[#CBB182] dark:hover:bg-[#282520]"
+          title="切换和纸胶带风格"
+        >
+          <Bookmark className="w-3 h-3" />
+          胶带: {selected?.washiTape || "青竹"}
+        </button>
+        <button
+          onClick={handleCycleStamp}
+          className="flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] text-slate-500 hover:text-[#A33A2C] hover:border-[#A33A2C] hover:bg-[#FDF2F0] cursor-pointer transition-colors dark:border-[#3A3A3A] dark:text-slate-400 dark:hover:text-[#E57373] dark:hover:border-[#E57373] dark:hover:bg-[#2C1E20]"
+          title="加盖复古印章"
+        >
+          <span className="font-serif font-bold text-[9px]">印</span>
+          {selected?.stamp ? `印章: ${selected.stamp}` : "盖章"}
         </button>
       </div>
 
@@ -587,19 +681,22 @@ export function JournalView({
       />
 
       {(selected?.attachments?.length ?? 0) > 0 && (
-        <div className="flex flex-wrap gap-3">
-          {selected!.attachments!.map((att) => (
+        <div className="flex flex-wrap gap-4 py-2">
+          {selected!.attachments!.map((att, idx) => (
             <div key={att.id} className="relative group">
-              <img
-                src={journalAttachmentSrc(att.path)}
-                alt={att.name}
-                className="w-28 h-28 object-cover rounded-xl border border-[#EFEBE4] dark:border-[#3A3A3A] shadow-sm"
+              <PolaroidCard
+                imageSrc={journalAttachmentSrc(att.path)}
+                caption={att.name.replace(/\.[^/.]+$/, "")}
+                date={currentDate}
+                rotateDeg={idx % 2 === 0 ? -2 : 2}
+                className="w-44"
               />
               <button
                 onClick={() => handleRemoveImage(att.id)}
-                className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-md hover:bg-red-600"
+                className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-md hover:bg-red-600 z-20"
+                title="删除照片"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           ))}
@@ -846,6 +943,15 @@ export function JournalView({
             {/* 书脊 */}
             <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#EFE7D6] via-[#E7DCC6] to-[#EFE7D6] dark:from-[#25272D] dark:via-[#1F2025] dark:to-[#25272D]" />
             <div className="absolute left-2 top-0 bottom-0 w-px bg-[#D9CDB4]/70 dark:bg-[#383A42]" />
+            {/* 和纸胶带与复古印章装饰 */}
+            <div className="absolute top-1 right-12 z-10 -rotate-2 pointer-events-none opacity-85">
+              <WashiTape type={selected?.washiTape || "bamboo"} width="110px" />
+            </div>
+            {selected?.stamp && (
+              <div className="absolute top-12 right-6 z-10 pointer-events-none opacity-90">
+                <VintageStamp type={selected.stamp} size="md" />
+              </div>
+            )}
             <div
               key={`page-${currentDate}-${flipTick}`}
               className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0 animate-fade-in-up"

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { audioEngine } from "../utils/audioEngine";
+import { VintageStamp } from "./journal/JournalStickers";
 
 const CONFETTI_COLORS = [
   "#E8A0BF",
@@ -95,16 +96,9 @@ export const CelebrationOverlay: React.FC<CelebrationOverlayProps> = React.memo(
         <div className="animate-celebration-bounce bg-white/95 dark:bg-[#1C1D21]/95 backdrop-blur-md border border-[#EFEBE4] dark:border-[#383A42] rounded-2xl px-8 py-5 shadow-2xl pointer-events-auto select-none flex flex-col items-center gap-3 relative overflow-hidden">
           <div className="absolute inset-0 paper-dot-grid opacity-40 pointer-events-none" />
 
-          {/* 朱砂红手帐印章 */}
-          <div className="seal-stamp w-13 h-13 rounded-xl border-2 border-[#C0392B] dark:border-[#E74C3C] bg-red-50/60 dark:bg-red-950/40 flex items-center justify-center shadow-xs">
-            <div className="w-10 h-10 rounded-lg border border-dashed border-[#C0392B]/80 dark:border-[#E74C3C]/80 flex flex-col items-center justify-center">
-              <span className="text-[14px] font-black tracking-widest text-[#C0392B] dark:text-[#FF6B6B] leading-none">
-                達成
-              </span>
-              <span className="text-[6.5px] font-bold text-[#C0392B]/75 dark:text-[#FF6B6B]/75 tracking-tighter scale-90">
-                TONGYUN
-              </span>
-            </div>
+          {/* 朱砂红手帐复古印章 */}
+          <div className="pt-1 pb-1 z-10">
+            <VintageStamp type="done" size="lg" animated={true} />
           </div>
 
           <p className="text-base font-bold text-[#2D323A] dark:text-slate-100 text-center whitespace-nowrap z-10">

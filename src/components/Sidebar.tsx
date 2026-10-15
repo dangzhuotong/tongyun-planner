@@ -21,6 +21,9 @@ import {
   Archive,
   Newspaper,
   BookOpen,
+  Sunset,
+  Zap,
+  Command,
 } from "lucide-react";
 import type { AppTab, AlertSoundType } from "../types";
 import { audioEngine } from "../utils/audioEngine";
@@ -47,6 +50,9 @@ interface SidebarProps {
   resetTasks: () => void;
   onEnterFlowMode: () => void;
   onTestMicroBreak?: () => void;
+  onOpenSunsetShutdown?: () => void;
+  onOpenEnergyTimeBlock?: () => void;
+  onOpenQuickCapture?: () => void;
 }
 
 // Map old tab values to new grouped structure for active detection
@@ -71,6 +77,9 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     resetTasks,
     onEnterFlowMode,
     onTestMicroBreak,
+    onOpenSunsetShutdown,
+    onOpenEnergyTimeBlock,
+    onOpenQuickCapture,
   }) => {
     const {
       pomodoroIsActive,
@@ -514,9 +523,21 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                   <Clock className="w-3.5 h-3.5 text-[#4D7C5D] dark:text-[#78C496]" />
                   <span>{pomodoroIsBreak ? s.breakMode : s.focusMode}</span>
                 </span>
-                <span className="text-[9px] text-slate-400 dark:text-slate-500">
-                  #{pomodoroSessionCount}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {onOpenEnergyTimeBlock && (
+                    <button
+                      type="button"
+                      onClick={onOpenEnergyTimeBlock}
+                      className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#33353A] text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                      title="精力潮汐与时间盒看板"
+                    >
+                      <Zap className="w-3 h-3" />
+                    </button>
+                  )}
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500">
+                    #{pomodoroSessionCount}
+                  </span>
+                </div>
               </div>
 
               {pomodoroTaskTitle && (
@@ -954,6 +975,34 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
 
           {/* Settings — now a bottom icon button */}
           <NavButton tab="settings" icon={<Settings className="w-4 h-4" />} label={s.settings} />
+
+          {/* Quick Capture & Sunset Shutdown tools */}
+          <div className="grid grid-cols-2 gap-1.5 w-full">
+            {onOpenQuickCapture && (
+              <button
+                onClick={onOpenQuickCapture}
+                className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50/60 dark:hover:bg-orange-950/20 border border-slate-200/60 dark:border-[#2E313A] cursor-pointer ${
+                  isCollapsed ? "p-2 col-span-2" : ""
+                }`}
+                title="极速捕捉灵感 (Alt+N / Ctrl+Shift+K)"
+              >
+                <Command className="w-3 h-3 text-orange-500" />
+                {!isCollapsed && <span>极速捕捉</span>}
+              </button>
+            )}
+            {onOpenSunsetShutdown && (
+              <button
+                onClick={onOpenSunsetShutdown}
+                className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/20 border border-slate-200/60 dark:border-[#2E313A] cursor-pointer ${
+                  isCollapsed ? "p-2 col-span-2" : ""
+                }`}
+                title="日落离线仪轨 (下班收官)"
+              >
+                <Sunset className="w-3 h-3 text-rose-500" />
+                {!isCollapsed && <span>日落关机</span>}
+              </button>
+            )}
+          </div>
 
           {/* Widget & utility buttons */}
           <button

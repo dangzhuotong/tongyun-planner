@@ -41,6 +41,12 @@ export interface Task {
   completedAt?: number;
   /** 预估番茄数（目标），可选 */
   estimatedPomodoros?: number;
+  /** 精力消耗等级（昼夜潮汐匹配）：高能攻坚 / 常规平稳 / 轻量碎片 */
+  energyLevel?: "high" | "medium" | "low";
+  /** 任务完成时加盖的复古朱砂印章 */
+  stamp?: string;
+  /** 时间盒区间 (HH:mm) */
+  timeBlock?: { start: string; end: string };
 }
 
 export interface PomodoroLog {
@@ -73,6 +79,12 @@ export interface JournalEntry {
   aiComment?: string; // AI 生成的温柔评语
   /** 附件（图片等） */
   attachments?: Attachment[];
+  /** 复古撕纸和纸胶带纹理 */
+  washiTape?: string;
+  /** 手帐手绘表情贴纸集合 */
+  stickers?: Array<{ id: string; emoji: string; x: number; y: number }>;
+  /** 复古朱砂印章 (done | great | pass | fast | super) */
+  stamp?: string;
   createdAt: number;
   updatedAt: number;
 }
