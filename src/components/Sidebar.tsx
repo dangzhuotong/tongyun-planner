@@ -97,6 +97,8 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
       setAlertSoundType,
       randomBreakEnabled,
       setRandomBreakEnabled,
+      microBreakInterval,
+      setMicroBreakInterval,
       autoNoiseEnabled,
       setAutoNoiseEnabled,
       syncPomodoro,
@@ -741,30 +743,79 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                 />
               </div>
 
-              {/* Random Micro-Break Toggle & Sound Preview / Test */}
+              {/* Random Micro-Break Toggle & Interval Switcher & Preview */}
               <div className="flex items-center justify-between pt-1.5 text-[9px] text-slate-400 font-medium">
-                <span className="flex items-center gap-1.5" title={s.randomBreakDesc}>
+                <span
+                  className="flex items-center gap-1.5 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300"
+                  title="专注时随机提醒：喝水润喉、眺望窗外、深呼吸与伸展（每次5秒）"
+                  onClick={() => {
+                    const next = !randomBreakEnabled;
+                    setRandomBreakEnabled(next);
+                    localStorage.setItem("tongyun_random_break", String(next));
+                    if (next) void audioEngine.playMicroBreakSound();
+                  }}
+                >
                   <Timer className="w-3 h-3 text-slate-400" />
-                  <span>{s.randomBreak}</span>
+                  <span>{s.randomBreak || "微休息"}</span>
                 </span>
                 <div className="flex items-center gap-1.5">
+                  {/* 时长切换按钮（循环 3~5分 / 5~10分 / 1~2分 / 30秒测试） */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const intervals: Array<"3-5" | "5-10" | "1-2" | "test-30s"> = [
+                        "3-5",
+                        "5-10",
+                        "1-2",
+                        "test-30s",
+                      ];
+                      const currentIdx = intervals.indexOf(microBreakInterval || "3-5");
+                      const nextInterval = intervals[(currentIdx + 1) % intervals.length];
+                      setMicroBreakInterval(nextInterval);
+                      localStorage.setItem("tongyun_random_break_interval", nextInterval);
+                    }}
+                    className="px-1.5 py-0.5 rounded border border-slate-200 dark:border-[#33353A] hover:bg-slate-100 dark:hover:bg-[#33353A] text-slate-500 hover:text-[#4D7C5D] dark:hover:text-[#78A887] text-[8px] font-mono font-semibold transition-colors cursor-pointer"
+                    title={`点击切换提醒间隔：当前每 ${
+                      microBreakInterval === "test-30s"
+                        ? "15~30秒（极速测试）"
+                        : microBreakInterval === "1-2"
+                          ? "1~2分钟"
+                          : microBreakInterval === "5-10"
+                            ? "5~10分钟"
+                            : "3~5分钟"
+                    } 随机提醒`}
+                  >
+                    {microBreakInterval === "test-30s"
+                      ? "30s测"
+                      : microBreakInterval === "1-2"
+                        ? "1~2m"
+                        : microBreakInterval === "5-10"
+                          ? "5~10m"
+                          : "3~5m"}
+                  </button>
+
+                  {/* 立即体验 5 秒弹窗预览按钮 */}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (onTestMicroBreak) {
-                        void onTestMicroBreak();
+                        onTestMicroBreak();
                       } else {
                         void audioEngine.playMicroBreakSound();
                       }
                     }}
-                    className="px-1.5 py-0.5 rounded border border-slate-200 dark:border-[#33353A] hover:bg-slate-100 dark:hover:bg-[#33353A] text-slate-500 hover:text-[#4D7C5D] dark:hover:text-[#78A887] text-[8px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
-                    title={(s as any).randomBreakTestTitle || "立即体验 5 秒微休息（清风铃声与望远遮罩）"}
+                    className="px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[8px] font-semibold transition-colors cursor-pointer flex items-center gap-0.5"
+                    title="立即体验 5 秒微休息（随机喝水、眺望窗外或深呼吸卡片）"
                   >
-                    <Volume2 className="w-2.5 h-2.5" />
-                    <span>{(s as any).randomBreakTestBtn || "体验5s"}</span>
+                    <Volume2 className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>体验5s</span>
                   </button>
+
+                  {/* 开关 Toggle */}
                   <button
+                    type="button"
                     onClick={() => {
                       const next = !randomBreakEnabled;
                       setRandomBreakEnabled(next);
@@ -776,7 +827,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                     className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer ${
                       randomBreakEnabled ? "bg-[#4D7C5D]" : "bg-slate-200 dark:bg-[#33353A]"
                     }`}
-                    title={s.randomBreakDesc}
+                    title={s.randomBreakDesc || "专注中随机提醒喝水、看窗外、舒展护眼"}
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-transform ${

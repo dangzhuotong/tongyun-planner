@@ -60,7 +60,7 @@ import { detectLegacySyncBackend } from "./utils/sync/legacyBackends";
 import { SunsetShutdownModal } from "./components/sunset/SunsetShutdownModal";
 import { EnergyTimeBlockModal } from "./components/energy/EnergyTimeBlockModal";
 import { QuickCaptureModal } from "./components/QuickCaptureModal";
-import { shouldPromptSunsetShutdown } from "./utils/sunsetShutdown";
+import { shouldPromptSunsetShutdown, getTodayString } from "./utils/sunsetShutdown";
 
 const viewFallback = (
   <div className="flex-grow flex items-center justify-center text-slate-400 text-sm py-20">
@@ -103,6 +103,7 @@ import { beginSyncApply, endSyncApply, isSyncApplying } from "./utils/sync/syncA
 import { canUseAI } from "./utils/aiEngine";
 import { usePomodoroTimer, type MicroBreakSession } from "./hooks/usePomodoroTimer";
 import { MicroBreakOverlay } from "./components/MicroBreakOverlay";
+import { getRandomMicroBreakTheme } from "./utils/microBreak";
 import { useDueNotifications } from "./hooks/useDueNotifications";
 import { useCrossWindowSync } from "./hooks/useCrossWindowSync";
 import { useStoreInit } from "./hooks/useStoreInit";
@@ -186,18 +187,22 @@ function AppBody() {
     if (microBreakToastTimer.current) clearTimeout(microBreakToastTimer.current);
     microBreakToastTimer.current = setTimeout(() => setMicroBreakToast(null), 5000);
   }, []);
-  const handleTestMicroBreak = useCallback(async () => {
-    await audioEngine.ensureAudioContext();
-    void audioEngine.playMicroBreakSound();
+  const handleTestMicroBreak = useCallback(() => {
+    try {
+      void audioEngine.playMicroBreakSound();
+    } catch {}
     const timeout = setTimeout(() => {
       setMicroBreakSession(null);
-      void audioEngine.playMicroBreakEndSound();
+      try {
+        void audioEngine.playMicroBreakEndSound();
+      } catch {}
     }, 5000);
     setMicroBreakSession({
       skip: () => {
         clearTimeout(timeout);
         setMicroBreakSession(null);
       },
+      theme: getRandomMicroBreakTheme(),
     });
   }, []);
   const [deleteUndoToast, setDeleteUndoToast] = useState<string | null>(null);
@@ -212,7 +217,8 @@ function AppBody() {
 
   // 傍晚下班自动提醒日落离线（18:00后且今日未做）
   useEffect(() => {
-    if (shouldPromptSunsetShutdown()) {
+    const lastDate = localStorage.getItem("tongyun_last_sunset_date");
+    if (shouldPromptSunsetShutdown(new Date(), lastDate)) {
       setSunsetShutdownOpen(true);
     }
   }, []);
@@ -1072,7 +1078,12 @@ function AppBody() {
       />
       <SunsetShutdownModal
         isOpen={sunsetShutdownOpen}
-        onClose={() => setSunsetShutdownOpen(false)}
+        onClose={() => {
+          setSunsetShutdownOpen(false);
+          try {
+            localStorage.setItem("tongyun_last_sunset_date", getTodayString());
+          } catch {}
+        }}
         tasks={tasksHook.tasks}
         completedTasks={tasksHook.completedTasks}
         pomodoroLogs={pomodoroHook.pomodoroLogs}
@@ -1099,7 +1110,12 @@ function AppBody() {
         onAppendJournal={handleQuickCaptureJournal}
         onToast={showMicroBreakToast}
       />
-      {microBreakSession && <MicroBreakOverlay onSkip={microBreakSession.skip} />}
+      {microBreakSession && (
+        <MicroBreakOverlay
+          onSkip={microBreakSession.skip}
+          initialTheme={microBreakSession.theme}
+        />
+      )}
       {microBreakToast && !microBreakSession && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
           {microBreakToast}

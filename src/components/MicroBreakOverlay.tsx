@@ -1,17 +1,25 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Trees, Sparkles } from "lucide-react";
+import { Trees, Sparkles, CupSoda, Wind, Eye, RotateCw } from "lucide-react";
 import { useTranslation } from "../i18n/LanguageContext";
+import {
+  type MicroBreakContent,
+  getRandomMicroBreakTheme,
+} from "../utils/microBreak";
 
 interface MicroBreakOverlayProps {
   onSkip: () => void;
   durationSec?: number;
+  initialTheme?: MicroBreakContent;
 }
 
 export const MicroBreakOverlay: React.FC<MicroBreakOverlayProps> = React.memo(
-  ({ onSkip, durationSec = 5 }) => {
+  ({ onSkip, durationSec = 5, initialTheme }) => {
     const { t } = useTranslation();
     const mb = t.microBreak || {};
     const [secondsLeft, setSecondsLeft] = useState(durationSec);
+    const [currentTheme, setCurrentTheme] = useState<MicroBreakContent>(() => {
+      return initialTheme || getRandomMicroBreakTheme();
+    });
     const onSkipRef = useRef(onSkip);
 
     useEffect(() => {
@@ -45,20 +53,42 @@ export const MicroBreakOverlay: React.FC<MicroBreakOverlayProps> = React.memo(
       };
     }, []);
 
+    // 切换下一个随机动作
+    const handleSwitchTheme = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setCurrentTheme((prev) => getRandomMicroBreakTheme(prev.id));
+    };
+
     // SVG Circular countdown math
     const radius = 32;
     const circumference = 2 * Math.PI * radius; // ~201.06
     const strokeDashoffset = circumference - (secondsLeft / durationSec) * circumference;
 
+    const renderIcon = () => {
+      switch (currentTheme.id) {
+        case "water":
+          return <CupSoda className="w-10 h-10 drop-shadow-sm" />;
+        case "stretch":
+          return <Sparkles className="w-10 h-10 drop-shadow-sm" />;
+        case "breathe":
+          return <Wind className="w-10 h-10 drop-shadow-sm" />;
+        case "eyes":
+          return <Eye className="w-10 h-10 drop-shadow-sm" />;
+        case "look-away":
+        default:
+          return <Trees className="w-10 h-10 drop-shadow-sm" />;
+      }
+    };
+
     return (
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-stone-900/40 dark:bg-black/60 backdrop-blur-md animate-fade-in select-none cursor-pointer"
+        className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-stone-900/45 dark:bg-black/65 backdrop-blur-md animate-fade-in select-none cursor-pointer"
         role="dialog"
         aria-modal="true"
-        aria-label={mb.title || "微休息时刻"}
+        aria-label={currentTheme.title}
         onClick={onSkip}
       >
-        {/* Soft floating paper card */}
+        {/* Soft floating paper card (手帐质感暖纸卡片) */}
         <div
           className="relative max-w-sm w-full mx-auto p-7 rounded-3xl bg-[#FDFBF7] dark:bg-[#1E2024] border border-[#E5DEC9] dark:border-[#33353A] shadow-2xl flex flex-col items-center text-center overflow-hidden animate-celebration-bounce cursor-default"
           onClick={(e) => e.stopPropagation()}
@@ -67,24 +97,28 @@ export const MicroBreakOverlay: React.FC<MicroBreakOverlayProps> = React.memo(
           <div className="absolute inset-0 paper-dot-grid opacity-35 pointer-events-none" />
 
           {/* Top washi tape deco (手帐和纸胶带质感) */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-3.5 bg-[#4D7C5D]/20 dark:bg-[#4D7C5D]/30 border-b border-[#4D7C5D]/30 rounded-b-md pointer-events-none" />
+          <div
+            className={`absolute top-0 left-1/2 -translate-x-1/2 w-32 h-3.5 border-b rounded-b-md pointer-events-none transition-colors duration-300 ${currentTheme.tapeColor}`}
+          />
 
-          {/* Calming nature / window view visual badge */}
-          <div className="relative mb-3 mt-2 flex items-center justify-center">
+          {/* Theme visual badge */}
+          <div className="relative mb-2.5 mt-2 flex items-center justify-center">
             {/* Ambient breathing pulses */}
-            <div className="absolute w-28 h-28 rounded-full bg-[#4D7C5D]/10 dark:bg-[#4D7C5D]/20 animate-ping opacity-60 pointer-events-none" />
-            <div className="absolute w-24 h-24 rounded-full bg-emerald-500/10 dark:bg-emerald-400/15 animate-pulse pointer-events-none" />
+            <div className="absolute w-28 h-28 rounded-full bg-emerald-500/10 dark:bg-emerald-400/10 animate-ping opacity-60 pointer-events-none" />
+            <div className="absolute w-24 h-24 rounded-full bg-stone-500/10 dark:bg-stone-400/10 animate-pulse pointer-events-none" />
 
-            {/* Circular window with trees & sky */}
-            <div className="relative w-20 h-20 rounded-full bg-gradient-to-b from-[#EBF5EE] to-[#DCEDE1] dark:from-[#212E24] dark:to-[#17221A] border-2 border-[#4D7C5D]/35 flex items-center justify-center shadow-inner">
-              <Trees className="w-10 h-10 text-[#4D7C5D] dark:text-[#78A887] drop-shadow-sm" />
-              <Sparkles className="w-3.5 h-3.5 text-amber-500 absolute top-2.5 right-3 animate-pulse" />
+            {/* Circular badge window */}
+            <div
+              className={`relative w-20 h-20 rounded-full bg-gradient-to-b ${currentTheme.badgeFrom} border-2 ${currentTheme.borderColor} ${currentTheme.iconColor} flex items-center justify-center shadow-inner transition-all duration-300`}
+            >
+              {renderIcon()}
+              <span className="absolute -top-1 -right-1 text-base">{currentTheme.emoji}</span>
             </div>
           </div>
 
           {/* Circular SVG 5-second countdown timer */}
-          <div className="relative w-20 h-20 flex items-center justify-center my-1">
-            <svg className="w-20 h-20 -rotate-90 transform" viewBox="0 0 76 76">
+          <div className="relative w-16 h-16 flex items-center justify-center my-1">
+            <svg className="w-16 h-16 -rotate-90 transform" viewBox="0 0 76 76">
               {/* Background ring */}
               <circle
                 cx="38"
@@ -108,10 +142,10 @@ export const MicroBreakOverlay: React.FC<MicroBreakOverlayProps> = React.memo(
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-black text-[#2D323A] dark:text-slate-100 tabular-nums leading-none">
+              <span className="text-xl font-black text-[#2D323A] dark:text-slate-100 tabular-nums leading-none">
                 {secondsLeft}
               </span>
-              <span className="text-[10px] text-stone-400 dark:text-stone-500 font-bold mt-0.5">
+              <span className="text-[9px] text-stone-400 dark:text-stone-500 font-bold mt-0.5">
                 {mb.remainingSec || "秒"}
               </span>
             </div>
@@ -119,29 +153,43 @@ export const MicroBreakOverlay: React.FC<MicroBreakOverlayProps> = React.memo(
 
           {/* Heading */}
           <h3 className="text-base font-bold text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5 justify-center z-10">
-            <span>🌿</span>
-            <span>{mb.title || "微休息时刻 · 眺望窗外"}</span>
+            <span>{currentTheme.emoji}</span>
+            <span>{currentTheme.title}</span>
           </h3>
 
-          {/* Subtitle / Eye care advice */}
-          <p className="text-xs text-stone-600 dark:text-stone-300 mt-2 px-3 leading-relaxed z-10">
-            {mb.subtitle || "将视线移向窗外 6 米远方，深呼吸，让眼球睫状肌彻底放松"}
-          </p>
-
-          {/* 20-20-20 Rule Tag */}
-          <div className="mt-3.5 py-1.5 px-3 rounded-xl bg-amber-500/10 dark:bg-amber-400/10 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-200 font-medium z-10">
-            💡 {mb.ruleTip || "20-20-20 科学护眼：每专注 20 分钟，远眺 20 英尺（6米）20 秒"}
+          {/* Action Callout (关键行动指导) */}
+          <div className="mt-2 px-3 py-1.5 rounded-xl bg-stone-100 dark:bg-[#282B32] border border-stone-200 dark:border-stone-700/80 text-xs font-semibold text-stone-800 dark:text-stone-200 z-10">
+            👉 {currentTheme.actionText}
           </div>
 
-          {/* Skip Action */}
-          <div className="mt-5 w-full flex justify-center z-10">
+          {/* Description */}
+          <p className="text-xs text-stone-600 dark:text-stone-400 mt-2 px-2 leading-relaxed z-10">
+            {currentTheme.description}
+          </p>
+
+          {/* Science Tip Tag */}
+          <div className="mt-3 py-1 px-3 rounded-xl bg-amber-500/10 dark:bg-amber-400/10 border border-amber-500/20 text-[10px] text-amber-800 dark:text-amber-200 font-medium z-10 leading-snug">
+            💡 {currentTheme.tip}
+          </div>
+
+          {/* Action Buttons: 换个动作 + 跳过 */}
+          <div className="mt-4 w-full flex items-center justify-center gap-2 z-10">
+            <button
+              type="button"
+              onClick={handleSwitchTheme}
+              className="px-2.5 py-1 rounded-full text-[11px] font-medium text-stone-600 hover:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100 bg-stone-100 hover:bg-stone-200 dark:bg-[#282B32] dark:hover:bg-[#343842] border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+              title="随机换一个微休息动作（喝水、眺望、拉伸、深呼吸）"
+            >
+              <RotateCw className="w-3 h-3 text-stone-400" />
+              <span>换个动作</span>
+            </button>
             <button
               type="button"
               onClick={onSkip}
-              className="px-4 py-1.5 rounded-full text-xs font-medium text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200 bg-stone-100/90 hover:bg-stone-200/90 dark:bg-[#282B32] dark:hover:bg-[#343842] border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+              className="px-3.5 py-1 rounded-full text-[11px] font-medium text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200 bg-stone-100/90 hover:bg-stone-200/90 dark:bg-[#282B32] dark:hover:bg-[#343842] border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
             >
               <span>{mb.skip || "跳过休息"}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400 font-mono">
+              <span className="text-[9px] px-1 py-0.2 rounded bg-stone-200 dark:bg-stone-700 text-stone-500 dark:text-stone-400 font-mono">
                 Esc
               </span>
             </button>

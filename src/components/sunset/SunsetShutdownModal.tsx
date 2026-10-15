@@ -33,9 +33,12 @@ export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = ({
   const todayStr = getTodayString();
   const tomorrowStr = getTomorrowString();
 
-  const stats = calculateSunsetStats(tasks, completedTasks, pomodoroLogs, todayStr);
+  const stats = React.useMemo(
+    () => calculateSunsetStats(tasks, completedTasks, pomodoroLogs, todayStr),
+    [tasks, completedTasks, pomodoroLogs, todayStr],
+  );
 
-  // 初始化未完成任务为全部默认勾选顺延
+  // 初始化未完成任务为全部默认勾选顺延（仅在模态框打开时初始化一次，避免无限渲染）
   useEffect(() => {
     if (isOpen) {
       setStep(1);
@@ -55,7 +58,7 @@ export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = ({
       }, 450);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, stats.uncompletedTasks, tomorrowStr]);
+  }, [isOpen, tomorrowStr]);
 
   if (!isOpen) return null;
 
@@ -100,14 +103,30 @@ export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = ({
     });
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-md p-4 animate-fade-in select-none">
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-md p-4 animate-fade-in select-none cursor-pointer"
+      onClick={onClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.94, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.94, y: 15 }}
         transition={{ type: "spring", stiffness: 380, damping: 28 }}
-        className="w-full max-w-xl bg-[#FDFBF7] dark:bg-[#1E2026] border border-[#EBE5D8] dark:border-[#33353A] rounded-2xl shadow-2xl overflow-hidden relative text-[#2D323A] dark:text-slate-100 flex flex-col max-h-[85vh]"
+        className="w-full max-w-xl bg-[#FDFBF7] dark:bg-[#1E2026] border border-[#EBE5D8] dark:border-[#33353A] rounded-2xl shadow-2xl overflow-hidden relative text-[#2D323A] dark:text-slate-100 flex flex-col max-h-[85vh] cursor-default"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* 顶部晚霞流光饰条 */}
         <div className="h-2 w-full bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400" />
@@ -125,6 +144,7 @@ export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label="关闭日落离线"
             className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2A2D35] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
