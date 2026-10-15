@@ -142,20 +142,20 @@ export function usePomodoroTimer({
         isOnRandomBreakRef.current = true;
         clearInterval(intervalId);
 
-        // 1. 播放清脆空灵的专属微休息开始提示音
-        void audioEngine.playMicroBreakSound();
-
-        // 2. 发送系统通知与 Toast
-        announceMicroBreak(
-          { title: ps.microBreakTitle, body: ps.microBreakBody },
-          { onToast: ps.onToast },
-        );
-
-        // 3. 暂停白噪音
+        // 1. 优先暂停白噪音，保证微休息提示音清澈入耳
         const wasPlayingNoise = ps.isPlayingNoise;
         if (wasPlayingNoise) {
           pomodoroHook.stopNoise("auto");
         }
+
+        // 2. 播放清脆空灵的专属微休息开始提示音
+        void audioEngine.playMicroBreakSound();
+
+        // 3. 发送系统通知与 Toast
+        announceMicroBreak(
+          { title: ps.microBreakTitle, body: ps.microBreakBody },
+          { onToast: ps.onToast },
+        );
 
         const nextThreshold = nextThresholdAfterMicroBreak(diff);
         nextRandomBreakRef.current = nextThreshold;
@@ -218,7 +218,7 @@ export function usePomodoroTimer({
         if (s.windowLabel !== "main") return;
 
         pomodoroHook.playCompletionSound();
-        if (pomodoroHook.autoNoiseEnabled) {
+        if (pomodoroHook.isPlayingNoise || pomodoroHook.autoNoiseEnabled) {
           pomodoroHook.stopNoise("auto");
         }
 

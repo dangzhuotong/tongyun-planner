@@ -83,6 +83,8 @@ const en: Translations = {
     randomBreak: "Random Micro-Breaks",
     randomBreakDesc: "Random reminders every 3-7 mins during focus to rest eyes",
     randomBreakSoundPreview: "Preview micro-break chime",
+    randomBreakTestBtn: "Test 5s",
+    randomBreakTestTitle: "Experience a 5-second micro-break preview immediately",
   },
 
   header: {

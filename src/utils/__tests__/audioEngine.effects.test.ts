@@ -129,16 +129,16 @@ describe("AudioEngine Sound Effects", () => {
     await engine.playMicroBreakSound();
     const anyEngine = engine as unknown as { ctx: FakeContext | null };
     expect(anyEngine.ctx).toBeTruthy();
-    // 4 oscillators (osc1, harm1, osc2, harm2)
-    expect(anyEngine.ctx?.createOscillator).toHaveBeenCalledTimes(4);
-    expect(anyEngine.ctx?.createGain).toHaveBeenCalledTimes(4);
+    // 3 tones * 2 (fundamental + harmonic) = 6 oscillators
+    expect(anyEngine.ctx?.createOscillator).toHaveBeenCalledTimes(6);
+    expect(anyEngine.ctx?.createGain).toHaveBeenCalledTimes(6);
 
     // End sound
     await engine.playMicroBreakEndSound();
-    // 4 + 1 = 5 oscillators
-    expect(anyEngine.ctx?.createOscillator).toHaveBeenCalledTimes(5);
-    // 4 + 1 = 5 gains
-    expect(anyEngine.ctx?.createGain).toHaveBeenCalledTimes(5);
+    // 6 + 1 = 7 oscillators
+    expect(anyEngine.ctx?.createOscillator).toHaveBeenCalledTimes(7);
+    // 6 + 1 = 7 gains
+    expect(anyEngine.ctx?.createGain).toHaveBeenCalledTimes(7);
     expect(anyEngine.ctx?.createBiquadFilter).toHaveBeenCalledTimes(1);
   });
 });

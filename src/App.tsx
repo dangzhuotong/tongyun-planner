@@ -182,6 +182,20 @@ function AppBody() {
     if (microBreakToastTimer.current) clearTimeout(microBreakToastTimer.current);
     microBreakToastTimer.current = setTimeout(() => setMicroBreakToast(null), 5000);
   }, []);
+  const handleTestMicroBreak = useCallback(async () => {
+    await audioEngine.ensureAudioContext();
+    void audioEngine.playMicroBreakSound();
+    const timeout = setTimeout(() => {
+      setMicroBreakSession(null);
+      void audioEngine.playMicroBreakEndSound();
+    }, 5000);
+    setMicroBreakSession({
+      skip: () => {
+        clearTimeout(timeout);
+        setMicroBreakSession(null);
+      },
+    });
+  }, []);
   const [deleteUndoToast, setDeleteUndoToast] = useState<string | null>(null);
   const deleteUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -956,6 +970,7 @@ function AppBody() {
         handleClearCompleted={tasksHook.handleClearCompleted}
         onNewsSaveTask={handleNewsSaveTask}
         onNewsSaveJournal={handleNewsSaveJournal}
+        onTestMicroBreak={handleTestMicroBreak}
       />
       {microBreakSession && <MicroBreakOverlay onSkip={microBreakSession.skip} />}
       {microBreakToast && !microBreakSession && (
@@ -1053,6 +1068,7 @@ interface MainLayoutProps {
   handleClearCompleted: () => void;
   onNewsSaveTask: (ref: { title: string; url: string }) => void;
   onNewsSaveJournal: (ref: { title: string; url: string; description?: string }) => void;
+  onTestMicroBreak: () => void;
 }
 
 const MainLayout = React.memo(function MainLayout({
@@ -1111,6 +1127,7 @@ const MainLayout = React.memo(function MainLayout({
   handleClearCompleted,
   onNewsSaveTask,
   onNewsSaveJournal,
+  onTestMicroBreak,
 }: MainLayoutProps) {
   const mainContent = useMemo(
     () => (
@@ -1594,6 +1611,7 @@ const MainLayout = React.memo(function MainLayout({
               syncStatus={syncStatus}
               lastBackupTime={lastBackupTime}
               onEnterFlowMode={() => setFlowMode(true)}
+              onTestMicroBreak={onTestMicroBreak}
             />
             <React.Suspense fallback={viewFallback}>{mainContent}</React.Suspense>
 

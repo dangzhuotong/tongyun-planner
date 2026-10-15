@@ -83,6 +83,8 @@ const zhCN: Translations = {
     randomBreak: "随机微休息",
     randomBreakDesc: "专注中每 3~7 分钟随机提醒，停顿 5 秒望远护眼",
     randomBreakSoundPreview: "试听微休息清风铃声",
+    randomBreakTestBtn: "体验5s",
+    randomBreakTestTitle: "立即体验 5 秒微休息（清风风铃与望远遮罩）",
   },
 
   header: {

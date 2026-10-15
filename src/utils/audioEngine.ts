@@ -14,6 +14,92 @@ export class AudioEngine {
   private fadeTimeoutId: ReturnType<typeof setTimeout> | null = null;
   /** Bumped on every start/stop so a fade timeout cannot tear down a newer graph. */
   private playbackEpoch = 0;
+  /** Tracks active auxiliary nodes (oscillators, buffers, crackles, bells, etc.) to guarantee zero sound leakage */
+  private auxNodes: Set<{ stop?: () => void; disconnect: () => void }> = new Set();
+
+  private registerAuxNode(node: { stop?: () => void; disconnect: () => void }): void {
+    this.auxNodes.add(node);
+  }
+
+  private unregisterAuxNode(node: { stop?: () => void; disconnect: () => void }): void {
+    this.auxNodes.delete(node);
+  }
+
+  private stopAllAuxNodes(): void {
+    for (const node of this.auxNodes) {
+      try {
+        node.stop?.();
+      } catch {
+        // Ignored
+      }
+      try {
+        node.disconnect();
+      } catch {
+        // Ignored
+      }
+    }
+    this.auxNodes.clear();
+  }
+
+  private clearAllNoiseIntervals(): void {
+    if ((this as any)._crackleInterval) {
+      clearInterval((this as any)._crackleInterval);
+      (this as any)._crackleInterval = null;
+    }
+    if ((this as any)._bellInterval) {
+      clearInterval((this as any)._bellInterval);
+      (this as any)._bellInterval = null;
+    }
+    if ((this as any)._pendulumInterval) {
+      clearInterval((this as any)._pendulumInterval);
+      (this as any)._pendulumInterval = null;
+    }
+    if ((this as any)._ringInterval) {
+      clearInterval((this as any)._ringInterval);
+      (this as any)._ringInterval = null;
+    }
+    if ((this as any)._thunderInterval) {
+      clearInterval((this as any)._thunderInterval);
+      (this as any)._thunderInterval = null;
+    }
+  }
+
+  public stopNoiseImmediate(): void {
+    this.playbackEpoch += 1;
+    if (this.fadeTimeoutId) {
+      clearTimeout(this.fadeTimeoutId);
+      this.fadeTimeoutId = null;
+    }
+    this.clearAllNoiseIntervals();
+    this.stopAllAuxNodes();
+
+    if (this.source) {
+      try {
+        this.source.stop();
+      } catch {
+        // Ignored
+      }
+      this.source.disconnect();
+      this.source = null;
+    }
+    if (this.lfo) {
+      try {
+        this.lfo.stop();
+      } catch {
+        // Ignored
+      }
+      this.lfo.disconnect();
+      this.lfo = null;
+    }
+    if (this.gain) {
+      try {
+        this.gain.disconnect();
+      } catch {
+        // Ignored
+      }
+      this.gain = null;
+    }
+  }
 
   public async ensureAudioContext(): Promise<AudioContext> {
     if (!this.ctx) {
@@ -105,51 +191,6 @@ export class AudioEngine {
 
     this.pinkBuffer = buffer;
     return buffer;
-  }
-
-  private stopNoiseImmediate(): void {
-    if ((this as any)._crackleInterval) {
-      clearInterval((this as any)._crackleInterval);
-      (this as any)._crackleInterval = null;
-    }
-    if ((this as any)._bellInterval) {
-      clearInterval((this as any)._bellInterval);
-      (this as any)._bellInterval = null;
-    }
-    if ((this as any)._pendulumInterval) {
-      clearInterval((this as any)._pendulumInterval);
-      (this as any)._pendulumInterval = null;
-    }
-    if ((this as any)._ringInterval) {
-      clearInterval((this as any)._ringInterval);
-      (this as any)._ringInterval = null;
-    }
-    if ((this as any)._thunderInterval) {
-      clearInterval((this as any)._thunderInterval);
-      (this as any)._thunderInterval = null;
-    }
-    if (this.source) {
-      try {
-        this.source.stop();
-      } catch {
-        // Ignored
-      }
-      this.source.disconnect();
-      this.source = null;
-    }
-    if (this.lfo) {
-      try {
-        this.lfo.stop();
-      } catch {
-        // Ignored
-      }
-      this.lfo.disconnect();
-      this.lfo = null;
-    }
-    if (this.gain) {
-      this.gain.disconnect();
-      this.gain = null;
-    }
   }
 
   public startNoise(type: string, volume: number): void {
@@ -276,6 +317,13 @@ export class AudioEngine {
             crackleHp.type = "highpass";
             crackleHp.frequency.setValueAtTime(2000, cCtx.currentTime);
 
+            this.registerAuxNode(crackleSource);
+            this.registerAuxNode(crackleGain);
+            crackleSource.onended = () => {
+              this.unregisterAuxNode(crackleSource);
+              this.unregisterAuxNode(crackleGain);
+            };
+
             crackleSource.connect(crackleHp);
             crackleHp.connect(crackleGain);
             crackleGain.connect(this.gain!);
@@ -352,6 +400,12 @@ export class AudioEngine {
             oGain.gain.exponentialRampToValueAtTime(0.001, now + 2.5 + i * 0.8);
             osc.connect(oGain);
             oGain.connect(this.gain!);
+            this.registerAuxNode(osc);
+            this.registerAuxNode(oGain);
+            osc.onended = () => {
+              this.unregisterAuxNode(osc);
+              this.unregisterAuxNode(oGain);
+            };
             osc.start(now);
             osc.stop(now + 2.5 + i * 0.8);
           });
@@ -388,6 +442,12 @@ export class AudioEngine {
           osc.connect(pFilter);
           pFilter.connect(pGain);
           pGain.connect(this.gain!);
+          this.registerAuxNode(osc);
+          this.registerAuxNode(pGain);
+          osc.onended = () => {
+            this.unregisterAuxNode(osc);
+            this.unregisterAuxNode(pGain);
+          };
           osc.start(now);
           osc.stop(now + 0.04);
           tickHigh = !tickHigh;
@@ -423,6 +483,12 @@ export class AudioEngine {
             osc.connect(rFilter);
             rFilter.connect(rGain);
             rGain.connect(this.gain!);
+            this.registerAuxNode(osc);
+            this.registerAuxNode(rGain);
+            osc.onended = () => {
+              this.unregisterAuxNode(osc);
+              this.unregisterAuxNode(rGain);
+            };
             osc.start(now + i * 0.12);
             osc.stop(now + i * 0.12 + 0.6);
           });
@@ -501,6 +567,12 @@ export class AudioEngine {
           rumbleSrc.connect(rumbleLp);
           rumbleLp.connect(rumbleGain);
           rumbleGain.connect(this.gain!);
+          this.registerAuxNode(rumbleSrc);
+          this.registerAuxNode(rumbleGain);
+          rumbleSrc.onended = () => {
+            this.unregisterAuxNode(rumbleSrc);
+            this.unregisterAuxNode(rumbleGain);
+          };
           rumbleSrc.start(now);
           rumbleSrc.stop(now + 3);
         };
@@ -532,47 +604,30 @@ export class AudioEngine {
       this.fadeTimeoutId = null;
     }
 
+    // 1. 同步立即清除所有周期发生器（雷雨/钟声/滴答/火堆/铃声），绝不在后台继续产生新音频
+    this.clearAllNoiseIntervals();
+    // 2. 同步立即停止所有正在鸣响的辅助振荡器和音频片段，实现瞬间静音
+    this.stopAllAuxNodes();
+
     if (this.gain && this.ctx) {
       const ctx = this.ctx;
       const gainNode = this.gain;
       const sourceNode = this.source;
       const lfoNode = this.lfo;
 
-      // Cancel the fade-in ramp first. A later automation event would otherwise
-      // climb back to full volume after this fade-out and the noise would not stop.
       try {
         const now = ctx.currentTime;
         gainNode.gain.cancelScheduledValues(now);
         const current = Number.isFinite(gainNode.gain.value) ? gainNode.gain.value : 0;
         gainNode.gain.setValueAtTime(current, now);
-        gainNode.gain.linearRampToValueAtTime(0, now + 0.4);
+        // 极速 30ms 平滑微降至 0，消除物理爆音（click prevention），人耳听感即刻安静
+        gainNode.gain.linearRampToValueAtTime(0, now + 0.03);
       } catch {
-        // Fallback if AudioContext is state issues
+        // Fallback
       }
 
       this.fadeTimeoutId = setTimeout(() => {
         if (epoch !== this.playbackEpoch) return;
-        // Clear periodic sound intervals (bell/pendulum/ring/thunder)
-        if ((this as any)._crackleInterval) {
-          clearInterval((this as any)._crackleInterval);
-          (this as any)._crackleInterval = null;
-        }
-        if ((this as any)._bellInterval) {
-          clearInterval((this as any)._bellInterval);
-          (this as any)._bellInterval = null;
-        }
-        if ((this as any)._pendulumInterval) {
-          clearInterval((this as any)._pendulumInterval);
-          (this as any)._pendulumInterval = null;
-        }
-        if ((this as any)._ringInterval) {
-          clearInterval((this as any)._ringInterval);
-          (this as any)._ringInterval = null;
-        }
-        if ((this as any)._thunderInterval) {
-          clearInterval((this as any)._thunderInterval);
-          (this as any)._thunderInterval = null;
-        }
 
         try {
           sourceNode?.stop();
@@ -598,7 +653,7 @@ export class AudioEngine {
         if (this.lfo === lfoNode) this.lfo = null;
         if (this.gain === gainNode) this.gain = null;
         this.fadeTimeoutId = null;
-      }, 450);
+      }, 40);
     } else {
       this.stopNoiseImmediate();
     }
@@ -966,7 +1021,7 @@ export class AudioEngine {
   }
 
   /**
-   * 专属随机微休息清脆提示音：双音清风铃（E6 -> B6 空灵正弦波与微泛音长衰减），
+   * 专属随机微休息清脆提示音：清风明月三音风铃和弦（A5 -> C#6 -> E6 空灵正弦波长衰减），
    * 通透明亮、温和不刺耳，提醒视线离开屏幕。
    */
   public async playMicroBreakSound(): Promise<void> {
@@ -974,58 +1029,42 @@ export class AudioEngine {
       const ctx = await this.ensureAudioContext();
       const now = ctx.currentTime;
 
-      // 音 1: E6 (1318.5 Hz)
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = "sine";
-      osc1.frequency.setValueAtTime(1318.5, now);
-      gain1.gain.setValueAtTime(0.001, now);
-      gain1.gain.linearRampToValueAtTime(0.35, now + 0.012);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(now);
-      osc1.stop(now + 1.25);
+      // 旋律三音：A5 (880Hz), C#6 (1108.73Hz), E6 (1318.51Hz)
+      const notes = [
+        { freq: 880.0, time: now, gain: 0.6, dur: 1.4 },
+        { freq: 1108.73, time: now + 0.09, gain: 0.55, dur: 1.3 },
+        { freq: 1318.51, time: now + 0.18, gain: 0.5, dur: 1.2 },
+      ];
 
-      // 音 1 谐波微泛音 (2.5x)
-      const harm1 = ctx.createOscillator();
-      const harmGain1 = ctx.createGain();
-      harm1.type = "sine";
-      harm1.frequency.setValueAtTime(1318.5 * 2.5, now);
-      harmGain1.gain.setValueAtTime(0.001, now);
-      harmGain1.gain.linearRampToValueAtTime(0.045, now + 0.012);
-      harmGain1.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-      harm1.connect(harmGain1);
-      harmGain1.connect(ctx.destination);
-      harm1.start(now);
-      harm1.stop(now + 0.65);
+      for (const note of notes) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(note.freq, note.time);
 
-      // 音 2: B6 (1975.5 Hz)，在 130ms 后起音，纯五度高八度协和音
-      const t2 = now + 0.13;
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = "sine";
-      osc2.frequency.setValueAtTime(1975.5, t2);
-      gain2.gain.setValueAtTime(0.001, t2);
-      gain2.gain.linearRampToValueAtTime(0.28, t2 + 0.012);
-      gain2.gain.exponentialRampToValueAtTime(0.001, t2 + 1.0);
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-      osc2.start(t2);
-      osc2.stop(t2 + 1.05);
+        gain.gain.setValueAtTime(0.001, note.time);
+        gain.gain.linearRampToValueAtTime(note.gain, note.time + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, note.time + note.dur);
 
-      // 音 2 谐波微泛音 (2x)
-      const harm2 = ctx.createOscillator();
-      const harmGain2 = ctx.createGain();
-      harm2.type = "sine";
-      harm2.frequency.setValueAtTime(1975.5 * 2.0, t2);
-      harmGain2.gain.setValueAtTime(0.001, t2);
-      harmGain2.gain.linearRampToValueAtTime(0.03, t2 + 0.012);
-      harmGain2.gain.exponentialRampToValueAtTime(0.001, t2 + 0.5);
-      harm2.connect(harmGain2);
-      harmGain2.connect(ctx.destination);
-      harm2.start(t2);
-      harm2.stop(t2 + 0.55);
+        // 柔和微泛音 (2x 八度) 增加清脆空灵质感
+        const harm = ctx.createOscillator();
+        const harmGain = ctx.createGain();
+        harm.type = "sine";
+        harm.frequency.setValueAtTime(note.freq * 2, note.time);
+        harmGain.gain.setValueAtTime(0.001, note.time);
+        harmGain.gain.linearRampToValueAtTime(note.gain * 0.12, note.time + 0.015);
+        harmGain.gain.exponentialRampToValueAtTime(0.001, note.time + note.dur * 0.6);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        harm.connect(harmGain);
+        harmGain.connect(ctx.destination);
+
+        osc.start(note.time);
+        osc.stop(note.time + note.dur + 0.05);
+        harm.start(note.time);
+        harm.stop(note.time + note.dur * 0.6 + 0.05);
+      }
     } catch (e) {
       console.warn("无法播放微休息提示音:", e);
     }
@@ -1049,8 +1088,8 @@ export class AudioEngine {
       osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
 
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.24, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      gain.gain.linearRampToValueAtTime(0.45, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
 
       filter.type = "lowpass";
       filter.frequency.setValueAtTime(2200, now);
@@ -1060,7 +1099,7 @@ export class AudioEngine {
       gain.connect(ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.32);
+      osc.stop(now + 0.38);
     } catch (e) {
       console.warn("无法播放微休息结束提示音:", e);
     }

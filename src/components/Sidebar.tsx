@@ -46,6 +46,7 @@ interface SidebarProps {
   isWidgetLocked: boolean;
   resetTasks: () => void;
   onEnterFlowMode: () => void;
+  onTestMicroBreak?: () => void;
 }
 
 // Map old tab values to new grouped structure for active detection
@@ -69,6 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     isWidgetLocked,
     resetTasks,
     onEnterFlowMode,
+    onTestMicroBreak,
   }) => {
     const {
       pomodoroIsActive,
@@ -474,6 +476,9 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                 onClick={() => {
                   const nextActive = !pomodoroIsActive;
                   setPomodoroIsActive(nextActive);
+                  if (nextActive) {
+                    void audioEngine.ensureAudioContext();
+                  }
                   syncPomodoro(
                     nextActive,
                     pomodoroTimeLeft,
@@ -640,6 +645,9 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                     onClick={() => {
                       const nextActive = !pomodoroIsActive;
                       setPomodoroIsActive(nextActive);
+                      if (nextActive) {
+                        void audioEngine.ensureAudioContext();
+                      }
                       syncPomodoro(
                         nextActive,
                         pomodoroTimeLeft,
@@ -712,7 +720,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                 />
               </div>
 
-              {/* Random Micro-Break Toggle & Sound Preview */}
+              {/* Random Micro-Break Toggle & Sound Preview / Test */}
               <div className="flex items-center justify-between pt-1.5 text-[9px] text-slate-400 font-medium">
                 <span className="flex items-center gap-1.5" title={s.randomBreakDesc}>
                   <Timer className="w-3 h-3 text-slate-400" />
@@ -723,12 +731,17 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      void audioEngine.playMicroBreakSound();
+                      if (onTestMicroBreak) {
+                        void onTestMicroBreak();
+                      } else {
+                        void audioEngine.playMicroBreakSound();
+                      }
                     }}
-                    className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#33353A] text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#78A887] transition-colors cursor-pointer"
-                    title={s.randomBreakSoundPreview || "试听微休息清风铃声"}
+                    className="px-1.5 py-0.5 rounded border border-slate-200 dark:border-[#33353A] hover:bg-slate-100 dark:hover:bg-[#33353A] text-slate-500 hover:text-[#4D7C5D] dark:hover:text-[#78A887] text-[8px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                    title={(s as any).randomBreakTestTitle || "立即体验 5 秒微休息（清风铃声与望远遮罩）"}
                   >
-                    <Volume2 className="w-3 h-3" />
+                    <Volume2 className="w-2.5 h-2.5" />
+                    <span>{(s as any).randomBreakTestBtn || "体验5s"}</span>
                   </button>
                   <button
                     onClick={() => {
@@ -766,6 +779,8 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                     localStorage.setItem("tongyun_auto_noise", String(next));
                     if (next && pomodoroIsActive && !pomodoroIsBreak) {
                       startNoise(selectedNoiseType, noiseVolume);
+                    } else if (!next && isPlayingNoise) {
+                      stopNoise("manual");
                     }
                   }}
                   className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer ${

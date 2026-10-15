@@ -83,6 +83,9 @@ export function usePomodoro() {
         taskId,
         taskTitle,
       );
+      // 在用户手势上下文中预热并激活 AudioContext，确保后续微休息在无手势定时器下 100% 能够发声
+      void audioEngine.ensureAudioContext();
+
       if (
         shouldAutoStartNoise({
           autoNoiseEnabled,
@@ -128,7 +131,14 @@ export function usePomodoro() {
   /** Apply auto-noise policy: play only during active focus (not break), unless the user muted. */
   const applyAutoNoise = useCallback(
     (active: boolean, isBreak: boolean) => {
-      if (!autoNoiseEnabled) return;
+      // 核心修复：当专注处于暂停、停止或休息时，不论 autoNoiseEnabled 是否开启，只要正在播放都必须停掉！
+      if (!active || isBreak) {
+        if (isPlayingNoise || autoNoiseEnabled) {
+          audioEngine.stopNoise();
+          setIsPlayingNoise(false);
+        }
+        return;
+      }
       if (
         shouldAutoStartNoise({
           autoNoiseEnabled,
@@ -144,7 +154,7 @@ export function usePomodoro() {
       audioEngine.stopNoise();
       setIsPlayingNoise(false);
     },
-    [autoNoiseEnabled, selectedNoiseType, noiseVolume],
+    [autoNoiseEnabled, selectedNoiseType, noiseVolume, isPlayingNoise],
   );
 
   return {

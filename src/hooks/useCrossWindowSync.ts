@@ -135,6 +135,9 @@ export function useCrossWindowSync(
             pH.setPomodoroTaskId(data.taskId || null);
             pH.setPomodoroTaskTitle(data.taskTitle || null);
             pH.setPomodoroEndTime(data.endTime);
+            if (windowLabelRef.current === "main") {
+              pH.applyAutoNoise(data.active, data.isBreak);
+            }
           } catch {
             /* invalid pomodoro sync payload */
           }
