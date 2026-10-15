@@ -242,4 +242,111 @@ mod tests {
         assert_eq!(deserialized.size, 1024);
         assert_eq!(deserialized.modified_ms, 1727438400000);
     }
+
+    #[test]
+    fn test_validate_backup_kind_error_mapping_and_variations() {
+        assert!(validate_backup_kind("daily").is_ok());
+        assert!(validate_backup_kind("conflicts").is_ok());
+
+        let invalid_kinds = [
+            "",
+            "hourly",
+            "weekly",
+            "monthly",
+            "annual",
+            "DAILY",
+            "Conflicts",
+            " daily ",
+            "daily\0",
+            "conflicts/sub",
+        ];
+        for kind in invalid_kinds {
+            assert_eq!(
+                validate_backup_kind(kind).unwrap_err(),
+                "E_INVALID_BACKUP_KIND",
+                "kind '{}' should map to E_INVALID_BACKUP_KIND",
+                kind
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_backup_name_date_formats() {
+        assert!(validate_backup_name("2026-10-15.json").is_ok());
+        assert!(validate_backup_name("2026-01-01.json").is_ok());
+        assert!(validate_backup_name("2026-12-31.json").is_ok());
+        assert!(validate_backup_name("2026-10-15T14-30-00.json").is_ok());
+        assert!(validate_backup_name("2026-10-15_conflict_1729000000000.json").is_ok());
+        assert!(validate_backup_name("conflict_2026-10-15-12345.json").is_ok());
+        assert!(validate_backup_name("daily_backup_2026-10-15.json").is_ok());
+        assert!(validate_backup_name("backup.2026-10-15.v1.json").is_ok());
+    }
+
+    #[test]
+    fn test_validate_backup_name_length_boundaries() {
+        let name_128 = format!("{}.json", "a".repeat(123));
+        assert_eq!(name_128.len(), 128);
+        assert!(validate_backup_name(&name_128).is_ok());
+
+        let name_129 = format!("{}.json", "a".repeat(124));
+        assert_eq!(name_129.len(), 129);
+        assert_eq!(
+            validate_backup_name(&name_129).unwrap_err(),
+            "E_INVALID_BACKUP_NAME"
+        );
+
+        assert!(validate_backup_name(".json").is_ok());
+    }
+
+    #[test]
+    fn test_validate_backup_name_character_filtering_errors() {
+        let invalid_names = [
+            "",
+            "plain_text",
+            "backup.json.bak",
+            "2026-10-15T12:00:00.json",
+            "backup 2026-10-15.json",
+            "backup\t2026-10-15.json",
+            "backup\n2026-10-15.json",
+            "../secret.json",
+            "..\\secret.json",
+            "/root/backup.json",
+            "C:\\backup.json",
+            "backup#1.json",
+            "backup$1.json",
+            "backup%1.json",
+            "backup!1.json",
+            "backup?1.json",
+            "backup*1.json",
+            "backup(1).json",
+            "备份_2026-10-15.json",
+        ];
+
+        for name in invalid_names {
+            assert_eq!(
+                validate_backup_name(name).unwrap_err(),
+                "E_INVALID_BACKUP_NAME",
+                "name '{}' should fail validation with E_INVALID_BACKUP_NAME",
+                name
+            );
+        }
+    }
+
+    #[test]
+    fn test_backup_entry_serialization_round_trip() {
+        let entry = BackupEntry {
+            name: "2026-10-15_conflict_1729000000000.json".to_string(),
+            size: 65536,
+            modified_ms: 1729000000000,
+        };
+        let json = serde_json::to_string(&entry).expect("serialize");
+        assert!(json.contains("\"name\":\"2026-10-15_conflict_1729000000000.json\""));
+        assert!(json.contains("\"size\":65536"));
+        assert!(json.contains("\"modifiedMs\":1729000000000"));
+
+        let deserialized: BackupEntry = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(deserialized.name, entry.name);
+        assert_eq!(deserialized.size, entry.size);
+        assert_eq!(deserialized.modified_ms, entry.modified_ms);
+    }
 }

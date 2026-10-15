@@ -484,4 +484,250 @@ mod tests {
         let file_json = serde_json::to_string(&file).expect("serialize file");
         assert!(file_json.contains("\"content\":\"{}\""));
     }
+
+    #[test]
+    fn test_extract_xml_date_formats() {
+        // RFC 1123 format date
+        let xml_rfc1123 = r#"<d:response><d:propstat><d:prop>
+            <d:getlastmodified>Sun, 27 Sep 2026 12:00:00 GMT</d:getlastmodified>
+        </d:prop></d:propstat></d:response>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml_rfc1123, "getlastmodified"),
+            Some("Sun, 27 Sep 2026 12:00:00 GMT".to_string())
+        );
+
+        // ISO 8601 format date
+        let xml_iso = r#"<D:response><D:propstat><D:prop>
+            <D:getlastmodified>2026-10-15T08:30:00Z</D:getlastmodified>
+        </D:prop></D:propstat></D:response>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml_iso, "getlastmodified"),
+            Some("2026-10-15T08:30:00Z".to_string())
+        );
+
+        // RFC 850 format date
+        let xml_rfc850 = r#"<response><propstat><prop>
+            <getlastmodified>Sunday, 27-Sep-26 12:00:00 GMT</getlastmodified>
+        </prop></propstat></response>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml_rfc850, "getlastmodified"),
+            Some("Sunday, 27-Sep-26 12:00:00 GMT".to_string())
+        );
+
+        // Date with extra whitespace and newlines (should be trimmed)
+        let xml_whitespace = "<d:response><d:prop>\n            <d:getlastmodified>\n                Thu, 15 Oct 2026 15:30:00 GMT\n            </d:getlastmodified>\n        </d:prop></d:response>";
+        assert_eq!(
+            extract_xml_tag_value(xml_whitespace, "getlastmodified"),
+            Some("Thu, 15 Oct 2026 15:30:00 GMT".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_xml_tag_case_insensitivity() {
+        let xml = r#"<d:response><d:prop>
+            <d:GetLastModified>2026-10-15T12:00:00Z</d:GetLastModified>
+            <d:GETETAG>"tag-case-test"</d:GETETAG>
+        </d:prop></d:response>"#;
+
+        assert_eq!(
+            extract_xml_tag_value(xml, "getlastmodified"),
+            Some("2026-10-15T12:00:00Z".to_string())
+        );
+        assert_eq!(
+            extract_xml_tag_value(xml, "GETLASTMODIFIED"),
+            Some("2026-10-15T12:00:00Z".to_string())
+        );
+        assert_eq!(
+            extract_xml_tag_value(xml, "GetLastModified"),
+            Some("2026-10-15T12:00:00Z".to_string())
+        );
+
+        assert_eq!(
+            extract_xml_tag_value(xml, "getetag"),
+            Some("\"tag-case-test\"".to_string())
+        );
+        assert_eq!(
+            extract_xml_tag_value(xml, "GETETAG"),
+            Some("\"tag-case-test\"".to_string())
+        );
+        assert_eq!(
+            extract_xml_tag_value(xml, "GetETag"),
+            Some("\"tag-case-test\"".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_xml_etag_quote_decoding_and_formatting() {
+        let xml_entities = r#"<d:prop><d:getetag>&quot;hash-abc-123&quot;</d:getetag></d:prop>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml_entities, "getetag"),
+            Some("\"hash-abc-123\"".to_string())
+        );
+
+        let xml_weak = r#"<d:prop><d:getetag>W/&quot;weak-etag-xyz&quot;</d:getetag></d:prop>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml_weak, "getetag"),
+            Some("W/\"weak-etag-xyz\"".to_string())
+        );
+
+        let xml_unquoted = r#"<d:prop><d:getetag>unquoted-hash-456</d:getetag></d:prop>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml_unquoted, "getetag"),
+            Some("unquoted-hash-456".to_string())
+        );
+    }
+
+    #[test]
+    fn test_extract_xml_edge_cases_and_malformed() {
+        let xml_self_closing = r#"<d:prop><d:getetag/><d:getetag>"valid-tag"</d:getetag></d:prop>"#;
+        assert_eq!(
+            extract_xml_tag_value(xml_self_closing, "getetag"),
+            Some("\"valid-tag\"".to_string())
+        );
+
+        let xml_empty = r#"<d:prop><d:getetag></d:getetag></d:prop>"#;
+        assert_eq!(extract_xml_tag_value(xml_empty, "getetag"), None);
+
+        let xml_ws_only = "<d:prop><d:getetag>   \n\t   </d:getetag></d:prop>";
+        assert_eq!(extract_xml_tag_value(xml_ws_only, "getetag"), None);
+
+        let xml_unclosed = r#"<d:prop><d:getetag "value"#;
+        assert_eq!(extract_xml_tag_value(xml_unclosed, "getetag"), None);
+
+        let xml_no_bracket = r#"<d:getetag"#;
+        assert_eq!(extract_xml_tag_value(xml_no_bracket, "getetag"), None);
+
+        assert_eq!(extract_xml_tag_value("", "getetag"), None);
+
+        let xml_other = r#"<d:prop><d:displayname>Test File</d:displayname></d:prop>"#;
+        assert_eq!(extract_xml_tag_value(xml_other, "getetag"), None);
+    }
+
+    #[test]
+    fn test_assert_webdav_url_allowed_error_mapping() {
+        assert_eq!(
+            assert_webdav_url_allowed("not a valid url").unwrap_err(),
+            "E_WEBDAV_URL: invalid URL"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("").unwrap_err(),
+            "E_WEBDAV_URL: invalid URL"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("://missing-scheme").unwrap_err(),
+            "E_WEBDAV_URL: invalid URL"
+        );
+
+        assert_eq!(
+            assert_webdav_url_allowed("http://dav.example.com/dav").unwrap_err(),
+            "E_WEBDAV_URL: http is only allowed for localhost"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("http://192.168.1.100:8080/dav").unwrap_err(),
+            "E_WEBDAV_URL: http is only allowed for localhost"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("http://10.0.0.1/dav").unwrap_err(),
+            "E_WEBDAV_URL: http is only allowed for localhost"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("http://[2001:db8::1]/dav").unwrap_err(),
+            "E_WEBDAV_URL: http is only allowed for localhost"
+        );
+
+        assert_eq!(
+            assert_webdav_url_allowed("ftp://localhost/dav").unwrap_err(),
+            "E_WEBDAV_URL: only https is allowed"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("file:///local/path").unwrap_err(),
+            "E_WEBDAV_URL: only https is allowed"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("ws://localhost:1420").unwrap_err(),
+            "E_WEBDAV_URL: only https is allowed"
+        );
+        assert_eq!(
+            assert_webdav_url_allowed("gopher://localhost").unwrap_err(),
+            "E_WEBDAV_URL: only https is allowed"
+        );
+    }
+
+    #[test]
+    fn test_is_local_http_host() {
+        assert!(is_local_http_host(Some("localhost")));
+        assert!(is_local_http_host(Some("LOCALHOST")));
+        assert!(is_local_http_host(Some("LocalHost")));
+        assert!(is_local_http_host(Some("127.0.0.1")));
+        assert!(is_local_http_host(Some("::1")));
+        assert!(is_local_http_host(Some("[::1]")));
+
+        assert!(!is_local_http_host(Some("example.com")));
+        assert!(!is_local_http_host(Some("192.168.1.1")));
+        assert!(!is_local_http_host(Some("0.0.0.0")));
+        assert!(!is_local_http_host(Some("localhost.example.com")));
+        assert!(!is_local_http_host(None));
+    }
+
+    #[test]
+    fn test_build_target_url_formatting_and_error_propagation() {
+        assert_eq!(
+            build_target_url("https://dav.example.com/remote.php/webdav", "tasks.json").unwrap(),
+            "https://dav.example.com/remote.php/webdav/tasks.json"
+        );
+        assert_eq!(
+            build_target_url("https://dav.example.com/remote.php/webdav/", "tasks.json").unwrap(),
+            "https://dav.example.com/remote.php/webdav/tasks.json"
+        );
+        assert_eq!(
+            build_target_url("https://dav.example.com/webdav", "backups/2026-10-15.json").unwrap(),
+            "https://dav.example.com/webdav/backups/2026-10-15.json"
+        );
+
+        assert_eq!(
+            build_target_url("  https://dav.example.com/dav/  ", "file.json").unwrap(),
+            "https://dav.example.com/dav/file.json"
+        );
+
+        assert_eq!(
+            build_target_url("http://remote.server/dav", "file.json").unwrap_err(),
+            "E_WEBDAV_URL: http is only allowed for localhost"
+        );
+        assert_eq!(
+            build_target_url("invalid-url-string", "file.json").unwrap_err(),
+            "E_WEBDAV_URL: invalid URL"
+        );
+        assert_eq!(
+            build_target_url("ftp://localhost/dav", "file.json").unwrap_err(),
+            "E_WEBDAV_URL: only https is allowed"
+        );
+    }
+
+    #[test]
+    fn test_webdav_meta_and_file_edge_cases() {
+        let json_minimal = r#"{"exists":false}"#;
+        let meta: WebDavMeta = serde_json::from_str(json_minimal).expect("deserialize minimal");
+        assert_eq!(meta.exists, false);
+        assert_eq!(meta.etag, None);
+        assert_eq!(meta.last_modified, None);
+
+        let meta_none = WebDavMeta {
+            exists: true,
+            etag: None,
+            last_modified: None,
+        };
+        let serialized = serde_json::to_string(&meta_none).expect("serialize none");
+        assert!(serialized.contains("\"exists\":true"));
+
+        let file = WebDavFile {
+            content: r#"{"tasks":[]}"#.to_string(),
+            etag: Some("\"etag-xyz\"".to_string()),
+            last_modified: Some("Sun, 27 Sep 2026 12:00:00 GMT".to_string()),
+        };
+        let file_json = serde_json::to_string(&file).expect("serialize file");
+        let de_file: WebDavFile = serde_json::from_str(&file_json).expect("deserialize file");
+        assert_eq!(de_file.content, r#"{"tasks":[]}"#);
+        assert_eq!(de_file.etag.as_deref(), Some("\"etag-xyz\""));
+        assert_eq!(de_file.last_modified.as_deref(), Some("Sun, 27 Sep 2026 12:00:00 GMT"));
+    }
 }
