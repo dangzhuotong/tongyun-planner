@@ -122,3 +122,32 @@ pub async fn send_test_email(config: SmtpConfig) -> Result<String, String> {
 
     Ok("✅ 测试邮件发送成功，请检查收件箱".to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_smtp_config_deserialization() {
+        let json = r#"{
+            "smtp_host": "smtp.example.com",
+            "smtp_port": 465,
+            "smtp_user": "user@example.com",
+            "smtp_pass": "secret123",
+            "recipient_email": "target@example.com"
+        }"#;
+
+        let config: SmtpConfig = serde_json::from_str(json).expect("deserialize smtp config");
+        assert_eq!(config.smtp_host, "smtp.example.com");
+        assert_eq!(config.smtp_port, 465);
+        assert_eq!(config.smtp_user, "user@example.com");
+        assert_eq!(config.smtp_pass, "secret123");
+        assert_eq!(config.recipient_email, "target@example.com");
+    }
+
+    #[test]
+    fn test_smtp_config_deserialization_missing_fields_error() {
+        let incomplete = r#"{"smtp_host": "smtp.example.com"}"#;
+        assert!(serde_json::from_str::<SmtpConfig>(incomplete).is_err());
+    }
+}
