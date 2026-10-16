@@ -134,6 +134,14 @@ npm run tauri build    # 产出安装包
 
 ---
 
+## 品牌 / 图标
+
+官方主标叫「云芽」。色值：奶茶 `#FDC89C`、云 `#FCF4E1`、芽 `#A4C48C`。本 App 图标即主标。
+
+各 App 变体规则与禁止事项见 [tongyun-scaffold/brand](https://github.com/dangzhuotong/tongyun-scaffold/tree/main/brand) 目录 README。
+
+---
+
 ## 文档
 
 - [功能详单](docs/FEATURES.md) · [发版](docs/RELEASE.md) · [更新日志](CHANGELOG.md) · [常见问题](FAQ.md)
