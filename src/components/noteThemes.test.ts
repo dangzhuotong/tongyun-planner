@@ -8,7 +8,7 @@ describe("noteThemes configuration", () => {
   });
 
   it("should provide valid Tailwind classes and hex accents for every theme", () => {
-    for (const [key, theme] of Object.entries(NOTE_COLORS)) {
+    for (const [, theme] of Object.entries(NOTE_COLORS)) {
       expect(theme.bg).toMatch(/^bg-\[#[0-9a-fA-F]{6}\]$/);
       expect(theme.border).toMatch(/^border-\[#[0-9a-fA-F]{6}\]$/);
       expect(theme.text).toMatch(/^text-\[#[0-9a-fA-F]{6}\]$/);
