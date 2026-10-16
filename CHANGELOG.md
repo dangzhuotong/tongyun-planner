@@ -2,6 +2,16 @@
 
 格式大致遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。应用版本号以 `package.json` / `src-tauri/tauri.conf.json` 为准，本文不负责发版。
 
+## [1.1.1] - 2026-10-16
+
+用于打 tag `v1.1.1`，走通 GitHub Release 的检查更新。
+
+### 文档
+- 「检查更新」作为正式发版路径：合进默认分支不会发版，推送 tag `vX.Y.Z` 才会发布 `latest.json`。设置页始终显示当前版本，已是最新时提示「已是最新版本」。
+
+### 修复
+- 收录 1.1.0 之后合入默认分支的修复，例如去掉 `noteThemes` 测试里未使用的 key，避免构建前 `noUnusedLocals` 类型检查失败。
+
 ## [1.1.0] - 2026-09-27
 
 ### 新增
