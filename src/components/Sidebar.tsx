@@ -849,9 +849,9 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                     const next = !autoNoiseEnabled;
                     setAutoNoiseEnabled(next);
                     localStorage.setItem("tongyun_auto_noise", String(next));
-                    if (next && pomodoroIsActive && !pomodoroIsBreak) {
+                    if (next) {
                       startNoise(selectedNoiseType, noiseVolume);
-                    } else if (!next && isPlayingNoise) {
+                    } else {
                       stopNoise("manual");
                     }
                   }}
@@ -917,7 +917,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           key={sound.id}
                           onClick={() => {
                             setSelectedNoiseType(sound.id);
-                            if (isPlayingNoise) startNoise(sound.id, noiseVolume);
+                            startNoise(sound.id, noiseVolume);
                           }}
                           className={`h-5.5 rounded-md text-[9px] font-medium flex items-center justify-center transition-all cursor-pointer ${
                             selectedNoiseType === sound.id
@@ -931,26 +931,31 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                       ))}
                     </div>
 
-                    {isPlayingNoise && (
-                      <div className="flex items-center gap-2 pt-0.5 animate-fade-in-up">
-                        <span className="text-[8px] text-slate-400 font-medium uppercase flex-shrink-0">
-                          {s.volume}
-                        </span>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={noiseVolume}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            setNoiseVolume(val);
-                            audioEngine.setVolume(val);
-                          }}
-                          className="flex-grow accent-[#4D7C5D] h-0.5 bg-slate-100 dark:bg-[#2A2D35] rounded-lg cursor-pointer"
-                        />
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2 pt-0.5 animate-fade-in-up">
+                      <span className="text-[8px] text-slate-400 font-medium uppercase flex-shrink-0">
+                        {s.volume}
+                      </span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={noiseVolume}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setNoiseVolume(val);
+                          audioEngine.setVolume(val);
+                          if (!isPlayingNoise && val > 0) {
+                            startNoise(selectedNoiseType, val);
+                          }
+                        }}
+                        className="flex-grow accent-[#4D7C5D] h-0.5 bg-slate-100 dark:bg-[#2A2D35] rounded-lg cursor-pointer"
+                        title={`音量: ${Math.round(noiseVolume * 100)}%`}
+                      />
+                      <span className="text-[8px] text-slate-400 font-mono w-5 text-right flex-shrink-0">
+                        {Math.round(noiseVolume * 100)}%
+                      </span>
+                    </div>
 
                     <div className="flex items-center justify-between pt-0.5 text-[9px] text-slate-400 font-medium">
                       <span>{s.soundSelect}</span>
