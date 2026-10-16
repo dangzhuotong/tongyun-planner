@@ -1,3 +1,3 @@
 # 待办（backlog）
 
-- 按 tong-ui-design-pro 新规范打磨桌面 UI（桌面深色 + 云芽浅色何时用；状态胶囊、卡片间距、主输入区）。不插队，等当前主线过了再排。
+- tongyun-planner 桌面 UI 保持现风格，不按 tong-ui-design-pro 新规范打磨（阿橦 2026-10-16）。
