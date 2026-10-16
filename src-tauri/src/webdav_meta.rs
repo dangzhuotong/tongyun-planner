@@ -730,4 +730,76 @@ mod tests {
         assert_eq!(de_file.etag.as_deref(), Some("\"etag-xyz\""));
         assert_eq!(de_file.last_modified.as_deref(), Some("Sun, 27 Sep 2026 12:00:00 GMT"));
     }
+
+    fn decode_basic_auth(request: &reqwest::Request) -> String {
+        use base64::Engine;
+        let header = request
+            .headers()
+            .get(reqwest::header::AUTHORIZATION)
+            .expect("authorization header present")
+            .to_str()
+            .expect("authorization header is ascii");
+        let encoded = header.strip_prefix("Basic ").expect("Basic scheme prefix");
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .expect("valid base64");
+        String::from_utf8(decoded).expect("utf8 credentials")
+    }
+
+    #[test]
+    fn test_apply_auth_with_password_sets_basic_credentials() {
+        let client = reqwest::Client::new();
+        let builder = apply_auth(
+            client.get("https://dav.example.com/dav/file.json"),
+            "alice",
+            &Some("s3cret".to_string()),
+        );
+        let request = builder.build().expect("build request");
+        assert_eq!(decode_basic_auth(&request), "alice:s3cret");
+    }
+
+    #[test]
+    fn test_apply_auth_without_password_sends_empty_password() {
+        let client = reqwest::Client::new();
+        let builder = apply_auth(
+            client.get("https://dav.example.com/dav/file.json"),
+            "bob",
+            &None,
+        );
+        let request = builder.build().expect("build request");
+        assert_eq!(decode_basic_auth(&request), "bob:");
+    }
+
+    #[test]
+    fn test_apply_auth_with_empty_password_and_unicode_username() {
+        let client = reqwest::Client::new();
+        let builder = apply_auth(
+            client.get("https://dav.example.com/dav/file.json"),
+            "carol",
+            &Some(String::new()),
+        );
+        let request = builder.build().expect("build request");
+        assert_eq!(decode_basic_auth(&request), "carol:");
+    }
+
+    #[test]
+    fn test_apply_auth_preserves_existing_headers() {
+        let client = reqwest::Client::new();
+        let builder = apply_auth(
+            client
+                .get("https://dav.example.com/dav/file.json")
+                .header("Depth", "0"),
+            "dave",
+            &Some("pw".to_string()),
+        );
+        let request = builder.build().expect("build request");
+        assert_eq!(
+            request
+                .headers()
+                .get("Depth")
+                .and_then(|v| v.to_str().ok()),
+            Some("0")
+        );
+        assert_eq!(decode_basic_auth(&request), "dave:pw");
+    }
 }
