@@ -102,6 +102,18 @@
 
 **从 v1.0 升级：** 请下载并安装 v1.1.0。更新公钥已更换，v1.0 无法通过应用内更新升到 v1.1。装好 v1.1 之后，后续版本会自动提示更新。
 
+### 已安装之后怎么更新
+
+日常更新走应用里的检查更新。维护者不要在 Mac 上用当前开发 tip 重装给用户。
+
+1. 打开 **设置 → 系统与语言**，看清「当前版本」。
+2. 点 **检查更新**。有新版会下载并重启；已经是最新会提示「已是最新版本」。
+3. 启动后也会静默检查，有新版同样弹窗。
+
+新版本来自维护者推送的 tag `vX.Y.Z`（与 `package.json` / `tauri.conf.json` 版本一致）。GitHub Actions 会发布 Release，并带上更新器用的 `latest.json`。合进 main 不会自动发版。步骤见 [docs/RELEASE.md](docs/RELEASE.md)。
+
+安装包在 CI 里用 **minisign** 签过更新包（`TAURI_SIGNING_*`）。**尚未做 Apple 公证**：首次安装仍可能要按上一节的 `xattr` 解除隔离（Release 说明里已写）。已经装上的 App 用检查更新换包。
+
 安装后可在设置里切换 **中文 / English**。
 
 ---
@@ -124,7 +136,7 @@ npm run tauri build    # 产出安装包
 
 ## 文档
 
-- [功能详单](docs/FEATURES.md) · [更新日志](CHANGELOG.md) · [常见问题](FAQ.md)
+- [功能详单](docs/FEATURES.md) · [发版](docs/RELEASE.md) · [更新日志](CHANGELOG.md) · [常见问题](FAQ.md)
 - [贡献指南](CONTRIBUTING.md) · [安全说明](SECURITY.md) · [架构](ARCHITECTURE.md)
 
 这是作者一个人、借助 AI 做出来的第一个桌面应用（Tauri 2 + React 19 + Rust）。遇到问题欢迎开 Issue；觉得有用的话，点个 Star 就是最大的鼓励。

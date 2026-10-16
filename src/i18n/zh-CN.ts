@@ -498,10 +498,11 @@ const zhCN: Translations = {
     emailHour: "小时",
     emailDay: "天",
     softwareUpdate: "软件更新",
-    softwareUpdateDesc: "支持在线自动检查新版本与一键安全热升级。",
+    softwareUpdateDesc:
+      "日常更新点下面的「检查更新」，或等启动后的提示。已经是最新会显示「已是最新版本」。",
     checkUpdate: "检查更新",
     checkingUpdate: "正在检查更新...",
-    alreadyLatest: "当前已是最新版本 ✨",
+    alreadyLatest: "已是最新版本",
     checkUpdateError: "检查更新失败：",
     newVersionFound: "发现新版本",
     currentVersion: "当前版本",

@@ -3,6 +3,15 @@ import type { Update } from "@tauri-apps/plugin-updater";
 export const isTauri = () =>
   typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
 
+/** Version string shown beside 检查更新. Installed Tauri version wins over the bundled package.json version. */
+export function resolveDisplayedAppVersion(
+  runtimeVersion: string | null | undefined,
+  bundledVersion: string,
+): string {
+  const raw = runtimeVersion?.trim() || bundledVersion.trim();
+  return raw.replace(/^v/i, "");
+}
+
 export async function checkForAppUpdate(): Promise<Update | null> {
   if (!isTauri()) {
     return null;
