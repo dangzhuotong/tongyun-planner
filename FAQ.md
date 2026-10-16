@@ -7,6 +7,9 @@ A: 一般用户请到 [Releases 最新版](https://github.com/dangzhuotong/tongy
 
 v1.0 用户请手动安装 v1.1：更新公钥已更换，应用内更新无法从 1.0 升到 1.1。
 
+### Q: 怎么更新到新版本？
+A: 已安装 v1.1.0 及以上：打开 **设置 → 系统与语言**，看「当前版本」，点 **检查更新**。已经是最新会提示「已是最新版本」；有新版则下载并重启。启动后也会静默检查。日常更新走这一条，不必请人在 Mac 上重装。发版约定见 [docs/RELEASE.md](docs/RELEASE.md)。
+
 从源码运行：
 1. 克隆项目：`git clone https://github.com/dangzhuotong/tongyun-planner.git`
 2. 安装依赖：`npm install`

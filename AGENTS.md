@@ -102,3 +102,11 @@ src-tauri/
 4. **历史追溯**：
    - 历史研发流水已归档至 [docs/archive/DEV_SESSIONS.md](docs/archive/DEV_SESSIONS.md)。
    - 根 `AGENTS.md` 仅维护现行有效规则与命令，保持精简。
+
+---
+
+## 7. 发版（检查更新）
+
+正式包只来自 tag `vX.Y.Z` 触发的 GitHub Release（版本号与 `package.json` / `tauri.conf.json` 一致，并写出 `latest.json`）。用户在 **设置 → 系统与语言 → 检查更新**，或等启动提示。
+
+阿装只在 Release 工作流失败，或用户本机环境损坏时介入。`main` 每次合并之后，不做例行本机打包和重装。细则见 [docs/RELEASE.md](docs/RELEASE.md)。Apple 公证未做，不在当前发版路径里。

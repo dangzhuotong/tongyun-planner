@@ -510,10 +510,11 @@ const en: Translations = {
     emailHour: "hour",
     emailDay: "day",
     softwareUpdate: "Software Update",
-    softwareUpdateDesc: "Supports online check for new versions and seamless in-app updates.",
+    softwareUpdateDesc:
+      "Update with Check for Updates below, or from the prompt after startup. If nothing newer is published, you'll see that you are already on the latest version.",
     checkUpdate: "Check for Updates",
     checkingUpdate: "Checking for updates...",
-    alreadyLatest: "You are already using the latest version ✨",
+    alreadyLatest: "Already on the latest version",
     checkUpdateError: "Failed to check for updates: ",
     newVersionFound: "New Version Available",
     currentVersion: "Current Version",
