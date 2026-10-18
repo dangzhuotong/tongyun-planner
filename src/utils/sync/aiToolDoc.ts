@@ -172,7 +172,7 @@ curl -s -X PUT -u "${webdavUser}:$TONGYUN_WEBDAV_PASS" \\
 - \`category\`：\`urgent-important\` | \`important-not-urgent\` | \`urgent-not-important\` | \`not-urgent-not-important\`
 - \`priority\`：\`high\` | \`medium\` | \`low\`
 - \`repeat\`：\`none\` | \`daily\` | \`weekly\` | \`monthly\` 或自定义字符串
-- \`repeatAnchorDay\`：可选，每月重复的原始日（1–31）。缺省时按当前 \`dueDate\` 的日计算；不要用钳制后的月末日期覆盖它
+- \`repeatAnchorDay\`：可选，每月重复的原始日（1–31）。缺省时按当前 \`dueDate\` 的日计算；不要用钳制后的月末日期覆盖它。\`repeat\` 离开 \`monthly\` 时去掉；再改回时按当前到期日重算
 - \`dueDate\`：\`YYYY-MM-DD\`；\`dueTime\`：\`HH:mm\`
 - \`dependsOn\`：前置任务 id 数组；\`journalId\`：由日记「加入待办」创建时关联日记 id
 - \`attachments\`：\`{ id, name, path, type, size, createdAt }\`（附件本体不在 WebDAV 文本同步范围内，勿乱改 path）

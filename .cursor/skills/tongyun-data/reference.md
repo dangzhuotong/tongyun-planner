@@ -29,7 +29,7 @@
 - `category`：`urgent-important` | `important-not-urgent` | `urgent-not-important` | `not-urgent-not-important`
 - `priority`：`high` | `medium` | `low`
 - `repeat`：`none` | `daily` | `weekly` | `monthly` 或自定义
-- `repeatAnchorDay`：可选，每月重复的原始日（1–31）。短月到期日会被钳到月末，下一次仍用这个锚定日。旧数据没有该字段时，按当前 `dueDate` 的日计算，不回填历史漂移
+- `repeatAnchorDay`：可选，每月重复的原始日（1–31）。短月到期日会被钳到月末，下一次仍用这个锚定日。旧数据没有该字段时，按当前 `dueDate` 的日计算，不回填历史漂移。`repeat` 离开 `monthly` 时去掉该字段；再改回 `monthly` 时按当前 `dueDate` 的日重算
 - `dueDate`：`YYYY-MM-DD`；`dueTime`：`HH:mm`
 - `completedAt`：完成毫秒时间戳；活动任务无此字段；撤销完成时删除
 - `attachments`：`{ id, name, path, type, size, createdAt }`（附件文件本身不同步，勿乱改 path）
