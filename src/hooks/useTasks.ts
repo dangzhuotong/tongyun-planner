@@ -2,8 +2,8 @@ import { useState, useCallback } from "react";
 import type { Task, SubTask } from "../types";
 import { useSync } from "./useSync";
 import { createId } from "../utils/id";
-import { addLocalDays, addLocalMonths, getLocalDateString } from "../utils/date";
-import { getNextRRuleDate } from "../utils/rrule";
+import { getLocalDateString } from "../utils/date";
+import { applyDueAnchor, nextRepeatingDue, withMonthlyAnchor } from "../utils/nextDueDate";
 import { scheduleStorageWrite } from "../utils/deferredStorage";
 import { taskRepository } from "../data/repositories";
 
@@ -42,14 +42,6 @@ function createInitialTasks(): Task[] {
 }
 
 const INITIAL_TASKS = createInitialTasks();
-
-function getNextDueDate(currentDue: string | undefined, repeat: string): string | undefined {
-  if (!repeat || repeat === "none") return undefined;
-  if (repeat === "daily") return addLocalDays(currentDue, 1);
-  if (repeat === "weekly") return addLocalDays(currentDue, 7);
-  if (repeat === "monthly") return addLocalMonths(currentDue, 1);
-  return getNextRRuleDate(currentDue!, repeat);
-}
 
 export function useTasks() {
   const { syncState } = useSync();
@@ -113,11 +105,11 @@ export function useTasks() {
       if (task.repeat && task.repeat !== "none") {
         const base = { ...task };
         delete base.completedAt;
-        const nextDue = getNextDueDate(task.dueDate, task.repeat);
-        updatedTasks = [
-          { ...base, id: createId("task"), dueDate: nextDue },
-          ...tasks.filter((t) => t.id !== id),
-        ];
+        const next = nextRepeatingDue(task);
+        const spawned: Task = { ...base, id: createId("task"), dueDate: next.dueDate };
+        if (next.repeatAnchorDay != null) spawned.repeatAnchorDay = next.repeatAnchorDay;
+        else delete spawned.repeatAnchorDay;
+        updatedTasks = [spawned, ...tasks.filter((t) => t.id !== id)];
       } else {
         updatedTasks = tasks.filter((t) => t.id !== id);
       }
@@ -378,7 +370,7 @@ export function useTasks() {
       const taskId = createId("task");
       const initialCategory = category;
 
-      const newTask: Task = {
+      const newTask: Task = withMonthlyAnchor({
         id: taskId,
         title,
         description: description || undefined,
@@ -389,7 +381,7 @@ export function useTasks() {
         repeat: repeat || undefined,
         tags: tags || undefined,
         priority: priority || undefined,
-      };
+      });
 
       setTasks((prev) => {
         const updated = [newTask, ...prev];
@@ -420,7 +412,7 @@ export function useTasks() {
         const task = prev.find((t) => t.id === id);
         if (!task) return prev;
         matchedInActive = true;
-        const nextTask = { ...task, ...updates };
+        const nextTask = applyDueAnchor(task, updates);
         queueMicrotask(() => {
           syncState(
             id,
@@ -441,7 +433,7 @@ export function useTasks() {
         setCompletedTasks((prev) => {
           const task = prev.find((t) => t.id === id);
           if (!task) return prev;
-          const nextTask = { ...task, ...updates };
+          const nextTask = applyDueAnchor(task, updates);
           const updated = prev.map((t) => (t.id === id ? nextTask : t));
           saveCompleted(updated);
           return updated;

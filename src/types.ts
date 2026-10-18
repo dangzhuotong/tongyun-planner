@@ -31,6 +31,8 @@ export interface Task {
   isFavorite?: boolean;
   isPinned?: boolean;
   repeat?: string;
+  /** 每月重复的锚定日（1–31）。短月钳到月末后，下一次仍回到这一天。旧数据缺失时按当前 dueDate 的日计算。 */
+  repeatAnchorDay?: number;
   priority?: TaskPriority;
   subtasks?: SubTask[];
   tags?: string[];
