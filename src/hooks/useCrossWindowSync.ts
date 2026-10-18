@@ -223,5 +223,5 @@ export function useCrossWindowSync(
         .catch(() => {});
       unsubDev();
     };
-  }, []);
+  }, [handlersRef, windowLabelRef]);
 }

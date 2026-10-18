@@ -131,5 +131,5 @@ export function useStoreInit(
       }
     };
     initStore();
-  }, []);
+  }, [handlersRef, setIsHydrated, setWindowLabel, windowLabelRef]);
 }

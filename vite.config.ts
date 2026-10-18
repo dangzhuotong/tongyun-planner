@@ -32,11 +32,15 @@ export default defineConfig(async () => ({
     },
   },
   build: {
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
           react: ["react", "react-dom"],
           tauri: ["@tauri-apps/api", "@tauri-apps/plugin-store", "@tauri-apps/plugin-opener"],
+          motion: ["framer-motion"],
+          lunar: ["lunar-javascript"],
+          icons: ["lucide-react"],
         },
       },
     },
