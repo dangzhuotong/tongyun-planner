@@ -43,8 +43,8 @@ describe("date utils extra behavior", () => {
   });
 
   describe("addLocalMonths month-end rollover", () => {
-    it("rolls Jan 31 + 1 month into March (JS Date overflow)", () => {
-      expect(addLocalMonths("2026-01-31", 1)).toBe("2026-03-03");
+    it("clamps Jan 31 + 1 month to the last day of February", () => {
+      expect(addLocalMonths("2026-01-31", 1)).toBe("2026-02-28");
     });
   });
 

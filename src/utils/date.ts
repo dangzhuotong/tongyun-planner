@@ -23,10 +23,14 @@ export function addLocalDays(dateStr: string | undefined, days: number): string 
 
 export function addLocalMonths(dateStr: string | undefined, months: number): string {
   const date = dateStr ? parseLocalDate(dateStr) : new Date();
-  const next = date || new Date();
-  next.setMonth(next.getMonth() + months);
+  const base = date || new Date();
+  const day = base.getDate();
+  // 先落到目标月 1 日。Date#setMonth 会保留原日，短月溢出（1 月 31 日变成 3 月 2/3 日，而不是 2 月 28/29 日）。
+  const target = new Date(base.getFullYear(), base.getMonth() + months, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(day, lastDay));
 
-  return getLocalDateString(next);
+  return getLocalDateString(target);
 }
 
 /** 首页/心流要露出的任务：今日到期、已逾期、或未设日期（不含纯未来） */

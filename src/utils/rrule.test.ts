@@ -105,6 +105,10 @@ describe("rrule utils", () => {
       expect(getNextRRuleDate("2026-11-15", "FREQ=MONTHLY;INTERVAL=2")).toBe("2027-01-15");
       // 2026 is non-leap year: February has 28 days
       expect(getNextRRuleDate("2026-01-31", "monthly")).toBe("2026-02-28");
+      // Leap years keep February 29; century years follow the Gregorian rule.
+      expect(getNextRRuleDate("2024-01-31", "monthly")).toBe("2024-02-29");
+      expect(getNextRRuleDate("1900-01-31", "monthly")).toBe("1900-02-28");
+      expect(getNextRRuleDate("2000-01-31", "monthly")).toBe("2000-02-29");
     });
 
     it("should calculate next monthly date with bySetPos", () => {
