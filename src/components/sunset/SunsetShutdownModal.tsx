@@ -16,8 +16,7 @@ interface SunsetShutdownModalProps {
   onMinimizeWindow?: () => void;
 }
 
-export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = ({
-  isOpen,
+const SunsetShutdownModalContent: React.FC<Omit<SunsetShutdownModalProps, "isOpen">> = ({
   onClose,
   tasks,
   completedTasks,
@@ -28,8 +27,6 @@ export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [stampLanded, setStampLanded] = useState(false);
-  const [selectedToPostpone, setSelectedToPostpone] = useState<Set<string>>(new Set());
-  const [launchpadText, setLaunchpadText] = useState("");
   const todayStr = getTodayString();
   const tomorrowStr = getTomorrowString();
 
@@ -38,29 +35,30 @@ export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = ({
     [tasks, completedTasks, pomodoroLogs, todayStr],
   );
 
-  // 初始化未完成任务为全部默认勾选顺延（仅在模态框打开时初始化一次，避免无限渲染）
-  useEffect(() => {
-    if (isOpen) {
-      setStep(1);
-      setStampLanded(false);
-      setSelectedToPostpone(new Set(stats.uncompletedTasks.map((t) => t.id)));
-      const savedLaunchpad = localStorage.getItem("tongyun_tomorrow_launchpad");
-      if (savedLaunchpad) {
-        try {
-          const parsed = JSON.parse(savedLaunchpad);
-          if (parsed.date === tomorrowStr) setLaunchpadText(parsed.text || "");
-        } catch {}
+  const [selectedToPostpone, setSelectedToPostpone] = useState<Set<string>>(
+    () => new Set(stats.uncompletedTasks.map((t) => t.id)),
+  );
+  const [launchpadText, setLaunchpadText] = useState(() => {
+    const savedLaunchpad = localStorage.getItem("tongyun_tomorrow_launchpad");
+    if (savedLaunchpad) {
+      try {
+        const parsed = JSON.parse(savedLaunchpad);
+        if (parsed.date === tomorrowStr) return parsed.text || "";
+      } catch {
+        // ignore
       }
-      // 延迟 400ms 盖章
-      const timer = setTimeout(() => {
-        setStampLanded(true);
-        audioEngine.playStampSound();
-      }, 450);
-      return () => clearTimeout(timer);
     }
-  }, [isOpen, tomorrowStr]);
+    return "";
+  });
 
-  if (!isOpen) return null;
+  // 延迟 450ms 盖章
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setStampLanded(true);
+      audioEngine.playStampSound();
+    }, 450);
+    return () => clearTimeout(timer);
+  }, []);
 
   // 执行顺延至明日
   const handleExecutePostpone = () => {
@@ -104,7 +102,6 @@ export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = ({
   };
 
   useEffect(() => {
-    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -113,7 +110,7 @@ export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [onClose]);
 
   return (
     <div
@@ -411,4 +408,9 @@ export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = ({
       </motion.div>
     </div>
   );
+};
+
+export const SunsetShutdownModal: React.FC<SunsetShutdownModalProps> = (props) => {
+  if (!props.isOpen) return null;
+  return <SunsetShutdownModalContent {...props} />;
 };

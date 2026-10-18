@@ -190,12 +190,16 @@ function AppBody() {
   const handleTestMicroBreak = useCallback(() => {
     try {
       void audioEngine.playMicroBreakSound();
-    } catch {}
+    } catch {
+      // ignore audio play errors in background
+    }
     const timeout = setTimeout(() => {
       setMicroBreakSession(null);
       try {
         void audioEngine.playMicroBreakEndSound();
-      } catch {}
+      } catch {
+        // ignore audio play errors in background
+      }
     }, 5000);
     setMicroBreakSession({
       skip: () => {
@@ -211,17 +215,13 @@ function AppBody() {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [flowMode, setFlowMode] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [sunsetShutdownOpen, setSunsetShutdownOpen] = useState(false);
+  // 傍晚下班自动提醒日落离线（18:00后且今日未做）
+  const [sunsetShutdownOpen, setSunsetShutdownOpen] = useState(() => {
+    const lastDate = localStorage.getItem("tongyun_last_sunset_date");
+    return shouldPromptSunsetShutdown(new Date(), lastDate);
+  });
   const [energyTimeBlockOpen, setEnergyTimeBlockOpen] = useState(false);
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
-
-  // 傍晚下班自动提醒日落离线（18:00后且今日未做）
-  useEffect(() => {
-    const lastDate = localStorage.getItem("tongyun_last_sunset_date");
-    if (shouldPromptSunsetShutdown(new Date(), lastDate)) {
-      setSunsetShutdownOpen(true);
-    }
-  }, []);
 
   // Cmd/Ctrl+K 全局快捷键与极速捕捉胶囊 (Alt+N / Ctrl+Shift+K)
   useEffect(() => {
@@ -1082,7 +1082,9 @@ function AppBody() {
           setSunsetShutdownOpen(false);
           try {
             localStorage.setItem("tongyun_last_sunset_date", getTodayString());
-          } catch {}
+          } catch {
+            // ignore localStorage quota errors
+          }
         }}
         tasks={tasksHook.tasks}
         completedTasks={tasksHook.completedTasks}

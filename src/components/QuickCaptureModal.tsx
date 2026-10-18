@@ -13,8 +13,7 @@ interface QuickCaptureModalProps {
   onToast: (msg: string) => void;
 }
 
-export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({
-  isOpen,
+const QuickCaptureModalContent: React.FC<Omit<QuickCaptureModalProps, "isOpen">> = ({
   onClose,
   onAddTask,
   onAddNote,
@@ -25,13 +24,9 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setText("");
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
+    const timer = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(timer);
+  }, []);
 
   const parsed: ParsedCapture = parseQuickCaptureInput(text);
 
@@ -164,4 +159,9 @@ export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = ({
       </motion.div>
     </div>
   );
+};
+
+export const QuickCaptureModal: React.FC<QuickCaptureModalProps> = (props) => {
+  if (!props.isOpen) return null;
+  return <QuickCaptureModalContent {...props} />;
 };
