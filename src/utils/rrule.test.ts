@@ -118,6 +118,24 @@ describe("rrule utils", () => {
         "2026-06-26",
       );
     });
+
+    it("should handle monthly year rollover across December", () => {
+      // 2026-11-10 with interval=3 rolls to February 2027
+      expect(getNextRRuleDate("2026-11-10", "FREQ=MONTHLY;INTERVAL=3")).toBe("2027-02-10");
+
+      // 2026-12-10 with bySetPos=1 (first Monday of January 2027)
+      // Jan 1 2027 is Friday, Jan 4 is Monday
+      expect(getNextRRuleDate("2026-12-10", "FREQ=MONTHLY;BYDAY=MO;BYSETPOS=1")).toBe(
+        "2027-01-04",
+      );
+    });
+
+    it("should fall back to last weekday when Nth weekday exceeds month length", () => {
+      // June 2026 has only 4 Fridays (5, 12, 19, 26). Requesting 5th Friday falls back to June 26.
+      expect(getNextRRuleDate("2026-05-10", "FREQ=MONTHLY;BYDAY=FR;BYSETPOS=5")).toBe(
+        "2026-06-26",
+      );
+    });
   });
 
   describe("buildRRule", () => {

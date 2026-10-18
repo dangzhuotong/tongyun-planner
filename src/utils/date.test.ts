@@ -14,6 +14,18 @@ describe("date utils", () => {
       const d = new Date(2026, 4, 3); // May 3, 2026
       expect(getLocalDateString(d)).toBe("2026-05-03");
     });
+
+    it("should format leap day and end of year correctly", () => {
+      const leapDay = new Date(2028, 1, 29); // Feb 29, 2028
+      expect(getLocalDateString(leapDay)).toBe("2028-02-29");
+
+      const yearEnd = new Date(2026, 11, 31); // Dec 31, 2026
+      expect(getLocalDateString(yearEnd)).toBe("2026-12-31");
+    });
+
+    it("should default to current date when no argument passed", () => {
+      expect(getLocalDateString()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
   });
 
   describe("parseLocalDate", () => {
@@ -29,6 +41,8 @@ describe("date utils", () => {
       expect(parseLocalDate("invalid")).toBeNull();
       expect(parseLocalDate("2026-05")).toBeNull();
       expect(parseLocalDate("2026-ab-cd")).toBeNull();
+      expect(parseLocalDate("")).toBeNull();
+      expect(parseLocalDate("2026-10-15-extra")).toBeNull();
     });
   });
 
@@ -38,6 +52,18 @@ describe("date utils", () => {
       expect(addLocalDays("2026-05-31", 1)).toBe("2026-06-01");
       expect(addLocalDays("2026-05-10", -5)).toBe("2026-05-05");
     });
+
+    it("should cross year boundary when subtracting days", () => {
+      expect(addLocalDays("2026-01-01", -1)).toBe("2025-12-31");
+    });
+
+    it("should handle undefined or invalid dateStr by falling back to today", () => {
+      const resUndefined = addLocalDays(undefined, 0);
+      expect(resUndefined).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+      const resInvalid = addLocalDays("invalid", 0);
+      expect(resInvalid).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
   });
 
   describe("addLocalMonths", () => {
@@ -45,6 +71,15 @@ describe("date utils", () => {
       expect(addLocalMonths("2026-01-15", 2)).toBe("2026-03-15");
       expect(addLocalMonths("2026-11-15", 2)).toBe("2027-01-15");
       expect(addLocalMonths("2026-03-15", -1)).toBe("2026-02-15");
+    });
+
+    it("should cross year boundary backwards when subtracting months", () => {
+      expect(addLocalMonths("2026-01-15", -2)).toBe("2025-11-15");
+    });
+
+    it("should handle undefined or invalid dateStr by falling back to today", () => {
+      const res = addLocalMonths(undefined, 1);
+      expect(res).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
   });
 
@@ -95,6 +130,31 @@ describe("date utils", () => {
         "5", // today, Q1
         "2", // today, Q4
       ]);
+    });
+
+    it("should return empty array for empty input", () => {
+      expect(filterHomeActionableTasks([], today)).toEqual([]);
+    });
+
+    it("should sort all four quadrants in canonical order when kind is identical", () => {
+      const tasks = [
+        { id: "q4", dueDate: today, category: "not-urgent-not-important" },
+        { id: "q2", dueDate: today, category: "important-not-urgent" },
+        { id: "q1", dueDate: today, category: "urgent-important" },
+        { id: "q3", dueDate: today, category: "urgent-not-important" },
+      ];
+      const filtered = filterHomeActionableTasks(tasks, today);
+      expect(filtered.map((t) => t.id)).toEqual(["q1", "q2", "q3", "q4"]);
+    });
+
+    it("should fall back missing category to important-not-urgent and place unknown category last", () => {
+      const tasks = [
+        { id: "unknown", dueDate: today, category: "custom-quad" },
+        { id: "fallback", dueDate: today }, // missing category -> important-not-urgent (rank 1)
+        { id: "q1", dueDate: today, category: "urgent-important" }, // rank 0
+      ];
+      const filtered = filterHomeActionableTasks(tasks, today);
+      expect(filtered.map((t) => t.id)).toEqual(["q1", "fallback", "unknown"]);
     });
   });
 });
