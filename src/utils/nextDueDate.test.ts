@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { applyDueAnchor, getNextDueDate, nextRepeatingDue, withMonthlyAnchor } from "./nextDueDate";
+import {
+  applyDueAnchor,
+  getNextDueDate,
+  nextRepeatingDue,
+  withMonthlyAnchor,
+  type RepeatingDueFields,
+} from "./nextDueDate";
 
 describe("monthly repeat anchor day", () => {
   it("chains 1/31 -> 2/28 -> 3/31 -> 4/30", () => {
@@ -84,5 +90,61 @@ describe("monthly repeat anchor day", () => {
         { repeat: "monthly" },
       ).repeatAnchorDay,
     ).toBe(31);
+  });
+
+  it("clears the anchor when repeat leaves monthly and re-derives it from the current due date", () => {
+    const monthly: RepeatingDueFields = {
+      dueDate: "2026-02-28",
+      repeat: "monthly",
+      repeatAnchorDay: 31,
+    };
+    const daily = applyDueAnchor(monthly, { repeat: "daily" });
+    expect(daily.repeat).toBe("daily");
+    expect("repeatAnchorDay" in daily).toBe(false);
+
+    expect("repeatAnchorDay" in applyDueAnchor(monthly, { repeat: "weekly" })).toBe(false);
+    expect("repeatAnchorDay" in applyDueAnchor(monthly, { repeat: "none" })).toBe(false);
+
+    const back = applyDueAnchor(daily, { repeat: "monthly" });
+    expect(back.repeatAnchorDay).toBe(28);
+    expect(getNextDueDate(back.dueDate, "monthly", back.repeatAnchorDay)).toBe("2026-03-28");
+
+    const stale = applyDueAnchor(
+      { dueDate: "2026-02-28", repeat: "daily", repeatAnchorDay: 31 },
+      { repeat: "monthly" },
+    );
+    expect(stale.repeatAnchorDay).toBe(28);
+  });
+
+  it("chains a leap-year January 31 through February 29 back to March 31", () => {
+    const feb = nextRepeatingDue({
+      dueDate: "2024-01-31",
+      repeat: "monthly",
+      repeatAnchorDay: 31,
+    });
+    expect(feb).toEqual({ dueDate: "2024-02-29", repeatAnchorDay: 31 });
+
+    const mar = nextRepeatingDue({
+      dueDate: feb.dueDate,
+      repeat: "monthly",
+      repeatAnchorDay: feb.repeatAnchorDay,
+    });
+    expect(mar).toEqual({ dueDate: "2024-03-31", repeatAnchorDay: 31 });
+  });
+
+  it("chains December 31 across the year into February", () => {
+    const jan = nextRepeatingDue({
+      dueDate: "2026-12-31",
+      repeat: "monthly",
+      repeatAnchorDay: 31,
+    });
+    expect(jan).toEqual({ dueDate: "2027-01-31", repeatAnchorDay: 31 });
+
+    const feb = nextRepeatingDue({
+      dueDate: jan.dueDate,
+      repeat: "monthly",
+      repeatAnchorDay: jan.repeatAnchorDay,
+    });
+    expect(feb).toEqual({ dueDate: "2027-02-28", repeatAnchorDay: 31 });
   });
 });

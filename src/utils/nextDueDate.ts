@@ -71,13 +71,19 @@ export function withMonthlyAnchor<T extends RepeatingDueFields>(
 
 /**
  * 用户改了到期日或重复规则时，锚定日跟着新的到期日走。
+ * 离开 monthly 时清掉锚定日；再改回 monthly 时按当前到期日重算，不用离开前的 31。
  * 完成任务生成下一次时不走这里，所以 2 月 28 日不会把锚定日改成 28。
  */
 export function applyDueAnchor<T extends RepeatingDueFields>(task: T, updates: Partial<T>): T {
   const next: T = { ...task, ...updates };
-  if (next.repeat !== "monthly") return next;
+  if (next.repeat !== "monthly") {
+    delete next.repeatAnchorDay;
+    return next;
+  }
   if ("repeatAnchorDay" in updates) return next;
-  if ("dueDate" in updates) {
+
+  const switchingToMonthly = "repeat" in updates && task.repeat !== "monthly";
+  if (switchingToMonthly || "dueDate" in updates) {
     const day = dayOfMonth(next.dueDate);
     if (day == null) {
       delete next.repeatAnchorDay;
@@ -85,6 +91,7 @@ export function applyDueAnchor<T extends RepeatingDueFields>(task: T, updates: P
     }
     return { ...next, repeatAnchorDay: day };
   }
+
   if ("repeat" in updates && !isRepeatAnchorDay(next.repeatAnchorDay)) {
     const day = dayOfMonth(next.dueDate);
     if (day != null) return { ...next, repeatAnchorDay: day };
