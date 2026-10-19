@@ -2,6 +2,10 @@
 
 格式大致遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。应用版本号以 `package.json` / `src-tauri/tauri.conf.json` 为准，本文不负责发版。
 
+## [1.1.2] - 2026-10-19
+
+用于打 tag `v1.1.2`，走 GitHub Release 的检查更新。
+
 ## [1.1.1] - 2026-10-16
 
 用于打 tag `v1.1.1`，走通 GitHub Release 的检查更新。
