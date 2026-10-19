@@ -3,6 +3,8 @@ import {
   applyDueAnchor,
   getNextDueDate,
   nextRepeatingDue,
+  sanitizeRepeatAnchor,
+  sanitizeRepeatAnchors,
   withMonthlyAnchor,
   type RepeatingDueFields,
 } from "./nextDueDate";
@@ -146,5 +148,66 @@ describe("monthly repeat anchor day", () => {
       repeatAnchorDay: jan.repeatAnchorDay,
     });
     expect(feb).toEqual({ dueDate: "2027-02-28", repeatAnchorDay: 31 });
+  });
+
+  it("keeps the chain anchored when due changes midway: monthly -> daily -> due -> monthly", () => {
+    const first = nextRepeatingDue({ dueDate: "2026-01-31", repeat: "monthly" });
+    expect(first).toEqual({ dueDate: "2026-02-28", repeatAnchorDay: 31 });
+
+    const daily = applyDueAnchor(
+      { dueDate: first.dueDate, repeat: "monthly", repeatAnchorDay: first.repeatAnchorDay },
+      { repeat: "daily" },
+    );
+    expect(daily.repeat).toBe("daily");
+    expect("repeatAnchorDay" in daily).toBe(false);
+
+    const moved = applyDueAnchor(daily, { dueDate: "2026-03-10" });
+    expect(moved.dueDate).toBe("2026-03-10");
+    expect("repeatAnchorDay" in moved).toBe(false);
+
+    const backToMonthly = applyDueAnchor(moved, { repeat: "monthly" });
+    expect(backToMonthly.repeatAnchorDay).toBe(10);
+    expect(nextRepeatingDue(backToMonthly)).toEqual({
+      dueDate: "2026-04-10",
+      repeatAnchorDay: 10,
+    });
+  });
+
+  it("sanitizes dirty anchors before a whole object is imported or synced", () => {
+    const staleDaily = {
+      dueDate: "2026-02-28",
+      repeat: "daily",
+      repeatAnchorDay: 31,
+    };
+    const cleaned = sanitizeRepeatAnchor(staleDaily);
+    expect(cleaned).toEqual({ dueDate: "2026-02-28", repeat: "daily" });
+    expect(staleDaily.repeatAnchorDay).toBe(31);
+
+    expect(
+      sanitizeRepeatAnchor({
+        dueDate: "2026-02-28",
+        repeat: "monthly",
+        repeatAnchorDay: 31,
+      }).repeatAnchorDay,
+    ).toBe(31);
+    expect(
+      "repeatAnchorDay" in
+        sanitizeRepeatAnchor({
+          dueDate: "2026-02-28",
+          repeat: "monthly",
+          repeatAnchorDay: 32,
+        }),
+    ).toBe(false);
+    expect(
+      "repeatAnchorDay" in
+        sanitizeRepeatAnchor({
+          dueDate: "2026-02-28",
+          repeat: "monthly",
+          repeatAnchorDay: 0,
+        }),
+    ).toBe(false);
+
+    const clean = [{ dueDate: "2026-02-28", repeat: "daily" as const }];
+    expect(sanitizeRepeatAnchors(clean)).toBe(clean);
   });
 });
