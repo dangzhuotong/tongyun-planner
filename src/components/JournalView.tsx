@@ -183,6 +183,8 @@ export function JournalView({
 
   const [promptOffset, setPromptOffset] = useState(0);
   const [showPrompt, setShowPrompt] = useState(true);
+  const [promptExpanded, setPromptExpanded] = useState(false);
+  const [warmExpanded, setWarmExpanded] = useState(false);
   const dailyPrompt = useMemo(
     () => getDailyJournalPrompt(currentDate, promptOffset),
     [currentDate, promptOffset],
@@ -586,44 +588,56 @@ export function JournalView({
       )}
 
       {showPrompt && (
-        <div className="rounded-xl p-3 bg-[#FAF7F0] dark:bg-[#23252B] border border-[#EFE8D8] dark:border-[#383A42] flex flex-col gap-1.5 text-xs transition-all shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-[#8B6E3C] dark:text-[#CBB182] flex items-center gap-1.5 text-[11px]">
-              <Lightbulb className="w-3.5 h-3.5 text-[#D4A373]" />
-              今日走心微问 · {dailyPrompt.category === "gratitude" ? "感恩" : dailyPrompt.category === "reflection" ? "复盘" : dailyPrompt.category === "discovery" ? "发现" : "治愈"}
+        <div className="rounded-lg bg-[#FAF7F0] dark:bg-[#23252B] border border-[#EFE8D8] dark:border-[#383A42] text-xs shadow-sm overflow-hidden flex-shrink-0">
+          {/* 紧凑条头部 */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+            <Lightbulb className="w-3 h-3 text-[#D4A373] flex-shrink-0" />
+            <span className="font-bold text-[#8B6E3C] dark:text-[#CBB182] text-[10px] flex-shrink-0">
+              走心微问
             </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPromptOffset((p) => p + 1)}
-                className="text-[10px] text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#78C496] cursor-pointer"
-                title="换一个问题"
-              >
-                换一换 ↻
-              </button>
-              <button
-                type="button"
-                onClick={handleInsertPrompt}
-                className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#4D7C5D] text-white hover:bg-[#3F684C] cursor-pointer transition-colors"
-              >
-                写入日记
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPrompt(false)}
-                className="text-[10px] text-slate-300 hover:text-slate-500 cursor-pointer ml-1"
-                title="收起"
-              >
-                ✕
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setPromptExpanded((v) => !v)}
+              className="flex-1 text-left text-[10px] text-slate-500 dark:text-slate-400 truncate cursor-pointer hover:text-slate-700 dark:hover:text-slate-200"
+              title={promptExpanded ? "收起" : "展开问题"}
+            >
+              {promptExpanded ? "▲ " : "▼ "}{dailyPrompt.question.slice(0, 30)}{dailyPrompt.question.length > 30 ? "…" : ""}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPromptOffset((p) => p + 1)}
+              className="text-[10px] text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#78C496] cursor-pointer flex-shrink-0"
+              title="换一个问题"
+            >
+              ↻
+            </button>
+            <button
+              type="button"
+              onClick={handleInsertPrompt}
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#4D7C5D] text-white hover:bg-[#3F684C] cursor-pointer transition-colors flex-shrink-0"
+            >
+              写入
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPrompt(false)}
+              className="text-[10px] text-slate-300 hover:text-slate-500 cursor-pointer flex-shrink-0"
+              title="收起"
+            >
+              ✕
+            </button>
           </div>
-          <p className="text-slate-700 dark:text-slate-300 font-medium text-[13px] leading-snug">
-            {dailyPrompt.question}
-          </p>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">
-            {dailyPrompt.hint}
-          </p>
+          {/* 展开后显示完整问题与提示 */}
+          {promptExpanded && (
+            <div className="px-2.5 pb-2 pt-0 border-t border-[#EFE8D8] dark:border-[#383A42]">
+              <p className="text-slate-700 dark:text-slate-300 font-medium text-[12px] leading-snug mt-1.5">
+                {dailyPrompt.question}
+              </p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 italic mt-0.5">
+                {dailyPrompt.hint}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -668,7 +682,7 @@ export function JournalView({
         onBlur={flushDraft}
         onPaste={handleImagePaste}
         placeholder={j.diaryPlaceholder || "写点什么，记下今天…"}
-        className="flex-grow min-h-0 w-full resize-none rounded-xl text-[15px] text-slate-700 dark:text-slate-200 font-serif focus:outline-none custom-scrollbar bg-transparent border-transparent"
+        className="flex-grow min-h-[10rem] w-full resize-none rounded-xl text-[15px] text-slate-700 dark:text-slate-200 font-serif focus:outline-none custom-scrollbar bg-transparent border-transparent"
         style={{
           padding: "6px 16px 16px 16px",
           lineHeight: "32px",
@@ -703,37 +717,57 @@ export function JournalView({
         </div>
       )}
 
-      <div className="rounded-xl bg-gradient-to-br from-[#F0F5F1] to-[#FCEFF4] dark:from-[#232924] dark:to-[#2B2125] border border-[#E4EEE6] dark:border-[#33353A] p-4">
-        <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#E8A0BF] dark:text-[#E8A0BF]/80 mb-2">
-          <Sparkles className="w-3.5 h-3.5" />
-          {j.aiCommentTitle || "暖评"}
+      <div className="rounded-lg border border-[#E4EEE6] dark:border-[#33353A] overflow-hidden flex-shrink-0">
+        {/* 暖评窄条头部 */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-[#F0F5F1] to-[#FCEFF4] dark:from-[#232924] dark:to-[#2B2125]">
+          <Sparkles className="w-3 h-3 text-[#E8A0BF] dark:text-[#E8A0BF]/80 flex-shrink-0" />
+          <span className="text-[10px] font-bold text-[#E8A0BF] dark:text-[#E8A0BF]/80 flex-shrink-0">
+            {j.aiCommentTitle || "暖评"}
+          </span>
+          {selected?.aiComment ? (
+            <>
+              <span className="flex-1 text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                {warmExpanded ? "" : selected.aiComment.slice(0, 25) + (selected.aiComment.length > 25 ? "…" : "")}
+              </span>
+              <button
+                onClick={() => setWarmExpanded((v) => !v)}
+                className="text-[10px] text-slate-400 hover:text-slate-600 cursor-pointer flex-shrink-0"
+              >
+                {warmExpanded ? "收起 ▲" : "展开 ▼"}
+              </button>
+              <button
+                onClick={generateAiComment}
+                disabled={aiLoading}
+                className="text-[10px] text-[#4D7C5D] dark:text-[#6FAD84] hover:underline disabled:opacity-40 cursor-pointer flex-shrink-0"
+              >
+                {aiLoading ? "..." : j.regenerate || "重新生成"}
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="flex-1 text-[10px] text-slate-400 dark:text-slate-500 italic truncate">
+                {aiLoading ? (j.aiThinking || "正在写暖评...") : "写完今天，点右侧按钮收下暖评"}
+              </span>
+              <button
+                onClick={() => { setWarmExpanded(true); generateAiComment(); }}
+                disabled={aiLoading}
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#E8A0BF]/20 border border-[#E8A0BF]/40 text-[#C07090] dark:text-[#E8A0BF] hover:bg-[#E8A0BF]/30 transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
+              >
+                <Sparkles className="w-2.5 h-2.5" />
+                {j.aiGenerate ? j.aiGenerate.replace("完成今天，收下今天的暖评", "完成今天") : "完成今天"}
+              </button>
+            </>
+          )}
+          {aiError && <span className="text-[10px] text-red-500 flex-shrink-0">{aiError}</span>}
         </div>
-        {selected?.aiComment ? (
-          <>
+        {/* 展开后显示内容 */}
+        {warmExpanded && selected?.aiComment && (
+          <div className="px-3 py-2 bg-gradient-to-br from-[#F0F5F1] to-[#FCEFF4] dark:from-[#232924] dark:to-[#2B2125] border-t border-[#E4EEE6] dark:border-[#33353A]">
             <p className="text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
               {selected.aiComment}
             </p>
-            <button
-              onClick={generateAiComment}
-              disabled={aiLoading}
-              className="mt-2 text-[10px] text-[#4D7C5D] dark:text-[#6FAD84] hover:underline disabled:opacity-40 cursor-pointer"
-            >
-              {aiLoading ? "..." : j.regenerate || "重新生成"}
-            </button>
-          </>
-        ) : (
-          <button
-            onClick={generateAiComment}
-            disabled={aiLoading}
-            className="text-[11px] font-semibold px-3 py-2 rounded-lg bg-white dark:bg-[#1C1D21] border border-[#E4EEE6] dark:border-[#383A42] text-[#4D7C5D] dark:text-[#6FAD84] hover:bg-[#EAF1EC] dark:hover:bg-[#232924] transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            {aiLoading
-              ? j.aiThinking || "正在写暖评..."
-              : j.aiGenerate || "完成今天，收下今天的暖评"}
-          </button>
+          </div>
         )}
-        {aiError && <p className="text-[10px] text-red-500 mt-2">{aiError}</p>}
       </div>
       {selected && (
         <div className="text-[10px] text-slate-400 text-right">
@@ -954,7 +988,7 @@ export function JournalView({
             )}
             <div
               key={`page-${currentDate}-${flipTick}`}
-              className="pl-6 pr-5 py-4 flex flex-col gap-3 h-full min-h-0 animate-fade-in-up"
+              className="pl-6 pr-5 py-4 flex flex-col gap-2 h-full min-h-0 animate-fade-in-up"
             >
               {/* 页眉：大日期 + 翻页 */}
               <div className="flex items-center gap-2">
