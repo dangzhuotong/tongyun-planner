@@ -7,6 +7,7 @@ import type {
   JournalEntry,
 } from "../../types";
 import { isSyncSecretsOptIn } from "./syncSecretsPref";
+import { sanitizeRepeatAnchors } from "../nextDueDate";
 
 export interface SyncData {
   version: number;
@@ -371,9 +372,9 @@ export function mergeRemoteIntoLocal(
 export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void {
   switch (cat) {
     case "tasks": {
-      const localCompleted = readJson<Task[]>("aero_completed_todos", "[]");
+      const localCompleted = sanitizeRepeatAnchors(readJson<Task[]>("aero_completed_todos", "[]"));
       const { tasks } = mergeCompletedPreferLocal(
-        (payload as Task[]) || [],
+        sanitizeRepeatAnchors((payload as Task[]) || []),
         localCompleted,
         localCompleted,
       );
@@ -381,11 +382,11 @@ export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void 
       break;
     }
     case "completedTasks": {
-      const localCompleted = readJson<Task[]>("aero_completed_todos", "[]");
-      const active = readJson<Task[]>("aero_todos", "[]");
+      const localCompleted = sanitizeRepeatAnchors(readJson<Task[]>("aero_completed_todos", "[]"));
+      const active = sanitizeRepeatAnchors(readJson<Task[]>("aero_todos", "[]"));
       const { tasks, completedTasks } = mergeCompletedPreferLocal(
         active,
-        (payload as Task[]) || [],
+        sanitizeRepeatAnchors((payload as Task[]) || []),
         localCompleted,
       );
       localStorage.setItem("aero_todos", JSON.stringify(tasks));
@@ -449,8 +450,10 @@ export function mergeCompletedPreferLocal(
 
 /** 将 localStorage 中的 tasks / completed 交叉去重并写回（pull 部分更新后调用） */
 export function reconcileTasksAndCompleted(): void {
-  const active = readJson<Task[]>("aero_todos", "[]");
-  const remoteOrLocalCompleted = readJson<Task[]>("aero_completed_todos", "[]");
+  const active = sanitizeRepeatAnchors(readJson<Task[]>("aero_todos", "[]"));
+  const remoteOrLocalCompleted = sanitizeRepeatAnchors(
+    readJson<Task[]>("aero_completed_todos", "[]"),
+  );
   const { tasks, completedTasks } = mergeCompletedPreferLocal(
     active,
     remoteOrLocalCompleted,
@@ -491,8 +494,8 @@ export function normalizeSyncData(raw: unknown): SyncData | null {
         ? obj.timestamp
         : 0;
 
-  const completedTasks = (obj.completedTasks as Task[]) || [];
-  const tasks = dedupeActiveTasks(obj.tasks as Task[], completedTasks);
+  const completedTasks = sanitizeRepeatAnchors((obj.completedTasks as Task[]) || []);
+  const tasks = dedupeActiveTasks(sanitizeRepeatAnchors(obj.tasks as Task[]), completedTasks);
 
   return {
     version,
@@ -507,12 +510,14 @@ export function normalizeSyncData(raw: unknown): SyncData | null {
 }
 
 export function applySyncData(data: SyncData): void {
-  const localCompleted = readJson<Task[]>("aero_completed_todos", "[]");
-  const { tasks, completedTasks } = mergeCompletedPreferLocal(
-    data.tasks,
-    data.completedTasks || [],
+  const localCompleted = sanitizeRepeatAnchors(readJson<Task[]>("aero_completed_todos", "[]"));
+  const merged = mergeCompletedPreferLocal(
+    sanitizeRepeatAnchors(data.tasks),
+    sanitizeRepeatAnchors(data.completedTasks || []),
     localCompleted,
   );
+  const tasks = sanitizeRepeatAnchors(merged.tasks);
+  const completedTasks = sanitizeRepeatAnchors(merged.completedTasks);
   localStorage.setItem("aero_todos", JSON.stringify(tasks));
   localStorage.setItem("aero_completed_todos", JSON.stringify(completedTasks));
   localStorage.setItem("aero_sticky_notes", JSON.stringify(data.stickyNotes));

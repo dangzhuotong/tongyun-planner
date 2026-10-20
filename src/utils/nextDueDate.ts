@@ -70,6 +70,31 @@ export function withMonthlyAnchor<T extends RepeatingDueFields>(
 }
 
 /**
+ * 导入/同步落盘前的兜底清理：非 monthly 或非法锚定日不保留。
+ * 合法且仍在 monthly 的锚定日原样保留，避免 2/28 把 31 改成 28。
+ */
+export function sanitizeRepeatAnchor<T extends RepeatingDueFields>(task: T): T {
+  if (task.repeat === "monthly" && isRepeatAnchorDay(task.repeatAnchorDay)) return task;
+  if (!("repeatAnchorDay" in task)) return task;
+  const next = { ...task };
+  delete next.repeatAnchorDay;
+  return next;
+}
+
+/** 批量清理；没有脏字段时返回原数组，避免无意义重渲染。 */
+export function sanitizeRepeatAnchors<T extends RepeatingDueFields>(tasks: T[]): T[] {
+  if (!Array.isArray(tasks)) return tasks;
+  let changed = false;
+  const next = tasks.map((task) => {
+    if (!task || typeof task !== "object") return task;
+    const cleaned = sanitizeRepeatAnchor(task);
+    if (cleaned !== task) changed = true;
+    return cleaned;
+  });
+  return changed ? next : tasks;
+}
+
+/**
  * 用户改了到期日或重复规则时，锚定日跟着新的到期日走。
  * 离开 monthly 时清掉锚定日；再改回 monthly 时按当前到期日重算，不用离开前的 31。
  * 完成任务生成下一次时不走这里，所以 2 月 28 日不会把锚定日改成 28。

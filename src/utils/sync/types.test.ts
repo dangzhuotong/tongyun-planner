@@ -6,6 +6,8 @@ import {
   dedupeActiveTasks,
   mergeCompletedPreferLocal,
   normalizeSyncData,
+  applySyncData,
+  applyCategoryPayload,
   isEffectivelyEmptyCategory,
   isSampleTasksOnly,
   protectAgainstEmptyOverwrite,
@@ -175,6 +177,95 @@ describe("sync types & pure core logic", () => {
       expect(normalizeSyncData("invalid")).toBeNull();
       expect(normalizeSyncData({})).toBeNull(); // tasks is not array
     });
+
+    it("should drop dirty repeatAnchorDay from active and completed tasks", () => {
+      const normalized = normalizeSyncData({
+        tasks: [
+          {
+            id: "a",
+            title: "Daily",
+            category: "urgent-important",
+            repeat: "daily",
+            repeatAnchorDay: 31,
+          },
+          {
+            id: "b",
+            title: "Monthly",
+            category: "urgent-important",
+            repeat: "monthly",
+            repeatAnchorDay: 31,
+          },
+        ],
+        completedTasks: [
+          {
+            id: "c",
+            title: "Weekly",
+            category: "urgent-important",
+            repeat: "weekly",
+            repeatAnchorDay: 15,
+          },
+        ],
+      });
+
+      expect(normalized).not.toBeNull();
+      expect("repeatAnchorDay" in normalized!.tasks[0]).toBe(false);
+      expect(normalized!.tasks[1].repeatAnchorDay).toBe(31);
+      expect("repeatAnchorDay" in normalized!.completedTasks[0]).toBe(false);
+    });
+  });
+
+  describe("applying sync payloads", () => {
+    it("should sanitize stale anchors when a whole object lands", () => {
+      mockStore["aero_completed_todos"] = JSON.stringify([
+        {
+          id: "c",
+          title: "Local Weekly",
+          category: "urgent-important",
+          repeat: "weekly",
+          repeatAnchorDay: 15,
+        },
+      ]);
+
+      applySyncData({
+        version: 1,
+        tasks: [
+          {
+            id: "a",
+            title: "Remote Daily",
+            category: "urgent-important",
+            repeat: "daily",
+            repeatAnchorDay: 31,
+          },
+        ],
+        completedTasks: [],
+        stickyNotes: [],
+        pomodoroLogs: [],
+        countdowns: [],
+        customizationConfig: null,
+        journal: [],
+      });
+
+      const tasks = JSON.parse(mockStore["aero_todos"]);
+      const completed = JSON.parse(mockStore["aero_completed_todos"]);
+      expect("repeatAnchorDay" in tasks[0]).toBe(false);
+      expect("repeatAnchorDay" in completed[0]).toBe(false);
+    });
+
+    it("should sanitize stale anchors in a per-category payload", () => {
+      applyCategoryPayload("tasks", [
+        {
+          id: "a",
+          title: "Remote Daily",
+          category: "urgent-important",
+          repeat: "daily",
+          repeatAnchorDay: 31,
+        },
+      ]);
+
+      const tasks = JSON.parse(mockStore["aero_todos"]);
+      expect(tasks[0].repeat).toBe("daily");
+      expect("repeatAnchorDay" in tasks[0]).toBe(false);
+    });
   });
 
   describe("isEffectivelyEmptyCategory", () => {
@@ -327,4 +418,3 @@ describe("sync types & pure core logic", () => {
     });
   });
 });
-
