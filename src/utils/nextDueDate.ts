@@ -1,4 +1,4 @@
-import { addLocalDays, addLocalMonths, parseLocalDate } from "./date";
+import { addLocalDays, addLocalMonths, getLocalDateString, parseLocalDate } from "./date";
 import { getNextRRuleDate } from "./rrule";
 
 export interface RepeatingDueFields {
@@ -19,13 +19,34 @@ export function dayOfMonth(dateStr: string | undefined): number | undefined {
   return isRepeatAnchorDay(day) ? day : undefined;
 }
 
-/** 没有锚定日时，用当前到期日的日。无效锚定日同样回退。 */
+/** 日历上真实存在的到期日。溢出日期（如 2 月 31 日）不当作月末。 */
+function calendarDueDay(
+  dateStr: string | undefined,
+): { day: number; monthEnd: boolean } | undefined {
+  if (!dateStr) return undefined;
+  const parsed = parseLocalDate(dateStr);
+  if (!parsed || getLocalDateString(parsed) !== dateStr) return undefined;
+  const day = parsed.getDate();
+  if (!isRepeatAnchorDay(day)) return undefined;
+  const lastDay = new Date(parsed.getFullYear(), parsed.getMonth() + 1, 0).getDate();
+  return { day, monthEnd: day === lastDay };
+}
+
+/**
+ * 没有锚定日时，用当前到期日的日。无效锚定日同样回退。
+ * 锚定日与到期日不一致时，只有「到期日是月末，且锚定日更大」才保留（短月钳制）；
+ * 否则按到期日重算，避免 3 月 10 日仍按 31 日滚到下个月。
+ */
 export function resolveMonthlyAnchorDay(
   currentDue: string | undefined,
   anchorDay?: number,
 ): number | undefined {
-  if (isRepeatAnchorDay(anchorDay)) return anchorDay;
-  return dayOfMonth(currentDue);
+  if (!isRepeatAnchorDay(anchorDay)) return dayOfMonth(currentDue);
+  const due = calendarDueDay(currentDue);
+  if (!due) return anchorDay;
+  if (anchorDay === due.day) return anchorDay;
+  if (anchorDay > due.day && due.monthEnd) return anchorDay;
+  return due.day;
 }
 
 export function getNextDueDate(
@@ -71,10 +92,15 @@ export function withMonthlyAnchor<T extends RepeatingDueFields>(
 
 /**
  * 导入/同步落盘前的兜底清理：非 monthly 或非法锚定日不保留。
- * 合法且仍在 monthly 的锚定日原样保留，避免 2/28 把 31 改成 28。
+ * 与到期日一致的锚定日原样保留。短月钳制（到期日是月末，且锚定日更大）也保留，避免 2/28 把 31 改成 28。
+ * 到期日对不上时按到期日重算，避免 3/10 仍按 31 滚到下月 30 日。
  */
 export function sanitizeRepeatAnchor<T extends RepeatingDueFields>(task: T): T {
-  if (task.repeat === "monthly" && isRepeatAnchorDay(task.repeatAnchorDay)) return task;
+  if (task.repeat === "monthly" && isRepeatAnchorDay(task.repeatAnchorDay)) {
+    const resolved = resolveMonthlyAnchorDay(task.dueDate, task.repeatAnchorDay);
+    if (resolved == null || resolved === task.repeatAnchorDay) return task;
+    return { ...task, repeatAnchorDay: resolved };
+  }
   if (!("repeatAnchorDay" in task)) return task;
   const next = { ...task };
   delete next.repeatAnchorDay;

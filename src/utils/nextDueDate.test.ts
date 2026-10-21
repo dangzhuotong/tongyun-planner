@@ -210,4 +210,47 @@ describe("monthly repeat anchor day", () => {
     const clean = [{ dueDate: "2026-02-28", repeat: "daily" as const }];
     expect(sanitizeRepeatAnchors(clean)).toBe(clean);
   });
+
+  it("rewrites a monthly anchor that disagrees with a mid-month due date", () => {
+    const dirty = {
+      dueDate: "2026-03-10",
+      repeat: "monthly" as const,
+      repeatAnchorDay: 31,
+    };
+    const cleaned = sanitizeRepeatAnchor(dirty);
+    expect(cleaned.repeatAnchorDay).toBe(10);
+    expect(dirty.repeatAnchorDay).toBe(31);
+    expect(nextRepeatingDue(cleaned)).toEqual({ dueDate: "2026-04-10", repeatAnchorDay: 10 });
+    expect(nextRepeatingDue(dirty)).toEqual({ dueDate: "2026-04-10", repeatAnchorDay: 10 });
+    expect(getNextDueDate("2026-03-10", "monthly", 31)).toBe("2026-04-10");
+  });
+
+  it("keeps a later anchor on month-end and rewrites an earlier one", () => {
+    expect(
+      sanitizeRepeatAnchor({
+        dueDate: "2026-04-30",
+        repeat: "monthly",
+        repeatAnchorDay: 31,
+      }).repeatAnchorDay,
+    ).toBe(31);
+    expect(getNextDueDate("2026-02-28", "monthly", 31)).toBe("2026-03-31");
+    expect(
+      sanitizeRepeatAnchor({
+        dueDate: "2026-02-28",
+        repeat: "monthly",
+        repeatAnchorDay: 15,
+      }).repeatAnchorDay,
+    ).toBe(28);
+    expect(
+      sanitizeRepeatAnchor({
+        dueDate: "2026-03-31",
+        repeat: "monthly",
+        repeatAnchorDay: 31,
+      }),
+    ).toEqual({
+      dueDate: "2026-03-31",
+      repeat: "monthly",
+      repeatAnchorDay: 31,
+    });
+  });
 });

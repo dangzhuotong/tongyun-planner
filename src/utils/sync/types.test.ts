@@ -6,6 +6,7 @@ import {
   dedupeActiveTasks,
   mergeCompletedPreferLocal,
   normalizeSyncData,
+  getLocalSyncData,
   applySyncData,
   applyCategoryPayload,
   isEffectivelyEmptyCategory,
@@ -212,6 +213,33 @@ describe("sync types & pure core logic", () => {
       expect(normalized!.tasks[1].repeatAnchorDay).toBe(31);
       expect("repeatAnchorDay" in normalized!.completedTasks[0]).toBe(false);
     });
+
+    it("rewrites a monthly anchor that does not match a mid-month due date", () => {
+      const normalized = normalizeSyncData({
+        tasks: [
+          {
+            id: "m",
+            title: "Rent",
+            category: "urgent-important",
+            dueDate: "2026-03-10",
+            repeat: "monthly",
+            repeatAnchorDay: 31,
+          },
+          {
+            id: "e",
+            title: "Month end",
+            category: "urgent-important",
+            dueDate: "2026-02-28",
+            repeat: "monthly",
+            repeatAnchorDay: 31,
+          },
+        ],
+      });
+
+      expect(normalized).not.toBeNull();
+      expect(normalized!.tasks[0].repeatAnchorDay).toBe(10);
+      expect(normalized!.tasks[1].repeatAnchorDay).toBe(31);
+    });
   });
 
   describe("applying sync payloads", () => {
@@ -265,6 +293,33 @@ describe("sync types & pure core logic", () => {
       const tasks = JSON.parse(mockStore["aero_todos"]);
       expect(tasks[0].repeat).toBe("daily");
       expect("repeatAnchorDay" in tasks[0]).toBe(false);
+    });
+
+    it("reads local tasks with a contradictory monthly anchor already rewritten", () => {
+      mockStore["aero_todos"] = JSON.stringify([
+        {
+          id: "m",
+          title: "Rent",
+          category: "urgent-important",
+          dueDate: "2026-03-10",
+          repeat: "monthly",
+          repeatAnchorDay: 31,
+        },
+      ]);
+      mockStore["aero_completed_todos"] = JSON.stringify([
+        {
+          id: "e",
+          title: "Clamped",
+          category: "urgent-important",
+          dueDate: "2026-04-30",
+          repeat: "monthly",
+          repeatAnchorDay: 31,
+        },
+      ]);
+
+      const data = getLocalSyncData();
+      expect(data.tasks[0].repeatAnchorDay).toBe(10);
+      expect(data.completedTasks[0].repeatAnchorDay).toBe(31);
     });
   });
 
