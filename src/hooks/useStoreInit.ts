@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { safeJsonParse } from "../utils/json";
 import { storage } from "../utils/unifiedStorage";
+import { sanitizeRepeatAnchors } from "../utils/nextDueDate";
 import { dedupeActiveTasks } from "../utils/sync/types";
 import type { Task, CustomizationConfig, Locale } from "../types";
 import type { useTasks } from "./useTasks";
@@ -115,6 +116,8 @@ export function useStoreInit(
           );
           resolvedCompleted = safeJsonParse<Task[]>(localCompleted, []);
         }
+        resolvedTasks = sanitizeRepeatAnchors(resolvedTasks);
+        resolvedCompleted = sanitizeRepeatAnchors(resolvedCompleted);
         resolvedTasks = dedupeActiveTasks(resolvedTasks, resolvedCompleted);
 
         handlersRef.current.tasksHook.setTasks(resolvedTasks);

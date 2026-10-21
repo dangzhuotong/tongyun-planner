@@ -464,8 +464,11 @@ export function reconcileTasksAndCompleted(): void {
 }
 
 export function getLocalSyncData(): SyncData {
-  const completedTasks = readJson<Task[]>("aero_completed_todos", "[]");
-  const tasks = dedupeActiveTasks(readJson<Task[]>("aero_todos", "[]"), completedTasks);
+  const completedTasks = sanitizeRepeatAnchors(readJson<Task[]>("aero_completed_todos", "[]"));
+  const tasks = dedupeActiveTasks(
+    sanitizeRepeatAnchors(readJson<Task[]>("aero_todos", "[]")),
+    completedTasks,
+  );
   return {
     version: getLocalSyncVersion(),
     tasks,
