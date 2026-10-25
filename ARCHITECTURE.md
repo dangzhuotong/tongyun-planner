@@ -98,7 +98,13 @@ fn my_command(param: String) -> Result<String, String> {
 
 ## 数据存储 vs 数据同步
 
-项目中存在两层看似重叠、实则职责不同的存储抽象，请勿混淆：
+项目中存在分工明确的存储与同步体系，职责清晰，杜绝「双写无主从」：
+
+- **`src/data/` —— 本机纯数据库领域层（Domain Database）**
+  - **默认单机持久化真相源**：开箱即用嵌入式 SQLite（`tongyun_planner.db`），**零配置无需外部服务，严禁「必须配 DSN」**。
+  - **Full-Schema P0 全量领域表**：包含 `tasks`、`journal_entries`、`pomodoro_logs`、`habits` 等 12 张结构化业务表，废除单一 KV 表。
+  - **可选远端同构同步**：远端 MySQL / TiDB DSN 为完全可选配置，主从关系清晰（单机持久化优先，通过 `sync_state` 与 `sync_outbox` 进行可靠同步），绝无模糊的双写冲突。
+  - **敏感凭据绝对隔离**：API Key 等凭据保留于本机隔离存储，不入库表同步。
 
 - **`src/utils/storage/` —— 本地/附件存储后端（StorageManager）**
   - 负责"数据落在哪里"：支持 `local`（浏览器 localStorage / Tauri Store）与 `webdav` 两种后端。
@@ -113,7 +119,7 @@ fn my_command(param: String) -> Result<String, String> {
   - 本地备份：每天自动快照到应用数据目录 `backups/daily/`，保留最近 14 份（`localSnapshots.ts` + Rust `backup.rs`）；导出与快照都会剥离密钥字段。
   - `syncEngine.setBackend()` 切换的是跨设备同步通道。
 
-> 注意：两层都支持 `webdav`，但**用途不同**——前者是附件存储位置，后者是数据同步通道，二者在 `SettingsView` 中是独立的两组配置，互不影响。修改其中一组不会自动改写另一组。
+> 注意：附件存储、跨设备同步通道与底层领域数据库分工明确，互不混淆。修改其中一组配置不会自动改写另一组。
 
 ## 快捷键
 

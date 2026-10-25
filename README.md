@@ -35,7 +35,7 @@
 <details>
 <summary><strong>English</strong></summary>
 
-**TongYun Planner（橦云手帐）** is a local-first desktop journal and task app: Eisenhower matrix, flip-page diary, pomodoro, sticky notes, and optional AI comments. Built for people who want a paper-like ritual and keep their notes on their own machine.
+**TongYun Planner（橦云手帐）** is a local-first desktop journal and task app: Eisenhower matrix, flip-page diary, pomodoro, sticky notes, and optional AI comments. Built for people who want a paper-like ritual and keep their notes on their own machine. Powered by an out-of-the-box, zero-config local SQLite database (full-schema P0), with strictly optional remote DSN sync.
 
 [Download the latest installer](https://github.com/dangzhuotong/tongyun-planner/releases/latest) for **Windows**, **macOS Universal** (Apple Silicon and Intel), and **Linux** (AppImage / deb). The UI is Chinese by default, with a full English language pack in Settings.
 
@@ -59,13 +59,13 @@
 
 | | 橦云手帐 | Notion | 滴答清单 | Obsidian |
 |---|---|---|---|---|
-| 数据位置 | 默认本机 SQLite，可选自建 WebDAV | 云端账号 | 云端账号同步 | 本地 Markdown 文件 |
+| 数据位置 | 默认本机 SQLite（零配开箱），可选 WebDAV / 远端 DSN 同构同步 | 云端账号 | 云端账号同步 | 本地 Markdown 文件 |
 | 四象限 | 内置 | 需自建模板 | 有四象限视图 | 需插件 |
 | 番茄钟+白噪音 | 内置 | 无内置 | 有番茄与白噪音 | 需插件 |
 | 拟物翻页日记 | 内置 | 无 | 无 | 无 |
 | 开源 | MIT | 否 | 否 | 否（免费但闭源） |
 
-*Vs common tools (short): local-first SQLite + optional WebDAV; built-in Eisenhower matrix, pomodoro with white noise, and flip-page diary — MIT open source. Notion/TickTick are cloud accounts; Obsidian is local Markdown (matrix/pomodoro via plugins; core is free but closed-source).*
+*Vs common tools (short): local-first zero-config SQLite (full-schema P0) + optional WebDAV / remote DSN sync; built-in Eisenhower matrix, pomodoro with white noise, and flip-page diary — MIT open source. Notion/TickTick are cloud accounts; Obsidian is local Markdown (matrix/pomodoro via plugins; core is free but closed-source).*
 
 （本表只写可核实差异，不写价格、不写「比 X 好」。滴答清单四象限/番茄/白噪音见其[帮助中心](https://help.dida365.com/)。）
 
@@ -73,8 +73,8 @@
 
 ## 隐私与数据
 
-- **默认本地优先。** 任务、日记、便签、番茄记录写在本机（SQLite / 应用数据目录）；作者没有运营收集这些内容的服务器。
-- **同步是你自己开的。** 可选 WebDAV（内置坚果云预设，也可填自定义地址）。一旦开启，对应数据会上传到**你配置的远端**。
+- **默认本地优先与零配开箱。** 任务、日记、便签、番茄记录写在本机（SQLite / 应用数据目录）；零配置开箱即用，无需配置外部数据库或 DSN，作者没有运营收集这些内容的服务器。
+- **同步是你自己开的。** 可选 WebDAV（内置坚果云预设，也可填自定义地址）或自建远端数据库 DSN 同步。远端同步完全按需开启（禁止强配 DSN），主从关系与同步边界清晰；一旦开启，对应数据才会同步到**你配置的远端**。
 - **AI 密钥与正文。** 密钥保存在本机设置里。使用 AI 时，相关文本会发往你填写的模型服务商。同步和导出快照都会剥离 AI Key 等密钥字段，密钥只留在本机；换设备后需要重新填写。
 - **天气。** 填写城市后，会请求第三方天气接口（当前为 `uapis.cn`），仅发送城市名。
 
@@ -82,9 +82,21 @@
 
 ## 数据存储与数据库模型 (Pure Database Architecture)
 
-橦云手帐遵循**本地优先（Local-First）**，默认开箱即用本机嵌入式 SQLite 纯数据库持久化，彻底废除业务 KV 作为真相源，支持后续同构同步至用户自建 MySQL / TiDB。
+橦云手帐遵循**本地优先（Local-First）**，默认开箱即用本机嵌入式 SQLite 纯数据库持久化，彻底废除业务 KV 作为真相源：
 
-### P0 核心业务表清单（共 12 张）
+- **零配开箱本机库（Zero-Config Local SQLite）**：
+  - 应用启动即自动连接并初始化内置 SQLite 数据库（`tongyun_planner.db`），无需安装外部数据库服务，**严禁「必须配 DSN」**。
+  - 用户下载安装即可离线运行，所有待办、日记、专注与配置数据 100% 留存在本地系统应用数据目录，响应极速且无网络依赖。
+- **可选远端 DSN 同步（Optional Remote DSN Sync）**：
+  - 支持按需配置同构远端 MySQL / TiDB DSN，用于跨设备数据汇聚或多端备份。
+  - 远端 DSN 同步为**完全自选（Opt-in）的高级特性**，不配置也能完整享受手帐全部功能。
+  - 架构上主从关系与变更边界清晰：以本机 SQLite 单机持久化为第一真相源，通过 `sync_state` 与 `sync_outbox` 触发可靠的远端变更同步，**绝非模糊混乱的「双写无主从」**。
+- **敏感凭据绝对隔离（Security Isolation）**：
+  - AI API Key、模型凭据与远端连接密码始终保留在本机隔离存储区，绝对不随业务表向云端同步，亦不打入导出快照。
+
+### P0 全量领域表清单（Full-Schema P0，共 12 张）
+
+系统建立完整的纯关系型表结构，告别非结构化 KV 混杂存储：
 
 | 表名 | 中文说明 | 核心职责 |
 |:---|:---|:---|
@@ -99,7 +111,7 @@
 | `timeblocks` | 时间块规划 | 日程时间盒 (Timebox) 与日历规划区块 |
 | `user_prefs` | 用户偏好配置 | 单行全局偏好（主题模式、番茄时长、提示音、字体布局等，不含明文敏感凭据） |
 | `sync_state` | 同步状态表 | 实体级别逻辑时钟版本号与上次同步时间戳 |
-| `sync_outbox` | 同步变更出件箱 | 待推送至远端的数据变更日志 |
+| `sync_outbox` | 同步变更出件箱 | 待推送至远端的数据变更日志（主从同步可靠投递） |
 
 ### 数据库迁移 (Migrations)
 

@@ -65,15 +65,18 @@ A: 在番茄钟视图中：
 
 ## 数据和存储
 
-### Q: 数据存储在哪里？
-A: 数据存储在本地：
-- Windows：`%APPDATA%\com.tongyunplanner.app\`
-- macOS：`~/Library/Application Support/com.tongyunplanner.app/`
-- Linux：`~/.config/com.tongyunplanner.app/`
+### Q: 数据存储在哪里？需要配置数据库吗？
+A: **完全不需要额外配置外部数据库或 DSN，零配开箱即用。** 数据默认直接存储在本地嵌入式 SQLite 纯关系型数据库（`tongyun_planner.db`）中，采用 12 张 P0 全量领域表进行结构化持久化：
+- Windows：`%APPDATA%\com.tongyunplanner.app\tongyun_planner.db`
+- macOS：`~/Library/Application Support/com.tongyunplanner.app/tongyun_planner.db`
+- Linux：`~/.config/com.tongyunplanner.app/tongyun_planner.db`
+
+### Q: 是否必须配置远端数据库 DSN？
+A: **绝不强制要求配置 DSN。** 单机嵌入式 SQLite 具备完整的 Full-Schema P0 表结构与全部业务能力，开箱即是完整功能。远端 DSN（如自建 MySQL / TiDB）仅作为完全自选（Opt-in）的同步目标，主从与数据流向清晰，杜绝无序的「双写无主从」。
 
 ### Q: 如何备份数据？
 A: 有以下几种方式：
-1. 使用 WebDAV 同步
+1. 使用 WebDAV 同步或可选远端数据库同步
 2. 手动复制数据目录
 3. 在设置里导出 JSON 快照
 
