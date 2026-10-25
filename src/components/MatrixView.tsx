@@ -87,6 +87,8 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     const [expandedQuadrant, setExpandedQuadrant] = useState<TaskCategory | null>(null);
     const [showMethodologyHelp, setShowMethodologyHelp] = useState(false);
     const [activeAddQuadrant, setActiveAddQuadrant] = useState<TaskCategory | null>(null);
+    const [mobileActiveQuadrant, setMobileActiveQuadrant] =
+      useState<TaskCategory>("urgent-important");
 
     // 拖拽与微交互状态
     const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
@@ -305,6 +307,32 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
           </div>
         )}
 
+        {/* Mobile Quadrant Switcher Chips (Visible only on mobile/narrow screen < md) */}
+        <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-1 shrink-0 custom-scrollbar">
+          {quadrants.map((q) => {
+            const isSelected = mobileActiveQuadrant === q.id;
+            const count = tasksByQuadrant[q.id].length;
+            return (
+              <button
+                key={q.id}
+                type="button"
+                onClick={() => setMobileActiveQuadrant(q.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer border ${
+                  isSelected
+                    ? `${q.defaultBg} ${q.defaultText} ${q.defaultBorder} shadow-2xs ring-1 ring-black/5 dark:ring-white/10`
+                    : "bg-white/80 dark:bg-[#1C1D21]/80 text-slate-500 dark:text-slate-400 border-[#EFEBE4] dark:border-[#33353A]"
+                }`}
+              >
+                <span className="text-xs">{q.icon}</span>
+                <span>{q.label.split(" ")[1] || q.label}</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Matrix Quadrants Grid */}
         <div
           className={`flex-grow min-h-0 ${
@@ -329,6 +357,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
 
             const isDropTarget = dragOverQuadrant === quad.id;
             const isAdding = activeAddQuadrant === quad.id;
+            const isMobileActive = mobileActiveQuadrant === quad.id;
 
             return (
               <div
@@ -362,7 +391,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                   expandedQuadrant
                     ? "flex-grow min-h-0 shadow-md"
                     : "flex-grow min-h-0 hover:-translate-y-0.5"
-                }`}
+                } ${!expandedQuadrant && !isMobileActive ? "hidden md:flex" : "flex"}`}
               >
                 {/* Quadrant Header */}
                 <div

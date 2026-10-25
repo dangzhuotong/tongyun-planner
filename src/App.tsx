@@ -68,7 +68,7 @@ const viewFallback = (
   </div>
 );
 import { audioEngine } from "./utils/audioEngine";
-import { Sparkles } from "lucide-react";
+import { Sparkles, LayoutGrid, ListTodo, Clock, BookOpen, Settings } from "lucide-react";
 import { LanguageProvider, useTranslation } from "./i18n/LanguageContext";
 import { useTasks } from "./hooks/useTasks";
 import { usePomodoro } from "./hooks/usePomodoro";
@@ -1826,6 +1826,74 @@ const MainLayout = React.memo(function MainLayout({
                 );
               })()}
           </div>
+          {/* Mobile Bottom Navigation Bar (md:hidden) */}
+          <nav className="md:hidden flex-shrink-0 border-t border-[#EFEBE4] dark:border-[#282A30] bg-[#F4EFEA]/95 dark:bg-[#16171B]/95 backdrop-blur-md px-2 py-1.5 flex items-center justify-around z-30 select-none pb-[env(safe-area-inset-bottom,4px)]">
+            <button
+              onClick={() => setActiveTab("matrix")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer ${
+                activeTab === "matrix"
+                  ? "text-[#4D7C5D] dark:text-[#6FAD84]"
+                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>四象限</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("list")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer relative ${
+                activeTab === "list"
+                  ? "text-[#4D7C5D] dark:text-[#6FAD84]"
+                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              }`}
+            >
+              <ListTodo className="w-4 h-4" />
+              <span>清单</span>
+              {tasks.length > 0 && (
+                <span className="absolute top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-[#4D7C5D]" />
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab("analytics")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer relative ${
+                activeTab === "analytics"
+                  ? "text-[#4D7C5D] dark:text-[#6FAD84]"
+                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              <span>专注</span>
+              {isPomodoroActive && (
+                <span className="absolute top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab("journal")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer ${
+                activeTab === "journal"
+                  ? "text-[#4D7C5D] dark:text-[#6FAD84]"
+                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>手账</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer ${
+                activeTab === "settings"
+                  ? "text-[#4D7C5D] dark:text-[#6FAD84]"
+                  : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>设置</span>
+            </button>
+          </nav>
         </div>
       )}
       {windowLabel === "main" && commandPaletteOpen && (
