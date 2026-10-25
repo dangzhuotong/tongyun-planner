@@ -1,6 +1,6 @@
 [package]
 name = "tongyun-planner"
-version = "1.1.2"
+version = "1.1.3"
 description = "橦云手帐：本地优先的 AI 手帐式桌面效率 App"
 authors = ["TongYun Planner contributors"]
 edition = "2021"
