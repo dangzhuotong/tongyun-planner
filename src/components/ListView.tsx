@@ -10,7 +10,9 @@ import {
   Pin,
   Repeat,
   ListTodo,
+  Bot,
 } from "lucide-react";
+import { useAgents, getRunStatusLabel } from "../hooks/useAgents";
 import type { Task, PomodoroLog } from "../types";
 import { FILTER_OPTIONS, getDueDateCountdown, PRIORITY_META } from "../constants";
 import { CustomSelect } from "./CustomSelect";
@@ -79,6 +81,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
     isPomodoroActive,
   }) => {
     const { t } = useTranslation();
+  const { getAgentHandle } = useAgents();
     const lv = t.listView;
     const tc = t.taskCard;
     // Local state to filter only starred tasks
@@ -309,6 +312,27 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                             <p className="truncate max-w-[200px] flex-grow min-w-0">
                               {task.description}
                             </p>
+                          )}
+
+                          {/* Agent Assignee Badge */}
+                          {task.assigneeKind === "agent" && task.assigneeAgentId && (
+                            <span
+                              className={`text-[8.5px] px-1.5 py-0.5 rounded-lg border flex items-center gap-1 flex-shrink-0 whitespace-nowrap font-bold ${
+                                task.runStatus === "queued"
+                                  ? "bg-[#FEF9EE] dark:bg-[#322A1E] border-[#FBEAC4] dark:border-[#4B3C24] text-[#A26D14] dark:text-[#E8BA60]"
+                                  : task.runStatus === "running"
+                                  ? "bg-[#F0F7FD] dark:bg-[#1E2D3D] border-[#D4E7F9] dark:border-[#2D4560] text-[#1B6CA8] dark:text-[#64B5F6]"
+                                  : task.runStatus === "done"
+                                  ? "bg-[#F0F5F1] dark:bg-[#232924] border-[#DEEAE2] dark:border-[#38433B] text-[#4D7C5D] dark:text-[#6FAD84]"
+                                  : task.runStatus === "failed"
+                                  ? "bg-[#FCF2F0] dark:bg-[#3D2325] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53]"
+                                  : "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42] text-slate-400"
+                              }`}
+                              title={`负责人: ${getAgentHandle(task.assigneeAgentId)} · 状态: ${getRunStatusLabel(task.runStatus || "queued")}`}
+                            >
+                              <Bot className="w-2.5 h-2.5" />
+                              <span>{getAgentHandle(task.assigneeAgentId)} · {getRunStatusLabel(task.runStatus || "queued")}</span>
+                            </span>
                           )}
 
                           {/* Pomodoro Badge */}

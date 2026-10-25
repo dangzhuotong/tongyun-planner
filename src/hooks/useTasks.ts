@@ -5,7 +5,8 @@ import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
 import { applyDueAnchor, nextRepeatingDue, withMonthlyAnchor } from "../utils/nextDueDate";
 import { scheduleStorageWrite } from "../utils/deferredStorage";
-import { taskRepository } from "../data/repositories";
+import { taskRepository, dispatchRepository } from "../data/repositories";
+import { applyAssigneeUpdates } from "../utils/agentDispatch";
 
 function createInitialTasks(): Task[] {
   const today = getLocalDateString();
@@ -201,6 +202,7 @@ export function useTasks() {
       const filteredCompleted = completedTasks.filter((t) => t.id !== id);
       saveAll(filteredActive, filteredCompleted);
       setDetailTaskId((prev) => (prev === id ? null : prev));
+      dispatchRepository.cancelDispatch(id);
       if (shouldSync) syncState(id, "delete");
     },
     [tasks, completedTasks, saveAll, syncState],
@@ -364,11 +366,31 @@ export function useTasks() {
       repeat?: string;
       tags?: string[];
       priority?: Task["priority"];
+      assigneeKind?: Task["assigneeKind"];
+      assigneeAgentId?: Task["assigneeAgentId"];
+      runStatus?: Task["runStatus"];
     }) => {
-      const { title, description, notes, category, dueDate, dueTime, repeat, tags, priority } =
-        taskData;
+      const {
+        title,
+        description,
+        notes,
+        category,
+        dueDate,
+        dueTime,
+        repeat,
+        tags,
+        priority,
+        assigneeKind,
+        assigneeAgentId,
+        runStatus,
+      } = taskData;
       const taskId = createId("task");
       const initialCategory = category;
+
+      const isAgent = assigneeKind === "agent" && Boolean(assigneeAgentId);
+      const finalKind = isAgent ? "agent" : "human";
+      const finalAgentId = isAgent ? assigneeAgentId : undefined;
+      const finalStatus = isAgent ? runStatus || "queued" : undefined;
 
       const newTask: Task = withMonthlyAnchor({
         id: taskId,
@@ -381,7 +403,14 @@ export function useTasks() {
         repeat: repeat || undefined,
         tags: tags || undefined,
         priority: priority || undefined,
+        assigneeKind: finalKind,
+        assigneeAgentId: finalAgentId,
+        runStatus: finalStatus,
       });
+
+      if (isAgent && finalAgentId) {
+        dispatchRepository.recordDispatch(taskId, finalAgentId, finalStatus);
+      }
 
       setTasks((prev) => {
         const updated = [newTask, ...prev];
@@ -412,7 +441,8 @@ export function useTasks() {
         const task = prev.find((t) => t.id === id);
         if (!task) return prev;
         matchedInActive = true;
-        const nextTask = applyDueAnchor(task, updates);
+        const anchored = applyDueAnchor(task, updates);
+        const nextTask = applyAssigneeUpdates(anchored, updates);
         queueMicrotask(() => {
           syncState(
             id,
@@ -433,7 +463,8 @@ export function useTasks() {
         setCompletedTasks((prev) => {
           const task = prev.find((t) => t.id === id);
           if (!task) return prev;
-          const nextTask = applyDueAnchor(task, updates);
+          const anchored = applyDueAnchor(task, updates);
+          const nextTask = applyAssigneeUpdates(anchored, updates);
           const updated = prev.map((t) => (t.id === id ? nextTask : t));
           saveCompleted(updated);
           return updated;

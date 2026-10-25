@@ -1,10 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { X } from "lucide-react";
-import type { CustomizationConfig, AlertSoundType } from "../types";
+import type { CustomizationConfig, AlertSoundType, Task } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
 import { PersonalizationPanel } from "./personalization/PersonalizationPanel";
 import { SunsetPanel } from "./sunset/SunsetPanel";
 import { AISettingsPanel } from "./ai/AISettingsPanel";
+import { AgentSettingsPanel } from "./agents/AgentSettingsPanel";
 import { EmailSettingsPanel } from "./email/EmailSettingsPanel";
 import { SyncSettingsPanel } from "./sync/SyncSettingsPanel";
 import { SystemSettingsPanel } from "./system/SystemSettingsPanel";
@@ -16,18 +17,20 @@ interface SettingsViewProps {
   alertSoundType: AlertSoundType;
   setAlertSoundType: (type: AlertSoundType) => void;
   resetTasks: () => void;
+  tasks?: Task[];
+  onEditTask?: (id: string, updates: Partial<Task>) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = React.memo(
-  ({ config, onChange, alertSoundType, setAlertSoundType, resetTasks }) => {
+  ({ config, onChange, alertSoundType, setAlertSoundType, resetTasks, tasks, onEditTask }) => {
     const { t } = useTranslation();
     const s = t.settings;
     const [subTab, setSubTab] = useState<
-      "personalization" | "ai" | "sunset" | "sync" | "system" | "fun" | "email"
+      "personalization" | "ai" | "agents" | "sunset" | "sync" | "system" | "fun" | "email"
     >(() => {
       if (typeof sessionStorage !== "undefined") {
         const initial = sessionStorage.getItem("tongyun_settings_initial_tab");
-        const validTabs = ["personalization", "ai", "sunset", "sync", "system", "fun", "email"];
+        const validTabs = ["personalization", "ai", "agents", "sunset", "sync", "system", "fun", "email"];
         if (initial && validTabs.includes(initial)) {
           return initial as any;
         }
@@ -94,6 +97,20 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
           "anthropic",
           "deepseek",
           "opencode",
+        ],
+      },
+      {
+        id: "agents",
+        label: "AI 协同",
+        keywords: [
+          "agent",
+          "助手",
+          "派单",
+          "协同",
+          "runner",
+          "dispatch",
+          "负责人",
+          "本地助手",
         ],
       },
       {
@@ -193,6 +210,13 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
           {subTab === "sunset" && <SunsetPanel config={config} onChange={onChange} />}
           {subTab === "ai" && (
             <AISettingsPanel config={config} onChange={onChange} triggerToast={triggerToast} />
+          )}
+          {subTab === "agents" && (
+            <AgentSettingsPanel
+              tasks={tasks}
+              onEditTask={onEditTask}
+              triggerToast={triggerToast}
+            />
           )}
           {subTab === "email" && <EmailSettingsPanel triggerToast={triggerToast} />}
           {subTab === "sync" && (
