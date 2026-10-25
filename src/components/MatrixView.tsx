@@ -14,6 +14,8 @@ import {
   Info,
   Inbox,
   Bot,
+  Plus,
+  Sparkles,
 } from "lucide-react";
 import { useAgents, getRunStatusLabel } from "../hooks/useAgents";
 import type { Task, TaskCategory, PomodoroLog } from "../types";
@@ -49,6 +51,8 @@ interface MatrixViewProps {
   onEditTask?: (id: string, updates: Partial<Task>) => void;
   searchQuery?: string;
   setSearchQuery?: (q: string) => void;
+  showAiInbox?: boolean;
+  onToggleAiInbox?: () => void;
   pomodoroLogs?: PomodoroLog[];
   activeFocusTaskId?: string | null;
   isPomodoroActive?: boolean;
@@ -67,6 +71,8 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     onEditTask,
     searchQuery,
     setSearchQuery,
+    showAiInbox,
+    onToggleAiInbox,
     pomodoroLogs,
     activeFocusTaskId,
     isPomodoroActive,
@@ -80,6 +86,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     // Fullscreen expand/collapse for a specific quadrant
     const [expandedQuadrant, setExpandedQuadrant] = useState<TaskCategory | null>(null);
     const [showMethodologyHelp, setShowMethodologyHelp] = useState(false);
+    const [activeAddQuadrant, setActiveAddQuadrant] = useState<TaskCategory | null>(null);
 
     // 拖拽与微交互状态
     const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
@@ -197,28 +204,60 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     }, [tasksByQuadrant]);
 
     return (
-      <div className="animate-fade-in-up select-none flex-grow flex flex-col gap-4 md:gap-5">
-        {/* Top Control Bar: Search */}
-        <div className="flex flex-wrap items-center justify-between gap-3.5 bg-white/80 dark:bg-[#1C1D21]/90 p-3.5 px-4 rounded-2xl border border-[#EFEBE4] dark:border-[#33353A] shadow-xs">
-          <div className="relative flex-grow max-w-md">
-            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+      <div className="animate-fade-in-up select-none flex-grow flex flex-col gap-3 min-h-0">
+        {/* Top Control Bar: Compact Toolbar (Title + Stats + Search + Guide + AI Inbox) */}
+        <div className="flex items-center justify-between gap-3 bg-white/90 dark:bg-[#1C1D21]/90 p-2.5 px-4 rounded-xl border border-[#EFEBE4] dark:border-[#33353A] shadow-xs flex-shrink-0">
+          {/* Left: Title & Stats */}
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-sm font-bold tracking-wide text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
+              <span>{t.header.matrix}</span>
+            </h2>
+            <span className="text-[10px] bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-md font-mono font-bold">
+              {totalMatchingTasks} 项待办
+            </span>
+          </div>
+
+          {/* Center: Search */}
+          <div className="relative flex-grow max-w-xs hidden sm:block">
+            <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
             <input
               type="text"
               placeholder={lv.search}
               value={effectiveQuery}
               onChange={(e) => effectiveSetQuery(e.target.value)}
-              className="w-full bg-[#FAF8F5] dark:bg-[#282A30] border border-[#EFEBE4] dark:border-[#383A42] pl-10 pr-4 py-2 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] font-semibold transition-colors"
+              className="w-full bg-[#FAF8F5] dark:bg-[#282A30] border border-[#EFEBE4] dark:border-[#383A42] pl-8 pr-3 py-1 rounded-lg text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] font-medium transition-colors"
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* Right: Guide & AI Inbox */}
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setShowMethodologyHelp(!showMethodologyHelp)}
-              className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#6FAD84] font-bold px-3.5 py-2 rounded-xl border border-[#EFEBE4] dark:border-[#383A42] bg-[#FAF8F5] dark:bg-[#282A30] cursor-pointer transition-colors"
+              className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
+                showMethodologyHelp
+                  ? "bg-[#4D7C5D]/10 text-[#4D7C5D] dark:text-[#6FAD84] border-[#4D7C5D]/30"
+                  : "text-slate-500 dark:text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#6FAD84] border-[#EFEBE4] dark:border-[#383A42] bg-[#FAF8F5] dark:bg-[#282A30]"
+              }`}
+              title="象限法则指引"
             >
               <Info className="w-3.5 h-3.5" />
-              <span>象限法则法则指引</span>
+              <span>象限法则指引</span>
             </button>
+
+            {onToggleAiInbox && (
+              <button
+                onClick={onToggleAiInbox}
+                className={`text-[11px] px-3 py-1 rounded-lg font-bold border transition-all cursor-pointer flex items-center gap-1 shadow-2xs select-none ${
+                  showAiInbox
+                    ? "bg-[#FCF2F0] dark:bg-[#3D2325] text-[#A34E36] dark:text-[#E06D53] border-[#F5DFDB] dark:border-[#422D30]"
+                    : "bg-[#F0F5F1] dark:bg-[#212923] text-[#4D7C5D] dark:text-[#6FAD84] border-[#DEEAE2] dark:border-[#2D3A31] hover:brightness-95"
+                }`}
+                title={showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -268,8 +307,10 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
 
         {/* Matrix Quadrants Grid */}
         <div
-          className={`flex-grow ${
-            expandedQuadrant ? "flex flex-col" : "grid grid-cols-1 md:grid-cols-2 gap-3.5"
+          className={`flex-grow min-h-0 ${
+            expandedQuadrant
+              ? "flex flex-col"
+              : "grid grid-cols-1 md:grid-cols-2 grid-rows-1 md:grid-rows-2 gap-3"
           }`}
         >
           {activeQuadrants.map((quad) => {
@@ -287,6 +328,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                 : 0;
 
             const isDropTarget = dragOverQuadrant === quad.id;
+            const isAdding = activeAddQuadrant === quad.id;
 
             return (
               <div
@@ -314,21 +356,21 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                     onEditTask(taskId, { category: quad.id });
                   }
                 }}
-                className={`rounded-2xl border ${borderClass} ${bgClass} shadow-2xs transition-all duration-300 p-4 flex flex-col gap-2.5 relative overflow-hidden ${
+                className={`rounded-2xl border ${borderClass} ${bgClass} shadow-2xs transition-all duration-300 p-3 sm:p-3.5 flex flex-col gap-2 relative overflow-hidden min-h-0 ${
                   isDropTarget ? "dropzone-highlight" : ""
                 } ${
                   expandedQuadrant
-                    ? "flex-grow min-h-[480px] shadow-md"
-                    : "min-h-[230px] max-h-[340px] hover:-translate-y-0.5"
+                    ? "flex-grow min-h-0 shadow-md"
+                    : "flex-grow min-h-0 hover:-translate-y-0.5"
                 }`}
               >
                 {/* Quadrant Header */}
                 <div
-                  className={`flex items-center justify-between border-b ${borderClass} pb-3 z-10`}
+                  className={`flex items-center justify-between border-b ${borderClass} pb-2.5 z-10 shrink-0`}
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2">
                     <div
-                      className={`w-7 h-7 rounded-xl ${bgClass} flex items-center justify-center border ${borderClass} ${textClass} shrink-0 shadow-2xs`}
+                      className={`w-6 h-6 rounded-lg ${bgClass} flex items-center justify-center border ${borderClass} ${textClass} shrink-0 shadow-2xs text-xs`}
                     >
                       {quad.icon}
                     </div>
@@ -338,24 +380,37 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                       >
                         {quad.label}
                       </span>
-                      <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-medium mt-1 block">
+                      <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 block">
                         {quad.strategy}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span
-                      className={`text-[9.5px] ${bgClass} border ${borderClass} ${textClass} px-2.5 py-0.5 rounded-full font-bold font-mono`}
+                      className={`text-[9px] ${bgClass} border ${borderClass} ${textClass} px-2 py-0.5 rounded-full font-bold font-mono`}
                       title={`占总任务比重 ${percentage}%`}
                     >
                       {m.taskCount.replace("{count}", String(quadrantTasks.length))} ({percentage}%)
                     </span>
 
+                    {/* Quick Add Toggle Button */}
+                    <button
+                      onClick={() => setActiveAddQuadrant(isAdding ? null : quad.id)}
+                      className={`w-6 h-6 rounded-lg transition-colors border ${borderClass} flex items-center justify-center cursor-pointer ${
+                        isAdding
+                          ? "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-900 font-bold"
+                          : "hover:bg-white/80 dark:hover:bg-[#1C1D21]/80 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      }`}
+                      title={isAdding ? t.common.cancel : m.add}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+
                     {/* Maximize / Collapse toggle buttons */}
                     <button
                       onClick={() => setExpandedQuadrant(expandedQuadrant ? null : quad.id)}
-                      className={`p-1.5 rounded-lg hover:bg-white/80 dark:hover:bg-[#1C1D21]/80 transition-colors border ${borderClass} text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer`}
+                      className={`w-6 h-6 rounded-lg hover:bg-white/80 dark:hover:bg-[#1C1D21]/80 transition-colors border ${borderClass} text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer flex items-center justify-center`}
                       title={expandedQuadrant ? m.collapse : m.expand}
                     >
                       {expandedQuadrant ? (
@@ -367,24 +422,29 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                   </div>
                 </div>
 
-                {/* Inline Quick Add Component */}
-                <div className="z-10">
-                  <QuickAddTask
-                    handleAddTask={(data) => handleAddTask({ ...data, isExplicit: true })}
-                    defaultCategory={quad.id}
-                    compact={true}
-                    placeholder={m.addPlaceholder.replace(
-                      "{quadrant}",
-                      quad.label.split(" ").slice(1).join(""),
-                    )}
-                  />
-                </div>
+                {/* Inline Quick Add Component (Expandable) */}
+                {isAdding && (
+                  <div className="z-10 animate-fade-in-up shrink-0">
+                    <QuickAddTask
+                      handleAddTask={(data) => {
+                        handleAddTask({ ...data, isExplicit: true });
+                        setActiveAddQuadrant(null);
+                      }}
+                      defaultCategory={quad.id}
+                      compact={true}
+                      autoFocus={true}
+                      onCancel={() => setActiveAddQuadrant(null)}
+                      placeholder={m.addPlaceholder.replace(
+                        "{quadrant}",
+                        quad.label.split(" ").slice(1).join(""),
+                      )}
+                    />
+                  </div>
+                )}
 
                 {/* Task list container */}
                 <div
-                  className={`flex-grow space-y-2.5 overflow-y-auto pr-1 z-10 custom-scrollbar ${
-                    expandedQuadrant ? "max-h-[520px]" : "max-h-[360px]"
-                  }`}
+                  className="flex-grow min-h-0 space-y-2 overflow-y-auto pr-1 z-10 custom-scrollbar"
                 >
                   {quadrantTasks.length > 0 ? (
                     quadrantTasks.map((task) => {
@@ -683,13 +743,17 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                       );
                     })
                   ) : (
-                    <div className="h-full min-h-[100px] flex flex-col items-center justify-center py-6 px-4 rounded-xl border border-dashed border-[#EFEBE4] dark:border-[#383A42] bg-white/40 dark:bg-[#1C1D21]/40 text-slate-400 dark:text-slate-500 text-center gap-1.5 transition-colors">
+                    <div
+                      onClick={() => setActiveAddQuadrant(quad.id)}
+                      className="h-full min-h-[100px] flex flex-col items-center justify-center py-6 px-4 rounded-xl border border-dashed border-[#EFEBE4] dark:border-[#383A42] bg-white/40 dark:bg-[#1C1D21]/40 text-slate-400 dark:text-slate-500 text-center gap-1.5 transition-colors cursor-pointer hover:bg-white/60 dark:hover:bg-[#1C1D21]/60"
+                      title="点击即可在此象限添加待办"
+                    >
                       <Inbox className="w-5 h-5 text-slate-300 dark:text-slate-600 stroke-[1.5]" />
                       <p className="text-[10px] font-bold tracking-wider text-slate-400 dark:text-slate-500">
                         {t.listView.noTasks}
                       </p>
                       <p className="text-[9px] font-medium text-slate-400/80 dark:text-slate-600">
-                        可拖拽卡片至此象限
+                        点击右上角 + 按钮添加，或拖拽卡片至此
                       </p>
                     </div>
                   )}

@@ -1282,61 +1282,63 @@ const MainLayout = React.memo(function MainLayout({
 }: MainLayoutProps) {
   const mainContent = useMemo(
     () => (
-      <main className="flex-grow p-6 overflow-y-auto flex flex-col gap-5 z-10 relative custom-scrollbar min-h-0">
-        {activeTab !== "home" && (
+      <main
+        className={`flex-grow ${
+          activeTab === "matrix"
+            ? "p-3.5 sm:p-4 gap-2.5 overflow-hidden"
+            : "p-6 gap-5 overflow-y-auto"
+        } flex flex-col z-10 relative custom-scrollbar min-h-0`}
+      >
+        {activeTab !== "home" && activeTab !== "matrix" && (
           <>
             <header className="flex justify-between items-center border-b border-[#EFEBE4] dark:border-[#33353A] pb-4">
               <div>
                 <h2 className="text-xl font-bold tracking-wide text-[#2D323A] dark:text-slate-100">
-                  {activeTab === "matrix"
-                    ? t.header.matrix
-                    : activeTab === "list"
-                      ? t.header.list
-                      : activeTab === "calendar"
-                        ? t.header.calendar
-                        : activeTab === "notes"
-                          ? t.header.notes
-                          : activeTab === "analytics"
-                            ? t.header.analytics
-                            : activeTab === "completed"
-                              ? t.header.completed
-                              : activeTab === "countdown"
-                                ? t.header.countdown
-                                : activeTab === "news"
-                                  ? t.header.news
-                                  : activeTab === "gantt"
-                                    ? "甘特图"
-                                    : activeTab === "journal"
-                                      ? t.journal?.title || "日记手账"
-                                      : activeTab === "memory"
-                                        ? t.sidebar?.memory || "时光长廊"
-                                        : t.header.completed}
+                  {activeTab === "list"
+                    ? t.header.list
+                    : activeTab === "calendar"
+                      ? t.header.calendar
+                      : activeTab === "notes"
+                        ? t.header.notes
+                        : activeTab === "analytics"
+                          ? t.header.analytics
+                          : activeTab === "completed"
+                            ? t.header.completed
+                            : activeTab === "countdown"
+                              ? t.header.countdown
+                              : activeTab === "news"
+                                ? t.header.news
+                                : activeTab === "gantt"
+                                  ? "甘特图"
+                                  : activeTab === "journal"
+                                    ? t.journal?.title || "日记手账"
+                                    : activeTab === "memory"
+                                      ? t.sidebar?.memory || "时光长廊"
+                                      : t.header.completed}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                  {activeTab === "matrix"
-                    ? t.header.matrixDesc
-                    : activeTab === "list"
-                      ? t.header.listDesc
-                      : activeTab === "calendar"
-                        ? t.header.calendarDesc
-                        : activeTab === "notes"
-                          ? t.header.notesDesc
-                          : activeTab === "analytics"
-                            ? t.header.analyticsDesc
-                            : activeTab === "completed"
-                              ? t.header.completedDesc
-                              : activeTab === "countdown"
-                                ? t.header.countdownDesc
-                                : activeTab === "settings"
-                                  ? t.header.settingsDesc
-                                  : activeTab === "news"
-                                    ? t.header.newsDesc
-                                    : activeTab === "memory"
-                                      ? t.header.memoryDesc
-                                      : t.header.homeDesc}
+                  {activeTab === "list"
+                    ? t.header.listDesc
+                    : activeTab === "calendar"
+                      ? t.header.calendarDesc
+                      : activeTab === "notes"
+                        ? t.header.notesDesc
+                        : activeTab === "analytics"
+                          ? t.header.analyticsDesc
+                          : activeTab === "completed"
+                            ? t.header.completedDesc
+                            : activeTab === "countdown"
+                              ? t.header.countdownDesc
+                              : activeTab === "settings"
+                                ? t.header.settingsDesc
+                                : activeTab === "news"
+                                  ? t.header.newsDesc
+                                  : activeTab === "memory"
+                                    ? t.header.memoryDesc
+                                    : t.header.homeDesc}
                 </p>
               </div>
-              {(activeTab === "matrix" || activeTab === "list") && (
+              {activeTab === "list" && (
                 <button
                   onClick={() => aiHook.setShowAiInbox(!aiHook.showAiInbox)}
                   className={`text-xs px-3.5 py-2 rounded-xl font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-xs select-none ${
@@ -1564,6 +1566,8 @@ const MainLayout = React.memo(function MainLayout({
             onEditTask={handleEditTask}
             searchQuery={aiHook.searchQuery}
             setSearchQuery={aiHook.setSearchQuery}
+            showAiInbox={aiHook.showAiInbox}
+            onToggleAiInbox={() => aiHook.setShowAiInbox(!aiHook.showAiInbox)}
             pomodoroLogs={pomodoroLogs}
             activeFocusTaskId={activeFocusTaskId}
             isPomodoroActive={isPomodoroActive}

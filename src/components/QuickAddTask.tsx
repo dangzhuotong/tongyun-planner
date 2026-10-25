@@ -30,6 +30,8 @@ interface QuickAddTaskProps {
   defaultCategory?: Task["category"];
   placeholder?: string;
   compact?: boolean; // If true, hides description, notes, priority dropdown, etc., just a clean single-line bar
+  autoFocus?: boolean;
+  onCancel?: () => void;
 }
 
 const LAST_QUICK_CATEGORY_KEY = "tongyun_last_quick_category";
@@ -57,6 +59,8 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
     defaultCategory,
     placeholder = "添加任务，按回车保存...",
     compact = false,
+    autoFocus = false,
+    onCancel,
   }) => {
     const { t } = useTranslation();
     const q = t.quickAdd;
@@ -287,6 +291,13 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
             placeholder={placeholder}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && onCancel) {
+                e.preventDefault();
+                onCancel();
+              }
+            }}
+            autoFocus={autoFocus}
             className="w-full bg-transparent border-none text-[11px] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none font-semibold"
             required
           />
