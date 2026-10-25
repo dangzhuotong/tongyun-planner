@@ -20,7 +20,7 @@ export interface SyncData {
   journal: JournalEntry[];
 }
 
-export type SyncBackendType = "webdav" | "none";
+export type SyncBackendType = "webdav" | "database" | "none";
 
 /** Keys matching each slice of SyncData that gets its own file on WebDAV */
 export type SyncCategory =

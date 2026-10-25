@@ -7,6 +7,11 @@ import {
   SYNC_APPLIED_EVENT,
 } from "./types";
 import { WebDAVProvider } from "./webdavProvider";
+import {
+  isRemoteDsnConfigured,
+  syncFullSchemaWithRemote,
+  testRemoteDsn,
+} from "./remoteDbSync";
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "conflict" | "offline";
 
@@ -50,8 +55,12 @@ export class SyncEngine {
     const saved = localStorage.getItem("tongyun_sync_backend") as string | null;
     if (saved === "webdav") {
       this._currentBackend = "webdav";
+    } else if (saved === "database") {
+      this._currentBackend = "database";
     } else if (saved === "supabase" || saved === "http") {
       this._currentBackend = "none";
+    } else if (isRemoteDsnConfigured()) {
+      this._currentBackend = "database";
     } else {
       // 有 WebDAV 凭据但未选后端时，自动启用 WebDAV
       const url = localStorage.getItem("tongyun_webdav_url");
@@ -177,11 +186,13 @@ export class SyncEngine {
   }
 
   isConfigured(): boolean {
+    if (this._currentBackend === "database") return isRemoteDsnConfigured();
     const provider = this.getProvider();
     return provider ? provider.isConfigured() : false;
   }
 
   async testConnection(): Promise<boolean> {
+    if (this._currentBackend === "database") return await testRemoteDsn();
     const provider = this.getProvider();
     if (!provider) return false;
     return await provider.test();
@@ -216,8 +227,7 @@ export class SyncEngine {
       return;
     }
 
-    const provider = this.getProvider();
-    if (!provider || !provider.isConfigured()) {
+    if (!this.isConfigured()) {
       this._errorMessage = "未配置同步后端";
       this._status = "error";
       this.notify();
@@ -230,7 +240,9 @@ export class SyncEngine {
 
     try {
       let hasConflicts = false;
-      if (this._currentBackend === "webdav") {
+      if (this._currentBackend === "database") {
+        await syncFullSchemaWithRemote();
+      } else if (this._currentBackend === "webdav") {
         hasConflicts = await this.syncWebDAV();
       }
 
@@ -241,8 +253,13 @@ export class SyncEngine {
         this._status = "success";
       }
     } catch (e: any) {
-      this._status = "error";
-      this._errorMessage = e?.message || "同步失败";
+      if (e?.isOffline) {
+        this._status = "offline";
+        this._errorMessage = "网络离线，数据已保存在本机，恢复联网后将自动追平";
+      } else {
+        this._status = "error";
+        this._errorMessage = e?.message || "同步失败";
+      }
     }
 
     this.notify();
