@@ -21,6 +21,7 @@ export interface Translations {
   floatingNote: Record<string, string>;
   widget: Record<string, string>;
   titleBar: Record<string, string>;
+  agentPanel: Record<string, string>;
   common: Record<string, string>;
   notification: Record<string, string>;
   habits: Record<string, string>;

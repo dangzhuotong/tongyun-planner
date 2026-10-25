@@ -3,6 +3,15 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Task, AppTab } from "./types";
 import { TitleBar } from "./components/TitleBar";
 import { Sidebar } from "./components/Sidebar";
+import { AgentPanel } from "./components/agents/AgentPanel";
+import { DispatchedStrip } from "./components/agents/DispatchedStrip";
+import {
+  mineCardTasks,
+  partitionMineTasks,
+  readWorkSurface,
+  WORK_SURFACE_STORAGE_KEY,
+  type WorkSurface,
+} from "./utils/workbenchView";
 const DashboardView = React.lazy(() =>
   import("./components/DashboardView").then((m) => ({ default: m.DashboardView })),
 );
@@ -61,6 +70,8 @@ import { SunsetShutdownModal } from "./components/sunset/SunsetShutdownModal";
 import { EnergyTimeBlockModal } from "./components/energy/EnergyTimeBlockModal";
 import { QuickCaptureModal } from "./components/QuickCaptureModal";
 import { shouldPromptSunsetShutdown, getTodayString } from "./utils/sunsetShutdown";
+
+const MINE_STRIP_TABS = new Set<AppTab>(["home", "matrix", "list", "calendar", "gantt"]);
 
 const viewFallback = (
   <div className="flex-grow flex items-center justify-center text-slate-400 text-sm py-20">
@@ -961,6 +972,8 @@ function AppBody() {
 
   // Watercolor blobs removed — clean background for calm precision design
 
+  const widgetMineTasks = useMemo(() => mineCardTasks(tasksHook.tasks), [tasksHook.tasks]);
+
   // ============ FloatingNote / Widget / Main Render ============
   if (windowLabel.startsWith("note-")) {
     const noteId = windowLabel.substring(5);
@@ -971,7 +984,7 @@ function AppBody() {
     return (
       <React.Suspense fallback={<div className="w-full h-screen bg-[#FAFAF8]" />}>
         <WidgetWindow
-          tasks={tasksHook.tasks}
+          tasks={widgetMineTasks}
           completedTasks={tasksHook.completedTasks}
           stickyNotes={notesHook.stickyNotes}
           progressPercentage={tasksHook.progressPercentage}
@@ -1280,8 +1293,44 @@ const MainLayout = React.memo(function MainLayout({
   onOpenEnergyTimeBlock,
   onOpenQuickCapture,
 }: MainLayoutProps) {
-  const mainContent = useMemo(
-    () => (
+  const [workSurface, setWorkSurfaceState] = useState<WorkSurface>(() => readWorkSurface());
+  const setWorkSurface = useCallback((next: WorkSurface) => {
+    setWorkSurfaceState(next);
+    try {
+      localStorage.setItem(WORK_SURFACE_STORAGE_KEY, next);
+    } catch {
+      /* 隐私模式或配额满时只留在这次会话里 */
+    }
+  }, []);
+  const openMineTab = useCallback(
+    (tab: AppTab) => {
+      setWorkSurface("mine");
+      setActiveTab(tab);
+    },
+    [setActiveTab, setWorkSurface],
+  );
+  const minePartition = useMemo(() => partitionMineTasks(tasks), [tasks]);
+  const mineTasks = minePartition.cards;
+  const dispatched = minePartition.dispatched;
+
+  const mainContent = useMemo(() => {
+    if (workSurface === "agent") {
+      return (
+        <main className="flex-grow p-4 sm:p-6 overflow-y-auto flex flex-col min-h-0 z-10 relative custom-scrollbar">
+          <AgentPanel
+            tasks={tasks}
+            onEditTask={handleEditTask}
+            onTaskClick={handleTaskClick}
+            onOpenSettings={() => {
+              setWorkSurface("mine");
+              setActiveTab("settings");
+            }}
+          />
+        </main>
+      );
+    }
+
+    return (
       <main
         className={`flex-grow ${
           activeTab === "matrix"
@@ -1541,9 +1590,17 @@ const MainLayout = React.memo(function MainLayout({
           </div>
         )}
 
+        {dispatched.length > 0 && MINE_STRIP_TABS.has(activeTab) && (
+          <DispatchedStrip
+            tasks={dispatched}
+            onTaskClick={handleTaskClick}
+            onOpenAgent={() => setWorkSurface("agent")}
+          />
+        )}
+
         {activeTab === "home" && (
           <DashboardView
-            tasks={tasks}
+            tasks={mineTasks}
             completedTasks={completedTasks}
             pomodoroLogs={pomodoroLogs}
             handleComplete={wrappedHandleComplete}
@@ -1555,7 +1612,7 @@ const MainLayout = React.memo(function MainLayout({
         )}
         {activeTab === "matrix" && (
           <MatrixView
-            tasks={tasks}
+            tasks={mineTasks}
             handleComplete={wrappedHandleComplete}
             qColors={customizationHook.customizationConfig.qColors}
             handleStartFocus={handleStartFocus}
@@ -1575,7 +1632,7 @@ const MainLayout = React.memo(function MainLayout({
         )}
         {activeTab === "list" && (
           <ListView
-            tasks={tasks}
+            tasks={mineTasks}
             searchQuery={aiHook.searchQuery}
             setSearchQuery={aiHook.setSearchQuery}
             categoryFilter={aiHook.categoryFilter}
@@ -1601,7 +1658,7 @@ const MainLayout = React.memo(function MainLayout({
         )}
         {activeTab === "calendar" && (
           <CalendarView
-            tasks={tasks}
+            tasks={mineTasks}
             handleComplete={wrappedHandleComplete}
             handleAddTask={handleAddTaskWithAI}
           />
@@ -1648,7 +1705,7 @@ const MainLayout = React.memo(function MainLayout({
           />
         )}
         {activeTab === "gantt" && (
-          <GanttView tasks={tasks} onTaskClick={handleTaskClick} onEditTask={handleEditTask} />
+          <GanttView tasks={mineTasks} onTaskClick={handleTaskClick} onEditTask={handleEditTask} />
         )}
         {activeTab === "journal" && (
           <JournalView
@@ -1682,66 +1739,69 @@ const MainLayout = React.memo(function MainLayout({
           />
         )}
       </main>
-    ),
-    [
-      activeTab,
-      tasks,
-      completedTasks,
-      journal,
-      t,
-      fontFamily,
-      wrappedHandleComplete,
-      handleDeleteTask,
-      handleTaskClick,
-      handleCloseDetail,
-      handleToggleSubtask,
-      handleAddSubtask,
-      handleSaveNotes,
-      handleUpdateTags,
-      handleEditTask,
-      handleUndoComplete,
-      handleToggleFavorite,
-      handleTogglePin,
-      handleAddTaskWithAI,
-      handleConfirmAiTasks,
-      expandedNoteId,
-      setExpandedNoteId,
-      editingNotes,
-      setEditingNotes,
-      detailTaskId,
-      aiHook,
-      handleStartFocus,
-      activeFocusTaskId,
-      isPomodoroActive,
-      pomodoroLogs,
-      alertSoundType,
-      setAlertSoundType,
-      customizationHook.customizationConfig,
-      customizationHook.handleConfigChange,
-      notesHook.stickyNotes,
-      notesHook.handleAddNote,
-      notesHook.handleEditNoteText,
-      notesHook.handleEditNoteTitle,
-      notesHook.handleChangeNoteColor,
-      notesHook.handleDeleteNote,
-      countdownHook.countdowns,
-      countdownHook.handleAddCountdown,
-      countdownHook.handleDeleteCountdown,
-      habitsHook,
-      onNewsSaveTask,
-      onNewsSaveJournal,
-      setActiveTab,
-      handlePinNoteToDesktop,
-      resetTasks,
-      handleClearCompleted,
-    ],
-  );
+    );
+  }, [
+    activeTab,
+    tasks,
+    mineTasks,
+    dispatched,
+    workSurface,
+    setWorkSurface,
+    completedTasks,
+    journal,
+    t,
+    fontFamily,
+    wrappedHandleComplete,
+    handleDeleteTask,
+    handleTaskClick,
+    handleCloseDetail,
+    handleToggleSubtask,
+    handleAddSubtask,
+    handleSaveNotes,
+    handleUpdateTags,
+    handleEditTask,
+    handleUndoComplete,
+    handleToggleFavorite,
+    handleTogglePin,
+    handleAddTaskWithAI,
+    handleConfirmAiTasks,
+    expandedNoteId,
+    setExpandedNoteId,
+    editingNotes,
+    setEditingNotes,
+    detailTaskId,
+    aiHook,
+    handleStartFocus,
+    activeFocusTaskId,
+    isPomodoroActive,
+    pomodoroLogs,
+    alertSoundType,
+    setAlertSoundType,
+    customizationHook.customizationConfig,
+    customizationHook.handleConfigChange,
+    notesHook.stickyNotes,
+    notesHook.handleAddNote,
+    notesHook.handleEditNoteText,
+    notesHook.handleEditNoteTitle,
+    notesHook.handleChangeNoteColor,
+    notesHook.handleDeleteNote,
+    countdownHook.countdowns,
+    countdownHook.handleAddCountdown,
+    countdownHook.handleDeleteCountdown,
+    habitsHook,
+    onNewsSaveTask,
+    onNewsSaveJournal,
+    setActiveTab,
+    handlePinNoteToDesktop,
+    resetTasks,
+    handleClearCompleted,
+  ]);
   return (
     <>
       {flowMode ? (
         <React.Suspense fallback={viewFallback}>
           <FlowMode
-            tasks={tasks}
+            tasks={mineTasks}
             pomodoroLogs={pomodoroLogs}
             handleComplete={wrappedHandleComplete}
             onExit={() => setFlowMode(false)}
@@ -1751,11 +1811,11 @@ const MainLayout = React.memo(function MainLayout({
         <div
           className={`w-full h-full min-h-screen bg-[#FAFAF8] dark:bg-[#121316] text-[#2D323A] dark:text-slate-100 flex flex-col select-none overflow-hidden relative theme-font-${fontFamily || "sans"} main-window-root`}
         >
-          <TitleBar />
+          <TitleBar workSurface={workSurface} onWorkSurfaceChange={setWorkSurface} />
           <div className="flex flex-grow min-h-0 relative">
             <Sidebar
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
+              activeTab={workSurface === "agent" ? "tasks" : activeTab}
+              setActiveTab={openMineTab}
               progressPercentage={progressPercentage}
               completedTasksCount={completedTasks.length}
               tasksCount={tasks.length}
@@ -1829,9 +1889,9 @@ const MainLayout = React.memo(function MainLayout({
           {/* Mobile Bottom Navigation Bar (md:hidden) */}
           <nav className="md:hidden flex-shrink-0 border-t border-[#EFEBE4] dark:border-[#282A30] bg-[#F4EFEA]/95 dark:bg-[#16171B]/95 backdrop-blur-md px-2 py-1.5 flex items-center justify-around z-30 select-none pb-[env(safe-area-inset-bottom,4px)]">
             <button
-              onClick={() => setActiveTab("matrix")}
+              onClick={() => openMineTab("matrix")}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer ${
-                activeTab === "matrix"
+                workSurface === "mine" && activeTab === "matrix"
                   ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               }`}
@@ -1841,9 +1901,9 @@ const MainLayout = React.memo(function MainLayout({
             </button>
 
             <button
-              onClick={() => setActiveTab("list")}
+              onClick={() => openMineTab("list")}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer relative ${
-                activeTab === "list"
+                workSurface === "mine" && activeTab === "list"
                   ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               }`}
@@ -1856,9 +1916,9 @@ const MainLayout = React.memo(function MainLayout({
             </button>
 
             <button
-              onClick={() => setActiveTab("analytics")}
+              onClick={() => openMineTab("analytics")}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer relative ${
-                activeTab === "analytics"
+                workSurface === "mine" && activeTab === "analytics"
                   ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               }`}
@@ -1871,9 +1931,9 @@ const MainLayout = React.memo(function MainLayout({
             </button>
 
             <button
-              onClick={() => setActiveTab("journal")}
+              onClick={() => openMineTab("journal")}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer ${
-                activeTab === "journal"
+                workSurface === "mine" && activeTab === "journal"
                   ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               }`}
@@ -1883,9 +1943,9 @@ const MainLayout = React.memo(function MainLayout({
             </button>
 
             <button
-              onClick={() => setActiveTab("settings")}
+              onClick={() => openMineTab("settings")}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer ${
-                activeTab === "settings"
+                workSurface === "mine" && activeTab === "settings"
                   ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               }`}
@@ -1908,7 +1968,7 @@ const MainLayout = React.memo(function MainLayout({
             setCommandPaletteOpen(false);
           }}
           onNavigate={(tab) => {
-            setActiveTab(tab);
+            openMineTab(tab);
             setFlowMode(false);
           }}
           onCreateTask={() => {}}
