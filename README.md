@@ -80,6 +80,36 @@
 
 ---
 
+## 数据存储与数据库模型 (Pure Database Architecture)
+
+橦云手帐遵循**本地优先（Local-First）**，默认开箱即用本机嵌入式 SQLite 纯数据库持久化，彻底废除业务 KV 作为真相源，支持后续同构同步至用户自建 MySQL / TiDB。
+
+### P0 核心业务表清单（共 12 张）
+
+| 表名 | 中文说明 | 核心职责 |
+|:---|:---|:---|
+| `tasks` | 待办清单主表 | 四象限分类、截止日期时间、重复规则、优先级、执行状态与本地 Agent 关联 |
+| `journal_entries` | 手帐日记与笔记 | 日期日记与自由笔记正文、心情、贴纸坐标、胶带、朱砂印章与 AI 温暖评语 |
+| `pomodoro_logs` | 番茄专注记录 | 专注时长、关联任务与完成时间戳 |
+| `habits` | 习惯打卡定义 | 习惯名称、连续天数 streak、最后打卡日期 |
+| `agents` | AI / 工人名册 | 本地与远端派发 Agent 名册、状态与配置元数据 |
+| `task_dispatch` | 任务派发记录 | 待办派发到 Agent 的队列与执行历史状态 |
+| `sticky_notes` | 桌面便签 | 便签文字、颜色与倾斜旋转角度 |
+| `countdowns` | 倒计时事件 | 目标日期、倒数日标题、公历/农历支持与个性化颜色 |
+| `timeblocks` | 时间块规划 | 日程时间盒 (Timebox) 与日历规划区块 |
+| `user_prefs` | 用户偏好配置 | 单行全局偏好（主题模式、番茄时长、提示音、字体布局等，不含明文敏感凭据） |
+| `sync_state` | 同步状态表 | 实体级别逻辑时钟版本号与上次同步时间戳 |
+| `sync_outbox` | 同步变更出件箱 | 待推送至远端的数据变更日志 |
+
+### 数据库迁移 (Migrations)
+
+主仓迁移文件位于 `migrations/`：
+- `0001_initial_domain_tables.sql`：初始领域表结构
+- `0002_agent_and_dispatch.sql`：本地助手名册与派发队列支持
+- `0003_p0_full_schema.sql`：12 张 P0 全量领域表，完成旧数据与 localStorage 向纯数据库的无缝平滑迁移
+
+---
+
 ## 下载与安装
 
 到 **[Releases · latest](https://github.com/dangzhuotong/tongyun-planner/releases/latest)** 取安装包：
