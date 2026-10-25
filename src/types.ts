@@ -5,6 +5,30 @@ export type RepeatType = "daily" | "weekly" | "monthly" | "none";
 
 export type TaskPriority = "high" | "medium" | "low";
 
+export type AssigneeKind = 'human' | 'agent';
+export type TaskRunStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+export type AgentKind = 'local_runner' | 'pipeline_bridge' | 'manual';
+
+export interface DomainAgent {
+  id: string;
+  handle: string;
+  kind: AgentKind;
+  enabled: boolean;
+  meta?: Record<string, unknown> | string;
+  updatedAt: number;
+}
+
+export interface DomainTaskDispatch {
+  id: string;
+  taskId: string;
+  agentId: string;
+  status: TaskRunStatus;
+  note?: string;
+  pipelineTaskId?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface SubTask {
   id: string;
   title: string;
@@ -49,6 +73,12 @@ export interface Task {
   stamp?: string;
   /** 时间盒区间 (HH:mm) */
   timeBlock?: { start: string; end: string };
+  /** 负责人类型：自己 (human) | 本地 Agent (agent)，缺省为 human */
+  assigneeKind?: AssigneeKind;
+  /** 关联的本地 Agent ID（当 assigneeKind 为 agent 时非空） */
+  assigneeAgentId?: string;
+  /** AI 调度执行状态：queued | running | done | failed | cancelled */
+  runStatus?: TaskRunStatus;
 }
 
 export interface PomodoroLog {

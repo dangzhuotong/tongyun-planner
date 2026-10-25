@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Calendar, Flag, Repeat, Zap } from "lucide-react";
+import { Plus, Calendar, Flag, Repeat, Zap, Bot, User } from "lucide-react";
+import { useAgents } from "../hooks/useAgents";
 import type { Task, TimeBlock, TaskPriority } from "../types";
 import { PRIORITY_OPTIONS, PRIORITY_LEVELS } from "../constants";
 import { CustomSelect } from "./CustomSelect";
@@ -19,6 +20,9 @@ interface QuickAddTaskProps {
     repeat?: string;
     tags?: string[];
     priority?: Task["priority"];
+    assigneeKind?: Task["assigneeKind"];
+    assigneeAgentId?: Task["assigneeAgentId"];
+    runStatus?: Task["runStatus"];
   }) => void;
   timeBlocks?: TimeBlock[];
   onAddTimeBlock?: (block: TimeBlock) => void;
@@ -74,6 +78,16 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
     const [tags, setTags] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState("");
     const [priority, setPriority] = useState<TaskPriority>("medium");
+    const { enabledAgents } = useAgents();
+    const [assigneeKind, setAssigneeKind] = useState<Task["assigneeKind"]>("human");
+    const [assigneeAgentId, setAssigneeAgentId] = useState<string | undefined>(undefined);
+    const assigneeOptions = React.useMemo(() => [
+      { value: "human", label: "自己 (Human)" },
+      ...enabledAgents.map((a) => ({
+        value: a.id,
+        label: `${a.handle} (${a.kind === "manual" ? "手动" : a.kind === "local_runner" ? "Runner" : "网关"})`,
+      })),
+    ], [enabledAgents]);
 
     // Track focus to expand extra options (date, priority, etc.) in non-compact mode
     const [isFocused, setIsFocused] = useState(false);
@@ -119,6 +133,9 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
         repeat: repeat !== "none" ? repeat : undefined,
         tags: tags.length > 0 ? tags : undefined,
         priority,
+        assigneeKind,
+        assigneeAgentId,
+        runStatus: assigneeKind === "agent" ? "queued" : undefined,
       });
 
       try {
@@ -529,6 +546,33 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
                           {rruleToLabel(repeat)}
                         </span>
                       )}
+                  </div>
+
+                  {/* Assignee Selector */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium flex items-center gap-1">
+                      {assigneeKind === "agent" ? (
+                        <Bot className="w-3.5 h-3.5 text-[#A26D14] dark:text-[#E8BA60]" />
+                      ) : (
+                        <User className="w-3.5 h-3.5 text-slate-400" />
+                      )}
+                      负责人
+                    </span>
+                    <CustomSelect
+                      value={assigneeKind === "agent" && assigneeAgentId ? assigneeAgentId : "human"}
+                      onChange={(v) => {
+                        if (v === "human") {
+                          setAssigneeKind("human");
+                          setAssigneeAgentId(undefined);
+                        } else {
+                          setAssigneeKind("agent");
+                          setAssigneeAgentId(v);
+                        }
+                      }}
+                      options={assigneeOptions}
+                      className="w-28 text-[10px]"
+                      dropdownAlign="top"
+                    />
                   </div>
                 </div>
 

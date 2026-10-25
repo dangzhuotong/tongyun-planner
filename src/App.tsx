@@ -1673,6 +1673,8 @@ const MainLayout = React.memo(function MainLayout({
             alertSoundType={alertSoundType}
             setAlertSoundType={setAlertSoundType}
             resetTasks={resetTasks}
+            tasks={tasks}
+            onEditTask={handleEditTask}
           />
         )}
       </main>
