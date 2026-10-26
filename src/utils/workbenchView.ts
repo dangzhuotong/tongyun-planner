@@ -36,14 +36,26 @@ export function readWorkSurface(): WorkSurface {
   }
 }
 
-/** 没有派给 Agent 的任务。未设 assigneeKind 视为自己。 */
+/** 没有派给 Agent 的任务。未设 assigneeKind 且无 Agent 关联视为自己。 */
 export function isPureHumanTask(task: Task): boolean {
-  return task.assigneeKind !== "agent";
+  if (task.assigneeKind === "agent") return false;
+  if (
+    !task.assigneeKind &&
+    (Boolean(task.assigneeAgentId) || (Boolean(task.runStatus) && task.runStatus !== "cancelled"))
+  ) {
+    return false;
+  }
+  return true;
 }
 
-/** 仍属于 Agent 面板的任务。取消派单后回到「我的」。 */
+/** 仍属于 Agent 面板的任务。含 runStatus=blocked 等非取消的 Agent 待办。取消派单后回到「我的」。 */
 export function isDispatchedAgentTask(task: Task): boolean {
-  return task.assigneeKind === "agent" && task.runStatus !== "cancelled";
+  const isAgent =
+    task.assigneeKind === "agent" ||
+    (!task.assigneeKind &&
+      (Boolean(task.assigneeAgentId) ||
+        (Boolean(task.runStatus) && task.runStatus !== "cancelled")));
+  return isAgent && task.runStatus !== "cancelled";
 }
 
 export function describeRunStatus(

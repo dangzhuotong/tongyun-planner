@@ -6,7 +6,7 @@ export type RepeatType = "daily" | "weekly" | "monthly" | "none";
 export type TaskPriority = "high" | "medium" | "low";
 
 export type AssigneeKind = 'human' | 'agent';
-export type TaskRunStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+export type TaskRunStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'blocked';
 export type AgentKind = 'local_runner' | 'pipeline_bridge' | 'manual';
 
 export interface DomainAgent {
@@ -77,8 +77,10 @@ export interface Task {
   assigneeKind?: AssigneeKind;
   /** 关联的本地 Agent ID（当 assigneeKind 为 agent 时非空） */
   assigneeAgentId?: string;
-  /** AI 调度执行状态：queued | running | done | failed | cancelled */
+  /** AI 调度执行状态：queued | running | done | failed | cancelled | blocked */
   runStatus?: TaskRunStatus;
+  /** 更新时刻（ms） */
+  updatedAt?: number;
 }
 
 export interface PomodoroLog {

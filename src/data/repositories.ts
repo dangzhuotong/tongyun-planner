@@ -13,6 +13,7 @@ import type {
   TimeBlock,
 } from "../types";
 import { safeJsonParse } from "../utils/json";
+import { mergeTaskSources } from "../utils/taskMerge";
 import { getDomainDatabase, queueDomainWrite } from "./domainDatabase";
 
 type DataRow = { id: string; data: string };
@@ -64,24 +65,23 @@ function parseTaskRow(row: DbTaskRow): Task {
     };
   }
   task.id = row.id;
-  if (row.title !== undefined) task.title = row.title;
-  if (row.description !== undefined) task.description = row.description ?? undefined;
-  if (row.notes !== undefined) task.notes = row.notes ?? undefined;
+  if (row.title != null) task.title = row.title;
+  if (row.description != null) task.description = row.description;
+  if (row.notes != null) task.notes = row.notes;
   if (row.category) task.category = row.category as TaskCategory;
-  if (row.due_date !== undefined) task.dueDate = row.due_date ?? undefined;
-  if (row.due_time !== undefined) task.dueTime = row.due_time ?? undefined;
-  if (row.is_favorite !== undefined) task.isFavorite = Boolean(row.is_favorite);
-  if (row.is_pinned !== undefined) task.isPinned = Boolean(row.is_pinned);
-  if (row.repeat_rule !== undefined) task.repeat = row.repeat_rule ?? undefined;
+  if (row.due_date != null) task.dueDate = row.due_date;
+  if (row.due_time != null) task.dueTime = row.due_time;
+  if (row.is_favorite != null) task.isFavorite = Boolean(row.is_favorite);
+  if (row.is_pinned != null) task.isPinned = Boolean(row.is_pinned);
+  if (row.repeat_rule != null) task.repeat = row.repeat_rule;
   if (row.repeat_anchor_day != null) task.repeatAnchorDay = row.repeat_anchor_day;
   if (row.priority) task.priority = row.priority as TaskPriority;
   if (row.energy_level) task.energyLevel = row.energy_level as any;
   if (row.estimated_pomodoros != null) task.estimatedPomodoros = row.estimated_pomodoros;
   if (row.journal_id) task.journalId = row.journal_id;
-  task.completedAt = row.completed_at ?? undefined;
+  if (row.completed_at != null) task.completedAt = row.completed_at;
   if (row.assignee_kind) task.assigneeKind = row.assignee_kind as any;
-  if (row.assignee_agent_id !== undefined)
-    task.assigneeAgentId = row.assignee_agent_id ?? undefined;
+  if (row.assignee_agent_id != null) task.assigneeAgentId = row.assignee_agent_id;
   if (row.run_status) task.runStatus = row.run_status as TaskRunStatus;
   if (row.stamp) task.stamp = row.stamp;
   if (row.time_block_start && row.time_block_end) {
@@ -93,6 +93,7 @@ function parseTaskRow(row: DbTaskRow): Task {
     task.dependsOn = safeJsonParse(row.depends_on_json, task.dependsOn || []);
   if (row.attachments_json)
     task.attachments = safeJsonParse(row.attachments_json, task.attachments || []);
+  if (row.updated_at != null) task.updatedAt = row.updated_at;
   return task;
 }
 
@@ -217,34 +218,92 @@ class TaskRepository {
     const db = await getDomainDatabase();
     if (!db) return null;
 
+    let tasksRows: DbTaskRow[] = [];
     try {
       const rows = await db.select<DbTaskRow[]>(
         "SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY updated_at DESC",
       );
       if (rows && rows.length > 0) {
-        const all = rows.map(parseTaskRow);
-        return {
-          tasks: all.filter((task) => !task.completedAt),
-          completed: all.filter((task) => Boolean(task.completedAt)),
-        };
+        tasksRows = rows;
       }
     } catch {
-      // fallback to legacy domain_tasks table
+      // tasks table might not exist
     }
 
+    let legacyRows: DbTaskRow[] = [];
     try {
-      const legacyRows = await db.select<DbTaskRow[]>(
-        "SELECT id, data, assignee_kind, assignee_agent_id, run_status FROM domain_tasks ORDER BY updated_at DESC",
+      const rows = await db.select<DbTaskRow[]>(
+        "SELECT id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status FROM domain_tasks ORDER BY updated_at DESC",
       );
-      if (!legacyRows || legacyRows.length === 0) return null;
-      const all = legacyRows.map(parseTaskRow);
-      return {
-        tasks: all.filter((task) => !task.completedAt),
-        completed: all.filter((task) => Boolean(task.completedAt)),
-      };
+      if (rows && rows.length > 0) {
+        legacyRows = rows;
+      }
     } catch {
+      // domain_tasks table might not exist
+    }
+
+    let storageActive: Task[] = [];
+    let storageCompleted: Task[] = [];
+    try {
+      const sRows = await db.select<{ key: string; value: string }[]>(
+        "SELECT key, value FROM storage WHERE key IN ('aero_todos', 'aero_completed_todos')",
+      );
+      for (const row of sRows) {
+        if (row.key === "aero_todos") {
+          storageActive = safeJsonParse<Task[]>(row.value, []);
+        } else if (row.key === "aero_completed_todos") {
+          storageCompleted = safeJsonParse<Task[]>(row.value, []);
+        }
+      }
+    } catch {
+      // storage table might not exist
+    }
+
+    let localActive: Task[] = [];
+    let localCompleted: Task[] = [];
+    if (typeof localStorage !== "undefined") {
+      try {
+        const rawActive = localStorage.getItem("aero_todos");
+        const rawDone = localStorage.getItem("aero_completed_todos");
+        if (rawActive) localActive = safeJsonParse<Task[]>(rawActive, []);
+        if (rawDone) localCompleted = safeJsonParse<Task[]>(rawDone, []);
+      } catch {
+        // ignore localStorage error
+      }
+    }
+
+    const parsedTasks = tasksRows.map(parseTaskRow);
+    const parsedLegacy = legacyRows.map(parseTaskRow);
+
+    if (
+      parsedTasks.length === 0 &&
+      parsedLegacy.length === 0 &&
+      storageActive.length === 0 &&
+      storageCompleted.length === 0 &&
+      localActive.length === 0 &&
+      localCompleted.length === 0
+    ) {
       return null;
     }
+
+    return mergeTaskSources(
+      {
+        tasks: parsedTasks.filter((t) => !t.completedAt),
+        completed: parsedTasks.filter((t) => Boolean(t.completedAt)),
+      },
+      {
+        tasks: parsedLegacy.filter((t) => !t.completedAt),
+        completed: parsedLegacy.filter((t) => Boolean(t.completedAt)),
+      },
+      {
+        tasks: storageActive,
+        completed: storageCompleted,
+      },
+      {
+        tasks: localActive,
+        completed: localCompleted,
+      },
+    );
   }
 
   syncSnapshot(tasks: Task[], completed: Task[]): void {
@@ -252,31 +311,35 @@ class TaskRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          const rows = await db
+          const taskRows = await db
             .select<{ id: string; data: string }[]>(
               "SELECT id, data FROM tasks WHERE deleted_at IS NULL",
             )
-            .catch(async () => {
-              return db.select<{ id: string; data: string }[]>("SELECT id, data FROM domain_tasks");
-            });
+            .catch(() => []);
+          const legacyRows = await db
+            .select<{ id: string; data: string }[]>("SELECT id, data FROM domain_tasks")
+            .catch(() => []);
 
-          const existing = new Map(rows.map((row) => [row.id, row.data]));
+          const allExisting = new Map<string, string>();
+          for (const r of legacyRows) allExisting.set(r.id, r.data);
+          for (const r of taskRows) allExisting.set(r.id, r.data);
+
           const desiredIds = new Set(desired.map((task) => task.id));
           await db.execute("BEGIN IMMEDIATE");
           try {
-            for (const row of rows) {
-              if (!desiredIds.has(row.id)) {
+            for (const id of allExisting.keys()) {
+              if (!desiredIds.has(id)) {
                 await db
-                  .execute("DELETE FROM tasks WHERE id = $1", [row.id])
+                  .execute("DELETE FROM tasks WHERE id = $1", [id])
                   .catch(() => undefined);
                 await db
-                  .execute("DELETE FROM domain_tasks WHERE id = $1", [row.id])
+                  .execute("DELETE FROM domain_tasks WHERE id = $1", [id])
                   .catch(() => undefined);
               }
             }
             for (const task of desired) {
               const data = JSON.stringify(task);
-              if (existing.get(task.id) === data) continue;
+              if (allExisting.get(task.id) === data) continue;
               const now = Date.now();
               await db
                 .execute(

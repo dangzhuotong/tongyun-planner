@@ -4,6 +4,7 @@ import { safeJsonParse } from "../utils/json";
 import { storage } from "../utils/unifiedStorage";
 import { sanitizeRepeatAnchors } from "../utils/nextDueDate";
 import { dedupeActiveTasks } from "../utils/sync/types";
+import { mergeTaskSources } from "../utils/taskMerge";
 import type { Task, CustomizationConfig, Locale } from "../types";
 import type { useTasks } from "./useTasks";
 import type { usePomodoro } from "./usePomodoro";
@@ -97,34 +98,38 @@ export function useStoreInit(
           handlersRef.current.countdownHook.setCountdowns(safeJsonParse(localCountdowns, []));
 
         const repositoryData = await taskRepository.load();
-        const localTasks = localStorage.getItem("aero_todos");
-        const localCompleted = localStorage.getItem("aero_completed_todos");
+        const localTasksRaw = localStorage.getItem("aero_todos");
+        const localCompletedRaw = localStorage.getItem("aero_completed_todos");
+        const localTasks = localTasksRaw ? safeJsonParse<Task[]>(localTasksRaw, []) : [];
+        const localCompleted = localCompletedRaw ? safeJsonParse<Task[]>(localCompletedRaw, []) : [];
+
+        // 合并三源：tasks 表 + domain_tasks + aero_todos/aero_completed_todos
+        const merged = mergeTaskSources(
+          repositoryData,
+          { tasks: localTasks, completed: localCompleted },
+        );
 
         let resolvedTasks: Task[];
         let resolvedCompleted: Task[];
 
-        if (repositoryData) {
-          resolvedTasks = repositoryData.tasks;
-          resolvedCompleted = repositoryData.completed;
-        } else if (!localTasks || safeJsonParse<Task[]>(localTasks, []).length === 0) {
+        // 禁止「tasks 有任意行就忽略 domain_tasks/localStorage」；仅全空才 INITIAL_TASKS
+        if (merged.tasks.length === 0 && merged.completed.length === 0) {
           resolvedTasks = handlersRef.current.tasksHook.INITIAL_TASKS;
           resolvedCompleted = [];
         } else {
-          resolvedTasks = safeJsonParse<Task[]>(
-            localTasks,
-            handlersRef.current.tasksHook.INITIAL_TASKS,
-          );
-          resolvedCompleted = safeJsonParse<Task[]>(localCompleted, []);
+          resolvedTasks = merged.tasks;
+          resolvedCompleted = merged.completed;
         }
+
         resolvedTasks = sanitizeRepeatAnchors(resolvedTasks);
         resolvedCompleted = sanitizeRepeatAnchors(resolvedCompleted);
         resolvedTasks = dedupeActiveTasks(resolvedTasks, resolvedCompleted);
 
         handlersRef.current.tasksHook.setTasks(resolvedTasks);
         handlersRef.current.tasksHook.setCompletedTasks(resolvedCompleted);
-        if (repositoryData) {
-          handlersRef.current.tasksHook.saveAll(resolvedTasks, resolvedCompleted);
-        }
+
+        // 合并后再写回三源一致，避免稀疏快照误删完整源数据
+        handlersRef.current.tasksHook.saveAll(resolvedTasks, resolvedCompleted);
       } catch (e) {
         console.warn("数据加载失败，使用初始任务", e);
         handlersRef.current.tasksHook.setTasks(handlersRef.current.tasksHook.INITIAL_TASKS);
