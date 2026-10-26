@@ -3,10 +3,13 @@ import type { Task, TaskRunStatus } from "../types";
 import { applyAssigneeUpdates } from "./agentDispatch";
 import {
   agentColumnFor,
+  buildAgentDispatchedTask,
+  isDispatchedAgentTask,
   isPureHumanTask,
   mineCardTasks,
   partitionAgentBoard,
   partitionMineTasks,
+  resolveDefaultAgentId,
   runActionsFor,
 } from "./workbenchView";
 
@@ -173,5 +176,71 @@ describe("workbench view P-AP-01～03", () => {
     expect(agentColumnFor(blockedTask)).toBe("queued");
     expect(board.queued.map((item) => item.id)).toContain("a_blocked");
     expect(mineCardTasks(all).map((item) => item.id)).toEqual(["h1"]);
+  });
+
+  describe("Agent 面板新建派活（#2619865960106024055）", () => {
+    it("resolveDefaultAgentId: 唯一启用或默认上次优先，失效回退首个", () => {
+      // 1. 无启用 agent 返回 undefined
+      expect(resolveDefaultAgentId([])).toBeUndefined();
+
+      // 2. 唯一启用 agent 时直接默认该 agent
+      const single = [{ id: "agent_solo" }];
+      expect(resolveDefaultAgentId(single)).toBe("agent_solo");
+      expect(resolveDefaultAgentId(single, "agent_other")).toBe("agent_solo");
+
+      // 3. 多个 agent 且有上次派活记录且有效时，默认上次选择
+      const multiple = [
+        { id: "agent_runner_1" },
+        { id: "agent_runner_2" },
+        { id: "agent_runner_3" },
+      ];
+      expect(resolveDefaultAgentId(multiple, "agent_runner_2")).toBe("agent_runner_2");
+
+      // 4. 上次派活记录失效（已不在 enabled 列表）时，兜底选首个启用 agent
+      expect(resolveDefaultAgentId(multiple, "agent_deleted")).toBe("agent_runner_1");
+      expect(resolveDefaultAgentId(multiple, null)).toBe("agent_runner_1");
+    });
+
+    it("buildAgentDispatchedTask: 新建任务 assigneeKind=agent、runStatus=queued", () => {
+      const dispatched = buildAgentDispatchedTask({
+        id: "dispatch_01",
+        title: "直接派给 Agent 的新任务",
+        agentId: "agent_local_assistant",
+      });
+
+      expect(dispatched.id).toBe("dispatch_01");
+      expect(dispatched.title).toBe("直接派给 Agent 的新任务");
+      expect(dispatched.assigneeKind).toBe("agent");
+      expect(dispatched.assigneeAgentId).toBe("agent_local_assistant");
+      expect(dispatched.runStatus).toBe("queued");
+      expect(dispatched.category).toBe("important-not-urgent");
+    });
+
+    it("面板新建派活：待跑可见，且「我的」不堆这条（进入灰入口而不占主卡片）", () => {
+      const existingMine = task({ id: "my_task", title: "我的日常待办" });
+      const newDispatched = buildAgentDispatchedTask({
+        id: "dispatch_02",
+        title: "分析最新数据报告",
+        agentId: "agent_local_assistant",
+      });
+
+      const allTasks = [existingMine, newDispatched];
+
+      // 1. Agent 面板待跑可见
+      const board = partitionAgentBoard(allTasks);
+      expect(board.queued.map((t) => t.id)).toContain("dispatch_02");
+      expect(agentColumnFor(newDispatched)).toBe("queued");
+
+      // 2. 「我的」主卡片堆（mine.cards）零包含，不堆到四象限
+      const mine = partitionMineTasks(allTasks);
+      expect(mine.cards.map((t) => t.id)).toEqual(["my_task"]);
+      expect(mineCardTasks(allTasks).map((t) => t.id)).toEqual(["my_task"]);
+      expect(mineCardTasks(allTasks).some((t) => t.id === "dispatch_02")).toBe(false);
+
+      // 3. 「我的」侧按规则进入 dispatched 灰入口
+      expect(mine.dispatched.map((t) => t.id)).toEqual(["dispatch_02"]);
+      expect(isPureHumanTask(newDispatched)).toBe(false);
+      expect(isDispatchedAgentTask(newDispatched)).toBe(true);
+    });
   });
 });

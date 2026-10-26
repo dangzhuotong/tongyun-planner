@@ -30,7 +30,16 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
     >(() => {
       if (typeof sessionStorage !== "undefined") {
         const initial = sessionStorage.getItem("tongyun_settings_initial_tab");
-        const validTabs = ["personalization", "ai", "agents", "sunset", "sync", "system", "fun", "email"];
+        const validTabs = [
+          "personalization",
+          "ai",
+          "agents",
+          "sunset",
+          "sync",
+          "system",
+          "fun",
+          "email",
+        ];
         if (initial && validTabs.includes(initial)) {
           return initial as any;
         }
@@ -102,16 +111,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
       {
         id: "agents",
         label: "AI 协同",
-        keywords: [
-          "agent",
-          "助手",
-          "派单",
-          "协同",
-          "runner",
-          "dispatch",
-          "负责人",
-          "本地助手",
-        ],
+        keywords: ["agent", "助手", "派单", "协同", "runner", "dispatch", "负责人", "本地助手"],
       },
       {
         id: "email",
@@ -212,11 +212,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
             <AISettingsPanel config={config} onChange={onChange} triggerToast={triggerToast} />
           )}
           {subTab === "agents" && (
-            <AgentSettingsPanel
-              tasks={tasks}
-              onEditTask={onEditTask}
-              triggerToast={triggerToast}
-            />
+            <AgentSettingsPanel tasks={tasks} onEditTask={onEditTask} triggerToast={triggerToast} />
           )}
           {subTab === "email" && <EmailSettingsPanel triggerToast={triggerToast} />}
           {subTab === "sync" && (

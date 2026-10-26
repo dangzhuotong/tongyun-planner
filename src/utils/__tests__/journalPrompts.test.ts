@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getDailyJournalPrompt,
-  formatPromptForJournal,
-  JOURNAL_PROMPTS,
-} from "../journalPrompts";
+import { getDailyJournalPrompt, formatPromptForJournal, JOURNAL_PROMPTS } from "../journalPrompts";
 
 describe("journalPrompts utility", () => {
   it("returns deterministic prompt for the same date", () => {

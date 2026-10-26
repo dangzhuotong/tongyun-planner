@@ -51,7 +51,9 @@ const QuickCaptureModalContent: React.FC<Omit<QuickCaptureModalProps, "isOpen">>
         dueDate: parsed.dueDate,
       });
       audioEngine.playPencilScratchSound();
-      onToast(`✓ 已录入为待办 [${parsed.category === "urgent-important" ? "重要且紧急" : "四象限"}]`);
+      onToast(
+        `✓ 已录入为待办 [${parsed.category === "urgent-important" ? "重要且紧急" : "四象限"}]`,
+      );
     }
 
     onClose();

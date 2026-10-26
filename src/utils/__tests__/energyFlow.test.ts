@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getCurrentEnergyZone,
-  inferTaskEnergyLevel,
-  groupTasksByEnergyZones,
-} from "../energyFlow";
+import { getCurrentEnergyZone, inferTaskEnergyLevel, groupTasksByEnergyZones } from "../energyFlow";
 import type { Task } from "../../types";
 
 describe("energyFlow utility", () => {

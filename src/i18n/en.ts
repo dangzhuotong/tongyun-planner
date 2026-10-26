@@ -589,6 +589,10 @@ const en: Translations = {
   agentPanel: {
     title: "Agent board",
     desc: "Work you handed to an agent. Your own tasks stay under Mine.",
+    newTask: "New task",
+    quickAddPlaceholder: "Enter task title, press Enter to save...",
+    noEnabledAgents: "No enabled agents",
+    dispatchSave: "Save",
     queued: "Queued",
     running: "Running",
     settled: "Done · Failed",
@@ -600,7 +604,7 @@ const en: Translations = {
     settledHint: "Finished or failed",
     emptyColumn: "Nothing in this column",
     emptyBoard:
-      "Nothing is assigned to an agent yet. Open a task under Mine and set the owner to an agent — it lands in Queued.",
+      "Nothing is assigned to an agent yet. Click New task above to dispatch work, or set the owner to an agent under Mine.",
     filterAll: "All agents",
     start: "Start",
     markDone: "Done",

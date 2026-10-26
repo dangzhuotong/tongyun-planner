@@ -180,9 +180,10 @@ export function mergeTwoTasks(a: Task, b: Task): Task {
  * 合并 tasks 表、domain_tasks 表、localStorage (aero_todos/aero_completed_todos)。
  * 按 id 聚合去重，冲突取较新/较完整，确保人类与 Agent 待办无遗漏。
  */
-export function mergeTaskSources(
-  ...sources: (TaskSourceCollection | null | undefined)[]
-): { tasks: Task[]; completed: Task[] } {
+export function mergeTaskSources(...sources: (TaskSourceCollection | null | undefined)[]): {
+  tasks: Task[];
+  completed: Task[];
+} {
   const activeMap = new Map<string, Task>();
   const completedMap = new Map<string, Task>();
 

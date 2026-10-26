@@ -577,6 +577,10 @@ const zhCN: Translations = {
   agentPanel: {
     title: "Agent 面板",
     desc: "只看派出去的事。自己的待办留在「我的」。",
+    newTask: "新建",
+    quickAddPlaceholder: "输入派活标题，回车保存...",
+    noEnabledAgents: "暂无可用 Agent",
+    dispatchSave: "保存",
     queued: "待跑",
     running: "跑着",
     settled: "完成 · 失败",
@@ -587,7 +591,8 @@ const zhCN: Translations = {
     runningHint: "正在执行",
     settledHint: "已跑完，或这次失败了",
     emptyColumn: "这一栏还空着",
-    emptyBoard: "还没有派给 Agent 的事。在「我的」里打开任务，把负责人改成 Agent，就会出现在待跑。",
+    emptyBoard:
+      "还没有派给 Agent 的事。在上方点击「新建」直接派活，或在「我的」里把负责人改成 Agent。",
     filterAll: "全部 Agent",
     start: "开始",
     markDone: "完成",

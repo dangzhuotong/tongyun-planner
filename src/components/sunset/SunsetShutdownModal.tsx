@@ -1,9 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sunset, CheckCircle2, Clock, ArrowRight, Sparkles, Moon, X, Calendar, Compass } from "lucide-react";
+import {
+  Sunset,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  Sparkles,
+  Moon,
+  X,
+  Calendar,
+  Compass,
+} from "lucide-react";
 import type { Task, PomodoroLog } from "../../types";
 import { audioEngine } from "../../utils/audioEngine";
-import { calculateSunsetStats, getTodayString, getTomorrowString } from "../../utils/sunsetShutdown";
+import {
+  calculateSunsetStats,
+  getTodayString,
+  getTomorrowString,
+} from "../../utils/sunsetShutdown";
 
 interface SunsetShutdownModalProps {
   isOpen: boolean;
@@ -238,7 +252,9 @@ const SunsetShutdownModalContent: React.FC<Omit<SunsetShutdownModalProps, "isOpe
               {stats.uncompletedTasks.length === 0 ? (
                 <div className="p-8 text-center rounded-xl bg-white dark:bg-[#262830] border border-[#EFEBE4] dark:border-[#33353A] space-y-2">
                   <CheckCircle2 className="w-8 h-8 text-[#4D7C5D] mx-auto" />
-                  <p className="text-sm font-bold text-[#4D7C5D]">太赞了！今日截止待办已全部清空！</p>
+                  <p className="text-sm font-bold text-[#4D7C5D]">
+                    太赞了！今日截止待办已全部清空！
+                  </p>
                   <p className="text-xs text-slate-400">没有任何悬空任务打扰你的夜晚。</p>
                 </div>
               ) : (

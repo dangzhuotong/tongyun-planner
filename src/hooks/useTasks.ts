@@ -357,10 +357,10 @@ export function useTasks() {
   const handleAddTask = useCallback(
     async (taskData: {
       title: string;
-      description: string;
-      notes: string;
-      category: Task["category"];
-      dueDate: string;
+      description?: string;
+      notes?: string;
+      category?: Task["category"];
+      dueDate?: string;
       dueTime?: string;
       isExplicit?: boolean;
       repeat?: string;
@@ -385,7 +385,8 @@ export function useTasks() {
         runStatus,
       } = taskData;
       const taskId = createId("task");
-      const initialCategory = category;
+      const initialCategory = category || "important-not-urgent";
+      const initialDueDate = dueDate || getLocalDateString();
 
       const isAgent = assigneeKind === "agent" && Boolean(assigneeAgentId);
       const finalKind = isAgent ? "agent" : "human";
@@ -398,7 +399,7 @@ export function useTasks() {
         description: description || undefined,
         notes: notes || undefined,
         category: initialCategory,
-        dueDate: dueDate || undefined,
+        dueDate: initialDueDate,
         dueTime: dueTime || undefined,
         repeat: repeat || undefined,
         tags: tags || undefined,

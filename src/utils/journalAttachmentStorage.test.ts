@@ -30,9 +30,7 @@ function makeEntry(overrides: Partial<JournalEntry> = {}): JournalEntry {
 describe("journalAttachmentStorage outside Tauri", () => {
   it("returns empty and browser-safe paths unchanged", () => {
     expect(journalAttachmentSrc("")).toBe("");
-    expect(journalAttachmentSrc("data:image/png;base64,AAAA")).toBe(
-      "data:image/png;base64,AAAA",
-    );
+    expect(journalAttachmentSrc("data:image/png;base64,AAAA")).toBe("data:image/png;base64,AAAA");
     expect(journalAttachmentSrc("blob:http://localhost/abc")).toBe("blob:http://localhost/abc");
     expect(journalAttachmentSrc("https://cdn.example/photo.png")).toBe(
       "https://cdn.example/photo.png",
@@ -43,9 +41,7 @@ describe("journalAttachmentStorage outside Tauri", () => {
   });
 
   it("returns a local file path unchanged without the desktop runtime", () => {
-    expect(journalAttachmentSrc("attachments/e/a/photo.png")).toBe(
-      "attachments/e/a/photo.png",
-    );
+    expect(journalAttachmentSrc("attachments/e/a/photo.png")).toBe("attachments/e/a/photo.png");
   });
 
   it("does not invoke deletion outside Tauri", async () => {
@@ -60,7 +56,14 @@ describe("journalAttachmentStorage outside Tauri", () => {
     const entries = [
       makeEntry({
         attachments: [
-          { id: "a1", name: "photo.png", path: "data:image/png;base64,AAAA", type: "image/png", size: 3, createdAt: "2026-01-01" },
+          {
+            id: "a1",
+            name: "photo.png",
+            path: "data:image/png;base64,AAAA",
+            type: "image/png",
+            size: 3,
+            createdAt: "2026-01-01",
+          },
         ],
       }),
       makeEntry({ id: "entry-2" }),

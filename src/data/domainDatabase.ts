@@ -1,5 +1,13 @@
 import type Database from "@tauri-apps/plugin-sql";
-import type { CountdownEvent, HabitItem, JournalEntry, PomodoroLog, StickyNote, Task, TimeBlock } from "../types";
+import type {
+  CountdownEvent,
+  HabitItem,
+  JournalEntry,
+  PomodoroLog,
+  StickyNote,
+  Task,
+  TimeBlock,
+} from "../types";
 import { safeJsonParse } from "../utils/json";
 
 const DB_NAME = "sqlite:tongyun_planner.db";
@@ -60,7 +68,9 @@ export async function createSchema(db: Database): Promise<void> {
     assignee_agent_id TEXT,
     run_status TEXT
   )`);
-  await db.execute("CREATE INDEX IF NOT EXISTS idx_domain_tasks_completed ON domain_tasks(completed_at)");
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_domain_tasks_completed ON domain_tasks(completed_at)",
+  );
   await db.execute("CREATE INDEX IF NOT EXISTS idx_domain_tasks_due ON domain_tasks(due_date)");
 
   await db.execute(`CREATE TABLE IF NOT EXISTS domain_journal (
@@ -70,14 +80,18 @@ export async function createSchema(db: Database): Promise<void> {
     updated_at INTEGER NOT NULL,
     data TEXT NOT NULL
   )`);
-  await db.execute("CREATE INDEX IF NOT EXISTS idx_domain_journal_date ON domain_journal(entry_date)");
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_domain_journal_date ON domain_journal(entry_date)",
+  );
 
   await db.execute(`CREATE TABLE IF NOT EXISTS domain_pomodoro_logs (
     id TEXT PRIMARY KEY,
     occurred_at INTEGER NOT NULL,
     data TEXT NOT NULL
   )`);
-  await db.execute("CREATE INDEX IF NOT EXISTS idx_domain_pomodoro_time ON domain_pomodoro_logs(occurred_at)");
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_domain_pomodoro_time ON domain_pomodoro_logs(occurred_at)",
+  );
 
   await db.execute(`CREATE TABLE IF NOT EXISTS domain_habits (
     id TEXT PRIMARY KEY,
@@ -105,7 +119,9 @@ export async function createSchema(db: Database): Promise<void> {
     updated_at INTEGER NOT NULL
   )`);
   await db.execute("CREATE INDEX IF NOT EXISTS idx_dispatch_task ON domain_task_dispatch(task_id)");
-  await db.execute("CREATE INDEX IF NOT EXISTS idx_dispatch_status ON domain_task_dispatch(status)");
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_dispatch_status ON domain_task_dispatch(status)",
+  );
 
   // ==========================================
   // P0 Full Schema (2026-10-25 定稿无业务 KV)
@@ -168,8 +184,12 @@ export async function createSchema(db: Database): Promise<void> {
     updated_at INTEGER NOT NULL,
     deleted_at INTEGER
   )`);
-  await db.execute("CREATE INDEX IF NOT EXISTS idx_journal_entries_date ON journal_entries(entry_date)");
-  await db.execute("CREATE INDEX IF NOT EXISTS idx_journal_entries_link ON journal_entries(link_key)");
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_journal_entries_date ON journal_entries(entry_date)",
+  );
+  await db.execute(
+    "CREATE INDEX IF NOT EXISTS idx_journal_entries_link ON journal_entries(link_key)",
+  );
 
   // 3. pomodoro_logs (专注番茄记录)
   await db.execute(`CREATE TABLE IF NOT EXISTS pomodoro_logs (
@@ -318,10 +338,14 @@ export async function migrateLegacyData(db: Database): Promise<void> {
   );
   if (appliedV1.length === 0) {
     const taskRaw = typeof localStorage !== "undefined" ? localStorage.getItem("aero_todos") : null;
-    const completedRaw = typeof localStorage !== "undefined" ? localStorage.getItem("aero_completed_todos") : null;
-    const journalRaw = typeof localStorage !== "undefined" ? localStorage.getItem("tongyun_journal") : null;
-    const pomodoroRaw = typeof localStorage !== "undefined" ? localStorage.getItem("aero_pomodoro_logs") : null;
-    const habitsRaw = typeof localStorage !== "undefined" ? localStorage.getItem("tongyun_habits") : null;
+    const completedRaw =
+      typeof localStorage !== "undefined" ? localStorage.getItem("aero_completed_todos") : null;
+    const journalRaw =
+      typeof localStorage !== "undefined" ? localStorage.getItem("tongyun_journal") : null;
+    const pomodoroRaw =
+      typeof localStorage !== "undefined" ? localStorage.getItem("aero_pomodoro_logs") : null;
+    const habitsRaw =
+      typeof localStorage !== "undefined" ? localStorage.getItem("tongyun_habits") : null;
 
     await db.execute("BEGIN IMMEDIATE");
     try {
@@ -420,9 +444,10 @@ export async function migrateLegacyData(db: Database): Promise<void> {
       );
     }
 
-    await db.execute("INSERT OR REPLACE INTO schema_migrations(version, applied_at) VALUES (2, $1)", [
-      Date.now(),
-    ]);
+    await db.execute(
+      "INSERT OR REPLACE INTO schema_migrations(version, applied_at) VALUES (2, $1)",
+      [Date.now()],
+    );
   }
 
   // Schema V3 migration: P0 Full Schema (tasks, journal_entries, etc.)
@@ -433,18 +458,22 @@ export async function migrateLegacyData(db: Database): Promise<void> {
     await db.execute("BEGIN IMMEDIATE");
     try {
       // 1. Migrate tasks from domain_tasks
-      const domainTasks = await db.select<{
-        id: string;
-        completed_at: number | null;
-        due_date: string | null;
-        updated_at: number;
-        data: string;
-        assignee_kind: string | null;
-        assignee_agent_id: string | null;
-        run_status: string | null;
-      }[]>(
-        "SELECT id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status FROM domain_tasks",
-      ).catch(() => []);
+      const domainTasks = await db
+        .select<
+          {
+            id: string;
+            completed_at: number | null;
+            due_date: string | null;
+            updated_at: number;
+            data: string;
+            assignee_kind: string | null;
+            assignee_agent_id: string | null;
+            run_status: string | null;
+          }[]
+        >(
+          "SELECT id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status FROM domain_tasks",
+        )
+        .catch(() => []);
 
       for (const dt of domainTasks) {
         const task = safeJsonParse<Partial<Task>>(dt.data, {});
@@ -494,15 +523,17 @@ export async function migrateLegacyData(db: Database): Promise<void> {
       }
 
       // 2. Migrate journal from domain_journal
-      const domainJournal = await db.select<{
-        id: string;
-        entry_date: string;
-        is_daily: number;
-        updated_at: number;
-        data: string;
-      }[]>(
-        "SELECT id, entry_date, is_daily, updated_at, data FROM domain_journal",
-      ).catch(() => []);
+      const domainJournal = await db
+        .select<
+          {
+            id: string;
+            entry_date: string;
+            is_daily: number;
+            updated_at: number;
+            data: string;
+          }[]
+        >("SELECT id, entry_date, is_daily, updated_at, data FROM domain_journal")
+        .catch(() => []);
 
       for (const dj of domainJournal) {
         const entry = safeJsonParse<Partial<JournalEntry>>(dj.data, {});
@@ -536,13 +567,15 @@ export async function migrateLegacyData(db: Database): Promise<void> {
       }
 
       // 3. Migrate pomodoro logs
-      const domainPomodoro = await db.select<{
-        id: string;
-        occurred_at: number;
-        data: string;
-      }[]>(
-        "SELECT id, occurred_at, data FROM domain_pomodoro_logs",
-      ).catch(() => []);
+      const domainPomodoro = await db
+        .select<
+          {
+            id: string;
+            occurred_at: number;
+            data: string;
+          }[]
+        >("SELECT id, occurred_at, data FROM domain_pomodoro_logs")
+        .catch(() => []);
 
       for (const dp of domainPomodoro) {
         const log = safeJsonParse<Partial<PomodoroLog>>(dp.data, {});
@@ -562,13 +595,15 @@ export async function migrateLegacyData(db: Database): Promise<void> {
       }
 
       // 4. Migrate habits
-      const domainHabits = await db.select<{
-        id: string;
-        updated_at: number;
-        data: string;
-      }[]>(
-        "SELECT id, updated_at, data FROM domain_habits",
-      ).catch(() => []);
+      const domainHabits = await db
+        .select<
+          {
+            id: string;
+            updated_at: number;
+            data: string;
+          }[]
+        >("SELECT id, updated_at, data FROM domain_habits")
+        .catch(() => []);
 
       for (const dh of domainHabits) {
         const habit = safeJsonParse<Partial<HabitItem>>(dh.data, {});
@@ -589,16 +624,18 @@ export async function migrateLegacyData(db: Database): Promise<void> {
       }
 
       // 5. Migrate agents
-      const domainAgents = await db.select<{
-        id: string;
-        handle: string;
-        kind: string;
-        enabled: number;
-        meta: string;
-        updated_at: number;
-      }[]>(
-        "SELECT id, handle, kind, enabled, meta, updated_at FROM domain_agents",
-      ).catch(() => []);
+      const domainAgents = await db
+        .select<
+          {
+            id: string;
+            handle: string;
+            kind: string;
+            enabled: number;
+            meta: string;
+            updated_at: number;
+          }[]
+        >("SELECT id, handle, kind, enabled, meta, updated_at FROM domain_agents")
+        .catch(() => []);
 
       for (const da of domainAgents) {
         await db.execute(
@@ -616,18 +653,22 @@ export async function migrateLegacyData(db: Database): Promise<void> {
       }
 
       // 6. Migrate task dispatch
-      const domainDispatches = await db.select<{
-        id: string;
-        task_id: string;
-        agent_id: string;
-        status: string;
-        note: string | null;
-        pipeline_task_id: string | null;
-        created_at: number;
-        updated_at: number;
-      }[]>(
-        "SELECT id, task_id, agent_id, status, note, pipeline_task_id, created_at, updated_at FROM domain_task_dispatch",
-      ).catch(() => []);
+      const domainDispatches = await db
+        .select<
+          {
+            id: string;
+            task_id: string;
+            agent_id: string;
+            status: string;
+            note: string | null;
+            pipeline_task_id: string | null;
+            created_at: number;
+            updated_at: number;
+          }[]
+        >(
+          "SELECT id, task_id, agent_id, status, note, pipeline_task_id, created_at, updated_at FROM domain_task_dispatch",
+        )
+        .catch(() => []);
 
       for (const dd of domainDispatches) {
         await db.execute(
@@ -655,7 +696,15 @@ export async function migrateLegacyData(db: Database): Promise<void> {
             await db.execute(
               `INSERT OR REPLACE INTO sticky_notes (id, title, text, color, rotate, updated_at, data)
                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-              [n.id, n.title ?? null, n.text, n.color, n.rotate || 0, Date.now(), JSON.stringify(n)],
+              [
+                n.id,
+                n.title ?? null,
+                n.text,
+                n.color,
+                n.rotate || 0,
+                Date.now(),
+                JSON.stringify(n),
+              ],
             );
           }
         }
@@ -729,9 +778,10 @@ export async function migrateLegacyData(db: Database): Promise<void> {
         );
       }
 
-      await db.execute("INSERT OR REPLACE INTO schema_migrations(version, applied_at) VALUES (3, $1)", [
-        Date.now(),
-      ]);
+      await db.execute(
+        "INSERT OR REPLACE INTO schema_migrations(version, applied_at) VALUES (3, $1)",
+        [Date.now()],
+      );
       await db.execute("COMMIT");
     } catch (error) {
       await db.execute("ROLLBACK").catch(() => undefined);

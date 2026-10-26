@@ -9,20 +9,33 @@ export interface ParsedCapture {
 }
 
 /** 解析极速捕捉胶囊的输入内容 */
-export function parseQuickCaptureInput(rawText: string, todayStr: string = new Date().toISOString().slice(0, 10)): ParsedCapture {
+export function parseQuickCaptureInput(
+  rawText: string,
+  todayStr: string = new Date().toISOString().slice(0, 10),
+): ParsedCapture {
   const trimmed = rawText.trim();
   if (!trimmed) {
     return { type: "task", content: "" };
   }
 
   // 1. 判断是否为便签前缀
-  if (trimmed.startsWith("//") || trimmed.startsWith("memo:") || trimmed.startsWith("便签：") || trimmed.startsWith("便签:")) {
+  if (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("memo:") ||
+    trimmed.startsWith("便签：") ||
+    trimmed.startsWith("便签:")
+  ) {
     const content = trimmed.replace(/^(\/\/|memo:|便签：|便签:)\s*/i, "");
     return { type: "note", content };
   }
 
   // 2. 判断是否为日记随笔前缀
-  if (trimmed.startsWith("..") || trimmed.startsWith("diary:") || trimmed.startsWith("日记：") || trimmed.startsWith("日记:")) {
+  if (
+    trimmed.startsWith("..") ||
+    trimmed.startsWith("diary:") ||
+    trimmed.startsWith("日记：") ||
+    trimmed.startsWith("日记:")
+  ) {
     const content = trimmed.replace(/^(\.\.|diary:|日记：|日记:)\s*/i, "");
     return { type: "journal", content };
   }
@@ -43,10 +56,18 @@ export function parseQuickCaptureInput(rawText: string, todayStr: string = new D
   }
 
   // 提取象限优先级标记 (!1, !重要, !紧急, !2, !3, !4)
-  if (cleanTitle.includes("!重要紧急") || cleanTitle.includes("!1") || cleanTitle.includes("!紧急")) {
+  if (
+    cleanTitle.includes("!重要紧急") ||
+    cleanTitle.includes("!1") ||
+    cleanTitle.includes("!紧急")
+  ) {
     category = "urgent-important";
     cleanTitle = cleanTitle.replace(/!(重要紧急|1|紧急)/g, "").trim();
-  } else if (cleanTitle.includes("!重要不紧急") || cleanTitle.includes("!2") || cleanTitle.includes("!重要")) {
+  } else if (
+    cleanTitle.includes("!重要不紧急") ||
+    cleanTitle.includes("!2") ||
+    cleanTitle.includes("!重要")
+  ) {
     category = "important-not-urgent";
     cleanTitle = cleanTitle.replace(/!(重要不紧急|2|重要)/g, "").trim();
   } else if (cleanTitle.includes("!紧急不重要") || cleanTitle.includes("!3")) {

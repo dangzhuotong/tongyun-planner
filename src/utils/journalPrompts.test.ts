@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  JOURNAL_PROMPTS,
-  getDailyJournalPrompt,
-  formatPromptForJournal,
-} from "./journalPrompts";
+import { JOURNAL_PROMPTS, getDailyJournalPrompt, formatPromptForJournal } from "./journalPrompts";
 
 describe("journalPrompts utils", () => {
   describe("JOURNAL_PROMPTS list", () => {

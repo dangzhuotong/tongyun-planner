@@ -43,7 +43,9 @@ describe("Repositories (Tasks, Journal, and P0 Entities)", () => {
             updated_at: params?.[27],
           });
         } else if (sql.includes("INSERT OR REPLACE INTO journal_entries")) {
-          mockTables.journal_entries = mockTables.journal_entries.filter((j) => j.id !== params?.[0]);
+          mockTables.journal_entries = mockTables.journal_entries.filter(
+            (j) => j.id !== params?.[0],
+          );
           mockTables.journal_entries.push({
             id: params?.[0],
             link_key: params?.[1],
@@ -58,7 +60,9 @@ describe("Repositories (Tasks, Journal, and P0 Entities)", () => {
         } else if (sql.includes("DELETE FROM tasks")) {
           mockTables.tasks = mockTables.tasks.filter((t) => t.id !== params?.[0]);
         } else if (sql.includes("DELETE FROM journal_entries")) {
-          mockTables.journal_entries = mockTables.journal_entries.filter((j) => j.id !== params?.[0]);
+          mockTables.journal_entries = mockTables.journal_entries.filter(
+            (j) => j.id !== params?.[0],
+          );
         }
       }),
     };

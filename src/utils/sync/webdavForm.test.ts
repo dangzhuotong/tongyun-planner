@@ -13,9 +13,7 @@ describe("webdavForm", () => {
   describe("urlForPreset", () => {
     it("pre-fills the Jianguoyun URL", () => {
       expect(JIANGUOYUN_WEBDAV_URL).toBe("https://dav.jianguoyun.com/dav/");
-      expect(urlForPreset("jianguoyun", "https://mirror.example/dav/")).toBe(
-        JIANGUOYUN_WEBDAV_URL,
-      );
+      expect(urlForPreset("jianguoyun", "https://mirror.example/dav/")).toBe(JIANGUOYUN_WEBDAV_URL);
     });
 
     it("keeps the current URL for a custom preset", () => {
