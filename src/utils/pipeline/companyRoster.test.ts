@@ -20,6 +20,7 @@ import {
   submitRequirement,
 } from "./companyRoster";
 import { fetchCompanyRoster } from "./pipelineGateway";
+import { companyReadState } from "../sync/companyDbRead";
 import { fixtureAgentRows, fixtureWorkerRows } from "./rosterFixture";
 
 const NOW = 1_761_456_000_000;
@@ -186,6 +187,7 @@ describe("visible roster follows the database", () => {
     expect(loaded.entries.some((entry) => entry.id === "cursor-cloud")).toBe(true);
     expect(loaded.entries.some((entry) => entry.id === "agent_local_assistant")).toBe(false);
     expect(written).toHaveLength(1);
+    expect(companyReadState()).toBe("ok");
   });
 
   it("DSN 已配置但库不可达时，不用本机登记顶上", async () => {
@@ -203,6 +205,8 @@ describe("visible roster follows the database", () => {
     expect(loaded.via).toBe("unavailable");
     expect(loaded.entries).toEqual([]);
     expect(loaded.dsnConfigured).toBe(true);
+    expect(loaded.error).toBeTruthy();
+    expect(companyReadState()).toBe("failed");
   });
 
   it("刷新失败时用公司库缓存，仍然不是本机登记", () => {
@@ -246,6 +250,7 @@ describe("visible roster follows the database", () => {
     });
     expect(loaded.via).toBe("local");
     expect(loaded.entries.map((entry) => entry.handle)).toEqual(["本地助手"]);
+    expect(companyReadState()).toBe("ok");
   });
 });
 

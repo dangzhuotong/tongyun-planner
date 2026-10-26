@@ -510,18 +510,35 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
           <div className="flex items-center justify-between p-3 rounded-xl border border-[#EFEBE4] dark:border-[#2D3039] bg-white/50 dark:bg-[#1E2026]/50">
             <div>
               <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
-                {syncStatus === "syncing"
-                  ? "同步中..."
-                  : syncStatus === "success"
-                    ? "上次同步成功"
-                    : syncStatus === "error"
-                      ? "同步出错"
-                      : syncStatus === "conflict"
-                        ? "有冲突待处理"
-                        : syncStatus === "offline"
-                          ? "离线，稍后自动补传"
-                          : "等待同步"}
+                {syncBackend === "webdav"
+                  ? syncStatus === "syncing"
+                    ? "WebDAV 备份中..."
+                    : syncStatus === "success"
+                      ? "上次 WebDAV 备份成功"
+                      : syncStatus === "error"
+                        ? "WebDAV 备份失败"
+                        : syncStatus === "conflict"
+                          ? "WebDAV 有冲突待处理"
+                          : syncStatus === "offline"
+                            ? "WebDAV 离线，稍后补传"
+                            : "WebDAV 等待备份"
+                  : syncStatus === "syncing"
+                    ? "数据库同步中..."
+                    : syncStatus === "success"
+                      ? "数据库已同步"
+                      : syncStatus === "error"
+                        ? "数据库同步失败"
+                        : syncStatus === "conflict"
+                          ? "数据库有冲突待处理"
+                          : syncStatus === "offline"
+                            ? "数据库离线，稍后补传"
+                            : "数据库等待同步"}
               </span>
+              {syncBackend === "webdav" && (
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  坚果云 / WebDAV 只在这里看。失败不会变成侧栏的主状态。
+                </span>
+              )}
               {syncLastTime && (
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
                   {new Date(syncLastTime).toLocaleString()}

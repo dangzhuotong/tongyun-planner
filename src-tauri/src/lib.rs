@@ -98,6 +98,37 @@ fn sync_todo_state(app: AppHandle, payload: TodoSyncPayload) -> Result<(), Strin
         .map_err(|e| e.to_string())
 }
 
+/// macOS Dock / Finder 再次打开时，只有「一个可见窗口都没有」才把主窗拉回来。
+/// 关红钮走的是隐藏（orderOut），System Events 的 winCount 会是 0，但窗口对象还在。
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn should_restore_main_on_reopen(has_visible_windows: bool) -> bool {
+    !has_visible_windows
+}
+
+fn restore_main_window(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+
+    // 主窗真被销毁时（不是这次的隐藏路径），按已合并的窗口配置重建，避免进程活着却永远没窗。
+    let Some(config) = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "main")
+        .cloned()
+    else {
+        return;
+    };
+    if let Ok(builder) = tauri::WebviewWindowBuilder::from_config(app, &config) {
+        let _ = builder.build();
+    }
+}
+
 // 3. 核心业务逻辑：切换悬浮挂件的显隐状态
 fn toggle_widget(app: &AppHandle) {
     if let Some(widget_window) = app.get_webview_window("widget") {
@@ -644,11 +675,7 @@ pub fn run() {
                 .on_menu_event(|app, event| {
                     match event.id.as_ref() {
                         "show" => {
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.unminimize();
-                                let _ = window.set_focus();
-                            }
+                            restore_main_window(app);
                         }
                         "toggle_widget" => {
                             toggle_widget(app);
@@ -681,19 +708,14 @@ pub fn run() {
                         ..
                     } = event
                     {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.unminimize();
-                            let _ = window.set_focus();
-                        }
+                        restore_main_window(tray.app_handle());
                     }
                 })
                 .build(app)?;
 
             Ok(())
         })
-        // 7. 拦截窗口关闭事件：主窗口点 X 时隐藏到托盘，而不是退出
+        // 7. 主窗口点关闭：隐藏到托盘，不退出。macOS 再点 Dock 由 RunEvent::Reopen 拉回主窗。
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
@@ -711,19 +733,37 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("运行 Tauri 应用程序时发生错误")
-        .run(|app, event| {
-            if let tauri::RunEvent::ExitRequested { code, api, .. } = event {
+        .run(|app, event| match event {
+            tauri::RunEvent::ExitRequested { code, api, .. } => {
                 if code.is_none() && !QUIT_READY.load(Ordering::SeqCst) {
                     api.prevent_exit();
                     request_quit(app);
                 }
             }
+            // Dock / open -a 走 applicationShouldHandleReopen。隐藏中的主窗不算可见窗口，
+            // 这里 show 它。不在最后一窗关闭时退出：关闭本身就是隐藏，托盘「显示主窗口」仍可用。
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } => {
+                if should_restore_main_on_reopen(has_visible_windows) {
+                    restore_main_window(app);
+                }
+            }
+            _ => {}
         });
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dock_reopen_restores_main_only_when_nothing_is_visible() {
+        assert!(should_restore_main_on_reopen(false));
+        assert!(!should_restore_main_on_reopen(true));
+    }
 
     #[test]
     fn test_todo_sync_payload_serialization_round_trip() {

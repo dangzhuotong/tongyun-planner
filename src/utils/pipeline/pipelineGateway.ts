@@ -1,4 +1,5 @@
 import type { DomainAgent } from "../../types";
+import { noteCompanyRead } from "../sync/companyDbRead";
 import { getRemoteDsn, loadRemoteDatabase } from "../sync/remoteDbSync";
 import {
   type CompanyRosterEntry,
@@ -105,6 +106,7 @@ export async function fetchCompanyRoster(deps: FetchCompanyRosterDeps = {}): Pro
       .then((load) => {
         rosterMemory = { at: Date.now(), load };
         rosterInflight = null;
+        noteCompanyRead(load);
         return load;
       })
       .catch((error) => {
@@ -114,6 +116,7 @@ export async function fetchCompanyRoster(deps: FetchCompanyRosterDeps = {}): Pro
     return rosterInflight;
   }
   const load = await loadCompanyRoster(deps);
+  noteCompanyRead(load);
   if (deps.force) rosterMemory = { at: Date.now(), load };
   return load;
 }

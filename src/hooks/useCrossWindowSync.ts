@@ -52,16 +52,28 @@ export function useCrossWindowSync(
           tH.handleSnooze(p.task_id, false);
           break;
         case "add": {
-          const newTask: Task = {
-            id: p.task_id,
-            title: p.title || "无题任务",
-            notes: p.notes || undefined,
-            description: p.description || undefined,
-            category: p.category || "urgent-important",
-            dueDate: p.due_date || undefined,
-            dueTime: p.due_time || undefined,
-          };
           tH.setTasks((prev: Task[]) => {
+            const existing = prev.find((t: Task) => t.id === p.task_id);
+            // 同步载荷只有标题等字段。本机刚派出去的卡片已经带人选 / 待跑 / 公司库 id，
+            // 不能被这条「新增」盖成普通待办，否则 Agent 看板上看不到。
+            if (
+              existing &&
+              (existing.assigneeKind === "agent" ||
+                existing.pipelineTaskId ||
+                existing.assigneeAgentId ||
+                existing.runStatus)
+            ) {
+              return prev;
+            }
+            const newTask: Task = {
+              id: p.task_id,
+              title: p.title || "无题任务",
+              notes: p.notes || undefined,
+              description: p.description || undefined,
+              category: p.category || "urgent-important",
+              dueDate: p.due_date || undefined,
+              dueTime: p.due_time || undefined,
+            };
             const updated = [newTask, ...prev.filter((t: Task) => t.id !== newTask.id)];
             tH.saveTasks(updated);
             return updated;

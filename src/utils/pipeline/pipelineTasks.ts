@@ -317,6 +317,14 @@ export async function writePipelineTask(
     }
     const row = confirmed[0];
     if (row) {
+      if (
+        plan.written &&
+        draft.intent !== "settle" &&
+        row.assignee &&
+        row.assignee !== plan.assignee
+      ) {
+        throw new Error("公司库没有改到指定的工人，本机人选未改");
+      }
       return {
         id: row.id,
         assignee: row.assignee || plan.assignee,
@@ -326,8 +334,12 @@ export async function writePipelineTask(
         written: plan.written,
       };
     }
-  } catch {
-    /* 写入已经成功时，用计划值回执，避免再假装失败 */
+  } catch (error) {
+    // 确认到的工人和计划不一致是写失败，不能被「查询失败就用计划值」吞掉。
+    if (error instanceof Error && error.message === "公司库没有改到指定的工人，本机人选未改") {
+      throw error;
+    }
+    /* 确认查询失败时，写入已经成功，用计划值回执，避免再假装失败 */
   }
 
   return {
@@ -648,8 +660,10 @@ function stringField(record: Record<string, unknown>, keys: string[]): string {
   for (const key of keys) {
     const value = record[key];
     if (typeof value === "string" && value.trim()) return value.trim();
-    if (typeof value === "number" && Number.isFinite(value)) return String(value);
     if (typeof value === "bigint") return value.toString();
+    // 超过 MAX_SAFE_INTEGER 的 BIGINT 经 JSON number 会丢精度（例如 5214548946653707513）。
+    // 读路径用 CAST AS CHAR，只接受还精确的整数；丢精度的 number 不当成 id。
+    if (typeof value === "number" && Number.isSafeInteger(value)) return String(value);
   }
   return "";
 }
