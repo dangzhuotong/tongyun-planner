@@ -111,7 +111,19 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
       {
         id: "agents",
         label: "AI 协同",
-        keywords: ["agent", "助手", "派单", "协同", "runner", "dispatch", "负责人", "本地助手"],
+        keywords: [
+          "agent",
+          "助手",
+          "派单",
+          "协同",
+          "runner",
+          "dispatch",
+          "负责人",
+          "本地助手",
+          "公司名册",
+          "cursor",
+          "需求",
+        ],
       },
       {
         id: "email",

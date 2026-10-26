@@ -3,6 +3,8 @@ import { Bot, Plus, Trash2, Edit2, Check, X, CheckCircle, AlertCircle, Power } f
 import type { AgentKind, DomainAgent, Task } from "../../types";
 import { useAgents, getRunStatusLabel } from "../../hooks/useAgents";
 import { createId } from "../../utils/id";
+import { CompanyRosterStrip } from "./CompanyRosterStrip";
+import { RequirementComposer } from "./RequirementComposer";
 
 interface AgentSettingsPanelProps {
   tasks?: Task[];
@@ -30,7 +32,19 @@ export const AgentSettingsPanel: React.FC<AgentSettingsPanelProps> = ({
   onEditTask,
   triggerToast,
 }) => {
-  const { agents, saveAgent, deleteAgent, toggleAgent } = useAgents();
+  const {
+    localAgents,
+    roster,
+    rosterVia,
+    rosterError,
+    loading: rosterLoading,
+    refreshRoster,
+    submitRequirement,
+    saveAgent,
+    deleteAgent,
+    toggleAgent,
+    getAgentHandle,
+  } = useAgents();
 
   // Form states for new agent
   const [newHandle, setNewHandle] = useState("");
@@ -50,7 +64,7 @@ export const AgentSettingsPanel: React.FC<AgentSettingsPanelProps> = ({
         setFormError("Agent 展示名 (handle) 不能为空");
         return;
       }
-      if (agents.some((a) => a.handle.toLowerCase() === handle.toLowerCase())) {
+      if (localAgents.some((a) => a.handle.toLowerCase() === handle.toLowerCase())) {
         setFormError(`展示名「${handle}」已存在，请换一个全局唯一名称`);
         return;
       }
@@ -73,7 +87,7 @@ export const AgentSettingsPanel: React.FC<AgentSettingsPanelProps> = ({
         setFormError("登记 Agent 失败，请检查数据库权限或格式");
       }
     },
-    [newHandle, newKind, agents, saveAgent, triggerToast],
+    [newHandle, newKind, localAgents, saveAgent, triggerToast],
   );
 
   const startEdit = useCallback((agent: DomainAgent) => {
@@ -92,7 +106,9 @@ export const AgentSettingsPanel: React.FC<AgentSettingsPanelProps> = ({
       const handle = editHandle.trim();
       if (!handle) return;
       if (
-        agents.some((a) => a.id !== agent.id && a.handle.toLowerCase() === handle.toLowerCase())
+        localAgents.some(
+          (a) => a.id !== agent.id && a.handle.toLowerCase() === handle.toLowerCase(),
+        )
       ) {
         triggerToast?.(`展示名「${handle}」已被其他 Agent 使用`, "error");
         return;
@@ -108,19 +124,19 @@ export const AgentSettingsPanel: React.FC<AgentSettingsPanelProps> = ({
       setEditingId(null);
       triggerToast?.(`Agent「${handle}」修改成功`, "success");
     },
-    [editHandle, editKind, agents, saveAgent, triggerToast],
+    [editHandle, editKind, localAgents, saveAgent, triggerToast],
   );
 
   const handleDelete = useCallback(
     async (id: string, handle: string) => {
-      if (agents.length <= 1) {
+      if (localAgents.length <= 1) {
         triggerToast?.("至少保留一个 Agent", "error");
         return;
       }
       await deleteAgent(id);
       triggerToast?.(`已删除 Agent「${handle}」`, "success");
     },
-    [agents.length, deleteAgent, triggerToast],
+    [localAgents.length, deleteAgent, triggerToast],
   );
 
   // Find active dispatched tasks
@@ -137,13 +153,25 @@ export const AgentSettingsPanel: React.FC<AgentSettingsPanelProps> = ({
       <div>
         <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <Bot className="w-5 h-5 text-[#8B6E3C] dark:text-[#CBB182]" />
-          <span>AI 助手登记与协同 (Domain Agents)</span>
+          <span>公司名册与离线兜底</span>
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          在此登记可在四象限/列表手帐任务中指派的 AI Agent。数据持久化落入本机 SQLite
-          (domain_agents)。禁用后该 Agent 不可新派。
+          下拉、筛选和派活人选以 tongyun_pipeline 的 agents 与 workers 为准，含
+          Cursor（cursor-cloud）和心跳。 配了 DSN
+          时不会用本机登记顶上。下面的本机列表只在没配公司库、也没有缓存时作离线兜底。
         </p>
       </div>
+
+      <CompanyRosterStrip
+        entries={roster}
+        via={rosterVia}
+        error={rosterError}
+        loading={rosterLoading}
+        onRefresh={() => {
+          refreshRoster().catch(() => undefined);
+        }}
+      />
+      <RequirementComposer onSubmit={submitRequirement} />
 
       {/* Add New Agent Form */}
       <form
@@ -202,11 +230,11 @@ export const AgentSettingsPanel: React.FC<AgentSettingsPanelProps> = ({
       {/* Agent List */}
       <div className="space-y-2">
         <div className="text-xs font-bold text-slate-700 dark:text-slate-200">
-          已登记的 Agent 列表 ({agents.length})
+          本机离线兜底 ({localAgents.length})
         </div>
 
         <div className="divide-y divide-[#EFEBE4] dark:divide-[#2E313A] rounded-xl border border-[#EFEBE4] dark:border-[#2E313A] bg-white dark:bg-[#1C1E24] overflow-hidden">
-          {agents.map((agent) => {
+          {localAgents.map((agent) => {
             const isEditing = editingId === agent.id;
             return (
               <div
@@ -339,7 +367,7 @@ export const AgentSettingsPanel: React.FC<AgentSettingsPanelProps> = ({
         ) : (
           <div className="divide-y divide-[#EFEBE4] dark:divide-[#2E313A] bg-white dark:bg-[#26282E] rounded-lg border border-[#EFEBE4] dark:border-[#33353A] overflow-hidden">
             {activeDispatchedTasks.map((t) => {
-              const agent = agents.find((a) => a.id === t.assigneeAgentId);
+              const handle = getAgentHandle(t.assigneeAgentId);
               return (
                 <div key={t.id} className="p-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-0">
@@ -351,9 +379,7 @@ export const AgentSettingsPanel: React.FC<AgentSettingsPanelProps> = ({
                         {getRunStatusLabel(t.runStatus)}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      指派 Agent: {agent ? agent.handle : t.assigneeAgentId}
-                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">指派 Agent: {handle}</div>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">

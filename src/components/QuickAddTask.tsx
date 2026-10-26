@@ -8,6 +8,7 @@ import { useTranslation } from "../i18n/LanguageContext";
 import { getLocalDateString } from "../utils/date";
 import { parseNaturalDate, formatNaturalPreview } from "../utils/dateParser";
 import { buildRRule, rruleToLabel } from "../utils/rrule";
+import { formatRosterOption } from "../utils/pipeline/companyRoster";
 
 interface QuickAddTaskProps {
   handleAddTask: (taskData: {
@@ -62,7 +63,7 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
     autoFocus = false,
     onCancel,
   }) => {
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
     const q = t.quickAdd;
     const tc = t.taskCard;
     const [title, setTitle] = useState("");
@@ -90,10 +91,10 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
         { value: "human", label: "自己 (Human)" },
         ...enabledAgents.map((a) => ({
           value: a.id,
-          label: `${a.handle} (${a.kind === "manual" ? "手动" : a.kind === "local_runner" ? "Runner" : "网关"})`,
+          label: formatRosterOption(a, { locale, style: "assignee", withHeartbeat: true }),
         })),
       ],
-      [enabledAgents],
+      [enabledAgents, locale],
     );
 
     // Track focus to expand extra options (date, priority, etc.) in non-compact mode

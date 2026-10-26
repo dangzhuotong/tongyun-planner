@@ -58,6 +58,11 @@
 - 本地 `journal` 为空且远端非空时，**强制跳过上传**并拉回远端，严禁开发期以空本地冲掉远端数据。
 - 启动期注入的示例任务（id 为纯数字）不得覆盖远端真实用户待办。
 
+### ⑤ 公司名册以库为准
+- Agent 下拉、筛选、派活人选、在线心跳以 `tongyun_pipeline.agents`（active）+ `workers`（enabled，含 cursor-cloud）为准。
+- 本机 `domain_agents` 只在没配 DSN、且没有公司库缓存时作离线兜底，不是真相源。配了 DSN 时读库失败不得用本机静态登记顶上。
+- 细则见 [docs/planner-db-ssot-not-local-roster.md](docs/planner-db-ssot-not-local-roster.md)。
+
 ---
 
 ## 4. 架构与目录分工
