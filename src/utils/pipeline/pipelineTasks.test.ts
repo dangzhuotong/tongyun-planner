@@ -8,6 +8,10 @@ import {
   companyRosterSlug,
   createMemoryTaskGateway,
   mapPipelineTaskStatus,
+  applyCreateTableIdMode,
+  columnDefinitionFromCreate,
+  isAutoRandomExplicitInsertError,
+  parseTaskColumns,
   planPipelineTaskWrite,
   referenceTaskColumns,
   resolveCompanyAssigneeId,
@@ -336,5 +340,115 @@ describe("pipeline tasks follow tongyun_pipeline", () => {
         },
       ),
     ).rejects.toThrow("未配置公司库，任务未写入 tongyun_pipeline");
+  });
+
+  it("EXTRA 为空且建表语句含 AUTO_RANDOM 时不插入显式 id，回执是库内 id", async () => {
+    const columns = parseTaskColumns([
+      {
+        name: "id",
+        nullable: "NO",
+        column_default: null,
+        extra: "",
+        column_comment: "",
+        column_type: "bigint",
+      },
+    ]);
+    expect(columns[0]?.autoIncrement).toBe(false);
+    expect(columns[0]?.autoRandom).toBe(false);
+
+    const createSql = `CREATE TABLE \`tasks\` (
+  \`id\` bigint(20) NOT NULL /*T![auto_rand] AUTO_RANDOM(5) */,
+  \`title\` varchar(255) NOT NULL,
+  PRIMARY KEY (\`id\`)
+) ENGINE=InnoDB`;
+    expect(columnDefinitionFromCreate(createSql, "id")).toMatch(/AUTO_RANDOM/);
+    expect(columnDefinitionFromCreate(createSql, "id")).not.toMatch(/PRIMARY KEY/);
+    const annotated = applyCreateTableIdMode(referenceTaskColumns(), createSql);
+    expect(annotated.find((column) => column.name === "id")?.autoRandom).toBe(true);
+
+    const planned = planPipelineTaskWrite(
+      annotated,
+      { intent: "start", plannerTaskId: "task-ar", title: "自动主键", assignee: "cursor-cloud" },
+      null,
+      "3485152520443698361",
+    );
+    expect(planned.sql).not.toMatch(/`id`/);
+    expect(planned.idSupplied).toBe(false);
+
+    const gateway = createMemoryTaskGateway(
+      referenceTaskColumns().map((column) =>
+        column.name === "id" ? { ...column, autoRandom: true } : column,
+      ),
+    );
+    const seen: string[] = [];
+    const execute = gateway.execute.bind(gateway);
+    gateway.execute = async (sql, params) => {
+      seen.push(sql);
+      return execute(sql, params);
+    };
+    const receipt = await writePipelineTask(
+      gateway,
+      {
+        intent: "start",
+        plannerTaskId: "task-ar",
+        title: "自动主键",
+        detail: "省略 id",
+        assignee: "cursor-cloud",
+      },
+      { insertId: "3485152520443698361" },
+    );
+    expect(
+      seen.some((sql) => /^INSERT/i.test(sql) && /`id`/.test(sql.split(/values/i)[0] || "")),
+    ).toBe(false);
+    expect(gateway.rows).toHaveLength(1);
+    expect(gateway.rows[0]?.id).toBeTruthy();
+    expect(gateway.rows[0]?.id).not.toBe("3485152520443698361");
+    expect(receipt.id).toBe(gateway.rows[0]?.id);
+    expect(receipt.runStatus).toBe("queued");
+    expect(receipt.assignee).toBe("cursor-cloud");
+  });
+
+  it("8216 显式插入被拒绝后，只重试一次省略 id 的 INSERT", async () => {
+    expect(
+      isAutoRandomExplicitInsertError(
+        new Error(
+          "Error 8216 (HY000): Invalid auto_random: Explicit insertion on auto_random column is disabled",
+        ),
+      ),
+    ).toBe(true);
+
+    const gateway = createMemoryTaskGateway(referenceTaskColumns());
+    const seen: string[] = [];
+    const execute = gateway.execute.bind(gateway);
+    gateway.execute = async (sql, params) => {
+      seen.push(sql);
+      const head = sql.split(/values/i)[0] || "";
+      if (/^INSERT\s+INTO\s+tasks/i.test(sql) && /`id`/.test(head)) {
+        throw new Error(
+          "Error 8216 (HY000): Invalid auto_random: Explicit insertion on auto_random column is disabled",
+        );
+      }
+      return execute(sql, params);
+    };
+
+    const receipt = await writePipelineTask(
+      gateway,
+      {
+        intent: "start",
+        plannerTaskId: "task-8216",
+        title: "重试省略主键",
+        assignee: "cursor-cloud",
+      },
+      { insertId: "3485152520443698361" },
+    );
+
+    const inserts = seen.filter((sql) => /^INSERT\s+INTO\s+tasks/i.test(sql));
+    expect(inserts).toHaveLength(2);
+    expect(inserts[0]).toMatch(/`id`/);
+    expect(inserts[1]?.split(/values/i)[0]).not.toMatch(/`id`/);
+    expect(gateway.rows).toHaveLength(1);
+    expect(receipt.id).toBe(gateway.rows[0]?.id);
+    expect(receipt.id).not.toBe("3485152520443698361");
+    expect(receipt.runStatus).toBe("queued");
   });
 });

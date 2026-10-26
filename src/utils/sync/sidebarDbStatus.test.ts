@@ -28,6 +28,17 @@ describe("sidebar follows the database, not WebDAV", () => {
     expect(sidebarStatusFromSync({ backend: "none", status: "idle" })).toBe("synced");
   });
 
+  it("stays synced when the database channel is missing or not a write", () => {
+    expect(sidebarStatusFromSync({ backend: "database", status: "error" })).toBe("synced");
+    expect(sidebarStatusFromSync({ backend: "database", status: "error", channel: "none" })).toBe(
+      "synced",
+    );
+    expect(sidebarStatusFromSync({ backend: "database", status: "syncing" })).toBe("synced");
+    expect(sidebarStatusFromSync({ backend: "database", status: "syncing", channel: "none" })).toBe(
+      "synced",
+    );
+  });
+
   it("shows syncing or error only for a real personal-database write", () => {
     expect(sidebarStatusFromSync({ backend: "database", status: "idle" })).toBe("synced");
     expect(sidebarStatusFromSync({ backend: "database", status: "success" })).toBe("synced");

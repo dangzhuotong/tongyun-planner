@@ -98,6 +98,11 @@ export interface SyncStats {
  * 校验机密安全性：
  * 若配置了敏感凭据但未配置 passphrase，严禁上传明文！
  */
+export function isPlaintextSecretsRefusal(error: unknown): boolean {
+  const text = error instanceof Error ? error.message : String(error ?? "");
+  return text.includes("机密无口令拒明文");
+}
+
 export function assertSecretsSafeForSync(prefsJsonObj: any): void {
   const secrets = collectSecretFields(prefsJsonObj);
   if (!isSecretsEmpty(secrets)) {
@@ -598,7 +603,8 @@ export async function syncFullSchemaWithRemote(options?: {
     }
   } catch (err) {
     console.warn("[remoteDbSync] Push user_prefs error:", err);
-    throw err; // 机密无口令拒明文错误必须向上抛出
+    // 只有「机密无口令拒明文」打断整次同步。单表失败（缺列、权限）记下来，不把侧栏打红。
+    if (isPlaintextSecretsRefusal(err)) throw err;
   }
 
   // 11. sync_state

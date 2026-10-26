@@ -153,11 +153,11 @@ export const AgentSettingsPanel: React.FC<AgentSettingsPanelProps> = ({
       <div>
         <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <Bot className="w-5 h-5 text-[#8B6E3C] dark:text-[#CBB182]" />
-          <span>公司名册与离线兜底</span>
+          <span>有心跳的工人与离线兜底</span>
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          下拉、筛选和派活人选以 tongyun_pipeline 的 agents 与 workers 为准，含
-          Cursor（cursor-cloud）和心跳。 配了 DSN
+          下拉、筛选和派活人选只列 tongyun_pipeline.workers 里已启用且有心跳的人，含
+          Cursor（cursor-cloud）。公司 agents 只补显示名，没有心跳的不出现。配了 DSN
           时不会用本机登记顶上。下面的本机列表只在没配公司库、也没有缓存时作离线兜底。
         </p>
       </div>

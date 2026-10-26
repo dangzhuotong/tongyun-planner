@@ -660,4 +660,42 @@ describe("Remote Database Full Schema Sync (PRD remote-all + full-schema)", () =
     expect(freshDb.tables.countdowns.find((c) => c.id === "cd-1")).toBeDefined();
     expect(freshDb.tables.timeblocks.find((b) => b.id === "tb-1")).toBeDefined();
   });
+
+  it("连不上远端时整次失败，user_prefs 单表失败则不打断", async () => {
+    setRemoteDsn("mysql://user:pass@host:4000/tongyun_personal");
+    setRemoteDatabaseOverrideForTesting(null);
+    await expect(syncFullSchemaWithRemote()).rejects.toThrow("无法连接到远端数据库");
+    expect(localStorage.getItem(LAST_REMOTE_SYNC_TIME_KEY)).toBeNull();
+
+    setRemoteDatabaseOverrideForTesting(remoteDb as any);
+    localDb.tables.user_prefs = [
+      {
+        id: 1,
+        locale: "zh-CN",
+        nickname: "测试用户",
+        customization_json: JSON.stringify({ theme: "paper" }),
+        updated_at: Date.now(),
+      },
+    ];
+    localDb.tables.tasks.push({
+      id: "task-prefs-fail",
+      title: "prefs 失败仍要推任务",
+      category: "urgent-important",
+      updated_at: Date.now(),
+    });
+    const originalExecute = remoteDb.execute.bind(remoteDb);
+    remoteDb.execute = async (sql: string, params?: any[]) => {
+      if (sql.includes("INSERT INTO user_prefs")) {
+        throw new Error("Unknown column 'prefs_json' in 'field list'");
+      }
+      return originalExecute(sql, params);
+    };
+
+    const stats = await syncFullSchemaWithRemote();
+    expect(stats.tables.tasks.pushed).toBeGreaterThanOrEqual(1);
+    expect(stats.tables.user_prefs.pushed).toBe(0);
+    expect(remoteDb.tables.user_prefs).toHaveLength(0);
+    expect(remoteDb.tables.tasks.find((task) => task.id === "task-prefs-fail")).toBeDefined();
+    expect(localStorage.getItem(LAST_REMOTE_SYNC_TIME_KEY)).toBeTruthy();
+  });
 });
