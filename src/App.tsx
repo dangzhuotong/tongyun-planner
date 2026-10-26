@@ -97,8 +97,8 @@ import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
 import { fetchCompanyRoster } from "./utils/pipeline/pipelineGateway";
-import { type CompanyReadState, subscribeCompanyRead } from "./utils/sync/companyDbRead";
 import { sidebarStatusFromSync } from "./utils/sync/sidebarDbStatus";
+import { storage } from "./utils/unifiedStorage";
 import {
   SYNC_APPLIED_EVENT,
   bumpSyncVersion,
@@ -156,8 +156,6 @@ function AppBody() {
 
   const [windowLabel, setWindowLabel] = useState<string>("main");
   const [syncStatus, setSyncStatus] = useState<"synced" | "syncing" | "error">("synced");
-  const [companyRead, setCompanyRead] = useState<CompanyReadState>("unknown");
-  const companyReadRef = useRef<CompanyReadState>("unknown");
   const [lastBackupTime, setLastBackupTime] = useState<number | null>(() => {
     const saved = localStorage.getItem("aero_last_backup_time");
     return saved ? parseInt(saved, 10) : null;
@@ -625,30 +623,44 @@ function AppBody() {
     return () => window.removeEventListener(SYNC_APPLIED_EVENT, handler);
   }, [applySyncDataToState]);
 
-  // 侧栏跟公司库读结果和个人远端库。WebDAV 失败留在设置页，不抢侧栏主状态。
-  // 派活写失败不进这里，只在 Agent 面板红字。
+  // 侧栏只跟个人远端库写入。WebDAV 失败留在设置页。公司名册读失败和派活写失败不进这里。
+  // 存储恢复之后再读 tongyun_sync_backend，避免构造时凭 WebDAV 地址把后端猜错。
   useEffect(() => {
-    return subscribeCompanyRead((state) => {
-      companyReadRef.current = state;
-      setCompanyRead(state);
-    });
-  }, []);
-
-  useEffect(() => {
-    fetchCompanyRoster().catch((error) => {
-      console.error("Failed to read company roster", error);
-    });
+    let cancelled = false;
+    storage
+      .init()
+      .catch((error) => {
+        console.error("Failed to restore storage before roster read", error);
+      })
+      .then(() => {
+        if (cancelled) return;
+        syncEngine.reloadFromStorage();
+        return fetchCompanyRoster({ force: true });
+      })
+      .catch((error) => {
+        console.error("Failed to read company roster", error);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     const apply = (state: {
       backend: typeof syncEngine.currentBackend;
       status: typeof syncEngine.status;
+      channel: typeof syncEngine.statusChannel;
       lastSyncTime: number | null;
       conflicts: SyncConflict[];
     }) => {
-      setSyncStatus(sidebarStatusFromSync({ ...state, companyRead: companyReadRef.current }));
-      if (state.backend === "database" && state.lastSyncTime) {
+      setSyncStatus(
+        sidebarStatusFromSync({
+          backend: state.backend,
+          status: state.status,
+          channel: state.channel,
+        }),
+      );
+      if (state.backend === "database" && state.channel === "database" && state.lastSyncTime) {
         setLastBackupTime(state.lastSyncTime);
       }
       setSyncConflicts(state.conflicts || []);
@@ -656,21 +668,12 @@ function AppBody() {
     apply({
       backend: syncEngine.currentBackend,
       status: syncEngine.status,
+      channel: syncEngine.statusChannel,
       lastSyncTime: syncEngine.lastSyncTime,
       conflicts: syncEngine.conflicts,
     });
     return syncEngine.subscribe(apply);
   }, []);
-
-  useEffect(() => {
-    setSyncStatus(
-      sidebarStatusFromSync({
-        backend: syncEngine.currentBackend,
-        status: syncEngine.status,
-        companyRead,
-      }),
-    );
-  }, [companyRead]);
 
   // ============ 数据变更 → 按分类标记脏 + 递增版本号 ============
   // 之前 markDirty() 无参会把所有分类都标记脏，导致「改一处也全量上传所有分类文件」。
@@ -747,9 +750,10 @@ function AppBody() {
     countdownHook.countdowns,
   ]);
 
-  // 自动同步开关（仅 main 窗口）
+  // 自动同步开关（仅 main 窗口）。先按存储里的后端纠正，避免 WebDAV 凭据抢走 database。
   useEffect(() => {
     if (!isHydrated || !isMainWebview()) return;
+    syncEngine.reloadFromStorage();
     syncEngine.setAutoSync(customizationHook.customizationConfig.enableAutoBackup !== false);
     return () => {
       syncEngine.setAutoSync(false);
@@ -768,6 +772,7 @@ function AppBody() {
       customizationHook.customizationConfig.enableAutoBackup === false
     )
       return;
+    syncEngine.reloadFromStorage();
     if (!syncEngine.isConfigured()) return;
     const timer = setTimeout(() => syncEngine.sync(), 3000);
     return () => clearTimeout(timer);

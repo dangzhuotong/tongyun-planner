@@ -11,9 +11,12 @@ import { isRemoteDsnConfigured, syncFullSchemaWithRemote, testRemoteDsn } from "
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "conflict" | "offline";
 
+export type SyncStatusChannel = "database" | "webdav" | "none";
+
 export interface SyncState {
   backend: SyncBackendType;
   status: SyncStatus;
+  channel: SyncStatusChannel;
   lastSyncTime: number | null;
   errorMessage: string | null;
   conflicts: SyncConflict[];
@@ -27,6 +30,7 @@ export class SyncEngine {
   readonly webdavProvider: WebDAVProvider;
   private _currentBackend: SyncBackendType = "none";
   private _status: SyncStatus = "idle";
+  private _statusChannel: SyncStatusChannel = "none";
   private _lastSyncTime: number | null = null;
   private _errorMessage: string | null = null;
   private _conflicts: SyncConflict[] = [];
@@ -48,25 +52,7 @@ export class SyncEngine {
 
   private loadPreferences(): void {
     this.webdavProvider.loadFromStorage();
-    const saved = localStorage.getItem("tongyun_sync_backend") as string | null;
-    if (saved === "webdav") {
-      this._currentBackend = "webdav";
-    } else if (saved === "database") {
-      this._currentBackend = "database";
-    } else if (saved === "supabase" || saved === "http") {
-      this._currentBackend = "none";
-    } else if (isRemoteDsnConfigured()) {
-      this._currentBackend = "database";
-    } else {
-      // 有 WebDAV 凭据但未选后端时，自动启用 WebDAV
-      const url = localStorage.getItem("tongyun_webdav_url");
-      const user = localStorage.getItem("tongyun_webdav_user");
-      if (url && user) {
-        this._currentBackend = "webdav";
-      } else {
-        this._currentBackend = "none";
-      }
-    }
+    this._currentBackend = this.resolveStoredBackend();
     const lastSync = localStorage.getItem("tongyun_last_sync_time");
     if (lastSync) this._lastSyncTime = parseInt(lastSync, 10);
     const autoSync = localStorage.getItem("tongyun_auto_sync");
@@ -102,6 +88,9 @@ export class SyncEngine {
   get status(): SyncStatus {
     return this._status;
   }
+  get statusChannel(): SyncStatusChannel {
+    return this._statusChannel;
+  }
   get lastSyncTime(): number | null {
     return this._lastSyncTime;
   }
@@ -118,9 +107,46 @@ export class SyncEngine {
   }
 
   setBackend(type: SyncBackendType): void {
-    this._currentBackend = type;
+    this.rememberBackend(type);
     localStorage.setItem("tongyun_sync_backend", type);
     this.notify();
+  }
+
+  /**
+   * SQLite 把 tongyun_sync_backend 写回 localStorage 之后再读一次。
+   * 构造函数可能赶在这之前，凭着还在的 WebDAV 地址把后端猜成 webdav。
+   * 存储里已经是 database 时，清掉那次 WebDAV 失败，避免侧栏接着变红。
+   */
+  reloadFromStorage(): void {
+    this.rememberBackend(this.resolveStoredBackend());
+    this.notify();
+  }
+
+  private resolveStoredBackend(): SyncBackendType {
+    const saved = localStorage.getItem("tongyun_sync_backend");
+    if (saved === "webdav") return "webdav";
+    if (saved === "database") return "database";
+    if (saved === "supabase" || saved === "http") return "none";
+    if (isRemoteDsnConfigured()) return "database";
+    const url = localStorage.getItem("tongyun_webdav_url");
+    const user = localStorage.getItem("tongyun_webdav_user");
+    if (url && user) return "webdav";
+    return "none";
+  }
+
+  private rememberBackend(next: SyncBackendType): void {
+    const previousChannel = this._statusChannel;
+    this._currentBackend = next;
+    const stale =
+      this._status === "error" ||
+      this._status === "offline" ||
+      this._status === "conflict" ||
+      this._status === "syncing";
+    if (next === "database" && previousChannel !== "database" && stale) {
+      this._status = "idle";
+      this._errorMessage = null;
+      this._statusChannel = "none";
+    }
   }
 
   setAutoSync(enabled: boolean): void {
@@ -169,6 +195,7 @@ export class SyncEngine {
     const state: SyncState = {
       backend: this._currentBackend,
       status: this._status,
+      channel: this._statusChannel,
       lastSyncTime: this._lastSyncTime,
       errorMessage: this._errorMessage,
       conflicts: this._conflicts,
@@ -217,6 +244,12 @@ export class SyncEngine {
   }
 
   private async doSync(): Promise<void> {
+    this._statusChannel =
+      this._currentBackend === "database"
+        ? "database"
+        : this._currentBackend === "webdav"
+          ? "webdav"
+          : "none";
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       this._status = "offline";
       this.notify();

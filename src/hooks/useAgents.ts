@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { DomainAgent, TaskRunStatus } from "../types";
 import { agentRepository } from "../data/repositories";
+import { storage } from "../utils/unifiedStorage";
 import {
   type CompanyRosterEntry,
   type RequirementDraft,
@@ -68,10 +69,19 @@ export function useAgents() {
 
   useEffect(() => {
     let mounted = true;
-    applyRoster(false).catch((error) => {
-      console.error("Failed to load company roster", error);
-      if (mounted) setLoading(false);
-    });
+    // 等 SQLite 把 tongyun_remote_dsn / tongyun_sync_backend 写回 localStorage，
+    // 否则第一次读会落在本机 domain_agents（本地助手/阿码），保存时没有公司工人可选。
+    storage
+      .init()
+      .catch(() => undefined)
+      .then(() => {
+        if (!mounted) return;
+        return applyRoster(true);
+      })
+      .catch((error) => {
+        console.error("Failed to load company roster", error);
+        if (mounted) setLoading(false);
+      });
     return () => {
       mounted = false;
     };

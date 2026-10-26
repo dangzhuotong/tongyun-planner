@@ -39,7 +39,7 @@ const zhCN: Translations = {
     syncSyncing: "正在同步数据库…",
     syncError: "数据库同步失败",
     syncStatusHint:
-      "侧栏表示公司库有没有读到、个人远端库有没有写上。没配远端库时保持已同步。WebDAV / 坚果云备份在设置里看，失败不会出现在这里。派活写库失败只在 Agent 面板用红字说明。",
+      "侧栏只表示个人远端库有没有写上。没在写远端库时保持已同步。WebDAV / 坚果云自动备份失败留在设置里，不会在这里显示。公司名册读失败和派活写失败只在 Agent 面板说明。",
     decreaseMin: "减少1分钟",
     increaseMin: "增加1分钟",
     pause: "暂停",
