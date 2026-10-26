@@ -85,13 +85,16 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
     const { enabledAgents } = useAgents();
     const [assigneeKind, setAssigneeKind] = useState<Task["assigneeKind"]>("human");
     const [assigneeAgentId, setAssigneeAgentId] = useState<string | undefined>(undefined);
-    const assigneeOptions = React.useMemo(() => [
-      { value: "human", label: "自己 (Human)" },
-      ...enabledAgents.map((a) => ({
-        value: a.id,
-        label: `${a.handle} (${a.kind === "manual" ? "手动" : a.kind === "local_runner" ? "Runner" : "网关"})`,
-      })),
-    ], [enabledAgents]);
+    const assigneeOptions = React.useMemo(
+      () => [
+        { value: "human", label: "自己 (Human)" },
+        ...enabledAgents.map((a) => ({
+          value: a.id,
+          label: `${a.handle} (${a.kind === "manual" ? "手动" : a.kind === "local_runner" ? "Runner" : "网关"})`,
+        })),
+      ],
+      [enabledAgents],
+    );
 
     // Track focus to expand extra options (date, priority, etc.) in non-compact mode
     const [isFocused, setIsFocused] = useState(false);
@@ -570,7 +573,9 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
                       负责人
                     </span>
                     <CustomSelect
-                      value={assigneeKind === "agent" && assigneeAgentId ? assigneeAgentId : "human"}
+                      value={
+                        assigneeKind === "agent" && assigneeAgentId ? assigneeAgentId : "human"
+                      }
                       onChange={(v) => {
                         if (v === "human") {
                           setAssigneeKind("human");

@@ -44,7 +44,8 @@ export const ENERGY_ZONES: EnergyZone[] = [
     recommendedLevel: "low",
     description: "代谢减缓容易犯困，适合收发邮件、整理便签与事务性沟通",
     colorClass: "text-emerald-600 dark:text-emerald-400",
-    bgLightClass: "bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40",
+    bgLightClass:
+      "bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40",
   },
   {
     id: "rebound",
@@ -55,7 +56,8 @@ export const ENERGY_ZONES: EnergyZone[] = [
     recommendedLevel: "medium",
     description: "创造力与发散思维回升，适合方案推演、手帐日记与复盘",
     colorClass: "text-indigo-600 dark:text-indigo-400",
-    bgLightClass: "bg-indigo-50/70 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/40",
+    bgLightClass:
+      "bg-indigo-50/70 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-900/40",
   },
   {
     id: "evening",
@@ -66,7 +68,8 @@ export const ENERGY_ZONES: EnergyZone[] = [
     recommendedLevel: "low",
     description: "合上手帐，生活充电，告别屏幕与被动待办",
     colorClass: "text-purple-600 dark:text-purple-400",
-    bgLightClass: "bg-purple-50/70 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/40",
+    bgLightClass:
+      "bg-purple-50/70 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/40",
   },
 ];
 

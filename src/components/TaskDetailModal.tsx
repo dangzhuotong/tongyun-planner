@@ -72,13 +72,16 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
       task.estimatedPomodoros || 0,
     );
     const { enabledAgents } = useAgents();
-    const assigneeOptions = React.useMemo(() => [
-      { value: "human", label: "自己 (Human)" },
-      ...enabledAgents.map((a) => ({
-        value: a.id,
-        label: `${a.handle} (${a.kind === "manual" ? "手动" : a.kind === "local_runner" ? "Runner" : "网关"})`,
-      })),
-    ], [enabledAgents]);
+    const assigneeOptions = React.useMemo(
+      () => [
+        { value: "human", label: "自己 (Human)" },
+        ...enabledAgents.map((a) => ({
+          value: a.id,
+          label: `${a.handle} (${a.kind === "manual" ? "手动" : a.kind === "local_runner" ? "Runner" : "网关"})`,
+        })),
+      ],
+      [enabledAgents],
+    );
     const currentAssigneeValue =
       task.assigneeKind === "agent" && task.assigneeAgentId ? task.assigneeAgentId : "human";
 
@@ -415,12 +418,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                         task.runStatus === "queued"
                           ? "bg-[#FEF9EE] dark:bg-[#322A1E] border-[#FBEAC4] dark:border-[#4B3C24] text-[#A26D14] dark:text-[#E8BA60]"
                           : task.runStatus === "running"
-                          ? "bg-[#F0F7FD] dark:bg-[#1E2D3D] border-[#D4E7F9] dark:border-[#2D4560] text-[#1B6CA8] dark:text-[#64B5F6]"
-                          : task.runStatus === "done"
-                          ? "bg-[#F0F5F1] dark:bg-[#232924] border-[#DEEAE2] dark:border-[#38433B] text-[#4D7C5D] dark:text-[#6FAD84]"
-                          : task.runStatus === "failed"
-                          ? "bg-[#FCF2F0] dark:bg-[#3D2325] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53]"
-                          : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200"
+                            ? "bg-[#F0F7FD] dark:bg-[#1E2D3D] border-[#D4E7F9] dark:border-[#2D4560] text-[#1B6CA8] dark:text-[#64B5F6]"
+                            : task.runStatus === "done"
+                              ? "bg-[#F0F5F1] dark:bg-[#232924] border-[#DEEAE2] dark:border-[#38433B] text-[#4D7C5D] dark:text-[#6FAD84]"
+                              : task.runStatus === "failed"
+                                ? "bg-[#FCF2F0] dark:bg-[#3D2325] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53]"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200"
                       }`}
                     >
                       {getRunStatusLabel(task.runStatus || "queued")}

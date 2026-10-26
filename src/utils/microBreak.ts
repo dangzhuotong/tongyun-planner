@@ -62,7 +62,8 @@ export const MICRO_BREAK_THEMES: MicroBreakContent[] = [
     id: "breathe",
     title: "微休息 · 深呼吸调息",
     actionText: "闭目缓慢深吸气，徐徐吐气",
-    description: "用鼻子慢吸 3 秒让新鲜空气充满肺腑与腹腔，再微启双唇缓慢吐出，排解胸口浊气与焦虑。",
+    description:
+      "用鼻子慢吸 3 秒让新鲜空气充满肺腑与腹腔，再微启双唇缓慢吐出，排解胸口浊气与焦虑。",
     tip: "深长缓和的呼吸能快速激活副交感神经，平抑心率，抚平杂念与焦躁。",
     emoji: "🌬️",
     badgeFrom: "from-teal-50 to-emerald-100 dark:from-[#172625] dark:to-[#111D1C]",
@@ -87,7 +88,9 @@ export const MICRO_BREAK_THEMES: MicroBreakContent[] = [
 ];
 
 export function getRandomMicroBreakTheme(excludeId?: MicroBreakCategory): MicroBreakContent {
-  const pool = excludeId ? MICRO_BREAK_THEMES.filter((t) => t.id !== excludeId) : MICRO_BREAK_THEMES;
+  const pool = excludeId
+    ? MICRO_BREAK_THEMES.filter((t) => t.id !== excludeId)
+    : MICRO_BREAK_THEMES;
   const index = Math.floor(Math.random() * pool.length);
   return pool[index];
 }

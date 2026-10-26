@@ -71,9 +71,7 @@ describe("Domain Database Schema & Migrations", () => {
     await migrateLegacyData(mockDb as any);
 
     // Verify all 3 migration stages were processed
-    const migrationInserts = executedSql.filter((sql) =>
-      sql.includes("schema_migrations"),
-    );
+    const migrationInserts = executedSql.filter((sql) => sql.includes("schema_migrations"));
     expect(migrationInserts.length).toBeGreaterThanOrEqual(3);
   });
 });

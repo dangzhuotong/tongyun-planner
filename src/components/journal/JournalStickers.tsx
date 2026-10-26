@@ -64,7 +64,10 @@ export const VintageStamp: React.FC<{
 
 export type WashiTapeType = "bamboo" | "sakura" | "kraft" | "cloud";
 
-export const WASHI_TAPE_PRESETS: Record<WashiTapeType, { name: string; style: React.CSSProperties }> = {
+export const WASHI_TAPE_PRESETS: Record<
+  WashiTapeType,
+  { name: string; style: React.CSSProperties }
+> = {
   bamboo: {
     name: "青竹格纹",
     style: {
@@ -77,8 +80,7 @@ export const WASHI_TAPE_PRESETS: Record<WashiTapeType, { name: string; style: Re
     name: "和风落樱",
     style: {
       backgroundColor: "rgba(235, 140, 155, 0.35)",
-      backgroundImage:
-        "radial-gradient(circle, rgba(255,255,255,0.6) 1.5px, transparent 1.5px)",
+      backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.6) 1.5px, transparent 1.5px)",
       backgroundSize: "10px 10px",
     },
   },
@@ -113,12 +115,24 @@ export const WashiTape: React.FC<{
       style={{
         width,
         ...preset.style,
-        clipPath:
-          "polygon(0% 15%, 4% 0%, 96% 0%, 100% 20%, 98% 85%, 94% 100%, 6% 100%, 0% 80%)",
+        clipPath: "polygon(0% 15%, 4% 0%, 96% 0%, 100% 20%, 98% 85%, 94% 100%, 6% 100%, 0% 80%)",
         opacity: 0.85,
       }}
     />
   );
 };
 
-export const JOURNAL_STICKER_EMOJIS = ["☕", "🌱", "🌧️", "🏮", "✨", "🐱", "🌸", "🏆", "💡", "🍵", "🌙", "🌊"];
+export const JOURNAL_STICKER_EMOJIS = [
+  "☕",
+  "🌱",
+  "🌧️",
+  "🏮",
+  "✨",
+  "🐱",
+  "🌸",
+  "🏆",
+  "💡",
+  "🍵",
+  "🌙",
+  "🌊",
+];

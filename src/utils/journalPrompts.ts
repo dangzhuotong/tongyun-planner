@@ -57,7 +57,10 @@ export const JOURNAL_PROMPTS: JournalPrompt[] = [
 ];
 
 /** 根据日期字符串返回当日推荐问题（保证当天稳定一致） */
-export function getDailyJournalPrompt(dateStr: string = new Date().toISOString().slice(0, 10), offset: number = 0): JournalPrompt {
+export function getDailyJournalPrompt(
+  dateStr: string = new Date().toISOString().slice(0, 10),
+  offset: number = 0,
+): JournalPrompt {
   let hash = 0;
   for (let i = 0; i < dateStr.length; i++) {
     hash = (hash << 5) - hash + dateStr.charCodeAt(i);

@@ -52,7 +52,9 @@ export const EnergyTimeBlockModal: React.FC<EnergyTimeBlockModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-bold tracking-tight">精力潮汐与时间盒 (Energy Flow)</h2>
-              <p className="text-[10px] text-slate-400">顺应生理节律排布待办：在对的精力时间做对的事</p>
+              <p className="text-[10px] text-slate-400">
+                顺应生理节律排布待办：在对的精力时间做对的事
+              </p>
             </div>
           </div>
           <button
@@ -99,20 +101,31 @@ export const EnergyTimeBlockModal: React.FC<EnergyTimeBlockModalProps> = ({
         <div className="p-6 overflow-y-auto flex-grow custom-scrollbar space-y-4">
           {(() => {
             const zone = ENERGY_ZONES.find((z) => z.id === activeTab) || currentZone;
-            const matchedTasks = tasks.filter((t) => inferTaskEnergyLevel(t) === zone.recommendedLevel);
-            const otherTasks = tasks.filter((t) => inferTaskEnergyLevel(t) !== zone.recommendedLevel);
+            const matchedTasks = tasks.filter(
+              (t) => inferTaskEnergyLevel(t) === zone.recommendedLevel,
+            );
+            const otherTasks = tasks.filter(
+              (t) => inferTaskEnergyLevel(t) !== zone.recommendedLevel,
+            );
 
             return (
               <>
                 {/* 时段特性横幅 */}
                 <div className={`p-4 rounded-xl border ${zone.bgLightClass} space-y-1`}>
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-bold ${zone.colorClass} flex items-center gap-1.5`}>
+                    <span
+                      className={`text-xs font-bold ${zone.colorClass} flex items-center gap-1.5`}
+                    >
                       <Clock className="w-3.5 h-3.5" />
                       {zone.name}（{zone.timeRange}）
                     </span>
                     <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
-                      匹配能级：{zone.recommendedLevel === "high" ? "🔥 高能攻坚" : zone.recommendedLevel === "medium" ? "⚡ 常规思考" : "🍃 低耗琐碎"}
+                      匹配能级：
+                      {zone.recommendedLevel === "high"
+                        ? "🔥 高能攻坚"
+                        : zone.recommendedLevel === "medium"
+                          ? "⚡ 常规思考"
+                          : "🍃 低耗琐碎"}
                     </span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300">{zone.description}</p>
@@ -145,7 +158,9 @@ export const EnergyTimeBlockModal: React.FC<EnergyTimeBlockModalProps> = ({
                             <div className="min-w-0">
                               <span className="text-xs font-bold truncate block">{t.title}</span>
                               {t.dueDate && (
-                                <span className="text-[10px] text-slate-400 font-mono">截止: {t.dueDate}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  截止: {t.dueDate}
+                                </span>
                               )}
                             </div>
                           </div>
@@ -170,7 +185,9 @@ export const EnergyTimeBlockModal: React.FC<EnergyTimeBlockModalProps> = ({
                 {/* 允许微调其他任务的精力标签 */}
                 {otherTasks.length > 0 && (
                   <div className="pt-2 border-t border-slate-100 dark:border-[#2C2E36] space-y-2">
-                    <span className="text-xs font-bold text-slate-500">快速归类其他任务精力标签</span>
+                    <span className="text-xs font-bold text-slate-500">
+                      快速归类其他任务精力标签
+                    </span>
                     <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                       {otherTasks.map((t) => (
                         <div

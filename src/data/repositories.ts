@@ -329,9 +329,7 @@ class TaskRepository {
           try {
             for (const id of allExisting.keys()) {
               if (!desiredIds.has(id)) {
-                await db
-                  .execute("DELETE FROM tasks WHERE id = $1", [id])
-                  .catch(() => undefined);
+                await db.execute("DELETE FROM tasks WHERE id = $1", [id]).catch(() => undefined);
                 await db
                   .execute("DELETE FROM domain_tasks WHERE id = $1", [id])
                   .catch(() => undefined);

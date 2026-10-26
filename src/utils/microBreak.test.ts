@@ -208,10 +208,7 @@ describe("microBreak utils", () => {
   describe("announceMicroBreak", () => {
     it("should invoke onToast callback with notice body", () => {
       const onToast = vi.fn();
-      announceMicroBreak(
-        { title: "Break Time", body: "Drink some water" },
-        { onToast },
-      );
+      announceMicroBreak({ title: "Break Time", body: "Drink some water" }, { onToast });
       expect(onToast).toHaveBeenCalledWith("Drink some water");
     });
 

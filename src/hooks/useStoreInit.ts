@@ -101,13 +101,15 @@ export function useStoreInit(
         const localTasksRaw = localStorage.getItem("aero_todos");
         const localCompletedRaw = localStorage.getItem("aero_completed_todos");
         const localTasks = localTasksRaw ? safeJsonParse<Task[]>(localTasksRaw, []) : [];
-        const localCompleted = localCompletedRaw ? safeJsonParse<Task[]>(localCompletedRaw, []) : [];
+        const localCompleted = localCompletedRaw
+          ? safeJsonParse<Task[]>(localCompletedRaw, [])
+          : [];
 
         // 合并三源：tasks 表 + domain_tasks + aero_todos/aero_completed_todos
-        const merged = mergeTaskSources(
-          repositoryData,
-          { tasks: localTasks, completed: localCompleted },
-        );
+        const merged = mergeTaskSources(repositoryData, {
+          tasks: localTasks,
+          completed: localCompleted,
+        });
 
         let resolvedTasks: Task[];
         let resolvedCompleted: Task[];

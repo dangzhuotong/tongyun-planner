@@ -27,8 +27,7 @@ const STORAGE_KEY = "tongyun_storage_backend";
 
 beforeAll(async () => {
   mock = new LocalStorageMock();
-  (globalThis as unknown as { localStorage: Storage }).localStorage =
-    mock as unknown as Storage;
+  (globalThis as unknown as { localStorage: Storage }).localStorage = mock as unknown as Storage;
   ({ StorageManager } = await import("./manager"));
 });
 

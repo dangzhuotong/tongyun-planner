@@ -19,12 +19,14 @@ export function usePomodoro() {
   const [randomBreakEnabled, setRandomBreakEnabled] = useState<boolean>(() => {
     return localStorage.getItem("tongyun_random_break") === "true";
   });
-  const [microBreakInterval, setMicroBreakInterval] = useState<"1-2" | "3-5" | "5-10" | "test-30s">(() => {
-    return (
-      (localStorage.getItem("tongyun_random_break_interval") as "1-2" | "3-5" | "5-10" | "test-30s") ||
-      "3-5"
-    );
-  });
+  const [microBreakInterval, setMicroBreakInterval] = useState<"1-2" | "3-5" | "5-10" | "test-30s">(
+    () => {
+      return (
+        (localStorage.getItem("tongyun_random_break_interval") as
+          "1-2" | "3-5" | "5-10" | "test-30s") || "3-5"
+      );
+    },
+  );
   const [autoNoiseEnabled, setAutoNoiseEnabled] = useState<boolean>(() => {
     return localStorage.getItem("tongyun_auto_noise") === "true";
   });

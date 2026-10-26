@@ -5,9 +5,9 @@ export type RepeatType = "daily" | "weekly" | "monthly" | "none";
 
 export type TaskPriority = "high" | "medium" | "low";
 
-export type AssigneeKind = 'human' | 'agent';
-export type TaskRunStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'blocked';
-export type AgentKind = 'local_runner' | 'pipeline_bridge' | 'manual';
+export type AssigneeKind = "human" | "agent";
+export type TaskRunStatus = "queued" | "running" | "done" | "failed" | "cancelled" | "blocked";
+export type AgentKind = "local_runner" | "pipeline_bridge" | "manual";
 
 export interface DomainAgent {
   id: string;

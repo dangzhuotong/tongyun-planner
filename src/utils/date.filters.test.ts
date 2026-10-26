@@ -79,7 +79,12 @@ describe("date utils extra behavior", () => {
     it("keeps pinned tasks ahead of unpinned ones and orders pinned by kind", () => {
       const tasks = [
         { id: "pinned-today", dueDate: "2026-07-15", isPinned: true, category: "urgent-important" },
-        { id: "pinned-overdue", dueDate: "2026-07-14", isPinned: true, category: "not-urgent-not-important" },
+        {
+          id: "pinned-overdue",
+          dueDate: "2026-07-14",
+          isPinned: true,
+          category: "not-urgent-not-important",
+        },
         { id: "plain-overdue", dueDate: "2026-07-10", category: "urgent-important" },
       ];
       expect(filterHomeActionableTasks(tasks, today).map((t) => t.id)).toEqual([

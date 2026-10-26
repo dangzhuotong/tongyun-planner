@@ -4,10 +4,8 @@ import type { Task, AppTab } from "./types";
 import { TitleBar } from "./components/TitleBar";
 import { Sidebar } from "./components/Sidebar";
 import { AgentPanel } from "./components/agents/AgentPanel";
-import { DispatchedStrip } from "./components/agents/DispatchedStrip";
 import {
   mineCardTasks,
-  partitionMineTasks,
   readWorkSurface,
   WORK_SURFACE_STORAGE_KEY,
   type WorkSurface,
@@ -70,8 +68,6 @@ import { SunsetShutdownModal } from "./components/sunset/SunsetShutdownModal";
 import { EnergyTimeBlockModal } from "./components/energy/EnergyTimeBlockModal";
 import { QuickCaptureModal } from "./components/QuickCaptureModal";
 import { shouldPromptSunsetShutdown, getTodayString } from "./utils/sunsetShutdown";
-
-const MINE_STRIP_TABS = new Set<AppTab>(["home", "matrix", "list", "calendar", "gantt"]);
 
 const viewFallback = (
   <div className="flex-grow flex items-center justify-center text-slate-400 text-sm py-20">
@@ -799,25 +795,45 @@ function AppBody() {
   const handleAddTaskWithAI = useCallback(
     async (taskData: {
       title: string;
-      description: string;
-      notes: string;
-      category: Task["category"];
-      dueDate: string;
+      description?: string;
+      notes?: string;
+      category?: Task["category"];
+      dueDate?: string;
       dueTime?: string;
       isExplicit?: boolean;
       repeat?: any;
       tags?: string[];
       priority?: Task["priority"];
+      assigneeKind?: Task["assigneeKind"];
+      assigneeAgentId?: Task["assigneeAgentId"];
+      runStatus?: Task["runStatus"];
     }) => {
-      const { taskId } = await tasksHook.handleAddTask(taskData);
+      const isAgent = taskData.assigneeKind === "agent";
+      const fullData = {
+        title: taskData.title,
+        description: taskData.description || "",
+        notes: taskData.notes || "",
+        category: taskData.category || "important-not-urgent",
+        dueDate: taskData.dueDate || getLocalDateString(),
+        dueTime: taskData.dueTime,
+        isExplicit: taskData.isExplicit ?? isAgent,
+        repeat: taskData.repeat,
+        tags: taskData.tags,
+        priority: taskData.priority,
+        assigneeKind: taskData.assigneeKind,
+        assigneeAgentId: taskData.assigneeAgentId,
+        runStatus: taskData.runStatus,
+      };
+      const { taskId } = await tasksHook.handleAddTask(fullData);
 
       if (
-        !taskData.isExplicit &&
+        !isAgent &&
+        !fullData.isExplicit &&
         customizationHook.customizationConfig.aiAutoCategorize &&
         canUseAI(customizationHook.customizationConfig)
       ) {
-        const aiCategory = await aiHook.aiAutoCategorize(taskData.title, taskData.description);
-        if (aiCategory && aiCategory !== taskData.category) {
+        const aiCategory = await aiHook.aiAutoCategorize(fullData.title, fullData.description);
+        if (aiCategory && aiCategory !== fullData.category) {
           tasksHook.setTasks((prev: Task[]) => {
             const updated = prev.map((t) =>
               t.id === taskId ? { ...t, category: aiCategory! } : t,
@@ -951,7 +967,9 @@ function AppBody() {
       if (existing) {
         handleUpsertJournal({
           ...existing,
-          content: existing.content ? `${existing.content}${anchorFormatted}` : `📌 **明日启动锚点**：${anchorText}`,
+          content: existing.content
+            ? `${existing.content}${anchorFormatted}`
+            : `📌 **明日启动锚点**：${anchorText}`,
           updatedAt: Date.now(),
         });
       } else {
@@ -1126,10 +1144,7 @@ function AppBody() {
         onToast={showMicroBreakToast}
       />
       {microBreakSession && (
-        <MicroBreakOverlay
-          onSkip={microBreakSession.skip}
-          initialTheme={microBreakSession.theme}
-        />
+        <MicroBreakOverlay onSkip={microBreakSession.skip} initialTheme={microBreakSession.theme} />
       )}
       {microBreakToast && !microBreakSession && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
@@ -1309,9 +1324,7 @@ const MainLayout = React.memo(function MainLayout({
     },
     [setActiveTab, setWorkSurface],
   );
-  const minePartition = useMemo(() => partitionMineTasks(tasks), [tasks]);
-  const mineTasks = minePartition.cards;
-  const dispatched = minePartition.dispatched;
+  const mineTasks = useMemo(() => mineCardTasks(tasks), [tasks]);
 
   const mainContent = useMemo(() => {
     if (workSurface === "agent") {
@@ -1319,6 +1332,7 @@ const MainLayout = React.memo(function MainLayout({
         <main className="flex-grow p-4 sm:p-6 overflow-y-auto flex flex-col min-h-0 z-10 relative custom-scrollbar">
           <AgentPanel
             tasks={tasks}
+            onAddTask={handleAddTaskWithAI}
             onEditTask={handleEditTask}
             onTaskClick={handleTaskClick}
             onOpenSettings={() => {
@@ -1590,14 +1604,6 @@ const MainLayout = React.memo(function MainLayout({
           </div>
         )}
 
-        {dispatched.length > 0 && MINE_STRIP_TABS.has(activeTab) && (
-          <DispatchedStrip
-            tasks={dispatched}
-            onTaskClick={handleTaskClick}
-            onOpenAgent={() => setWorkSurface("agent")}
-          />
-        )}
-
         {activeTab === "home" && (
           <DashboardView
             tasks={mineTasks}
@@ -1744,7 +1750,6 @@ const MainLayout = React.memo(function MainLayout({
     activeTab,
     tasks,
     mineTasks,
-    dispatched,
     workSurface,
     setWorkSurface,
     completedTasks,

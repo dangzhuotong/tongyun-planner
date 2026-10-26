@@ -1,10 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Trees, Sparkles, CupSoda, Wind, Eye, RotateCw } from "lucide-react";
 import { useTranslation } from "../i18n/LanguageContext";
-import {
-  type MicroBreakContent,
-  getRandomMicroBreakTheme,
-} from "../utils/microBreak";
+import { type MicroBreakContent, getRandomMicroBreakTheme } from "../utils/microBreak";
 
 interface MicroBreakOverlayProps {
   onSkip: () => void;

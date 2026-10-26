@@ -3,13 +3,58 @@ import type { Task, TaskRunStatus } from "../types";
 export type WorkSurface = "mine" | "agent";
 
 export const WORK_SURFACE_STORAGE_KEY = "tongyun_work_surface";
+export const LAST_DISPATCHED_AGENT_KEY = "tongyun_last_dispatched_agent";
 
 export type AgentColumnId = "queued" | "running" | "settled";
+
+/**
+ * 决定派活时默认选中的 Agent：
+ * 1. 唯一启用时直接默认该 agent。
+ * 2. 否则优先选上次派活记录（若仍在启用中）。
+ * 3. 兜底选首个启用 agent。
+ */
+export function resolveDefaultAgentId(
+  enabledAgents: { id: string }[],
+  lastDispatchedId?: string | null,
+): string | undefined {
+  if (!enabledAgents || enabledAgents.length === 0) return undefined;
+  if (enabledAgents.length === 1) return enabledAgents[0].id;
+  if (lastDispatchedId && enabledAgents.some((a) => a.id === lastDispatchedId)) {
+    return lastDispatchedId;
+  }
+  return enabledAgents[0].id;
+}
+
+/**
+ * 在 Agent 面板直接新建派活任务结构：
+ * assigneeKind=agent, runStatus=queued
+ */
+export function buildAgentDispatchedTask(params: {
+  id: string;
+  title: string;
+  agentId: string;
+  category?: Task["category"];
+  dueDate?: string;
+  dueTime?: string;
+  priority?: Task["priority"];
+}): Task {
+  return {
+    id: params.id,
+    title: params.title.trim(),
+    category: params.category || "important-not-urgent",
+    dueDate: params.dueDate,
+    dueTime: params.dueTime,
+    priority: params.priority,
+    assigneeKind: "agent",
+    assigneeAgentId: params.agentId,
+    runStatus: "queued",
+  };
+}
 
 export interface MinePartition {
   /** 我的全尺寸卡片：纯 human（或已取消派单）。 */
   cards: Task[];
-  /** 已派出的 Agent 任务。我的侧收成灰入口，不进四象限/清单卡片堆。 */
+  /** 已派出的 Agent 任务。只在 Agent 面板可见，「我的」各视图不再渲染。 */
   dispatched: Task[];
 }
 

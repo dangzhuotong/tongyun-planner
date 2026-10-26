@@ -7,11 +7,7 @@ import {
   SYNC_APPLIED_EVENT,
 } from "./types";
 import { WebDAVProvider } from "./webdavProvider";
-import {
-  isRemoteDsnConfigured,
-  syncFullSchemaWithRemote,
-  testRemoteDsn,
-} from "./remoteDbSync";
+import { isRemoteDsnConfigured, syncFullSchemaWithRemote, testRemoteDsn } from "./remoteDbSync";
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "conflict" | "offline";
 

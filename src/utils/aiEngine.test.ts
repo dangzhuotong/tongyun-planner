@@ -97,17 +97,23 @@ describe("aiEngine pure helpers", () => {
 
     it("should describe model not found errors (404)", () => {
       expect(describeAIError("E_HTTP_404", "zh-CN")).toContain("模型或接口地址不存在");
-      expect(describeAIError("model_not_found", "en")).toContain("The model or endpoint was not found");
+      expect(describeAIError("model_not_found", "en")).toContain(
+        "The model or endpoint was not found",
+      );
     });
 
     it("should describe unsupported parameter errors (400)", () => {
       expect(describeAIError("E_HTTP_400", "zh-CN")).toContain("当前模型不接受某个请求参数");
-      expect(describeAIError("unsupported_parameter", "en")).toContain("rejected a request parameter");
+      expect(describeAIError("unsupported_parameter", "en")).toContain(
+        "rejected a request parameter",
+      );
     });
 
     it("should describe token limit errors", () => {
       expect(describeAIError("E_TOKEN_LIMIT", "zh-CN")).toContain("模型输出上限不足");
-      expect(describeAIError("max length reached", "en")).toContain("output token limit is too low");
+      expect(describeAIError("max length reached", "en")).toContain(
+        "output token limit is too low",
+      );
     });
 
     it("should format unknown generic errors safely", () => {
