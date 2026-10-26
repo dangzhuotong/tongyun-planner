@@ -582,6 +582,7 @@ const zhCN: Translations = {
     settled: "完成 · 失败",
     done: "完成",
     failed: "失败",
+    blocked: "阻塞",
     queuedHint: "已派给 Agent，还没开始",
     runningHint: "正在执行",
     settledHint: "已跑完，或这次失败了",

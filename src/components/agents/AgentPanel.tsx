@@ -127,9 +127,11 @@ export function AgentPanel({ tasks, onEditTask, onTaskClick, onOpenSettings }: A
                     className={`rounded-xl border bg-white/95 dark:bg-[#1C1D21] p-3 flex flex-col gap-2 ${
                       task.runStatus === "failed"
                         ? "border-[#F5DFDB] dark:border-[#422D30]"
-                        : task.runStatus === "done"
-                          ? "border-[#DEEAE2] dark:border-[#38433B]"
-                          : "border-[#EFEBE4] dark:border-[#33353A]"
+                        : task.runStatus === "blocked"
+                          ? "border-[#FBE6C2] dark:border-[#523F1E]"
+                          : task.runStatus === "done"
+                            ? "border-[#DEEAE2] dark:border-[#38433B]"
+                            : "border-[#EFEBE4] dark:border-[#33353A]"
                     }`}
                   >
                     <button
@@ -141,7 +143,9 @@ export function AgentPanel({ tasks, onEditTask, onTaskClick, onOpenSettings }: A
                     </button>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400">
                       {getAgentHandle(task.assigneeAgentId) || ap.unassigned} ·{" "}
-                      {ap[describeRunStatus(task.runStatus)]}
+                      {task.runStatus === "blocked"
+                        ? ap.blocked || "阻塞"
+                        : ap[describeRunStatus(task.runStatus)]}
                     </p>
                     <div className="flex flex-wrap gap-1">
                       {runActionsFor(task.runStatus).map((action) => (

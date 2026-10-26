@@ -14,6 +14,8 @@ export function getRunStatusLabel(status?: TaskRunStatus): string {
       return "失败";
     case "cancelled":
       return "已取消";
+    case "blocked":
+      return "阻塞";
     default:
       return "";
   }

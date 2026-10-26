@@ -159,4 +159,19 @@ describe("workbench view P-AP-01～03", () => {
     expect(board.running).toHaveLength(0);
     expect(board.settled.map((item) => item.id)).toEqual(["a3"]);
   });
+
+  it("runStatus=blocked 不丢出 Agent 面板（至少当 queued）", () => {
+    const blockedTask = task({
+      id: "a_blocked",
+      title: "阻塞的调研",
+      assigneeKind: "agent",
+      assigneeAgentId: "agent_local_assistant",
+      runStatus: "blocked",
+    });
+    const all = [human, blockedTask];
+    const board = partitionAgentBoard(all);
+    expect(agentColumnFor(blockedTask)).toBe("queued");
+    expect(board.queued.map((item) => item.id)).toContain("a_blocked");
+    expect(mineCardTasks(all).map((item) => item.id)).toEqual(["h1"]);
+  });
 });

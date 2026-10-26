@@ -594,6 +594,7 @@ const en: Translations = {
     settled: "Done · Failed",
     done: "Done",
     failed: "Failed",
+    blocked: "Blocked",
     queuedHint: "Assigned, not started",
     runningHint: "In progress",
     settledHint: "Finished or failed",
