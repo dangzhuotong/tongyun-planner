@@ -8,7 +8,13 @@ import {
   localAgentsToRoster,
   rosterEntryToDomainAgent,
 } from "../utils/pipeline/companyRoster";
-import { fetchCompanyRoster, submitPlannerRequirement } from "../utils/pipeline/pipelineGateway";
+import {
+  fetchCompanyRoster,
+  publishPlannerPipelineTask,
+  pullPlannerPipelineTasks,
+  submitPlannerRequirement,
+} from "../utils/pipeline/pipelineGateway";
+import { companyRosterSlug, type PipelineTaskDraft } from "../utils/pipeline/pipelineTasks";
 
 export function getRunStatusLabel(status?: TaskRunStatus): string {
   switch (status) {
@@ -120,6 +126,42 @@ export function useAgents() {
     return submitPlannerRequirement(draft);
   }, []);
 
+  const slugOrThrow = useCallback(
+    (assignee?: string) => {
+      const slug = companyRosterSlug(roster, assignee);
+      if (!slug) throw new Error("工人不在公司名册里，任务未写入");
+      return slug;
+    },
+    [roster],
+  );
+
+  const publishPipelineTask = useCallback(
+    async (draft: Omit<PipelineTaskDraft, "intent" | "assignee"> & { assignee?: string }) => {
+      const assignee = slugOrThrow(draft.assignee);
+      return publishPlannerPipelineTask({ ...draft, assignee, intent: "start" });
+    },
+    [slugOrThrow],
+  );
+
+  const reassignPipelineTask = useCallback(
+    async (draft: Omit<PipelineTaskDraft, "intent" | "assignee"> & { assignee?: string }) => {
+      const assignee = slugOrThrow(draft.assignee);
+      return publishPlannerPipelineTask({ ...draft, assignee, intent: "reassign" });
+    },
+    [slugOrThrow],
+  );
+
+  const settlePipelineTask = useCallback(
+    async (draft: Omit<PipelineTaskDraft, "intent"> & { settleAs: TaskRunStatus }) => {
+      return publishPlannerPipelineTask({ ...draft, intent: "settle" });
+    },
+    [],
+  );
+
+  const pullPipelineTasks = useCallback(async (ids: string[]) => {
+    return pullPlannerPipelineTasks(ids);
+  }, []);
+
   return {
     agents,
     enabledAgents,
@@ -136,5 +178,9 @@ export function useAgents() {
     refreshRoster,
     getAgentHandle,
     submitRequirement,
+    publishPipelineTask,
+    reassignPipelineTask,
+    settlePipelineTask,
+    pullPipelineTasks,
   };
 }

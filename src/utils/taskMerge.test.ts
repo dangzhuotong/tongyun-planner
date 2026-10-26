@@ -216,4 +216,29 @@ describe("taskMerge: mergeTwoTasks & mergeTaskSources", () => {
     const onlyOne = merged.tasks.find((t) => t.id === "only_one")!;
     expect(onlyOne.description).toBe("domain 补全");
   });
+
+  it("较新的副本才带上公司库任务 id，旧 id 不会盖回来", () => {
+    const older = makeTask({
+      id: "pipe",
+      title: "已开工",
+      assigneeKind: "agent",
+      assigneeAgentId: "cursor-cloud",
+      runStatus: "queued",
+      pipelineTaskId: "3485152520443698360",
+      updatedAt: 10,
+    });
+    const newer = makeTask({
+      id: "pipe",
+      title: "已开工",
+      assigneeKind: "agent",
+      assigneeAgentId: "cursor-cloud",
+      runStatus: "queued",
+      updatedAt: 20,
+    });
+    expect(mergeTwoTasks(older, newer).pipelineTaskId).toBeUndefined();
+    expect(mergeTwoTasks(newer, older).pipelineTaskId).toBeUndefined();
+    expect(
+      mergeTwoTasks(older, { ...newer, pipelineTaskId: "99", updatedAt: 30 }).pipelineTaskId,
+    ).toBe("99");
+  });
 });

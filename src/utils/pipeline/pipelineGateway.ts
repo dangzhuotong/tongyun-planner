@@ -17,6 +17,16 @@ import {
   submitRequirement,
   writeRosterCache,
 } from "./companyRoster";
+import {
+  type MemoryTaskGateway,
+  type PipelineTaskDraft,
+  type PipelineTaskReceipt,
+  type PipelineTaskSnapshot,
+  createMemoryTaskGateway,
+  readPipelineTasks,
+  referenceTaskColumns,
+  writePipelineTask,
+} from "./pipelineTasks";
 import { fixtureAgentRows, fixtureWorkerRows } from "./rosterFixture";
 
 export const ROSTER_FIXTURE_KEY = "tongyun_roster_fixture";
@@ -161,6 +171,68 @@ async function loadCompanyRoster(deps: FetchCompanyRosterDeps): Promise<RosterLo
           : "已配置公司库，这次没读到，未用本机登记顶上",
     };
   }
+}
+
+export interface PipelineWriteDeps {
+  fixture?: boolean;
+  gateway?: PipelineGateway;
+  resolveDsn?: () => Promise<{ dsn: string | null; via: PipelineDsnVia }>;
+  openGateway?: (dsn: string) => Promise<PipelineGateway | null>;
+  insertId?: string;
+}
+
+let fixtureTasks: MemoryTaskGateway | null = null;
+
+function fixtureTaskGateway(): MemoryTaskGateway {
+  if (!fixtureTasks) fixtureTasks = createMemoryTaskGateway(referenceTaskColumns());
+  return fixtureTasks;
+}
+
+export function resetFixturePipelineTasks(): void {
+  fixtureTasks = null;
+}
+
+/**
+ * 开始 / 新建 / 改派 / 完成。没有公司库就抛错，调用方不得再改本机 runStatus 冒充开工。
+ */
+export async function publishPlannerPipelineTask(
+  draft: PipelineTaskDraft,
+  deps: PipelineWriteDeps = {},
+): Promise<PipelineTaskReceipt & { persisted: "pipeline" | "fixture" }> {
+  const fixture = deps.fixture ?? (deps.gateway ? false : isRosterFixtureEnabled());
+  if (fixture) {
+    const receipt = await writePipelineTask(fixtureTaskGateway(), draft, {
+      insertId: deps.insertId,
+    });
+    return { ...receipt, persisted: "fixture" };
+  }
+  const gateway = deps.gateway ?? (await openLiveTaskGateway(deps));
+  const receipt = await writePipelineTask(gateway, draft, { insertId: deps.insertId });
+  return { ...receipt, persisted: "pipeline" };
+}
+
+export async function pullPlannerPipelineTasks(
+  ids: string[],
+  deps: PipelineWriteDeps = {},
+): Promise<PipelineTaskSnapshot[]> {
+  if (ids.length === 0) return [];
+  const fixture = deps.fixture ?? (deps.gateway ? false : isRosterFixtureEnabled());
+  if (fixture) return readPipelineTasks(fixtureTaskGateway(), ids);
+  const gateway = deps.gateway ?? (await openLiveTaskGateway(deps));
+  return readPipelineTasks(gateway, ids);
+}
+
+async function openLiveTaskGateway(deps: PipelineWriteDeps): Promise<PipelineGateway> {
+  let resolved: { dsn: string | null };
+  try {
+    resolved = await (deps.resolveDsn ?? resolveRuntimePipelineDsn)();
+  } catch {
+    resolved = { dsn: null };
+  }
+  if (!resolved.dsn) throw new Error("未配置公司库，任务未写入 tongyun_pipeline");
+  const gateway = await (deps.openGateway ?? openPipelineGateway)(resolved.dsn);
+  if (!gateway) throw new Error("连不上 tongyun_pipeline，任务未写入");
+  return gateway;
 }
 
 export async function submitPlannerRequirement(

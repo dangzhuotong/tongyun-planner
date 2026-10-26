@@ -369,6 +369,8 @@ export function useTasks() {
       assigneeKind?: Task["assigneeKind"];
       assigneeAgentId?: Task["assigneeAgentId"];
       runStatus?: Task["runStatus"];
+      pipelineTaskId?: Task["pipelineTaskId"];
+      id?: string;
     }) => {
       const {
         title,
@@ -384,7 +386,7 @@ export function useTasks() {
         assigneeAgentId,
         runStatus,
       } = taskData;
-      const taskId = createId("task");
+      const taskId = taskData.id?.trim() || createId("task");
       const initialCategory = category || "important-not-urgent";
       const initialDueDate = dueDate || getLocalDateString();
 
@@ -407,6 +409,8 @@ export function useTasks() {
         assigneeKind: finalKind,
         assigneeAgentId: finalAgentId,
         runStatus: finalStatus,
+        pipelineTaskId: taskData.pipelineTaskId,
+        updatedAt: Date.now(),
       });
 
       if (isAgent && finalAgentId) {

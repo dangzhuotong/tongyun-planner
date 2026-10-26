@@ -807,6 +807,8 @@ function AppBody() {
       assigneeKind?: Task["assigneeKind"];
       assigneeAgentId?: Task["assigneeAgentId"];
       runStatus?: Task["runStatus"];
+      pipelineTaskId?: Task["pipelineTaskId"];
+      id?: string;
     }) => {
       const isAgent = taskData.assigneeKind === "agent";
       const fullData = {
@@ -823,8 +825,11 @@ function AppBody() {
         assigneeKind: taskData.assigneeKind,
         assigneeAgentId: taskData.assigneeAgentId,
         runStatus: taskData.runStatus,
+        pipelineTaskId: taskData.pipelineTaskId,
+        id: taskData.id,
       };
-      const { taskId } = await tasksHook.handleAddTask(fullData);
+      const created = await tasksHook.handleAddTask(fullData);
+      const { taskId } = created;
 
       if (
         !isAgent &&
@@ -843,6 +848,7 @@ function AppBody() {
           });
         }
       }
+      return created;
     },
     [
       tasksHook.handleAddTask,
