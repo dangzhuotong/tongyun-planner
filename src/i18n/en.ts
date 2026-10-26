@@ -613,9 +613,6 @@ const en: Translations = {
     backToMe: "Back to me",
     openSettings: "Register agent",
     unassigned: "Unassigned",
-    dispatchedTitle: "Dispatched",
-    dispatchedHint: "Kept off the quadrant cards. Click a row to open it.",
-    viewInAgent: "Open Agent",
   },
 
   common: {

@@ -54,7 +54,7 @@ export function buildAgentDispatchedTask(params: {
 export interface MinePartition {
   /** 我的全尺寸卡片：纯 human（或已取消派单）。 */
   cards: Task[];
-  /** 已派出的 Agent 任务。我的侧收成灰入口，不进四象限/清单卡片堆。 */
+  /** 已派出的 Agent 任务。只在 Agent 面板可见，「我的」各视图不再渲染。 */
   dispatched: Task[];
 }
 

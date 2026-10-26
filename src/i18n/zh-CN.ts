@@ -601,9 +601,6 @@ const zhCN: Translations = {
     backToMe: "改回自己",
     openSettings: "登记 Agent",
     unassigned: "未指定",
-    dispatchedTitle: "已派出",
-    dispatchedHint: "不占四象限卡片，点一行可打开",
-    viewInAgent: "在 Agent 看",
   },
 
   common: {

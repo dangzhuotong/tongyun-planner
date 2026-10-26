@@ -4,10 +4,8 @@ import type { Task, AppTab } from "./types";
 import { TitleBar } from "./components/TitleBar";
 import { Sidebar } from "./components/Sidebar";
 import { AgentPanel } from "./components/agents/AgentPanel";
-import { DispatchedStrip } from "./components/agents/DispatchedStrip";
 import {
   mineCardTasks,
-  partitionMineTasks,
   readWorkSurface,
   WORK_SURFACE_STORAGE_KEY,
   type WorkSurface,
@@ -70,8 +68,6 @@ import { SunsetShutdownModal } from "./components/sunset/SunsetShutdownModal";
 import { EnergyTimeBlockModal } from "./components/energy/EnergyTimeBlockModal";
 import { QuickCaptureModal } from "./components/QuickCaptureModal";
 import { shouldPromptSunsetShutdown, getTodayString } from "./utils/sunsetShutdown";
-
-const MINE_STRIP_TABS = new Set<AppTab>(["home", "matrix", "list", "calendar", "gantt"]);
 
 const viewFallback = (
   <div className="flex-grow flex items-center justify-center text-slate-400 text-sm py-20">
@@ -1328,9 +1324,7 @@ const MainLayout = React.memo(function MainLayout({
     },
     [setActiveTab, setWorkSurface],
   );
-  const minePartition = useMemo(() => partitionMineTasks(tasks), [tasks]);
-  const mineTasks = minePartition.cards;
-  const dispatched = minePartition.dispatched;
+  const mineTasks = useMemo(() => mineCardTasks(tasks), [tasks]);
 
   const mainContent = useMemo(() => {
     if (workSurface === "agent") {
@@ -1610,14 +1604,6 @@ const MainLayout = React.memo(function MainLayout({
           </div>
         )}
 
-        {dispatched.length > 0 && MINE_STRIP_TABS.has(activeTab) && (
-          <DispatchedStrip
-            tasks={dispatched}
-            onTaskClick={handleTaskClick}
-            onOpenAgent={() => setWorkSurface("agent")}
-          />
-        )}
-
         {activeTab === "home" && (
           <DashboardView
             tasks={mineTasks}
@@ -1764,7 +1750,6 @@ const MainLayout = React.memo(function MainLayout({
     activeTab,
     tasks,
     mineTasks,
-    dispatched,
     workSurface,
     setWorkSurface,
     completedTasks,

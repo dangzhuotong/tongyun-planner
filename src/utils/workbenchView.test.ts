@@ -110,7 +110,7 @@ describe("workbench view P-AP-01～03", () => {
     expect(runActionsFor(undefined)).toEqual(["running", "done", "failed"]);
   });
 
-  it("P-AP-03: 从我的派给 Agent 后进入待跑，我的侧只留灰入口", () => {
+  it("P-AP-03: 从我的派给 Agent 后进入待跑，我的卡片不再包含这条", () => {
     const mineTask = task({ id: "letter", title: "给朋友写信" });
     const assigned = applyAssigneeUpdates(mineTask, {
       assigneeKind: "agent",
@@ -216,7 +216,7 @@ describe("workbench view P-AP-01～03", () => {
       expect(dispatched.category).toBe("important-not-urgent");
     });
 
-    it("面板新建派活：待跑可见，且「我的」不堆这条（进入灰入口而不占主卡片）", () => {
+    it("面板新建派活：待跑可见，且「我的」卡片不含这条", () => {
       const existingMine = task({ id: "my_task", title: "我的日常待办" });
       const newDispatched = buildAgentDispatchedTask({
         id: "dispatch_02",
@@ -231,13 +231,11 @@ describe("workbench view P-AP-01～03", () => {
       expect(board.queued.map((t) => t.id)).toContain("dispatch_02");
       expect(agentColumnFor(newDispatched)).toBe("queued");
 
-      // 2. 「我的」主卡片堆（mine.cards）零包含，不堆到四象限
+      // 2. 「我的」卡片零包含。partition 仍把 Agent 任务分进 dispatched，界面不渲染这条。
       const mine = partitionMineTasks(allTasks);
       expect(mine.cards.map((t) => t.id)).toEqual(["my_task"]);
       expect(mineCardTasks(allTasks).map((t) => t.id)).toEqual(["my_task"]);
       expect(mineCardTasks(allTasks).some((t) => t.id === "dispatch_02")).toBe(false);
-
-      // 3. 「我的」侧按规则进入 dispatched 灰入口
       expect(mine.dispatched.map((t) => t.id)).toEqual(["dispatch_02"]);
       expect(isPureHumanTask(newDispatched)).toBe(false);
       expect(isDispatchedAgentTask(newDispatched)).toBe(true);
