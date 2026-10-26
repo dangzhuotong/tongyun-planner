@@ -477,6 +477,109 @@ async fn ai_proxy(url: String, method: String, headers: std::collections::HashMa
     Ok(text)
 }
 
+/// 只回传 ~/.tongyun 里和公司库 DSN 有关的字段，不把整份配置打进日志。
+#[tauri::command]
+fn read_pipeline_home_files() -> PipelineHomeFiles {
+    let mut files = PipelineHomeFiles::default();
+    if let Ok(value) = std::env::var("TONGYUN_REMOTE_DSN") {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            files.remote_dsn_from_env = Some(trimmed.to_string());
+        }
+    }
+    let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) else {
+        return files;
+    };
+    let dir = PathBuf::from(home).join(".tongyun");
+    if !dir.is_dir() {
+        return files;
+    }
+    files.pipeline_dsn = read_capped(&dir.join("pipeline.dsn"));
+    files.pipeline_json = read_capped(&dir.join("pipeline.json")).and_then(|text| project_pipeline_json(&text));
+    files.config_json = read_capped(&dir.join("config.json")).and_then(|text| project_pipeline_json(&text));
+    files.env_file = read_capped(&dir.join(".env")).and_then(|text| project_env(&text));
+    files
+}
+
+#[derive(Serialize, Default)]
+struct PipelineHomeFiles {
+    #[serde(rename = "pipeline.dsn")]
+    pipeline_dsn: Option<String>,
+    #[serde(rename = "pipeline.json")]
+    pipeline_json: Option<String>,
+    #[serde(rename = "config.json")]
+    config_json: Option<String>,
+    #[serde(rename = ".env")]
+    env_file: Option<String>,
+    #[serde(rename = "remoteDsnFromEnv")]
+    remote_dsn_from_env: Option<String>,
+}
+
+fn read_capped(path: &std::path::Path) -> Option<String> {
+    let file = std::fs::File::open(path).ok()?;
+    let mut reader = std::io::BufReader::new(file);
+    let mut buf = vec![0u8; 32 * 1024];
+    let read = std::io::Read::read(&mut reader, &mut buf).ok()?;
+    if read == 0 {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&buf[..read]);
+    let trimmed = text.trim_start_matches('\u{feff}').trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn project_pipeline_json(text: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    let obj = value.as_object()?;
+    let mut out = serde_json::Map::new();
+    for key in ["dsn", "pipeline_dsn", "pipelineDsn"] {
+        if let Some(item) = obj.get(key) {
+            out.insert(key.to_string(), item.clone());
+        }
+    }
+    if let Some(pipeline) = obj.get("pipeline").and_then(|item| item.as_object()) {
+        if let Some(dsn) = pipeline.get("dsn") {
+            let mut nested = serde_json::Map::new();
+            nested.insert("dsn".to_string(), dsn.clone());
+            out.insert("pipeline".to_string(), serde_json::Value::Object(nested));
+        }
+    }
+    if out.is_empty() {
+        return None;
+    }
+    serde_json::to_string(&out).ok()
+}
+
+fn project_env(text: &str) -> Option<String> {
+    let mut kept = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let body = trimmed.strip_prefix("export ").unwrap_or(trimmed).trim();
+        let Some((key, _)) = body.split_once('=') else {
+            continue;
+        };
+        let key_norm = key.trim().to_ascii_uppercase();
+        if key_norm == "PIPELINE_DSN"
+            || key_norm == "TONGYUN_PIPELINE_DSN"
+            || key_norm == "TONGYUN_REMOTE_DSN"
+        {
+            kept.push(body.to_string());
+        }
+    }
+    if kept.is_empty() {
+        None
+    } else {
+        Some(kept.join("\n"))
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -520,7 +623,8 @@ pub fn run() {
             local_backup_read,
             local_backup_prune,
             local_backup_dir,
-            app_quit_ready
+            app_quit_ready,
+            read_pipeline_home_files
         ])
         // 6. 初始化系统托盘
         .setup(|app| {

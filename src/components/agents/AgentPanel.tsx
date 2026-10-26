@@ -4,6 +4,9 @@ import type { Task, TaskRunStatus } from "../../types";
 import { useAgents } from "../../hooks/useAgents";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { getLocalDateString } from "../../utils/date";
+import { formatRosterOption } from "../../utils/pipeline/companyRoster";
+import { CompanyRosterStrip } from "./CompanyRosterStrip";
+import { RequirementComposer } from "./RequirementComposer";
 import {
   describeRunStatus,
   partitionAgentBoard,
@@ -40,11 +43,22 @@ export function AgentPanel({
   onTaskClick,
   onOpenSettings,
 }: AgentPanelProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const ap = t.agentPanel;
-  const { agents, enabledAgents, getAgentHandle } = useAgents();
+  const {
+    agents,
+    enabledAgents,
+    roster,
+    rosterVia,
+    rosterError,
+    loading,
+    refreshRoster,
+    getAgentHandle,
+    submitRequirement,
+  } = useAgents();
   const [agentFilter, setAgentFilter] = useState("all");
   const [isCreating, setIsCreating] = useState(false);
+  const [isRequesting, setIsRequesting] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [selectedAgentIdOverride, setSelectedAgentIdOverride] = useState<string | null>(null);
 
@@ -149,6 +163,14 @@ export function AgentPanel({
             <Plus className="w-3.5 h-3.5" />
             {ap.newTask || "新建"}
           </button>
+          <button
+            type="button"
+            data-requirement-open
+            onClick={() => setIsRequesting((prev) => !prev)}
+            className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#383A42] text-slate-600 dark:text-slate-200 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] cursor-pointer"
+          >
+            {ap.requirementOpen}
+          </button>
           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
             <span className="sr-only">{ap.filterAll}</span>
             <select
@@ -160,7 +182,7 @@ export function AgentPanel({
               <option value="all">{ap.filterAll}</option>
               {agents.map((agent) => (
                 <option key={agent.id} value={agent.id}>
-                  {agent.handle}
+                  {formatRosterOption(agent, { locale, style: "filter", withHeartbeat: true })}
                 </option>
               ))}
             </select>
@@ -174,6 +196,18 @@ export function AgentPanel({
           </button>
         </div>
       </header>
+
+      <CompanyRosterStrip
+        entries={roster}
+        via={rosterVia}
+        error={rosterError}
+        loading={loading}
+        onRefresh={() => {
+          refreshRoster().catch((error) => console.error("Failed to refresh roster", error));
+        }}
+      />
+
+      {isRequesting && <RequirementComposer onSubmit={submitRequirement} />}
 
       {/* New Task Dispatch Bar */}
       {isCreating && (
@@ -226,13 +260,11 @@ export function AgentPanel({
               ) : (
                 enabledAgents.map((agent) => (
                   <option key={agent.id} value={agent.id}>
-                    {agent.handle} (
-                    {agent.kind === "manual"
-                      ? "手动"
-                      : agent.kind === "local_runner"
-                        ? "Runner"
-                        : "网关"}
-                    )
+                    {formatRosterOption(agent, {
+                      locale,
+                      style: "assignee",
+                      withHeartbeat: true,
+                    })}
                   </option>
                 ))
               )}

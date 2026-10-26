@@ -1,6 +1,14 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { DomainAgent, TaskRunStatus } from "../types";
 import { agentRepository } from "../data/repositories";
+import {
+  type CompanyRosterEntry,
+  type RequirementDraft,
+  type RosterVia,
+  localAgentsToRoster,
+  rosterEntryToDomainAgent,
+} from "../utils/pipeline/companyRoster";
+import { fetchCompanyRoster, submitPlannerRequirement } from "../utils/pipeline/pipelineGateway";
 
 export function getRunStatusLabel(status?: TaskRunStatus): string {
   switch (status) {
@@ -22,60 +30,69 @@ export function getRunStatusLabel(status?: TaskRunStatus): string {
 }
 
 export function useAgents() {
-  const [agents, setAgents] = useState<DomainAgent[]>([]);
+  const [localAgents, setLocalAgents] = useState<DomainAgent[]>([]);
+  const [roster, setRoster] = useState<CompanyRosterEntry[]>([]);
+  const [rosterVia, setRosterVia] = useState<RosterVia>("local");
+  const [rosterError, setRosterError] = useState<string | null>(null);
+  const [dsnConfigured, setDsnConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
+  const viaRef = useRef<RosterVia>("local");
 
-  const refreshAgents = useCallback(async () => {
-    try {
-      const loaded = await agentRepository.load();
-      setAgents(loaded);
-    } catch (e) {
-      console.error("Failed to load agents", e);
-    } finally {
-      setLoading(false);
+  const applyRoster = useCallback(async (force: boolean) => {
+    const local = await agentRepository.load().catch(() => [] as DomainAgent[]);
+    setLocalAgents(local);
+    const snap = await fetchCompanyRoster({ loadLocal: async () => local, force });
+    viaRef.current = snap.via;
+    setRoster(snap.entries);
+    setRosterVia(snap.via);
+    setRosterError(snap.error ?? null);
+    setDsnConfigured(snap.dsnConfigured);
+    setLoading(false);
+  }, []);
+
+  const refreshRoster = useCallback(() => applyRoster(true), [applyRoster]);
+
+  const reloadLocal = useCallback(async () => {
+    const local = await agentRepository.load();
+    setLocalAgents(local);
+    if (viaRef.current === "local") {
+      setRoster(localAgentsToRoster(local));
     }
   }, []);
 
   useEffect(() => {
     let mounted = true;
-    agentRepository
-      .load()
-      .then((loaded) => {
-        if (mounted) {
-          setAgents(loaded);
-          setLoading(false);
-        }
-      })
-      .catch((e) => {
-        console.error("Failed to load agents in effect", e);
-        if (mounted) setLoading(false);
-      });
+    applyRoster(false).catch((error) => {
+      console.error("Failed to load company roster", error);
+      if (mounted) setLoading(false);
+    });
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [applyRoster]);
 
-  const enabledAgents = useMemo(() => agents.filter((a) => a.enabled), [agents]);
+  const agents = useMemo(() => roster.map(rosterEntryToDomainAgent), [roster]);
+  const enabledAgents = useMemo(() => agents.filter((agent) => agent.enabled), [agents]);
 
   const saveAgent = useCallback(
     async (agent: DomainAgent) => {
       await agentRepository.save(agent);
-      await refreshAgents();
+      await reloadLocal();
     },
-    [refreshAgents],
+    [reloadLocal],
   );
 
   const deleteAgent = useCallback(
     async (id: string) => {
       await agentRepository.delete(id);
-      await refreshAgents();
+      await reloadLocal();
     },
-    [refreshAgents],
+    [reloadLocal],
   );
 
   const toggleAgent = useCallback(
     async (id: string) => {
-      const target = agents.find((a) => a.id === id);
+      const target = localAgents.find((agent) => agent.id === id);
       if (!target) return;
       const updated: DomainAgent = {
         ...target,
@@ -83,28 +100,41 @@ export function useAgents() {
         updatedAt: Date.now(),
       };
       await agentRepository.save(updated);
-      await refreshAgents();
+      await reloadLocal();
     },
-    [agents, refreshAgents],
+    [localAgents, reloadLocal],
   );
 
   const getAgentHandle = useCallback(
     (id?: string) => {
       if (!id) return "";
-      const agent = agents.find((a) => a.id === id);
-      return agent ? agent.handle : id;
+      const fromRoster = roster.find((entry) => entry.id === id || entry.slug === id);
+      if (fromRoster) return fromRoster.handle;
+      const local = localAgents.find((agent) => agent.id === id);
+      return local ? local.handle : id;
     },
-    [agents],
+    [roster, localAgents],
   );
+
+  const submitRequirement = useCallback(async (draft: RequirementDraft) => {
+    return submitPlannerRequirement(draft);
+  }, []);
 
   return {
     agents,
     enabledAgents,
+    localAgents,
+    roster,
+    rosterVia,
+    rosterError,
+    dsnConfigured,
     loading,
     saveAgent,
     deleteAgent,
     toggleAgent,
-    refreshAgents,
+    refreshAgents: refreshRoster,
+    refreshRoster,
     getAgentHandle,
+    submitRequirement,
   };
 }

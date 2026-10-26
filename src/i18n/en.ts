@@ -613,6 +613,33 @@ const en: Translations = {
     backToMe: "Back to me",
     openSettings: "Register agent",
     unassigned: "Unassigned",
+    rosterPipeline: "Company roster · tongyun_pipeline",
+    rosterFixture: "Company roster · demo fixture (not live TiDB)",
+    rosterCache: "Company roster · offline cache",
+    rosterLocal: "Offline local fallback",
+    rosterUnavailable: "Company database unread",
+    rosterPipelineHint:
+      "Active agents plus enabled workers, including Cursor / cursor-cloud, with heartbeat age.",
+    rosterCacheHint: "Last roster read from the company database. Refresh replaces it.",
+    rosterLocalHint:
+      "No company DSN and no cached roster yet. Configure ~/.tongyun or the remote DSN to read tongyun_pipeline.",
+    rosterUnavailableHint:
+      "A company DSN is set, but this read failed. Local static agents are not used to fill the list.",
+    rosterEmpty: "The roster is empty.",
+    rosterLoading: "Reading the company roster…",
+    rosterRefresh: "Refresh",
+    requirementOpen: "Requirement",
+    requirementTitle: "Submit a requirement",
+    requirementHint: "Inserts into tongyun_pipeline.requirements and returns a checkable id.",
+    requirementPlaceholder: "Title",
+    requirementDetail: "Details",
+    requirementPriority: "Priority",
+    requirementProduct: "Product id (optional)",
+    requirementSubmit: "Save",
+    requirementSaved: "Saved id",
+    requirementSavedFixture: "Demo id (not written to TiDB)",
+    requirementNeedTitle: "Title is required",
+    requirementFailed: "Requirement was not saved",
   },
 
   common: {

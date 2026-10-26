@@ -30,6 +30,7 @@ import { CustomSelect } from "./CustomSelect";
 import { createId } from "../utils/id";
 import { getTaskPomodoroStats } from "../utils/pomodoroTaskStats";
 import { useAgents, getRunStatusLabel } from "../hooks/useAgents";
+import { formatRosterOption } from "../utils/pipeline/companyRoster";
 
 interface TaskDetailModalProps {
   task: Task;
@@ -59,7 +60,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
     handleStartFocus,
     isFocusing,
   }) => {
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
     const tc = t.taskCard;
     const [notes, setNotes] = useState(task.notes || "");
     const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
@@ -77,10 +78,10 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
         { value: "human", label: "自己 (Human)" },
         ...enabledAgents.map((a) => ({
           value: a.id,
-          label: `${a.handle} (${a.kind === "manual" ? "手动" : a.kind === "local_runner" ? "Runner" : "网关"})`,
+          label: formatRosterOption(a, { locale, style: "assignee", withHeartbeat: true }),
         })),
       ],
-      [enabledAgents],
+      [enabledAgents, locale],
     );
     const currentAssigneeValue =
       task.assigneeKind === "agent" && task.assigneeAgentId ? task.assigneeAgentId : "human";
