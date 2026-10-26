@@ -77,8 +77,10 @@ export interface Task {
   assigneeKind?: AssigneeKind;
   /** 关联的本地 Agent ID（当 assigneeKind 为 agent 时非空） */
   assigneeAgentId?: string;
-  /** AI 调度执行状态：queued | running | done | failed | cancelled | blocked */
+  /** AI 调度执行状态：queued | running | done | failed | cancelled | blocked。Agent 面板以公司库为准。 */
   runStatus?: TaskRunStatus;
+  /** tongyun_pipeline.tasks.id。有它才算已经写进公司任务池。 */
+  pipelineTaskId?: string;
   /** 更新时刻（ms） */
   updatedAt?: number;
 }

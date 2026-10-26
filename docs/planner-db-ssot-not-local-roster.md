@@ -31,3 +31,13 @@ Agent 面板的下拉、筛选、派活人选和在线心跳，以 `tongyun_pipe
 手帐把 `requirements` 写成一行：`id`、`title`、`detail`、`product_id`、`source=planner`、`status=open`、`priority`。`id` 由手帐生成并随插入返回，避免大整数在界面里丢精度。没有 DSN 或写库失败时不编造 id。
 
 开发构建可设 `sessionStorage.tongyun_roster_fixture=1` 看合并后的演示名册。生产包忽略这个开关。
+
+## 开工与改派
+
+「新建」和「开始」写入 `tongyun_pipeline.tasks`。`assignee` 用公司名册 slug（`cursor-cloud`、`agy-ibz` 这种）。`status` 用库里的可领值，优先 `todo`。列名从 `information_schema` 读，不猜一套固定 DDL。
+
+写失败时本机看板不动，并显示错误。不会只把 `runStatus` 改成 running 来冒充开工。
+
+本机「待跑 / 跑着」跟库里的 status：可领停在待跑，工人领成 doing / running 之后才进跑着。卡片上的改派下拉只列公司名册，成功后回写 `tasks.assignee` 并放回可领。本机离线兜底不能当工人。
+
+「改回自己」会先把公司库那一行标成取消；写失败则卡片仍留给工人。

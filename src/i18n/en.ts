@@ -599,8 +599,9 @@ const en: Translations = {
     done: "Done",
     failed: "Failed",
     blocked: "Blocked",
-    queuedHint: "Assigned, not started",
-    runningHint: "In progress",
+    queuedHint:
+      "Someone is assigned. Start writes the company database. The card stays here until a worker claims it.",
+    runningHint: "The company database says this is in progress.",
     settledHint: "Finished or failed",
     emptyColumn: "Nothing in this column",
     emptyBoard:
@@ -640,6 +641,20 @@ const en: Translations = {
     requirementSavedFixture: "Demo id (not written to TiDB)",
     requirementNeedTitle: "Title is required",
     requirementFailed: "Requirement was not saved",
+    reassignPlaceholder: "Assign",
+    startNeedsAssignee: "Pick a company-roster worker before starting",
+    startNeedsRoster:
+      "New tasks must use the company roster. Nobody from the company database is listed.",
+    startFailed: "Not written to tongyun_pipeline, so it did not start",
+    startSaved: "Written to the company database",
+    startAligned: "Already in progress in the database; the board matches it",
+    startFixture: "Demo roster was not written to TiDB. The card stays queued",
+    reassignSaved: "Reassigned and written back to the company database",
+    reassignFailed: "Reassignment was not written back, so the local owner did not change",
+    releaseFailed: "The company task was not cancelled, so the card stays with the worker",
+    settleSaved: "Status updated in the company database",
+    settleFailed: "The company status did not change, so the board stayed put",
+    syncFailed: "Could not read company task status",
   },
 
   common: {

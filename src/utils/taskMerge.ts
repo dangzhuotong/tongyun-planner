@@ -119,6 +119,14 @@ export function mergeTwoTasks(a: Task, b: Task): Task {
     if (!merged.runStatus && other.runStatus) merged.runStatus = other.runStatus;
   }
 
+  if (
+    other.pipelineTaskId &&
+    !merged.pipelineTaskId &&
+    (other.updatedAt || 0) > (merged.updatedAt || 0)
+  ) {
+    merged.pipelineTaskId = other.pipelineTaskId;
+  }
+
   // 若关联了 Agent 或具有非取消的 runStatus，确保 assigneeKind 为 agent
   if (
     !merged.assigneeKind &&
