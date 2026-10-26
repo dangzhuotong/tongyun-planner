@@ -7,14 +7,28 @@ import {
   collectSecretFields,
   isSecretsEmpty,
 } from "./secretSync";
-import {
-  readSyncSecretsPassphrase,
-  isSyncSecretsOptIn,
-} from "./syncSecretsPref";
+import { readSyncSecretsPassphrase, isSyncSecretsOptIn } from "./syncSecretsPref";
 import { SYNC_APPLIED_EVENT } from "./types";
 
 export const REMOTE_DSN_STORAGE_KEY = "tongyun_remote_dsn";
 export const LAST_REMOTE_SYNC_TIME_KEY = "tongyun_last_remote_sync_time";
+
+export const SYNC_TABLES_WHITELIST = [
+  "tasks",
+  "journal_entries",
+  "pomodoro_logs",
+  "habits",
+  "agents",
+  "task_dispatch",
+  "sticky_notes",
+  "countdowns",
+  "timeblocks",
+  "user_prefs",
+  "sync_state",
+  "sync_outbox",
+] as const;
+
+export type SyncTableName = (typeof SYNC_TABLES_WHITELIST)[number];
 
 let remoteDbOverrideForTesting: Database | null = null;
 
@@ -27,8 +41,9 @@ export function getRemoteDsn(): string | null {
     const val = localStorage.getItem(REMOTE_DSN_STORAGE_KEY);
     if (val && val.trim()) return val.trim();
   }
-  if (typeof process !== "undefined" && process.env?.TONGYUN_REMOTE_DSN) {
-    return process.env.TONGYUN_REMOTE_DSN.trim();
+  const proc = (globalThis as any).process;
+  if (proc && proc.env?.TONGYUN_REMOTE_DSN) {
+    return proc.env.TONGYUN_REMOTE_DSN.trim();
   }
   return null;
 }
@@ -111,6 +126,9 @@ export async function syncFullSchemaWithRemote(options?: {
     pulled: 0,
     tables: {},
   };
+  for (const table of SYNC_TABLES_WHITELIST) {
+    stats.tables[table] = { pushed: 0, pulled: 0 };
+  }
 
   const targetDsn = options?.dsn || getRemoteDsn();
   const remoteOverride = options?.dbOverride || remoteDbOverrideForTesting;
@@ -149,10 +167,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 1. tasks
   try {
-    const localTasks = await localDb.select<any[]>(
-      "SELECT * FROM tasks WHERE updated_at > $1",
-      [lastSyncAt],
-    ).catch(async () => localDb.select<any[]>("SELECT * FROM tasks"));
+    const localTasks = await localDb
+      .select<any[]>("SELECT * FROM tasks WHERE updated_at > $1", [lastSyncAt])
+      .catch(async () => localDb.select<any[]>("SELECT * FROM tasks"));
 
     let taskPushed = 0;
     for (const t of localTasks || []) {
@@ -226,10 +243,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 2. journal_entries
   try {
-    const localJournals = await localDb.select<any[]>(
-      "SELECT * FROM journal_entries WHERE updated_at > $1",
-      [lastSyncAt],
-    ).catch(async () => localDb.select<any[]>("SELECT * FROM journal_entries"));
+    const localJournals = await localDb
+      .select<any[]>("SELECT * FROM journal_entries WHERE updated_at > $1", [lastSyncAt])
+      .catch(async () => localDb.select<any[]>("SELECT * FROM journal_entries"));
 
     let jPushed = 0;
     for (const j of localJournals || []) {
@@ -316,10 +332,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 3. pomodoro_logs
   try {
-    const localLogs = await localDb.select<any[]>(
-      "SELECT * FROM pomodoro_logs WHERE created_at > $1",
-      [lastSyncAt],
-    ).catch(async () => localDb.select<any[]>("SELECT * FROM pomodoro_logs"));
+    const localLogs = await localDb
+      .select<any[]>("SELECT * FROM pomodoro_logs WHERE created_at > $1", [lastSyncAt])
+      .catch(async () => localDb.select<any[]>("SELECT * FROM pomodoro_logs"));
 
     let pomoPushed = 0;
     for (const p of localLogs || []) {
@@ -349,10 +364,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 4. habits
   try {
-    const localHabits = await localDb.select<any[]>(
-      "SELECT * FROM habits WHERE updated_at > $1",
-      [lastSyncAt],
-    ).catch(async () => localDb.select<any[]>("SELECT * FROM habits"));
+    const localHabits = await localDb
+      .select<any[]>("SELECT * FROM habits WHERE updated_at > $1", [lastSyncAt])
+      .catch(async () => localDb.select<any[]>("SELECT * FROM habits"));
 
     let habitPushed = 0;
     for (const h of localHabits || []) {
@@ -407,10 +421,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 6. task_dispatch
   try {
-    const localDispatches = await localDb.select<any[]>(
-      "SELECT * FROM task_dispatch WHERE updated_at > $1",
-      [lastSyncAt],
-    ).catch(async () => localDb.select<any[]>("SELECT * FROM task_dispatch"));
+    const localDispatches = await localDb
+      .select<any[]>("SELECT * FROM task_dispatch WHERE updated_at > $1", [lastSyncAt])
+      .catch(async () => localDb.select<any[]>("SELECT * FROM task_dispatch"));
 
     let dispatchPushed = 0;
     for (const d of localDispatches || []) {
@@ -421,7 +434,9 @@ export async function syncFullSchemaWithRemote(options?: {
           d.task_id,
           /^\d+$/.test(String(d.agent_id)) ? BigInt(d.agent_id) : 1n,
           d.status,
-          d.pipeline_task_id && /^\d+$/.test(d.pipeline_task_id) ? BigInt(d.pipeline_task_id) : null,
+          d.pipeline_task_id && /^\d+$/.test(d.pipeline_task_id)
+            ? BigInt(d.pipeline_task_id)
+            : null,
           d.note ?? null,
         ],
       );
@@ -435,10 +450,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 7. sticky_notes
   try {
-    const localNotes = await localDb.select<any[]>(
-      "SELECT * FROM sticky_notes WHERE updated_at > $1",
-      [lastSyncAt],
-    ).catch(async () => localDb.select<any[]>("SELECT * FROM sticky_notes"));
+    const localNotes = await localDb
+      .select<any[]>("SELECT * FROM sticky_notes WHERE updated_at > $1", [lastSyncAt])
+      .catch(async () => localDb.select<any[]>("SELECT * FROM sticky_notes"));
 
     let notesPushed = 0;
     for (const n of localNotes || []) {
@@ -469,10 +483,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 8. countdowns
   try {
-    const localCountdowns = await localDb.select<any[]>(
-      "SELECT * FROM countdowns WHERE updated_at > $1",
-      [lastSyncAt],
-    ).catch(async () => localDb.select<any[]>("SELECT * FROM countdowns"));
+    const localCountdowns = await localDb
+      .select<any[]>("SELECT * FROM countdowns WHERE updated_at > $1", [lastSyncAt])
+      .catch(async () => localDb.select<any[]>("SELECT * FROM countdowns"));
 
     let cdPushed = 0;
     for (const c of localCountdowns || []) {
@@ -505,10 +518,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 9. timeblocks
   try {
-    const localBlocks = await localDb.select<any[]>(
-      "SELECT * FROM timeblocks WHERE updated_at > $1",
-      [lastSyncAt],
-    ).catch(async () => localDb.select<any[]>("SELECT * FROM timeblocks"));
+    const localBlocks = await localDb
+      .select<any[]>("SELECT * FROM timeblocks WHERE updated_at > $1", [lastSyncAt])
+      .catch(async () => localDb.select<any[]>("SELECT * FROM timeblocks"));
 
     let tbPushed = 0;
     for (const b of localBlocks || []) {
@@ -551,7 +563,7 @@ export async function syncFullSchemaWithRemote(options?: {
       assertSecretsSafeForSync(parsedCustomization);
 
       // 加密或清理机密
-      const safeConfig = await prepareConfigForUpload(parsedCustomization);
+      const safeConfig = await prepareConfigForUpload(parsedCustomization as any);
 
       const prefsMeta = {
         theme_mode: p.theme_mode,
@@ -599,8 +611,24 @@ export async function syncFullSchemaWithRemote(options?: {
          backend=VALUES(backend), updated_at=VALUES(updated_at)`,
       [now, now, now],
     );
+    stats.tables.sync_state = { pushed: 1, pulled: 0 };
+    stats.pushed += 1;
   } catch (err) {
     console.warn("[remoteDbSync] Push sync_state error:", err);
+  }
+
+  // 12. sync_outbox (清空已同步出件箱)
+  try {
+    const outboxRows = await localDb
+      .select<any[]>("SELECT id FROM sync_outbox WHERE created_at <= $1", [now])
+      .catch(() => []);
+    if (outboxRows.length > 0) {
+      await localDb.execute("DELETE FROM sync_outbox WHERE created_at <= $1", [now]);
+    }
+    stats.tables.sync_outbox = { pushed: outboxRows.length, pulled: 0 };
+    stats.pushed += outboxRows.length;
+  } catch (err) {
+    console.warn("[remoteDbSync] Push sync_outbox error:", err);
   }
 
   // ==========================================
@@ -609,10 +637,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 1. Pull tasks
   try {
-    const remoteTasks = await remoteDb.select<any[]>(
-      "SELECT * FROM tasks WHERE updated_at > $1",
-      [lastSyncAt],
-    ).catch(async () => remoteDb.select<any[]>("SELECT * FROM tasks"));
+    const remoteTasks = await remoteDb
+      .select<any[]>("SELECT * FROM tasks WHERE updated_at > $1", [lastSyncAt])
+      .catch(async () => remoteDb.select<any[]>("SELECT * FROM tasks"));
 
     let taskPulled = 0;
     if (remoteTasks && remoteTasks.length > 0) {
@@ -683,9 +710,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 2. Pull journal_entries
   try {
-    const remoteJournals = await remoteDb.select<any[]>(
-      "SELECT * FROM journal_entries",
-    ).catch(() => []);
+    const remoteJournals = await remoteDb
+      .select<any[]>("SELECT * FROM journal_entries")
+      .catch(() => []);
 
     let jPulled = 0;
     if (remoteJournals && remoteJournals.length > 0) {
@@ -742,9 +769,46 @@ export async function syncFullSchemaWithRemote(options?: {
     console.warn("[remoteDbSync] Pull journal error:", err);
   }
 
-  // 3. Pull habits, countdowns, sticky_notes, timeblocks
+  // 3. Pull pomodoro_logs
+  try {
+    const remoteLogs = await remoteDb.select<any[]>("SELECT * FROM pomodoro_logs").catch(() => []);
+    let pomoPulled = 0;
+    if (remoteLogs && remoteLogs.length > 0) {
+      await queueDomainWrite(async (db) => {
+        for (const rp of remoteLogs) {
+          const durationMin = rp.duration_sec
+            ? Math.round(rp.duration_sec / 60)
+            : rp.duration || 25;
+          const timestampMs = rp.occurred_at || rp.timestamp || now;
+          await db.execute(
+            `INSERT OR REPLACE INTO pomodoro_logs (
+              id, timestamp, duration, task_id, task_title, created_at, deleted_at, data
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              rp.id,
+              timestampMs,
+              durationMin,
+              rp.task_id ?? null,
+              rp.task_title ?? null,
+              rp.created_at || timestampMs,
+              rp.deleted_at ?? null,
+              rp.meta_json || rp.data || null,
+            ],
+          );
+          pomoPulled++;
+        }
+      });
+    }
+    stats.tables.pomodoro_logs.pulled = pomoPulled;
+    stats.pulled += pomoPulled;
+  } catch (err) {
+    console.warn("[remoteDbSync] Pull pomodoro_logs error:", err);
+  }
+
+  // 4. Pull habits
   try {
     const remoteHabits = await remoteDb.select<any[]>("SELECT * FROM habits").catch(() => []);
+    let habitPulled = 0;
     if (remoteHabits && remoteHabits.length > 0) {
       await queueDomainWrite(async (db) => {
         for (const rh of remoteHabits) {
@@ -764,12 +828,88 @@ export async function syncFullSchemaWithRemote(options?: {
               meta.data || null,
             ],
           );
+          habitPulled++;
         }
       });
-      stats.pulled += remoteHabits.length;
     }
+    stats.tables.habits.pulled = habitPulled;
+    stats.pulled += habitPulled;
+  } catch (err) {
+    console.warn("[remoteDbSync] Pull habits error:", err);
+  }
 
+  // 5. Pull agents
+  try {
+    const remoteAgents = await remoteDb.select<any[]>("SELECT * FROM agents").catch(() => []);
+    let agentPulled = 0;
+    if (remoteAgents && remoteAgents.length > 0) {
+      await queueDomainWrite(async (db) => {
+        for (const ra of remoteAgents) {
+          const agentId = ra.id ? String(ra.id) : `agent_${ra.handle}`;
+          await db.execute(
+            `INSERT OR REPLACE INTO agents (id, handle, kind, enabled, meta, updated_at, deleted_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+              agentId,
+              ra.handle,
+              ra.kind || "manual",
+              ra.enabled != null ? (ra.enabled ? 1 : 0) : 1,
+              ra.meta_json || ra.meta || "{}",
+              ra.updated_at || now,
+              ra.deleted_at ?? null,
+            ],
+          );
+          agentPulled++;
+        }
+      });
+    }
+    stats.tables.agents.pulled = agentPulled;
+    stats.pulled += agentPulled;
+  } catch (err) {
+    console.warn("[remoteDbSync] Pull agents error:", err);
+  }
+
+  // 6. Pull task_dispatch
+  try {
+    const remoteDispatches = await remoteDb
+      .select<any[]>("SELECT * FROM task_dispatch")
+      .catch(() => []);
+    let dispatchPulled = 0;
+    if (remoteDispatches && remoteDispatches.length > 0) {
+      await queueDomainWrite(async (db) => {
+        for (const rd of remoteDispatches) {
+          const dispatchId = rd.id
+            ? String(rd.id)
+            : `dispatch_${rd.planner_task_id || rd.task_id}_${rd.agent_id}`;
+          const taskId = rd.planner_task_id || rd.task_id;
+          await db.execute(
+            `INSERT OR REPLACE INTO task_dispatch (id, task_id, agent_id, status, note, pipeline_task_id, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              dispatchId,
+              taskId,
+              String(rd.agent_id),
+              rd.status || "pending",
+              rd.note ?? null,
+              rd.pipeline_task_id ? String(rd.pipeline_task_id) : null,
+              rd.created_at || now,
+              rd.updated_at || now,
+            ],
+          );
+          dispatchPulled++;
+        }
+      });
+    }
+    stats.tables.task_dispatch.pulled = dispatchPulled;
+    stats.pulled += dispatchPulled;
+  } catch (err) {
+    console.warn("[remoteDbSync] Pull task_dispatch error:", err);
+  }
+
+  // 7. Pull sticky_notes
+  try {
     const remoteNotes = await remoteDb.select<any[]>("SELECT * FROM sticky_notes").catch(() => []);
+    let notesPulled = 0;
     if (remoteNotes && remoteNotes.length > 0) {
       await queueDomainWrite(async (db) => {
         for (const rn of remoteNotes) {
@@ -787,12 +927,22 @@ export async function syncFullSchemaWithRemote(options?: {
               rn.meta_json ? JSON.stringify(rn.meta_json) : null,
             ],
           );
+          notesPulled++;
         }
       });
-      stats.pulled += remoteNotes.length;
     }
+    stats.tables.sticky_notes.pulled = notesPulled;
+    stats.pulled += notesPulled;
+  } catch (err) {
+    console.warn("[remoteDbSync] Pull sticky_notes error:", err);
+  }
 
-    const remoteCountdowns = await remoteDb.select<any[]>("SELECT * FROM countdowns").catch(() => []);
+  // 8. Pull countdowns
+  try {
+    const remoteCountdowns = await remoteDb
+      .select<any[]>("SELECT * FROM countdowns")
+      .catch(() => []);
+    let cdPulled = 0;
     if (remoteCountdowns && remoteCountdowns.length > 0) {
       await queueDomainWrite(async (db) => {
         for (const rc of remoteCountdowns) {
@@ -811,12 +961,20 @@ export async function syncFullSchemaWithRemote(options?: {
               rc.meta_json ? JSON.stringify(rc.meta_json) : null,
             ],
           );
+          cdPulled++;
         }
       });
-      stats.pulled += remoteCountdowns.length;
     }
+    stats.tables.countdowns.pulled = cdPulled;
+    stats.pulled += cdPulled;
+  } catch (err) {
+    console.warn("[remoteDbSync] Pull countdowns error:", err);
+  }
 
+  // 9. Pull timeblocks
+  try {
     const remoteBlocks = await remoteDb.select<any[]>("SELECT * FROM timeblocks").catch(() => []);
+    let tbPulled = 0;
     if (remoteBlocks && remoteBlocks.length > 0) {
       await queueDomainWrite(async (db) => {
         for (const rb of remoteBlocks) {
@@ -836,17 +994,21 @@ export async function syncFullSchemaWithRemote(options?: {
               rb.meta_json ? JSON.stringify(rb.meta_json) : null,
             ],
           );
+          tbPulled++;
         }
       });
-      stats.pulled += remoteBlocks.length;
     }
+    stats.tables.timeblocks.pulled = tbPulled;
+    stats.pulled += tbPulled;
   } catch (err) {
-    console.warn("[remoteDbSync] Pull other entities error:", err);
+    console.warn("[remoteDbSync] Pull timeblocks error:", err);
   }
 
-  // 4. Pull user_prefs & 解密机密
+  // 10. Pull user_prefs & 解密机密
   try {
-    const remotePrefs = await remoteDb.select<any[]>("SELECT * FROM user_prefs WHERE id = 1").catch(() => []);
+    const remotePrefs = await remoteDb
+      .select<any[]>("SELECT * FROM user_prefs WHERE id = 1")
+      .catch(() => []);
     if (remotePrefs && remotePrefs.length > 0) {
       const rp = remotePrefs[0];
       const meta = safeJsonParse<any>(rp.prefs_json, {});
@@ -854,7 +1016,8 @@ export async function syncFullSchemaWithRemote(options?: {
 
       // 本地现有配置
       const localPrefs = await localDb.select<any[]>("SELECT * FROM user_prefs WHERE id = 1");
-      const localCustom = localPrefs.length > 0 ? safeJsonParse<any>(localPrefs[0].customization_json, {}) : {};
+      const localCustom =
+        localPrefs.length > 0 ? safeJsonParse<any>(localPrefs[0].customization_json, {}) : {};
 
       // 导入解密机密
       if (remoteConfig.encryptedSecrets) {
@@ -887,23 +1050,27 @@ export async function syncFullSchemaWithRemote(options?: {
           ],
         );
       });
+      stats.tables.user_prefs.pulled = 1;
       stats.pulled += 1;
     }
   } catch (err) {
     console.warn("[remoteDbSync] Pull user_prefs error:", err);
   }
 
+  // 11. 更新本地 sync_state
+  await localDb
+    .execute(
+      `INSERT OR REPLACE INTO sync_state (entity, version, updated_at, last_sync_at, backend)
+     VALUES ('remote_dsn', $1, $2, $3, 'database')`,
+      [now, now, now],
+    )
+    .catch(() => undefined);
+  stats.tables.sync_state.pulled = 1;
+
   // 记录最后同步时间
   if (typeof localStorage !== "undefined") {
     localStorage.setItem(LAST_REMOTE_SYNC_TIME_KEY, String(now));
   }
-
-  // 更新本地 sync_state
-  await localDb.execute(
-    `INSERT OR REPLACE INTO sync_state (entity, version, updated_at, last_sync_at, backend)
-     VALUES ('remote_dsn', $1, $2, $3, 'database')`,
-    [now, now, now],
-  ).catch(() => undefined);
 
   // 触发全局同步事件通知 UI 刷新
   if (typeof window !== "undefined") {

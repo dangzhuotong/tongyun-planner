@@ -80,7 +80,8 @@ function parseTaskRow(row: DbTaskRow): Task {
   if (row.journal_id) task.journalId = row.journal_id;
   task.completedAt = row.completed_at ?? undefined;
   if (row.assignee_kind) task.assigneeKind = row.assignee_kind as any;
-  if (row.assignee_agent_id !== undefined) task.assigneeAgentId = row.assignee_agent_id ?? undefined;
+  if (row.assignee_agent_id !== undefined)
+    task.assigneeAgentId = row.assignee_agent_id ?? undefined;
   if (row.run_status) task.runStatus = row.run_status as TaskRunStatus;
   if (row.stamp) task.stamp = row.stamp;
   if (row.time_block_start && row.time_block_end) {
@@ -88,8 +89,10 @@ function parseTaskRow(row: DbTaskRow): Task {
   }
   if (row.subtasks_json) task.subtasks = safeJsonParse(row.subtasks_json, task.subtasks || []);
   if (row.tags_json) task.tags = safeJsonParse(row.tags_json, task.tags || []);
-  if (row.depends_on_json) task.dependsOn = safeJsonParse(row.depends_on_json, task.dependsOn || []);
-  if (row.attachments_json) task.attachments = safeJsonParse(row.attachments_json, task.attachments || []);
+  if (row.depends_on_json)
+    task.dependsOn = safeJsonParse(row.depends_on_json, task.dependsOn || []);
+  if (row.attachments_json)
+    task.attachments = safeJsonParse(row.attachments_json, task.attachments || []);
   return task;
 }
 
@@ -100,13 +103,15 @@ class TaskRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          const rows = await db.select<{ id: string; data: string }[]>(
-            `SELECT id, data FROM tasks WHERE completed_at IS ${completed ? "NOT " : ""}NULL AND deleted_at IS NULL`,
-          ).catch(async () => {
-            return db.select<{ id: string; data: string }[]>(
-              `SELECT id, data FROM domain_tasks WHERE completed_at IS ${completed ? "NOT " : ""}NULL`,
-            );
-          });
+          const rows = await db
+            .select<{ id: string; data: string }[]>(
+              `SELECT id, data FROM tasks WHERE completed_at IS ${completed ? "NOT " : ""}NULL AND deleted_at IS NULL`,
+            )
+            .catch(async () => {
+              return db.select<{ id: string; data: string }[]>(
+                `SELECT id, data FROM domain_tasks WHERE completed_at IS ${completed ? "NOT " : ""}NULL`,
+              );
+            });
 
           const existing = new Map(rows.map((row) => [row.id, row.data]));
           const desiredIds = new Set(items.map((task) => task.id));
@@ -114,16 +119,21 @@ class TaskRepository {
           try {
             for (const row of rows) {
               if (!desiredIds.has(row.id)) {
-                await db.execute("DELETE FROM tasks WHERE id = $1", [row.id]).catch(() => undefined);
-                await db.execute("DELETE FROM domain_tasks WHERE id = $1", [row.id]).catch(() => undefined);
+                await db
+                  .execute("DELETE FROM tasks WHERE id = $1", [row.id])
+                  .catch(() => undefined);
+                await db
+                  .execute("DELETE FROM domain_tasks WHERE id = $1", [row.id])
+                  .catch(() => undefined);
               }
             }
             for (const task of items) {
               const data = JSON.stringify(task);
               if (existing.get(task.id) === data) continue;
               const now = Date.now();
-              await db.execute(
-                `INSERT OR REPLACE INTO tasks (
+              await db
+                .execute(
+                  `INSERT OR REPLACE INTO tasks (
                   id, title, description, notes, category, due_date, due_time,
                   is_favorite, is_pinned, repeat_rule, repeat_anchor_day, priority,
                   energy_level, estimated_pomodoros, journal_id, completed_at,
@@ -134,53 +144,56 @@ class TaskRepository {
                   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
                   $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
                 )`,
-                [
-                  task.id,
-                  task.title,
-                  task.description ?? null,
-                  task.notes ?? null,
-                  task.category,
-                  task.dueDate ?? null,
-                  task.dueTime ?? null,
-                  task.isFavorite ? 1 : 0,
-                  task.isPinned ? 1 : 0,
-                  task.repeat ?? null,
-                  task.repeatAnchorDay ?? null,
-                  task.priority ?? "medium",
-                  task.energyLevel ?? null,
-                  task.estimatedPomodoros ?? null,
-                  task.journalId ?? null,
-                  task.completedAt ?? null,
-                  task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
-                  task.assigneeAgentId ?? null,
-                  task.runStatus ?? null,
-                  task.stamp ?? null,
-                  task.timeBlock?.start ?? null,
-                  task.timeBlock?.end ?? null,
-                  JSON.stringify(task.subtasks || []),
-                  JSON.stringify(task.tags || []),
-                  JSON.stringify(task.dependsOn || []),
-                  JSON.stringify(task.attachments || []),
-                  data,
-                  now,
-                ],
-              ).catch(() => undefined);
+                  [
+                    task.id,
+                    task.title,
+                    task.description ?? null,
+                    task.notes ?? null,
+                    task.category,
+                    task.dueDate ?? null,
+                    task.dueTime ?? null,
+                    task.isFavorite ? 1 : 0,
+                    task.isPinned ? 1 : 0,
+                    task.repeat ?? null,
+                    task.repeatAnchorDay ?? null,
+                    task.priority ?? "medium",
+                    task.energyLevel ?? null,
+                    task.estimatedPomodoros ?? null,
+                    task.journalId ?? null,
+                    task.completedAt ?? null,
+                    task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
+                    task.assigneeAgentId ?? null,
+                    task.runStatus ?? null,
+                    task.stamp ?? null,
+                    task.timeBlock?.start ?? null,
+                    task.timeBlock?.end ?? null,
+                    JSON.stringify(task.subtasks || []),
+                    JSON.stringify(task.tags || []),
+                    JSON.stringify(task.dependsOn || []),
+                    JSON.stringify(task.attachments || []),
+                    data,
+                    now,
+                  ],
+                )
+                .catch(() => undefined);
 
               // Maintain domain_tasks
-              await db.execute(
-                `INSERT OR REPLACE INTO domain_tasks(id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status)
+              await db
+                .execute(
+                  `INSERT OR REPLACE INTO domain_tasks(id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                [
-                  task.id,
-                  task.completedAt ?? null,
-                  task.dueDate ?? null,
-                  now,
-                  data,
-                  task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
-                  task.assigneeAgentId ?? null,
-                  task.runStatus ?? null,
-                ],
-              ).catch(() => undefined);
+                  [
+                    task.id,
+                    task.completedAt ?? null,
+                    task.dueDate ?? null,
+                    now,
+                    data,
+                    task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
+                    task.assigneeAgentId ?? null,
+                    task.runStatus ?? null,
+                  ],
+                )
+                .catch(() => undefined);
             }
             await db.execute("COMMIT");
           } catch (error) {
@@ -239,11 +252,13 @@ class TaskRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          const rows = await db.select<{ id: string; data: string }[]>(
-            "SELECT id, data FROM tasks WHERE deleted_at IS NULL",
-          ).catch(async () => {
-            return db.select<{ id: string; data: string }[]>("SELECT id, data FROM domain_tasks");
-          });
+          const rows = await db
+            .select<{ id: string; data: string }[]>(
+              "SELECT id, data FROM tasks WHERE deleted_at IS NULL",
+            )
+            .catch(async () => {
+              return db.select<{ id: string; data: string }[]>("SELECT id, data FROM domain_tasks");
+            });
 
           const existing = new Map(rows.map((row) => [row.id, row.data]));
           const desiredIds = new Set(desired.map((task) => task.id));
@@ -251,16 +266,21 @@ class TaskRepository {
           try {
             for (const row of rows) {
               if (!desiredIds.has(row.id)) {
-                await db.execute("DELETE FROM tasks WHERE id = $1", [row.id]).catch(() => undefined);
-                await db.execute("DELETE FROM domain_tasks WHERE id = $1", [row.id]).catch(() => undefined);
+                await db
+                  .execute("DELETE FROM tasks WHERE id = $1", [row.id])
+                  .catch(() => undefined);
+                await db
+                  .execute("DELETE FROM domain_tasks WHERE id = $1", [row.id])
+                  .catch(() => undefined);
               }
             }
             for (const task of desired) {
               const data = JSON.stringify(task);
               if (existing.get(task.id) === data) continue;
               const now = Date.now();
-              await db.execute(
-                `INSERT OR REPLACE INTO tasks (
+              await db
+                .execute(
+                  `INSERT OR REPLACE INTO tasks (
                   id, title, description, notes, category, due_date, due_time,
                   is_favorite, is_pinned, repeat_rule, repeat_anchor_day, priority,
                   energy_level, estimated_pomodoros, journal_id, completed_at,
@@ -271,52 +291,55 @@ class TaskRepository {
                   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
                   $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
                 )`,
-                [
-                  task.id,
-                  task.title,
-                  task.description ?? null,
-                  task.notes ?? null,
-                  task.category,
-                  task.dueDate ?? null,
-                  task.dueTime ?? null,
-                  task.isFavorite ? 1 : 0,
-                  task.isPinned ? 1 : 0,
-                  task.repeat ?? null,
-                  task.repeatAnchorDay ?? null,
-                  task.priority ?? "medium",
-                  task.energyLevel ?? null,
-                  task.estimatedPomodoros ?? null,
-                  task.journalId ?? null,
-                  task.completedAt ?? null,
-                  task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
-                  task.assigneeAgentId ?? null,
-                  task.runStatus ?? null,
-                  task.stamp ?? null,
-                  task.timeBlock?.start ?? null,
-                  task.timeBlock?.end ?? null,
-                  JSON.stringify(task.subtasks || []),
-                  JSON.stringify(task.tags || []),
-                  JSON.stringify(task.dependsOn || []),
-                  JSON.stringify(task.attachments || []),
-                  data,
-                  now,
-                ],
-              ).catch(() => undefined);
+                  [
+                    task.id,
+                    task.title,
+                    task.description ?? null,
+                    task.notes ?? null,
+                    task.category,
+                    task.dueDate ?? null,
+                    task.dueTime ?? null,
+                    task.isFavorite ? 1 : 0,
+                    task.isPinned ? 1 : 0,
+                    task.repeat ?? null,
+                    task.repeatAnchorDay ?? null,
+                    task.priority ?? "medium",
+                    task.energyLevel ?? null,
+                    task.estimatedPomodoros ?? null,
+                    task.journalId ?? null,
+                    task.completedAt ?? null,
+                    task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
+                    task.assigneeAgentId ?? null,
+                    task.runStatus ?? null,
+                    task.stamp ?? null,
+                    task.timeBlock?.start ?? null,
+                    task.timeBlock?.end ?? null,
+                    JSON.stringify(task.subtasks || []),
+                    JSON.stringify(task.tags || []),
+                    JSON.stringify(task.dependsOn || []),
+                    JSON.stringify(task.attachments || []),
+                    data,
+                    now,
+                  ],
+                )
+                .catch(() => undefined);
 
-              await db.execute(
-                `INSERT OR REPLACE INTO domain_tasks(id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status)
+              await db
+                .execute(
+                  `INSERT OR REPLACE INTO domain_tasks(id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                [
-                  task.id,
-                  task.completedAt ?? null,
-                  task.dueDate ?? null,
-                  now,
-                  data,
-                  task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
-                  task.assigneeAgentId ?? null,
-                  task.runStatus ?? null,
-                ],
-              ).catch(() => undefined);
+                  [
+                    task.id,
+                    task.completedAt ?? null,
+                    task.dueDate ?? null,
+                    now,
+                    data,
+                    task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
+                    task.assigneeAgentId ?? null,
+                    task.runStatus ?? null,
+                  ],
+                )
+                .catch(() => undefined);
             }
             await db.execute("COMMIT");
           } catch (error) {
@@ -385,7 +408,8 @@ function parseJournalRow(row: DbJournalRow): JournalEntry {
   if (row.washi_tape) entry.washiTape = row.washi_tape;
   if (row.stamp) entry.stamp = row.stamp;
   if (row.stickers_json) entry.stickers = safeJsonParse(row.stickers_json, entry.stickers || []);
-  if (row.attachments_json) entry.attachments = safeJsonParse(row.attachments_json, entry.attachments || []);
+  if (row.attachments_json)
+    entry.attachments = safeJsonParse(row.attachments_json, entry.attachments || []);
   entry.createdAt = row.created_at || entry.createdAt;
   entry.updatedAt = row.updated_at || entry.updatedAt;
   return entry;
@@ -424,9 +448,9 @@ class JournalRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          const rows = await db.select<DataRow[]>(
-            "SELECT id, data FROM journal_entries WHERE deleted_at IS NULL",
-          ).catch(async () => db.select<DataRow[]>("SELECT id, data FROM domain_journal"));
+          const rows = await db
+            .select<DataRow[]>("SELECT id, data FROM journal_entries WHERE deleted_at IS NULL")
+            .catch(async () => db.select<DataRow[]>("SELECT id, data FROM domain_journal"));
 
           const existing = new Map(rows.map((row) => [row.id, row.data]));
           const desiredIds = new Set(entries.map((entry) => entry.id));
@@ -434,47 +458,55 @@ class JournalRepository {
           try {
             for (const row of rows) {
               if (!desiredIds.has(row.id)) {
-                await db.execute("DELETE FROM journal_entries WHERE id = $1", [row.id]).catch(() => undefined);
-                await db.execute("DELETE FROM domain_journal WHERE id = $1", [row.id]).catch(() => undefined);
+                await db
+                  .execute("DELETE FROM journal_entries WHERE id = $1", [row.id])
+                  .catch(() => undefined);
+                await db
+                  .execute("DELETE FROM domain_journal WHERE id = $1", [row.id])
+                  .catch(() => undefined);
               }
             }
             for (const entry of entries) {
               const data = JSON.stringify(entry);
               if (existing.get(entry.id) === data) continue;
               const now = Date.now();
-              await db.execute(
-                `INSERT OR REPLACE INTO journal_entries (
+              await db
+                .execute(
+                  `INSERT OR REPLACE INTO journal_entries (
                   id, link_key, title, body, entry_date, is_daily, mood,
                   ai_comment, template_id, washi_tape, stamp, stickers_json,
                   attachments_json, data, created_at, updated_at
                 ) VALUES (
                   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
                 )`,
-                [
-                  entry.id,
-                  entry.linkKey || entry.date,
-                  entry.title,
-                  entry.content,
-                  entry.date,
-                  entry.isDaily ? 1 : 0,
-                  entry.mood ?? null,
-                  entry.aiComment ?? null,
-                  entry.templateId ?? null,
-                  entry.washiTape ?? null,
-                  entry.stamp ?? null,
-                  JSON.stringify(entry.stickers || []),
-                  JSON.stringify(entry.attachments || []),
-                  data,
-                  entry.createdAt || now,
-                  entry.updatedAt || now,
-                ],
-              ).catch(() => undefined);
+                  [
+                    entry.id,
+                    entry.linkKey || entry.date,
+                    entry.title,
+                    entry.content,
+                    entry.date,
+                    entry.isDaily ? 1 : 0,
+                    entry.mood ?? null,
+                    entry.aiComment ?? null,
+                    entry.templateId ?? null,
+                    entry.washiTape ?? null,
+                    entry.stamp ?? null,
+                    JSON.stringify(entry.stickers || []),
+                    JSON.stringify(entry.attachments || []),
+                    data,
+                    entry.createdAt || now,
+                    entry.updatedAt || now,
+                  ],
+                )
+                .catch(() => undefined);
 
-              await db.execute(
-                `INSERT OR REPLACE INTO domain_journal(id, entry_date, is_daily, updated_at, data)
+              await db
+                .execute(
+                  `INSERT OR REPLACE INTO domain_journal(id, entry_date, is_daily, updated_at, data)
                  VALUES ($1, $2, $3, $4, $5)`,
-                [entry.id, entry.date, entry.isDaily ? 1 : 0, entry.updatedAt ?? now, data],
-              ).catch(() => undefined);
+                  [entry.id, entry.date, entry.isDaily ? 1 : 0, entry.updatedAt ?? now, data],
+                )
+                .catch(() => undefined);
             }
             await db.execute("COMMIT");
           } catch (error) {
@@ -492,39 +524,43 @@ class JournalRepository {
         queueDomainWrite(async (db) => {
           const data = JSON.stringify(entry);
           const now = Date.now();
-          await db.execute(
-            `INSERT OR REPLACE INTO journal_entries (
+          await db
+            .execute(
+              `INSERT OR REPLACE INTO journal_entries (
               id, link_key, title, body, entry_date, is_daily, mood,
               ai_comment, template_id, washi_tape, stamp, stickers_json,
               attachments_json, data, created_at, updated_at
             ) VALUES (
               $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
             )`,
-            [
-              entry.id,
-              entry.linkKey || entry.date,
-              entry.title,
-              entry.content,
-              entry.date,
-              entry.isDaily ? 1 : 0,
-              entry.mood ?? null,
-              entry.aiComment ?? null,
-              entry.templateId ?? null,
-              entry.washiTape ?? null,
-              entry.stamp ?? null,
-              JSON.stringify(entry.stickers || []),
-              JSON.stringify(entry.attachments || []),
-              data,
-              entry.createdAt || now,
-              entry.updatedAt || now,
-            ],
-          ).catch(() => undefined);
+              [
+                entry.id,
+                entry.linkKey || entry.date,
+                entry.title,
+                entry.content,
+                entry.date,
+                entry.isDaily ? 1 : 0,
+                entry.mood ?? null,
+                entry.aiComment ?? null,
+                entry.templateId ?? null,
+                entry.washiTape ?? null,
+                entry.stamp ?? null,
+                JSON.stringify(entry.stickers || []),
+                JSON.stringify(entry.attachments || []),
+                data,
+                entry.createdAt || now,
+                entry.updatedAt || now,
+              ],
+            )
+            .catch(() => undefined);
 
-          await db.execute(
-            `INSERT OR REPLACE INTO domain_journal(id, entry_date, is_daily, updated_at, data)
+          await db
+            .execute(
+              `INSERT OR REPLACE INTO domain_journal(id, entry_date, is_daily, updated_at, data)
              VALUES ($1, $2, $3, $4, $5)`,
-            [entry.id, entry.date, entry.isDaily ? 1 : 0, entry.updatedAt ?? now, data],
-          ).catch(() => undefined);
+              [entry.id, entry.date, entry.isDaily ? 1 : 0, entry.updatedAt ?? now, data],
+            )
+            .catch(() => undefined);
         }),
       )
       .catch((error) => console.error("Journal repository upsert failed", error));
@@ -534,7 +570,9 @@ class JournalRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          await db.execute("DELETE FROM journal_entries WHERE id = $1", [id]).catch(() => undefined);
+          await db
+            .execute("DELETE FROM journal_entries WHERE id = $1", [id])
+            .catch(() => undefined);
           await db.execute("DELETE FROM domain_journal WHERE id = $1", [id]).catch(() => undefined);
         }),
       )
@@ -559,7 +597,10 @@ class AgentRepository {
 
   private readFromLocalStorage(): DomainAgent[] {
     if (typeof localStorage === "undefined") return DEFAULT_AGENTS;
-    const local = safeJsonParse<DomainAgent[]>(localStorage.getItem("tongyun_domain_agents") || "[]", []);
+    const local = safeJsonParse<DomainAgent[]>(
+      localStorage.getItem("tongyun_domain_agents") || "[]",
+      [],
+    );
     if (local.length > 0) return local;
     localStorage.setItem("tongyun_domain_agents", JSON.stringify(DEFAULT_AGENTS));
     return DEFAULT_AGENTS;
@@ -570,19 +611,8 @@ class AgentRepository {
     const db = await getDomainDatabase();
     if (db) {
       try {
-        const rows = await db.select<
-          {
-            id: string;
-            handle: string;
-            kind: string;
-            enabled: number;
-            meta: string;
-            updated_at: number;
-          }[]
-        >(
-          "SELECT id, handle, kind, enabled, meta, updated_at FROM agents WHERE deleted_at IS NULL ORDER BY updated_at ASC",
-        ).catch(async () => {
-          return db.select<
+        const rows = await db
+          .select<
             {
               id: string;
               handle: string;
@@ -591,8 +621,23 @@ class AgentRepository {
               meta: string;
               updated_at: number;
             }[]
-          >("SELECT id, handle, kind, enabled, meta, updated_at FROM domain_agents ORDER BY updated_at ASC");
-        });
+          >(
+            "SELECT id, handle, kind, enabled, meta, updated_at FROM agents WHERE deleted_at IS NULL ORDER BY updated_at ASC",
+          )
+          .catch(async () => {
+            return db.select<
+              {
+                id: string;
+                handle: string;
+                kind: string;
+                enabled: number;
+                meta: string;
+                updated_at: number;
+              }[]
+            >(
+              "SELECT id, handle, kind, enabled, meta, updated_at FROM domain_agents ORDER BY updated_at ASC",
+            );
+          });
 
         if (rows && rows.length > 0) {
           this.cachedAgents = rows.map((r) => ({
@@ -626,19 +671,24 @@ class AgentRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          const metaStr = typeof agent.meta === "string" ? agent.meta : JSON.stringify(agent.meta || {});
+          const metaStr =
+            typeof agent.meta === "string" ? agent.meta : JSON.stringify(agent.meta || {});
           const now = agent.updatedAt || Date.now();
-          await db.execute(
-            `INSERT OR REPLACE INTO agents(id, handle, kind, enabled, meta, updated_at)
+          await db
+            .execute(
+              `INSERT OR REPLACE INTO agents(id, handle, kind, enabled, meta, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6)`,
-            [agent.id, agent.handle, agent.kind, agent.enabled ? 1 : 0, metaStr, now],
-          ).catch(() => undefined);
+              [agent.id, agent.handle, agent.kind, agent.enabled ? 1 : 0, metaStr, now],
+            )
+            .catch(() => undefined);
 
-          await db.execute(
-            `INSERT OR REPLACE INTO domain_agents(id, handle, kind, enabled, meta, updated_at)
+          await db
+            .execute(
+              `INSERT OR REPLACE INTO domain_agents(id, handle, kind, enabled, meta, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6)`,
-            [agent.id, agent.handle, agent.kind, agent.enabled ? 1 : 0, metaStr, now],
-          ).catch(() => undefined);
+              [agent.id, agent.handle, agent.kind, agent.enabled ? 1 : 0, metaStr, now],
+            )
+            .catch(() => undefined);
         }),
       )
       .catch((err) => console.error("AgentRepository save failed", err));
@@ -687,21 +737,8 @@ class DispatchRepository {
     const db = await getDomainDatabase();
     if (db) {
       try {
-        const rows = await db.select<
-          {
-            id: string;
-            task_id: string;
-            agent_id: string;
-            status: string;
-            note: string | null;
-            pipeline_task_id: string | null;
-            created_at: number;
-            updated_at: number;
-          }[]
-        >(
-          "SELECT id, task_id, agent_id, status, note, pipeline_task_id, created_at, updated_at FROM task_dispatch ORDER BY created_at DESC",
-        ).catch(async () => {
-          return db.select<
+        const rows = await db
+          .select<
             {
               id: string;
               task_id: string;
@@ -712,8 +749,25 @@ class DispatchRepository {
               created_at: number;
               updated_at: number;
             }[]
-          >("SELECT id, task_id, agent_id, status, note, pipeline_task_id, created_at, updated_at FROM domain_task_dispatch ORDER BY created_at DESC");
-        });
+          >(
+            "SELECT id, task_id, agent_id, status, note, pipeline_task_id, created_at, updated_at FROM task_dispatch ORDER BY created_at DESC",
+          )
+          .catch(async () => {
+            return db.select<
+              {
+                id: string;
+                task_id: string;
+                agent_id: string;
+                status: string;
+                note: string | null;
+                pipeline_task_id: string | null;
+                created_at: number;
+                updated_at: number;
+              }[]
+            >(
+              "SELECT id, task_id, agent_id, status, note, pipeline_task_id, created_at, updated_at FROM domain_task_dispatch ORDER BY created_at DESC",
+            );
+          });
 
         if (rows && rows.length > 0) {
           this.cachedDispatches = rows.map((r) => ({
@@ -768,33 +822,37 @@ class DispatchRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          await db.execute(
-            `INSERT INTO task_dispatch(id, task_id, agent_id, status, note, created_at, updated_at)
+          await db
+            .execute(
+              `INSERT INTO task_dispatch(id, task_id, agent_id, status, note, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [
-              dispatch.id,
-              dispatch.taskId,
-              dispatch.agentId,
-              dispatch.status,
-              dispatch.note ?? null,
-              dispatch.createdAt,
-              dispatch.updatedAt,
-            ],
-          ).catch(() => undefined);
+              [
+                dispatch.id,
+                dispatch.taskId,
+                dispatch.agentId,
+                dispatch.status,
+                dispatch.note ?? null,
+                dispatch.createdAt,
+                dispatch.updatedAt,
+              ],
+            )
+            .catch(() => undefined);
 
-          await db.execute(
-            `INSERT INTO domain_task_dispatch(id, task_id, agent_id, status, note, created_at, updated_at)
+          await db
+            .execute(
+              `INSERT INTO domain_task_dispatch(id, task_id, agent_id, status, note, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [
-              dispatch.id,
-              dispatch.taskId,
-              dispatch.agentId,
-              dispatch.status,
-              dispatch.note ?? null,
-              dispatch.createdAt,
-              dispatch.updatedAt,
-            ],
-          ).catch(() => undefined);
+              [
+                dispatch.id,
+                dispatch.taskId,
+                dispatch.agentId,
+                dispatch.status,
+                dispatch.note ?? null,
+                dispatch.createdAt,
+                dispatch.updatedAt,
+              ],
+            )
+            .catch(() => undefined);
         }),
       )
       .catch((err) => console.error("DispatchRepository recordDispatch failed", err));
@@ -818,19 +876,23 @@ class DispatchRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          await db.execute(
-            `UPDATE task_dispatch
+          await db
+            .execute(
+              `UPDATE task_dispatch
              SET status = 'cancelled', updated_at = $1
              WHERE task_id = $2 AND status IN ('queued', 'running')`,
-            [now, taskId],
-          ).catch(() => undefined);
+              [now, taskId],
+            )
+            .catch(() => undefined);
 
-          await db.execute(
-            `UPDATE domain_task_dispatch
+          await db
+            .execute(
+              `UPDATE domain_task_dispatch
              SET status = 'cancelled', updated_at = $1
              WHERE task_id = $2 AND status IN ('queued', 'running')`,
-            [now, taskId],
-          ).catch(() => undefined);
+              [now, taskId],
+            )
+            .catch(() => undefined);
         }),
       )
       .catch((err) => console.error("DispatchRepository cancelDispatch failed", err));
@@ -856,19 +918,23 @@ class DispatchRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          await db.execute(
-            `UPDATE task_dispatch
+          await db
+            .execute(
+              `UPDATE task_dispatch
              SET status = $1, note = COALESCE($2, note), updated_at = $3
              WHERE task_id = $4 AND status IN ('queued', 'running')`,
-            [status, note ?? null, now, taskId],
-          ).catch(() => undefined);
+              [status, note ?? null, now, taskId],
+            )
+            .catch(() => undefined);
 
-          await db.execute(
-            `UPDATE domain_task_dispatch
+          await db
+            .execute(
+              `UPDATE domain_task_dispatch
              SET status = $1, note = COALESCE($2, note), updated_at = $3
              WHERE task_id = $4 AND status IN ('queued', 'running')`,
-            [status, note ?? null, now, taskId],
-          ).catch(() => undefined);
+              [status, note ?? null, now, taskId],
+            )
+            .catch(() => undefined);
         }),
       )
       .catch((err) => console.error("DispatchRepository updateStatus failed", err));
@@ -888,14 +954,16 @@ class StickyNoteRepository {
     const db = await getDomainDatabase();
     if (db) {
       try {
-        const rows = await db.select<{
-          id: string;
-          title: string | null;
-          text: string;
-          color: string;
-          rotate: number;
-          data: string | null;
-        }[]>(
+        const rows = await db.select<
+          {
+            id: string;
+            title: string | null;
+            text: string;
+            color: string;
+            rotate: number;
+            data: string | null;
+          }[]
+        >(
           "SELECT id, title, text, color, rotate, data FROM sticky_notes WHERE deleted_at IS NULL ORDER BY updated_at DESC",
         );
         if (rows && rows.length > 0) {
@@ -917,7 +985,9 @@ class StickyNoteRepository {
                 },
           );
         }
-      } catch {}
+      } catch {
+        // ignore and fallback to localStorage
+      }
     }
     if (typeof localStorage !== "undefined") {
       return safeJsonParse(localStorage.getItem("aero_sticky_notes") || "[]", []);
@@ -939,7 +1009,9 @@ class StickyNoteRepository {
             .catch(() => []);
           for (const row of existing) {
             if (!desiredIds.has(row.id)) {
-              await db.execute("DELETE FROM sticky_notes WHERE id = $1", [row.id]).catch(() => undefined);
+              await db
+                .execute("DELETE FROM sticky_notes WHERE id = $1", [row.id])
+                .catch(() => undefined);
             }
           }
           for (const n of notes) {
@@ -964,15 +1036,17 @@ class CountdownRepository {
     const db = await getDomainDatabase();
     if (db) {
       try {
-        const rows = await db.select<{
-          id: string;
-          title: string;
-          target_date: string;
-          emoji: string | null;
-          color: string | null;
-          is_lunar: number;
-          data: string | null;
-        }[]>(
+        const rows = await db.select<
+          {
+            id: string;
+            title: string;
+            target_date: string;
+            emoji: string | null;
+            color: string | null;
+            is_lunar: number;
+            data: string | null;
+          }[]
+        >(
           "SELECT id, title, target_date, emoji, color, is_lunar, data FROM countdowns WHERE deleted_at IS NULL ORDER BY target_date ASC",
         );
         if (rows && rows.length > 0) {
@@ -996,7 +1070,9 @@ class CountdownRepository {
                 },
           );
         }
-      } catch {}
+      } catch {
+        // ignore and fallback to localStorage
+      }
     }
     if (typeof localStorage !== "undefined") {
       return safeJsonParse(localStorage.getItem("tongyun_countdowns") || "[]", []);
@@ -1018,7 +1094,9 @@ class CountdownRepository {
             .catch(() => []);
           for (const row of existing) {
             if (!desiredIds.has(row.id)) {
-              await db.execute("DELETE FROM countdowns WHERE id = $1", [row.id]).catch(() => undefined);
+              await db
+                .execute("DELETE FROM countdowns WHERE id = $1", [row.id])
+                .catch(() => undefined);
             }
           }
           for (const e of events) {
@@ -1052,16 +1130,18 @@ class TimeBlockRepository {
     const db = await getDomainDatabase();
     if (db) {
       try {
-        const rows = await db.select<{
-          id: string;
-          date: string;
-          start_time: string;
-          end_time: string;
-          task_id: string | null;
-          title: string;
-          color: string;
-          data: string | null;
-        }[]>(
+        const rows = await db.select<
+          {
+            id: string;
+            date: string;
+            start_time: string;
+            end_time: string;
+            task_id: string | null;
+            title: string;
+            color: string;
+            data: string | null;
+          }[]
+        >(
           "SELECT id, date, start_time, end_time, task_id, title, color, data FROM timeblocks WHERE deleted_at IS NULL ORDER BY date ASC, start_time ASC",
         );
         if (rows && rows.length > 0) {
@@ -1087,7 +1167,9 @@ class TimeBlockRepository {
                 },
           );
         }
-      } catch {}
+      } catch {
+        // ignore and fallback to localStorage
+      }
     }
     if (typeof localStorage !== "undefined") {
       return safeJsonParse(localStorage.getItem("tongyun_timeblocks") || "[]", []);
@@ -1109,7 +1191,9 @@ class TimeBlockRepository {
             .catch(() => []);
           for (const row of existing) {
             if (!desiredIds.has(row.id)) {
-              await db.execute("DELETE FROM timeblocks WHERE id = $1", [row.id]).catch(() => undefined);
+              await db
+                .execute("DELETE FROM timeblocks WHERE id = $1", [row.id])
+                .catch(() => undefined);
             }
           }
           for (const b of blocks) {
@@ -1144,14 +1228,16 @@ class PomodoroRepository {
     const db = await getDomainDatabase();
     if (db) {
       try {
-        const rows = await db.select<{
-          id: string;
-          timestamp: number;
-          duration: number;
-          task_id: string | null;
-          task_title: string | null;
-          data: string | null;
-        }[]>(
+        const rows = await db.select<
+          {
+            id: string;
+            timestamp: number;
+            duration: number;
+            task_id: string | null;
+            task_title: string | null;
+            data: string | null;
+          }[]
+        >(
           "SELECT id, timestamp, duration, task_id, task_title, data FROM pomodoro_logs WHERE deleted_at IS NULL ORDER BY timestamp DESC",
         );
         if (rows && rows.length > 0) {
@@ -1173,7 +1259,9 @@ class PomodoroRepository {
                 },
           );
         }
-      } catch {}
+      } catch {
+        // ignore and fallback to localStorage
+      }
     }
     if (typeof localStorage !== "undefined") {
       return safeJsonParse(localStorage.getItem("aero_pomodoro_logs") || "[]", []);
@@ -1194,7 +1282,9 @@ class PomodoroRepository {
             .catch(() => []);
           for (const row of existing) {
             if (!desiredIds.has(row.id)) {
-              await db.execute("DELETE FROM pomodoro_logs WHERE id = $1", [row.id]).catch(() => undefined);
+              await db
+                .execute("DELETE FROM pomodoro_logs WHERE id = $1", [row.id])
+                .catch(() => undefined);
             }
           }
           for (const l of logs) {
@@ -1227,15 +1317,17 @@ class HabitRepository {
     const db = await getDomainDatabase();
     if (db) {
       try {
-        const rows = await db.select<{
-          id: string;
-          name: string;
-          emoji: string | null;
-          done_today: number;
-          streak: number;
-          last_done_date: string | null;
-          data: string | null;
-        }[]>(
+        const rows = await db.select<
+          {
+            id: string;
+            name: string;
+            emoji: string | null;
+            done_today: number;
+            streak: number;
+            last_done_date: string | null;
+            data: string | null;
+          }[]
+        >(
           "SELECT id, name, emoji, done_today, streak, last_done_date, data FROM habits WHERE deleted_at IS NULL ORDER BY updated_at DESC",
         );
         if (rows && rows.length > 0) {
@@ -1259,7 +1351,9 @@ class HabitRepository {
                 },
           );
         }
-      } catch {}
+      } catch {
+        // ignore and fallback to localStorage
+      }
     }
     if (typeof localStorage !== "undefined") {
       return safeJsonParse(localStorage.getItem("tongyun_habits") || "[]", []);

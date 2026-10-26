@@ -6,6 +6,7 @@ import {
   setRemoteDatabaseOverrideForTesting,
   assertSecretsSafeForSync,
   LAST_REMOTE_SYNC_TIME_KEY,
+  SYNC_TABLES_WHITELIST,
 } from "./remoteDbSync";
 import { setDatabaseOverrideForTesting } from "../../data/domainDatabase";
 import { writeSyncSecretsPassphrase, setSyncSecretsOptIn } from "./syncSecretsPref";
@@ -31,8 +32,18 @@ function createMockDb() {
     tables,
     async execute(sql: string, params?: any[]): Promise<any> {
       const trimmed = sql.trim().toUpperCase();
-      if (trimmed.startsWith("BEGIN") || trimmed.startsWith("COMMIT") || trimmed.startsWith("ROLLBACK")) {
+      if (
+        trimmed.startsWith("BEGIN") ||
+        trimmed.startsWith("COMMIT") ||
+        trimmed.startsWith("ROLLBACK")
+      ) {
         return { rowsAffected: 0 };
+      }
+
+      if (sql.includes("DELETE FROM sync_outbox")) {
+        const count = tables.sync_outbox.length;
+        tables.sync_outbox = [];
+        return { rowsAffected: count };
       }
 
       // tasks
@@ -71,7 +82,10 @@ function createMockDb() {
       }
 
       // journal_entries
-      if (sql.includes("INSERT INTO journal_entries") || sql.includes("INSERT OR REPLACE INTO journal_entries")) {
+      if (
+        sql.includes("INSERT INTO journal_entries") ||
+        sql.includes("INSERT OR REPLACE INTO journal_entries")
+      ) {
         const id = params?.[0] !== undefined ? String(params[0]) : String(Date.now());
         tables.journal_entries = tables.journal_entries.filter((j) => String(j.id) !== id);
         tables.journal_entries.push({
@@ -97,7 +111,10 @@ function createMockDb() {
       }
 
       // user_prefs
-      if (sql.includes("INSERT INTO user_prefs") || sql.includes("INSERT OR REPLACE INTO user_prefs")) {
+      if (
+        sql.includes("INSERT INTO user_prefs") ||
+        sql.includes("INSERT OR REPLACE INTO user_prefs")
+      ) {
         tables.user_prefs = [
           {
             id: 1,
@@ -127,7 +144,10 @@ function createMockDb() {
       }
 
       // sticky_notes
-      if (sql.includes("INSERT INTO sticky_notes") || sql.includes("INSERT OR REPLACE INTO sticky_notes")) {
+      if (
+        sql.includes("INSERT INTO sticky_notes") ||
+        sql.includes("INSERT OR REPLACE INTO sticky_notes")
+      ) {
         const id = params?.[0];
         tables.sticky_notes = tables.sticky_notes.filter((s) => s.id !== id);
         tables.sticky_notes.push({
@@ -143,8 +163,120 @@ function createMockDb() {
         return { rowsAffected: 1 };
       }
 
+      // pomodoro_logs
+      if (
+        sql.includes("INSERT INTO pomodoro_logs") ||
+        sql.includes("INSERT OR REPLACE INTO pomodoro_logs")
+      ) {
+        const id = params?.[0];
+        tables.pomodoro_logs = tables.pomodoro_logs.filter((p) => p.id !== id);
+        tables.pomodoro_logs.push({
+          id,
+          timestamp: params?.[1] || Date.now(),
+          duration: params?.[2] || 25,
+          duration_sec:
+            typeof params?.[2] === "number" && params[2] > 60
+              ? params[2]
+              : (params?.[2] || 25) * 60,
+          task_id: params?.[3] ?? null,
+          task_title: params?.[4] ?? null,
+          created_at: params?.[5] || Date.now(),
+          occurred_at: params?.[1] || Date.now(),
+          deleted_at: params?.[6] ?? null,
+          data: params?.[7] ?? null,
+          meta_json: params?.[5] ?? null,
+        });
+        return { rowsAffected: 1 };
+      }
+
+      // agents
+      if (sql.includes("INSERT INTO agents") || sql.includes("INSERT OR REPLACE INTO agents")) {
+        const isLocal = sql.includes("INSERT OR REPLACE INTO agents");
+        const handle = isLocal ? params?.[1] : params?.[0];
+        tables.agents = tables.agents.filter((a) => a.handle !== handle);
+        tables.agents.push({
+          id: isLocal ? params?.[0] : `agent_${handle}`,
+          handle,
+          kind: isLocal ? params?.[2] : params?.[1],
+          enabled: isLocal ? params?.[3] : params?.[2],
+          meta: isLocal ? params?.[4] : params?.[3],
+          meta_json: isLocal ? params?.[4] : params?.[3],
+          updated_at: Date.now(),
+        });
+        return { rowsAffected: 1 };
+      }
+
+      // task_dispatch
+      if (
+        sql.includes("INSERT INTO task_dispatch") ||
+        sql.includes("INSERT OR REPLACE INTO task_dispatch")
+      ) {
+        const isLocal = sql.includes("INSERT OR REPLACE INTO task_dispatch");
+        const id = isLocal ? params?.[0] : String(Date.now());
+        tables.task_dispatch = tables.task_dispatch.filter((d) => d.id !== id);
+        tables.task_dispatch.push({
+          id,
+          task_id: isLocal ? params?.[1] : params?.[0],
+          planner_task_id: isLocal ? params?.[1] : params?.[0],
+          agent_id: isLocal ? params?.[2] : params?.[1],
+          status: isLocal ? params?.[3] : params?.[2],
+          pipeline_task_id: isLocal ? params?.[5] : params?.[3],
+          note: isLocal ? params?.[4] : params?.[4],
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        });
+        return { rowsAffected: 1 };
+      }
+
+      // countdowns
+      if (
+        sql.includes("INSERT INTO countdowns") ||
+        sql.includes("INSERT OR REPLACE INTO countdowns")
+      ) {
+        const id = params?.[0];
+        tables.countdowns = tables.countdowns.filter((c) => c.id !== id);
+        tables.countdowns.push({
+          id,
+          title: params?.[1],
+          target_date: params?.[2],
+          emoji: params?.[3],
+          color: params?.[4],
+          is_lunar: params?.[5],
+          updated_at: params?.[6] || Date.now(),
+          data: params?.[8],
+          meta_json: params?.[6],
+        });
+        return { rowsAffected: 1 };
+      }
+
+      // timeblocks
+      if (
+        sql.includes("INSERT INTO timeblocks") ||
+        sql.includes("INSERT OR REPLACE INTO timeblocks")
+      ) {
+        const id = params?.[0];
+        tables.timeblocks = tables.timeblocks.filter((b) => b.id !== id);
+        tables.timeblocks.push({
+          id,
+          date: params?.[1],
+          day: params?.[1],
+          start_time: params?.[2],
+          end_time: params?.[3],
+          task_id: params?.[4],
+          title: params?.[5],
+          color: params?.[6],
+          updated_at: params?.[7] || Date.now(),
+          data: params?.[9],
+          meta_json: params?.[7],
+        });
+        return { rowsAffected: 1 };
+      }
+
       // sync_state
-      if (sql.includes("INSERT INTO sync_state") || sql.includes("INSERT OR REPLACE INTO sync_state")) {
+      if (
+        sql.includes("INSERT INTO sync_state") ||
+        sql.includes("INSERT OR REPLACE INTO sync_state")
+      ) {
         tables.sync_state.push({
           entity: params?.[0] || "all",
           version: params?.[1] || Date.now(),
@@ -188,6 +320,12 @@ function createMockDb() {
       }
       if (sql.includes("FROM task_dispatch")) {
         return tables.task_dispatch as any;
+      }
+      if (sql.includes("FROM sync_state")) {
+        return tables.sync_state as any;
+      }
+      if (sql.includes("FROM sync_outbox")) {
+        return tables.sync_outbox as any;
       }
       return [] as any;
     },
@@ -311,8 +449,12 @@ describe("Remote Database Full Schema Sync (PRD remote-all + full-schema)", () =
     expect(pullStats.pulled).toBeGreaterThanOrEqual(1);
     // 验证新本地数据库已被远端数据追平
     expect(freshLocalDb.tables.tasks.find((t) => t.id === "task-100")).toBeDefined();
-    expect(freshLocalDb.tables.tasks.find((t) => t.id === "task-100")?.title).toBe("测试远端待办同步");
-    expect(freshLocalDb.tables.journal_entries.find((j) => j.title === "晴朗秋日手帐")).toBeDefined();
+    expect(freshLocalDb.tables.tasks.find((t) => t.id === "task-100")?.title).toBe(
+      "测试远端待办同步",
+    );
+    expect(
+      freshLocalDb.tables.journal_entries.find((j) => j.title === "晴朗秋日手帐"),
+    ).toBeDefined();
     expect(freshLocalDb.tables.habits.find((h) => h.id === "habit-1")).toBeDefined();
     expect(freshLocalDb.tables.sticky_notes.find((n) => n.id === "note-1")).toBeDefined();
   });
@@ -376,8 +518,8 @@ describe("Remote Database Full Schema Sync (PRD remote-all + full-schema)", () =
     setRemoteDatabaseOverrideForTesting(remoteDb as any);
 
     // 1. 模拟断网：navigator.onLine = false
-    const originalNavigator = global.navigator;
-    Object.defineProperty(global, "navigator", {
+    const originalNavigator = (globalThis as any).navigator;
+    Object.defineProperty(globalThis, "navigator", {
       value: { onLine: false },
       configurable: true,
     });
@@ -396,7 +538,7 @@ describe("Remote Database Full Schema Sync (PRD remote-all + full-schema)", () =
     expect(remoteDb.tables.tasks.length).toBe(0);
 
     // 2. 模拟网络恢复上线：navigator.onLine = true
-    Object.defineProperty(global, "navigator", {
+    Object.defineProperty(globalThis, "navigator", {
       value: { onLine: true },
       configurable: true,
     });
@@ -412,9 +554,110 @@ describe("Remote Database Full Schema Sync (PRD remote-all + full-schema)", () =
     );
 
     // 恢复 navigator
-    Object.defineProperty(global, "navigator", {
+    Object.defineProperty(globalThis, "navigator", {
       value: originalNavigator,
       configurable: true,
     });
+  });
+
+  it("验收标准 4: full-schema 12 张白名单全表覆盖与状态统计", async () => {
+    setRemoteDsn("mysql://user:pass@host:4000/tongyun_personal");
+    setRemoteDatabaseOverrideForTesting(remoteDb as any);
+
+    // 校验白名单完整包含 12 张业务与同步表
+    expect(SYNC_TABLES_WHITELIST).toEqual([
+      "tasks",
+      "journal_entries",
+      "pomodoro_logs",
+      "habits",
+      "agents",
+      "task_dispatch",
+      "sticky_notes",
+      "countdowns",
+      "timeblocks",
+      "user_prefs",
+      "sync_state",
+      "sync_outbox",
+    ]);
+
+    const now = Date.now();
+    localDb.tables.pomodoro_logs.push({
+      id: "pomo-1",
+      timestamp: now,
+      duration: 25,
+      task_id: "task-100",
+      task_title: "深度专注",
+      created_at: now,
+    });
+    localDb.tables.agents.push({
+      id: "agent-1",
+      handle: "assistant_bot",
+      kind: "ai",
+      enabled: 1,
+      meta: "{}",
+    });
+    localDb.tables.task_dispatch.push({
+      id: "dispatch-1",
+      task_id: "task-100",
+      agent_id: "agent-1",
+      status: "assigned",
+      created_at: now,
+      updated_at: now,
+    });
+    localDb.tables.countdowns.push({
+      id: "cd-1",
+      title: "产品发布倒计时",
+      target_date: "2026-12-31",
+      emoji: "🚀",
+      updated_at: now,
+    });
+    localDb.tables.timeblocks.push({
+      id: "tb-1",
+      date: "2026-10-26",
+      start_time: "09:00",
+      end_time: "10:00",
+      title: "晨间规划",
+      color: "#4D7C5D",
+      updated_at: now,
+    });
+    localDb.tables.sync_outbox.push({
+      id: "out-1",
+      entity: "tasks",
+      entity_id: "task-100",
+      op: "INSERT",
+      created_at: now,
+    });
+
+    const pushStats = await syncFullSchemaWithRemote();
+    expect(pushStats.tables.pomodoro_logs.pushed).toBe(1);
+    expect(pushStats.tables.agents.pushed).toBe(1);
+    expect(pushStats.tables.task_dispatch.pushed).toBe(1);
+    expect(pushStats.tables.countdowns.pushed).toBe(1);
+    expect(pushStats.tables.timeblocks.pushed).toBe(1);
+    expect(pushStats.tables.sync_outbox.pushed).toBe(1);
+    // 出件箱在同步完成后被清空
+    expect(localDb.tables.sync_outbox.length).toBe(0);
+
+    // 验证远端存在对应数据
+    expect(remoteDb.tables.pomodoro_logs.find((p) => p.id === "pomo-1")).toBeDefined();
+    expect(remoteDb.tables.agents.find((a) => a.handle === "assistant_bot")).toBeDefined();
+    expect(remoteDb.tables.task_dispatch.length).toBeGreaterThanOrEqual(1);
+
+    // 新设备从远端拉回
+    const freshDb = createMockDb();
+    setDatabaseOverrideForTesting(freshDb as any);
+    localStorage.removeItem(LAST_REMOTE_SYNC_TIME_KEY);
+
+    const pullStats = await syncFullSchemaWithRemote();
+    expect(pullStats.tables.pomodoro_logs.pulled).toBeGreaterThanOrEqual(1);
+    expect(pullStats.tables.agents.pulled).toBeGreaterThanOrEqual(1);
+    expect(pullStats.tables.task_dispatch.pulled).toBeGreaterThanOrEqual(1);
+    expect(pullStats.tables.countdowns.pulled).toBeGreaterThanOrEqual(1);
+    expect(pullStats.tables.timeblocks.pulled).toBeGreaterThanOrEqual(1);
+
+    expect(freshDb.tables.pomodoro_logs.find((p) => p.id === "pomo-1")).toBeDefined();
+    expect(freshDb.tables.agents.find((a) => a.handle === "assistant_bot")).toBeDefined();
+    expect(freshDb.tables.countdowns.find((c) => c.id === "cd-1")).toBeDefined();
+    expect(freshDb.tables.timeblocks.find((b) => b.id === "tb-1")).toBeDefined();
   });
 });
