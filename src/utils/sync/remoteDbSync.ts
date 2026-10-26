@@ -62,14 +62,60 @@ export function isRemoteDsnConfigured(): boolean {
   return Boolean(getRemoteDsn());
 }
 
+/**
+ * 为不同 SQL 方言规范化语句占位符。
+ * MySQL / TiDB 协议使用 '?' 占位符，如果发送 PostgreSQL 风格的 '$1', '$2' 会被 MySQL 当作未知字段列报错。
+ * SQLite 同时兼容 '?' 与 '$1'。
+ */
+export function normalizeSqlForDialect(sql: string, dsn?: string | null): string {
+  if (!dsn) return sql;
+  const isMySql =
+    dsn.startsWith("mysql:") ||
+    dsn.startsWith("mysql://") ||
+    dsn.startsWith("mariadb:") ||
+    dsn.startsWith("mariadb://");
+  if (isMySql) {
+    return sql.replace(/\$\d+/g, "?");
+  }
+  return sql;
+}
+
+export function wrapDatabaseForDialect(db: Database, dsn?: string | null): Database {
+  if (!db || !dsn) return db;
+  const isMySql =
+    dsn.startsWith("mysql:") ||
+    dsn.startsWith("mysql://") ||
+    dsn.startsWith("mariadb:") ||
+    dsn.startsWith("mariadb://");
+  if (!isMySql) return db;
+
+  return {
+    ...db,
+    async execute(query: string, bindValues?: unknown[]) {
+      const normalized = normalizeSqlForDialect(query, dsn);
+      return db.execute(normalized, bindValues);
+    },
+    async select<T>(query: string, bindValues?: unknown[]) {
+      const normalized = normalizeSqlForDialect(query, dsn);
+      return db.select<T>(normalized, bindValues);
+    },
+    async close() {
+      return db.close();
+    },
+  } as Database;
+}
+
 export async function loadRemoteDatabase(dsn?: string): Promise<Database | null> {
-  if (remoteDbOverrideForTesting) return remoteDbOverrideForTesting;
   const targetDsn = dsn || getRemoteDsn();
+  if (remoteDbOverrideForTesting) {
+    return wrapDatabaseForDialect(remoteDbOverrideForTesting, targetDsn);
+  }
   if (!targetDsn) return null;
 
   try {
     const { default: DatabaseClass } = await import("@tauri-apps/plugin-sql");
-    return await DatabaseClass.load(targetDsn);
+    const rawDb = await DatabaseClass.load(targetDsn);
+    return wrapDatabaseForDialect(rawDb, targetDsn);
   } catch (error) {
     console.warn("[remoteDbSync] Failed to load remote database:", error);
     return null;
@@ -306,7 +352,7 @@ export async function syncFullSchemaWithRemote(options?: {
             created_at, updated_at, deleted_at
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-            FROM_UNIXTIME($14 / 1000), ${j.deleted_at ? `FROM_UNIXTIME(${j.deleted_at} / 1000)` : "NULL"}
+            $14, FROM_UNIXTIME($15 / 1000), ${j.deleted_at ? `FROM_UNIXTIME(${j.deleted_at} / 1000)` : "NULL"}
           )`,
           [
             dayStr,

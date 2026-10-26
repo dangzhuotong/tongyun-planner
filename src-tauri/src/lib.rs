@@ -529,6 +529,26 @@ fn read_pipeline_home_files() -> PipelineHomeFiles {
     files.pipeline_json = read_capped(&dir.join("pipeline.json")).and_then(|text| project_pipeline_json(&text));
     files.config_json = read_capped(&dir.join("config.json")).and_then(|text| project_pipeline_json(&text));
     files.env_file = read_capped(&dir.join(".env")).and_then(|text| project_env(&text));
+    if files.remote_dsn_from_env.is_none() {
+        if let Some(text) = read_capped(&dir.join("planner").join("remote.env"))
+            .or_else(|| read_capped(&dir.join("remote.env")))
+        {
+            for line in text.lines() {
+                let trimmed = line.trim();
+                let body = trimmed.strip_prefix("export ").unwrap_or(trimmed).trim();
+                if let Some((k, v)) = body.split_once('=') {
+                    let k_norm = k.trim().to_ascii_uppercase();
+                    if k_norm == "DATABASE_URL" || k_norm == "TONGYUN_REMOTE_DSN" {
+                        let val = v.trim().trim_matches('"').trim_matches('\'').trim();
+                        if !val.is_empty() {
+                            files.remote_dsn_from_env = Some(val.to_string());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
     files
 }
 
@@ -600,6 +620,7 @@ fn project_env(text: &str) -> Option<String> {
         if key_norm == "PIPELINE_DSN"
             || key_norm == "TONGYUN_PIPELINE_DSN"
             || key_norm == "TONGYUN_REMOTE_DSN"
+            || key_norm == "DATABASE_URL"
         {
             kept.push(body.to_string());
         }

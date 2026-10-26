@@ -5,6 +5,8 @@ import {
   setRemoteDsn,
   setRemoteDatabaseOverrideForTesting,
   assertSecretsSafeForSync,
+  normalizeSqlForDialect,
+  wrapDatabaseForDialect,
   LAST_REMOTE_SYNC_TIME_KEY,
   SYNC_TABLES_WHITELIST,
 } from "./remoteDbSync";
@@ -697,5 +699,30 @@ describe("Remote Database Full Schema Sync (PRD remote-all + full-schema)", () =
     expect(remoteDb.tables.user_prefs).toHaveLength(0);
     expect(remoteDb.tables.tasks.find((task) => task.id === "task-prefs-fail")).toBeDefined();
     expect(localStorage.getItem(LAST_REMOTE_SYNC_TIME_KEY)).toBeTruthy();
+  });
+
+  it("验收标准 5: MySQL/TiDB 方言占位符自动标准化（$1 -> ?）与多列对齐", async () => {
+    const mysqlDsn = "mysql://user:pass@gateway01.tidbcloud.com:4000/tongyun_personal";
+    const rawSql = "SELECT * FROM tasks WHERE updated_at > $1 AND id IN ($2, $3)";
+    const normalized = normalizeSqlForDialect(rawSql, mysqlDsn);
+    expect(normalized).toBe("SELECT * FROM tasks WHERE updated_at > ? AND id IN (?, ?)");
+
+    const sqliteDsn = "sqlite://local.db";
+    expect(normalizeSqlForDialect(rawSql, sqliteDsn)).toBe(rawSql);
+
+    let executedQuery = "";
+    const mockDb = {
+      async execute(sql: string) {
+        executedQuery = sql;
+        return { rowsAffected: 1 };
+      },
+      async select() {
+        return [];
+      },
+      async close() {},
+    };
+    const wrapped = wrapDatabaseForDialect(mockDb as any, mysqlDsn);
+    await wrapped.execute("INSERT INTO tasks (id, title) VALUES ($1, $2)", ["t-1", "title"]);
+    expect(executedQuery).toBe("INSERT INTO tasks (id, title) VALUES (?, ?)");
   });
 });
