@@ -39,7 +39,7 @@ const en: Translations = {
     syncSyncing: "Syncing database…",
     syncError: "Database sync failed",
     syncStatusHint:
-      "The sidebar shows whether the company database could be read and whether the personal remote database write succeeded. With no remote database it stays synced. WebDAV backups stay in Settings. Agent dispatch failures stay as red text in the Agent panel.",
+      "The sidebar only shows whether a personal remote-database write succeeded. It stays synced otherwise. WebDAV auto-backup failures stay in Settings. Company roster reads and agent dispatch failures stay in the Agent panel.",
     decreaseMin: "Decrease 1 min",
     increaseMin: "Increase 1 min",
     pause: "Pause",

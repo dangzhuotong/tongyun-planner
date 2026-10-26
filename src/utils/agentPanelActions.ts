@@ -1,6 +1,31 @@
 import type { Task, TaskRunStatus } from "../types";
 import { applyAssigneeUpdates } from "./agentDispatch";
 
+/** 公司库回执落到一条本机待办上。新建默认停在待跑，并带上可显示的 pipeline id。 */
+export function queuedTaskFromPipelineReceipt(input: {
+  plannerTaskId: string;
+  title: string;
+  assignee: string;
+  dueDate?: string;
+  receipt: { id: string; assignee?: string; runStatus?: TaskRunStatus };
+  now?: number;
+}): Task {
+  const assignee = (input.receipt.assignee || input.assignee).trim();
+  return {
+    id: input.plannerTaskId,
+    title: input.title.trim(),
+    description: "",
+    notes: "",
+    category: "important-not-urgent",
+    dueDate: input.dueDate,
+    assigneeKind: "agent",
+    assigneeAgentId: assignee,
+    runStatus: input.receipt.runStatus || "queued",
+    pipelineTaskId: input.receipt.id,
+    updatedAt: input.now ?? Date.now(),
+  };
+}
+
 export const PIPELINE_WRITE_TIMEOUT_MS = 20_000;
 
 /** 有标题、并且选中了公司名册里的人，保存才可用。 */

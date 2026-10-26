@@ -1,25 +1,24 @@
-import type { CompanyReadState } from "./companyDbRead";
-import type { SyncStatus } from "./engine";
+import type { SyncStatus, SyncStatusChannel } from "./engine";
 import type { SyncBackendType } from "./types";
 
 export type SidebarDbStatus = "synced" | "syncing" | "error";
+export type { SyncStatusChannel };
 
 /**
- * 侧栏主状态跟数据库：已启用的个人远端库，以及配了公司库之后的读库结果。
- * WebDAV / 坚果云备份失败留在设置页，不把侧栏打成日常错误。
- * 没在走远端库、公司库也还没读失败时保持「已同步」。
- * 公司库派活写失败不进这里，只在 Agent 面板红字。
+ * 侧栏主状态只跟个人远端库的写入。
+ * 默认「已同步」。只有这次数据库写入失败才变红。
+ * WebDAV / 坚果云自动备份、离线、冲突，以及公司名册读失败，都不占这里。
+ * 公司库派活写失败只在 Agent 面板红字。
  */
 export function sidebarStatusFromSync(input: {
   backend: SyncBackendType;
   status: SyncStatus;
-  companyRead?: CompanyReadState;
+  channel?: SyncStatusChannel;
 }): SidebarDbStatus {
-  if (input.companyRead === "failed") return "error";
+  if (input.channel === "webdav") return "synced";
   if (input.backend !== "database") return "synced";
+  if (input.channel && input.channel !== "database") return "synced";
   if (input.status === "syncing") return "syncing";
-  if (input.status === "error" || input.status === "offline" || input.status === "conflict") {
-    return "error";
-  }
+  if (input.status === "error") return "error";
   return "synced";
 }

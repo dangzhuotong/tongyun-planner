@@ -8,8 +8,8 @@ import { createId } from "../../utils/id";
 import { formatRosterOption } from "../../utils/pipeline/companyRoster";
 import {
   applyPipelineReceipt,
-  canSaveAgentDraft,
   PIPELINE_WRITE_TIMEOUT_MS,
+  queuedTaskFromPipelineReceipt,
   withDeadline,
 } from "../../utils/agentPanelActions";
 import {
@@ -384,20 +384,28 @@ export function AgentPanel({
       );
       const assignee = receipt.assignee || slug;
       rememberAgent(assignee);
-      await onAddTask?.({
-        id: plannerTaskId,
+      const card = queuedTaskFromPipelineReceipt({
+        plannerTaskId,
         title: trimmed,
-        description: "",
-        notes: "",
-        category: "important-not-urgent",
+        assignee,
         dueDate: getLocalDateString(),
-        assigneeKind: "agent",
-        assigneeAgentId: assignee,
-        runStatus: receipt.runStatus,
-        pipelineTaskId: receipt.id,
+        receipt,
+      });
+      // 先取消筛选，避免回执落到「待跑」时被当前工人筛选藏住。
+      setAgentFilter("all");
+      await onAddTask?.({
+        id: card.id,
+        title: card.title,
+        description: card.description,
+        notes: card.notes,
+        category: card.category,
+        dueDate: card.dueDate,
+        assigneeKind: card.assigneeKind,
+        assigneeAgentId: card.assigneeAgentId,
+        runStatus: card.runStatus,
+        pipelineTaskId: card.pipelineTaskId,
         isExplicit: true,
       });
-      setAgentFilter("all");
       setActionNotice(describeReceipt(receipt));
       setNewTitle("");
     } catch (error) {
@@ -574,7 +582,7 @@ export function AgentPanel({
             <button
               type="submit"
               data-agent-submit-btn
-              disabled={!canSaveAgentDraft(newTitle, selectedAgentId) || pendingId === "create"}
+              disabled={pendingId === "create" || newTitle.trim().length === 0}
               className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-[#4D7C5D] text-white hover:bg-[#3F684C] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-xs"
             >
               {ap.dispatchSave || "保存"}

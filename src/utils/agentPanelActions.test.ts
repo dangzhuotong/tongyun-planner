@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "../types";
-import { applyPipelineReceipt, canSaveAgentDraft, withDeadline } from "./agentPanelActions";
+import {
+  applyPipelineReceipt,
+  canSaveAgentDraft,
+  queuedTaskFromPipelineReceipt,
+  withDeadline,
+} from "./agentPanelActions";
 import { partitionAgentBoard } from "./workbenchView";
 
 const PIPELINE_ID = "5214548946653707513";
@@ -29,6 +34,24 @@ describe("agent dispatch board", () => {
     expect(next.pipelineTaskId).toBe(PIPELINE_ID);
     expect(partitionAgentBoard([next]).queued.map((item) => item.id)).toEqual(["task-1"]);
     expect(partitionAgentBoard([next]).running).toHaveLength(0);
+  });
+
+  it("a saved dispatch is queued and shows the pipeline id", () => {
+    const card = queuedTaskFromPipelineReceipt({
+      plannerTaskId: "task-new",
+      title: "  看名册  ",
+      assignee: "cursor-cloud",
+      dueDate: "2026-10-26",
+      receipt: { id: PIPELINE_ID, assignee: "cursor-cloud", runStatus: "queued" },
+      now: 10,
+    });
+    expect(card.runStatus).toBe("queued");
+    expect(card.pipelineTaskId).toBe(PIPELINE_ID);
+    expect(card.assigneeKind).toBe("agent");
+    expect(partitionAgentBoard([card]).queued.map((item) => item.pipelineTaskId)).toEqual([
+      PIPELINE_ID,
+    ]);
+    expect(partitionAgentBoard([card]).running).toHaveLength(0);
   });
 
   it("releases a hung company-database write instead of leaving the button disabled", async () => {

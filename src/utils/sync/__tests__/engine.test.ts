@@ -74,4 +74,33 @@ describe("SyncEngine dirty persistence and offline", () => {
     expect(engine.dirty).toBe(true);
     expect(JSON.parse(localStorage.getItem("tongyun_sync_dirty") || "[]")).toEqual(["tasks"]);
   });
+
+  it("keeps the database backend when WebDAV credentials are still present", async () => {
+    localStorage.setItem("tongyun_sync_backend", "database");
+    localStorage.setItem("tongyun_webdav_url", "https://dav.jianguoyun.com/dav/");
+    localStorage.setItem("tongyun_webdav_user", "user@test.com");
+    const { SyncEngine } = await import("../engine");
+    const engine = new SyncEngine();
+    expect(engine.currentBackend).toBe("database");
+  });
+
+  it("clears a WebDAV failure after storage says the backend is the database", async () => {
+    Object.defineProperty(globalThis, "navigator", {
+      value: { onLine: false },
+      configurable: true,
+    });
+    localStorage.setItem("tongyun_webdav_url", "https://dav.jianguoyun.com/dav/");
+    localStorage.setItem("tongyun_webdav_user", "user@test.com");
+    const { SyncEngine } = await import("../engine");
+    const engine = new SyncEngine();
+    expect(engine.currentBackend).toBe("webdav");
+    await engine.sync();
+    expect(engine.status).toBe("offline");
+    expect(engine.statusChannel).toBe("webdav");
+    localStorage.setItem("tongyun_sync_backend", "database");
+    engine.reloadFromStorage();
+    expect(engine.currentBackend).toBe("database");
+    expect(engine.status).toBe("idle");
+    expect(engine.statusChannel).toBe("none");
+  });
 });
