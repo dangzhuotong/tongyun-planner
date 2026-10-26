@@ -258,6 +258,66 @@ describe("pipeline tasks follow tongyun_pipeline", () => {
     ).toBeNull();
   });
 
+  it("19 位公司库任务 id 原样改派，本机回执仍是待跑", async () => {
+    const id = "5214548946653707513";
+    expect(String(Number(id))).not.toBe(id);
+    const gateway = createMemoryTaskGateway(referenceTaskColumns());
+    gateway.rows.push({
+      id,
+      title: "已在库",
+      assignee: "cursor-cloud",
+      status: "todo",
+      source: "planner",
+      planner_task_id: "task-521",
+      detail: null,
+      created_at: "now",
+      updated_at: "now",
+    });
+    const moved = await writePipelineTask(gateway, {
+      intent: "reassign",
+      plannerTaskId: "task-521",
+      pipelineTaskId: id,
+      title: "已在库",
+      assignee: "agy-ibz",
+    });
+    expect(moved.id).toBe(id);
+    expect(moved.assignee).toBe("agy-ibz");
+    expect(moved.status).toBe("todo");
+    expect(moved.runStatus).toBe("queued");
+    expect(gateway.rows).toHaveLength(1);
+    expect(gateway.rows[0]?.id).toBe(id);
+  });
+
+  it("确认行仍是旧工人时，改派不算成功", async () => {
+    const gateway = createMemoryTaskGateway(referenceTaskColumns());
+    gateway.rows.push({
+      id: "9",
+      title: "已在库",
+      assignee: "cursor-cloud",
+      status: "todo",
+      source: "planner",
+      planner_task_id: "task-9",
+      detail: null,
+      created_at: "now",
+      updated_at: "now",
+    });
+    const write = gateway.execute.bind(gateway);
+    gateway.execute = async (sql, params) => {
+      if (/^UPDATE\s+tasks/i.test(sql)) return { rowsAffected: 1 };
+      return write(sql, params);
+    };
+    await expect(
+      writePipelineTask(gateway, {
+        intent: "reassign",
+        plannerTaskId: "task-9",
+        pipelineTaskId: "9",
+        title: "已在库",
+        assignee: "agy-ibz",
+      }),
+    ).rejects.toThrow("公司库没有改到指定的工人，本机人选未改");
+    expect(gateway.rows[0]?.assignee).toBe("cursor-cloud");
+  });
+
   it("没配公司库时开始失败，不会去连一个空网关", async () => {
     await expect(
       publishPlannerPipelineTask(

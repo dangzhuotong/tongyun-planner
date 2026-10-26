@@ -7,6 +7,12 @@ import { getLocalDateString } from "../../utils/date";
 import { createId } from "../../utils/id";
 import { formatRosterOption } from "../../utils/pipeline/companyRoster";
 import {
+  applyPipelineReceipt,
+  canSaveAgentDraft,
+  PIPELINE_WRITE_TIMEOUT_MS,
+  withDeadline,
+} from "../../utils/agentPanelActions";
+import {
   alignTaskWithPipeline,
   companyRosterSlug,
   resolveCompanyAssigneeId,
@@ -186,38 +192,61 @@ export function AgentPanel({
     }
   };
 
-  const applyStatus = async (task: Task, status: TaskRunStatus) => {
-    if (pendingId) return;
+  const receiptPatch = (task: Task, receipt: PipelineTaskReceipt, fallbackAssignee?: string) => {
+    const next = applyPipelineReceipt(task, {
+      id: receipt.id,
+      assignee: receipt.assignee || fallbackAssignee,
+      runStatus: receipt.runStatus,
+    });
+    return withStamp({
+      assigneeKind: next.assigneeKind,
+      assigneeAgentId: next.assigneeAgentId,
+      runStatus: next.runStatus,
+      pipelineTaskId: next.pipelineTaskId,
+    });
+  };
+
+  const beginWrite = (id: string): boolean => {
+    if (pendingId) {
+      setActionError(ap.writeBusy);
+      return false;
+    }
     setActionError(null);
     setActionNotice(null);
+    setPendingId(id);
+    return true;
+  };
 
+  const failWrite = (error: unknown, fallback: string) => {
+    setActionError(error instanceof Error ? error.message : fallback);
+  };
+
+  const applyStatus = async (task: Task, status: TaskRunStatus) => {
     if (status === "running") {
       const slug = companyRosterSlug(roster, task.assigneeAgentId);
       if (!slug) {
+        setActionNotice(null);
         setActionError(ap.startNeedsAssignee);
         return;
       }
-      setPendingId(task.id);
+      if (!beginWrite(task.id)) return;
       try {
-        const receipt = await publishPipelineTask({
-          plannerTaskId: task.id,
-          pipelineTaskId: task.pipelineTaskId,
-          title: task.title,
-          detail: task.description || task.notes,
-          assignee: slug,
-        });
-        onEditTask(
-          task.id,
-          withStamp({
-            assigneeKind: "agent",
-            assigneeAgentId: receipt.assignee || slug,
-            runStatus: receipt.runStatus,
-            pipelineTaskId: receipt.id,
+        const receipt = await withDeadline(
+          publishPipelineTask({
+            plannerTaskId: task.id,
+            pipelineTaskId: task.pipelineTaskId,
+            title: task.title,
+            detail: task.description || task.notes,
+            assignee: slug,
           }),
+          PIPELINE_WRITE_TIMEOUT_MS,
+          ap.writeTimeout,
         );
+        onEditTask(task.id, receiptPatch(task, receipt, slug));
+        setAgentFilter("all");
         setActionNotice(describeReceipt(receipt));
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : ap.startFailed);
+        failWrite(error, ap.startFailed);
       } finally {
         setPendingId(null);
       }
@@ -225,27 +254,23 @@ export function AgentPanel({
     }
 
     if (task.pipelineTaskId) {
-      setPendingId(task.id);
+      if (!beginWrite(task.id)) return;
       try {
-        const receipt = await settlePipelineTask({
-          plannerTaskId: task.id,
-          pipelineTaskId: task.pipelineTaskId,
-          title: task.title,
-          assignee: task.assigneeAgentId,
-          settleAs: status,
-        });
-        onEditTask(
-          task.id,
-          withStamp({
-            assigneeKind: "agent",
-            assigneeAgentId: receipt.assignee || task.assigneeAgentId,
-            runStatus: receipt.runStatus,
-            pipelineTaskId: receipt.id,
+        const receipt = await withDeadline(
+          settlePipelineTask({
+            plannerTaskId: task.id,
+            pipelineTaskId: task.pipelineTaskId,
+            title: task.title,
+            assignee: task.assigneeAgentId,
+            settleAs: status,
           }),
+          PIPELINE_WRITE_TIMEOUT_MS,
+          ap.writeTimeout,
         );
+        onEditTask(task.id, receiptPatch(task, receipt, task.assigneeAgentId));
         setActionNotice(`${ap.settleSaved} ${receipt.id} · ${receipt.status}`);
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : ap.settleFailed);
+        failWrite(error, ap.settleFailed);
       } finally {
         setPendingId(null);
       }
@@ -263,66 +288,66 @@ export function AgentPanel({
   };
 
   const reassign = async (task: Task, assigneeId: string) => {
-    if (pendingId) return;
     const slug = companyRosterSlug(roster, assigneeId);
-    setActionError(null);
-    setActionNotice(null);
     if (!slug) {
+      setActionNotice(null);
       setActionError(ap.startNeedsAssignee);
       return;
     }
-    setPendingId(task.id);
+    if (!beginWrite(task.id)) return;
     try {
-      const receipt = await reassignPipelineTask({
-        plannerTaskId: task.id,
-        pipelineTaskId: task.pipelineTaskId,
-        title: task.title,
-        detail: task.description || task.notes,
-        assignee: slug,
-      });
-      onEditTask(
-        task.id,
-        withStamp({
-          assigneeKind: "agent",
-          assigneeAgentId: receipt.assignee || slug,
-          runStatus: receipt.runStatus,
-          pipelineTaskId: receipt.id,
+      const receipt = await withDeadline(
+        reassignPipelineTask({
+          plannerTaskId: task.id,
+          pipelineTaskId: task.pipelineTaskId,
+          title: task.title,
+          detail: task.description || task.notes,
+          assignee: slug,
         }),
+        PIPELINE_WRITE_TIMEOUT_MS,
+        ap.writeTimeout,
       );
+      onEditTask(task.id, receiptPatch(task, receipt, slug));
       rememberAgent(receipt.assignee || slug);
+      setAgentFilter("all");
       setActionNotice(
         receipt.persisted === "fixture"
           ? `${ap.startFixture} ${receipt.id} · ${receipt.assignee}`
           : `${ap.reassignSaved} ${receipt.id} · ${receipt.assignee}`,
       );
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : ap.reassignFailed);
+      failWrite(error, ap.reassignFailed);
     } finally {
       setPendingId(null);
     }
   };
 
   const returnToMe = async (task: Task) => {
-    if (pendingId) return;
-    setActionError(null);
-    setActionNotice(null);
     if (task.pipelineTaskId) {
-      setPendingId(task.id);
+      if (!beginWrite(task.id)) return;
       try {
-        await settlePipelineTask({
-          plannerTaskId: task.id,
-          pipelineTaskId: task.pipelineTaskId,
-          title: task.title,
-          assignee: task.assigneeAgentId,
-          settleAs: "cancelled",
-        });
+        await withDeadline(
+          settlePipelineTask({
+            plannerTaskId: task.id,
+            pipelineTaskId: task.pipelineTaskId,
+            title: task.title,
+            assignee: task.assigneeAgentId,
+            settleAs: "cancelled",
+          }),
+          PIPELINE_WRITE_TIMEOUT_MS,
+          ap.writeTimeout,
+        );
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : ap.releaseFailed);
+        failWrite(error, ap.releaseFailed);
         setPendingId(null);
         return;
       }
       setPendingId(null);
+    } else if (pendingId) {
+      setActionError(ap.writeBusy);
+      return;
     }
+    setActionError(null);
     onEditTask(
       task.id,
       withStamp({
@@ -338,24 +363,27 @@ export function AgentPanel({
     e.preventDefault();
     const trimmed = newTitle.trim();
     const slug = companyRosterSlug(roster, selectedAgentId);
-    setActionError(null);
-    setActionNotice(null);
     if (!trimmed) return;
     if (!slug) {
+      setActionNotice(null);
       setActionError(ap.startNeedsRoster);
       return;
     }
-    if (pendingId) return;
+    if (!beginWrite("create")) return;
 
     const plannerTaskId = createId("task");
-    setPendingId("create");
     try {
-      const receipt = await publishPipelineTask({
-        plannerTaskId,
-        title: trimmed,
-        assignee: slug,
-      });
-      rememberAgent(receipt.assignee || slug);
+      const receipt = await withDeadline(
+        publishPipelineTask({
+          plannerTaskId,
+          title: trimmed,
+          assignee: slug,
+        }),
+        PIPELINE_WRITE_TIMEOUT_MS,
+        ap.writeTimeout,
+      );
+      const assignee = receipt.assignee || slug;
+      rememberAgent(assignee);
       await onAddTask?.({
         id: plannerTaskId,
         title: trimmed,
@@ -364,15 +392,16 @@ export function AgentPanel({
         category: "important-not-urgent",
         dueDate: getLocalDateString(),
         assigneeKind: "agent",
-        assigneeAgentId: receipt.assignee || slug,
+        assigneeAgentId: assignee,
         runStatus: receipt.runStatus,
         pipelineTaskId: receipt.id,
         isExplicit: true,
       });
+      setAgentFilter("all");
       setActionNotice(describeReceipt(receipt));
       setNewTitle("");
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : ap.startFailed);
+      failWrite(error, ap.startFailed);
     } finally {
       setPendingId(null);
     }
@@ -545,7 +574,7 @@ export function AgentPanel({
             <button
               type="submit"
               data-agent-submit-btn
-              disabled={!newTitle.trim() || !selectedAgentId || pendingId === "create"}
+              disabled={!canSaveAgentDraft(newTitle, selectedAgentId) || pendingId === "create"}
               className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-[#4D7C5D] text-white hover:bg-[#3F684C] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors shadow-xs"
             >
               {ap.dispatchSave || "保存"}
@@ -609,6 +638,14 @@ export function AgentPanel({
                         ? ap.blocked || "阻塞"
                         : ap[describeRunStatus(task.runStatus)]}
                     </p>
+                    {task.pipelineTaskId && (
+                      <p
+                        data-pipeline-id={task.pipelineTaskId}
+                        className="text-[10px] font-bold text-[#2F6B42] dark:text-[#78C496] break-all"
+                      >
+                        {task.pipelineTaskId}
+                      </p>
+                    )}
                     <div className="flex flex-wrap items-center gap-1">
                       <select
                         data-agent-reassign={task.id}

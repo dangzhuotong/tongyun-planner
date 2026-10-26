@@ -96,6 +96,9 @@ import { createId } from "./utils/id";
 import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
+import { fetchCompanyRoster } from "./utils/pipeline/pipelineGateway";
+import { type CompanyReadState, subscribeCompanyRead } from "./utils/sync/companyDbRead";
+import { sidebarStatusFromSync } from "./utils/sync/sidebarDbStatus";
 import {
   SYNC_APPLIED_EVENT,
   bumpSyncVersion,
@@ -153,6 +156,8 @@ function AppBody() {
 
   const [windowLabel, setWindowLabel] = useState<string>("main");
   const [syncStatus, setSyncStatus] = useState<"synced" | "syncing" | "error">("synced");
+  const [companyRead, setCompanyRead] = useState<CompanyReadState>("unknown");
+  const companyReadRef = useRef<CompanyReadState>("unknown");
   const [lastBackupTime, setLastBackupTime] = useState<number | null>(() => {
     const saved = localStorage.getItem("aero_last_backup_time");
     return saved ? parseInt(saved, 10) : null;
@@ -620,21 +625,52 @@ function AppBody() {
     return () => window.removeEventListener(SYNC_APPLIED_EVENT, handler);
   }, [applySyncDataToState]);
 
-  // syncEngine 状态 → Sidebar 指示器
+  // 侧栏跟公司库读结果和个人远端库。WebDAV 失败留在设置页，不抢侧栏主状态。
+  // 派活写失败不进这里，只在 Agent 面板红字。
   useEffect(() => {
-    return syncEngine.subscribe((state) => {
-      if (state.status === "syncing") setSyncStatus("syncing");
-      else if (
-        state.status === "error" ||
-        state.status === "conflict" ||
-        state.status === "offline"
-      )
-        setSyncStatus("error");
-      else if (state.status === "success") setSyncStatus("synced");
-      if (state.lastSyncTime) setLastBackupTime(state.lastSyncTime);
-      setSyncConflicts(state.conflicts || []);
+    return subscribeCompanyRead((state) => {
+      companyReadRef.current = state;
+      setCompanyRead(state);
     });
   }, []);
+
+  useEffect(() => {
+    fetchCompanyRoster().catch((error) => {
+      console.error("Failed to read company roster", error);
+    });
+  }, []);
+
+  useEffect(() => {
+    const apply = (state: {
+      backend: typeof syncEngine.currentBackend;
+      status: typeof syncEngine.status;
+      lastSyncTime: number | null;
+      conflicts: SyncConflict[];
+    }) => {
+      setSyncStatus(sidebarStatusFromSync({ ...state, companyRead: companyReadRef.current }));
+      if (state.backend === "database" && state.lastSyncTime) {
+        setLastBackupTime(state.lastSyncTime);
+      }
+      setSyncConflicts(state.conflicts || []);
+    };
+    apply({
+      backend: syncEngine.currentBackend,
+      status: syncEngine.status,
+      lastSyncTime: syncEngine.lastSyncTime,
+      conflicts: syncEngine.conflicts,
+    });
+    return syncEngine.subscribe(apply);
+  }, []);
+
+  useEffect(() => {
+    setSyncStatus(
+      sidebarStatusFromSync({
+        backend: syncEngine.currentBackend,
+        status: syncEngine.status,
+        companyRead,
+      }),
+    );
+  }, [companyRead]);
 
   // ============ 数据变更 → 按分类标记脏 + 递增版本号 ============
   // 之前 markDirty() 无参会把所有分类都标记脏，导致「改一处也全量上传所有分类文件」。

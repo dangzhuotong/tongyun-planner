@@ -10,7 +10,7 @@ import {
   Unlock,
   Lock,
   Settings,
-  Cloud,
+  Database,
   RefreshCw,
   Target,
   ChevronDown,
@@ -117,7 +117,6 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     } = usePomodoroContext();
     const { t } = useTranslation();
     const s = t.sidebar;
-    const [hasWebdavUrl] = useState(() => !!localStorage.getItem("tongyun_webdav_url"));
     const [editingMinutes, setEditingMinutes] = useState<string | null>(null);
 
     // Sidebar 随番茄钟每秒重渲染，噪音可见列表只读一次 localStorage，避免每秒 JSON.parse
@@ -995,39 +994,39 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
 
         {/* Bottom section */}
         <div className="space-y-1.5 pt-3 border-t border-slate-200/60 dark:border-[#282A30] flex-shrink-0">
-          {/* WebDAV sync status */}
-          {hasWebdavUrl && (
-            <div
-              className={`pb-1.5 text-[9px] flex items-center text-slate-500 dark:text-slate-400 font-medium border-b border-slate-100 dark:border-[#282A30] mb-1.5 select-none ${isCollapsed ? "justify-center" : "justify-between"}`}
-            >
-              <div className="flex items-center gap-1">
-                {syncStatus === "syncing" ? (
-                  <RefreshCw className="w-3 h-3 text-[#4D7C5D] dark:text-[#78C496] animate-spin" />
-                ) : syncStatus === "error" ? (
-                  <Cloud className="w-3 h-3 text-red-400" />
-                ) : (
-                  <Cloud className="w-3 h-3 text-[#4D7C5D] dark:text-[#78C496]" />
-                )}
-                {!isCollapsed && (
-                  <span>
-                    {syncStatus === "syncing"
-                      ? s.syncSyncing
-                      : syncStatus === "error"
-                        ? s.syncError
-                        : s.syncSynced}
-                  </span>
-                )}
-              </div>
-              {!isCollapsed && lastBackupTime && (
-                <span className="text-slate-400 dark:text-slate-500">
-                  {new Date(lastBackupTime).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+          {/* 数据库同步状态。WebDAV 结果在设置里，不占这里。 */}
+          <div
+            data-sync-channel="database"
+            title={s.syncStatusHint}
+            className={`pb-1.5 text-[9px] flex items-center text-slate-500 dark:text-slate-400 font-medium border-b border-slate-100 dark:border-[#282A30] mb-1.5 select-none ${isCollapsed ? "justify-center" : "justify-between"}`}
+          >
+            <div className="flex items-center gap-1">
+              {syncStatus === "syncing" ? (
+                <RefreshCw className="w-3 h-3 text-[#4D7C5D] dark:text-[#78C496] animate-spin" />
+              ) : syncStatus === "error" ? (
+                <Database className="w-3 h-3 text-red-400" />
+              ) : (
+                <Database className="w-3 h-3 text-[#4D7C5D] dark:text-[#78C496]" />
+              )}
+              {!isCollapsed && (
+                <span>
+                  {syncStatus === "syncing"
+                    ? s.syncSyncing
+                    : syncStatus === "error"
+                      ? s.syncError
+                      : s.syncSynced}
                 </span>
               )}
             </div>
-          )}
+            {!isCollapsed && lastBackupTime && (
+              <span className="text-slate-400 dark:text-slate-500">
+                {new Date(lastBackupTime).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            )}
+          </div>
 
           {/* Settings — now a bottom icon button */}
           <NavButton tab="settings" icon={<Settings className="w-4 h-4" />} label={s.settings} />

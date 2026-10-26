@@ -35,9 +35,11 @@ const en: Translations = {
     lockWidget: "Lock Passthrough",
     unlockWidget: "Unlock Widget",
     reset: "Reset Demo",
-    syncSynced: "Synced to cloud",
-    syncSyncing: "Syncing to cloud...",
-    syncError: "Sync failed",
+    syncSynced: "Synced",
+    syncSyncing: "Syncing database…",
+    syncError: "Database sync failed",
+    syncStatusHint:
+      "The sidebar shows whether the company database could be read and whether the personal remote database write succeeded. With no remote database it stays synced. WebDAV backups stay in Settings. Agent dispatch failures stay as red text in the Agent panel.",
     decreaseMin: "Decrease 1 min",
     increaseMin: "Increase 1 min",
     pause: "Pause",
@@ -600,7 +602,10 @@ const en: Translations = {
     failed: "Failed",
     blocked: "Blocked",
     queuedHint:
-      "Someone is assigned. Start writes the company database. The card stays here until a worker claims it.",
+      "Written to the company database and still unclaimed, so it stays here. Start only confirms the row is claimable; this device stays queued, not running. Failures show in red on this panel, not as a Nutstore backup.",
+    writeBusy: "The previous company-database write is still running.",
+    writeTimeout:
+      "Company-database write timed out, so the board was not changed. This is the company database, not a Nutstore backup.",
     runningHint: "The company database says this is in progress.",
     settledHint: "Finished or failed",
     emptyColumn: "Nothing in this column",
