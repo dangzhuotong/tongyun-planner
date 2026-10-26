@@ -7,9 +7,12 @@ import type { CompanyRosterEntry, PipelineGateway } from "./companyRoster";
  * status 优先写库里的 todo（没有就用其它可领值）。工人领走之前，本机停在待跑。
  */
 
-export const TASK_COLUMNS_SQL = `SELECT COLUMN_NAME AS name, IS_NULLABLE AS nullable, COLUMN_DEFAULT AS column_default, EXTRA AS extra, COLUMN_TYPE AS column_type
+export const TASK_COLUMNS_SQL = `SELECT COLUMN_NAME AS name, IS_NULLABLE AS nullable, COLUMN_DEFAULT AS column_default, EXTRA AS extra, COLUMN_TYPE AS column_type, COLUMN_COMMENT AS column_comment
 FROM information_schema.COLUMNS
 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tasks'`;
+
+/** TiDB AUTO_RANDOM 的 EXTRA 是空字符串，得看建表语句。 */
+export const TASK_CREATE_SQL = "SHOW CREATE TABLE tasks";
 
 const CLAIMABLE = ["todo", "queued", "open", "pending", "ready", "backlog", "claimable", "new"];
 const RUNNING = ["doing", "running", "in_progress", "claimed", "wip", "started", "busy", "working"];
@@ -37,6 +40,8 @@ export interface TaskColumn {
   nullable: boolean;
   hasDefault: boolean;
   autoIncrement: boolean;
+  /** TiDB AUTO_RANDOM。和 autoIncrement 一样由库分配 id，插入时不能写显式值。 */
+  autoRandom?: boolean;
   columnType: string;
 }
 
@@ -69,6 +74,8 @@ interface PlannedWrite {
   assignee: string;
   status: string;
   written: boolean;
+  /** false：INSERT 没带 id，回执必须用 lastInsertId 或回读，不能拿本机雪花数冒充。 */
+  idSupplied: boolean;
 }
 
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -84,6 +91,7 @@ export function parseTaskColumns(rows: unknown): TaskColumn[] {
     if (!name || !IDENT.test(name)) continue;
     const nullableRaw = stringField(record, ["nullable", "is_nullable", "IS_NULLABLE"]);
     const extra = stringField(record, ["extra", "EXTRA"]);
+    const comment = stringField(record, ["column_comment", "COLUMN_COMMENT", "comment"]);
     const columnType =
       stringField(record, ["column_type", "COLUMN_TYPE", "columnType", "data_type", "DATA_TYPE"]) ||
       "text";
@@ -92,11 +100,13 @@ export function parseTaskColumns(rows: unknown): TaskColumn[] {
       fallback != null &&
       String(fallback).trim() !== "" &&
       String(fallback).toUpperCase() !== "NULL";
+    const notes = `${extra} ${comment}`;
     columns.push({
       name,
       nullable: nullableRaw === "YES" || nullableRaw === "1" || nullableRaw === "true",
       hasDefault,
-      autoIncrement: /auto_increment/i.test(extra),
+      autoIncrement: /auto_increment/i.test(notes),
+      autoRandom: /auto_random/i.test(notes),
       columnType,
     });
   }
@@ -182,6 +192,7 @@ export function planPipelineTaskWrite(
       assignee: existing.assignee || draft.assignee || "",
       status: existing.status,
       written: false,
+      idSupplied: true,
     };
   }
 
@@ -227,13 +238,15 @@ export function planPipelineTaskWrite(
       assignee,
       status,
       written: true,
+      idSupplied: true,
     };
   }
 
   const names: string[] = [];
   const values: string[] = [];
   const params: unknown[] = [];
-  if (!idColumn.autoIncrement) {
+  const omitId = serverAssignsId(idColumn);
+  if (!omitId) {
     if (!SAFE_ID.test(insertId)) throw new Error("公司库任务 id 无效，任务未写入");
     pushInsert(names, values, params, idColumn, insertId);
   }
@@ -259,7 +272,7 @@ export function planPipelineTaskWrite(
     (column) =>
       !column.nullable &&
       !column.hasDefault &&
-      !column.autoIncrement &&
+      !serverAssignsId(column) &&
       !writtenNames.has(column.name.toLowerCase()),
   );
   if (missing.length > 0) {
@@ -271,10 +284,11 @@ export function planPipelineTaskWrite(
   return {
     sql: `INSERT INTO tasks (${names.map((name) => `\`${name}\``).join(", ")}) VALUES (${values.join(", ")})`,
     params,
-    id: insertId,
+    id: omitId ? "" : insertId,
     assignee,
     status,
     written: true,
+    idSupplied: !omitId,
   };
 }
 
@@ -285,7 +299,7 @@ export async function writePipelineTask(
 ): Promise<PipelineTaskReceipt> {
   let columns: TaskColumn[];
   try {
-    columns = parseTaskColumns(await gateway.select(TASK_COLUMNS_SQL));
+    columns = await loadTaskColumns(gateway);
   } catch (error) {
     throw asPublic(error, "读不到公司库 tasks 的列，任务未写入");
   }
@@ -299,23 +313,18 @@ export async function writePipelineTask(
     throw asPublic(error, "没有读到公司库里的原任务，任务未写入");
   }
 
-  const plan = planPipelineTaskWrite(columns, draft, existing, existing?.id || insertId);
-  if (plan.written) {
-    try {
-      await gateway.execute(plan.sql, plan.params);
-    } catch (error) {
-      throw asPublic(error, "任务没有写入公司库");
-    }
+  let plan = planPipelineTaskWrite(columns, draft, existing, existing?.id || insertId);
+  let resolvedId = plan.idSupplied ? plan.id : "";
+  if (plan.written && plan.sql) {
+    const executed = await executeTaskWrite(gateway, plan, columns, draft, existing, insertId);
+    plan = executed.plan;
+    const lastId = usableInsertId(executed.result.lastInsertId);
+    if (lastId) resolvedId = lastId;
+    else if (plan.idSupplied) resolvedId = plan.id;
   }
 
   try {
-    let confirmed = await selectTasks(gateway, columns, [plan.id]);
-    if (!confirmed[0] && SAFE_ID.test(draft.plannerTaskId)) {
-      const planner = indexRoles(columns).plannerTaskId;
-      if (planner)
-        confirmed = await selectTasks(gateway, columns, [draft.plannerTaskId], planner.name);
-    }
-    const row = confirmed[0];
+    const row = await confirmWrittenTask(gateway, columns, draft, resolvedId);
     if (row) {
       if (
         plan.written &&
@@ -339,7 +348,20 @@ export async function writePipelineTask(
     if (error instanceof Error && error.message === "公司库没有改到指定的工人，本机人选未改") {
       throw error;
     }
-    /* 确认查询失败时，写入已经成功，用计划值回执，避免再假装失败 */
+    /* 确认查询失败时，显式 id 或 lastInsertId 仍可作为回执 */
+  }
+
+  if (resolvedId && SAFE_ID.test(resolvedId)) {
+    return {
+      id: resolvedId,
+      assignee: plan.assignee,
+      status: plan.status,
+      runStatus: mapPipelineTaskStatus(plan.status),
+      written: plan.written,
+    };
+  }
+  if (plan.written && !plan.idSupplied) {
+    throw new Error("公司库没有读回任务 id，请再试一次");
   }
 
   return {
@@ -382,12 +404,16 @@ export function createMemoryTaskGateway(columns: TaskColumn[]): MemoryTaskGatewa
   return {
     rows,
     async select(sql, params = []) {
+      if (/show\s+create\s+table/i.test(sql)) {
+        return [{ "Create Table": renderTaskCreateTable(columns) }];
+      }
       if (/information_schema/i.test(sql)) {
         return columns.map((column) => ({
           name: column.name,
           nullable: column.nullable ? "YES" : "NO",
           column_default: column.hasDefault ? "CURRENT_TIMESTAMP(3)" : null,
           extra: column.autoIncrement ? "auto_increment" : "",
+          column_comment: "",
           column_type: column.columnType,
         }));
       }
@@ -395,7 +421,11 @@ export function createMemoryTaskGateway(columns: TaskColumn[]): MemoryTaskGatewa
       const wanted = params.map((value) => (value == null ? "" : String(value)));
       const matched = /WHERE\s+`planner_task_id`/i.test(sql)
         ? rows.filter((row) => row.planner_task_id === wanted[0])
-        : rows.filter((row) => wanted.includes(String(row.id ?? "")));
+        : /WHERE\s+`title`/i.test(sql)
+          ? rows.filter(
+              (row) => row.title === wanted[0] && (row.assignee ?? row.assignee_slug) === wanted[1],
+            )
+          : rows.filter((row) => wanted.includes(String(row.id ?? "")));
       return matched.map((row) => ({
         id: row.id,
         assignee: row.assignee ?? row.assignee_slug ?? null,
@@ -415,8 +445,9 @@ export function createMemoryTaskGateway(columns: TaskColumn[]): MemoryTaskGatewa
           if (token === "NOW(3)") row[name] = "now";
           else row[name] = paramAt(params, token);
         });
+        if (!row.id) row.id = nextMemoryTaskId(rows.length + 1);
         rows.push(row);
-        return { rowsAffected: 1, lastInsertId: row.id ?? undefined };
+        return { rowsAffected: 1, lastInsertId: row.id };
       }
       if (/^UPDATE\s+tasks/i.test(sql)) {
         const setPart = sql.slice(
@@ -495,6 +526,248 @@ export function referenceTaskColumns(): TaskColumn[] {
   ];
 }
 
+export function showCreateTableSql(rows: unknown): string {
+  const list = Array.isArray(rows) ? rows : rows ? [rows] : [];
+  for (const row of list) {
+    if (!row || typeof row !== "object") continue;
+    const record = row as Record<string, unknown>;
+    const text = stringField(record, [
+      "Create Table",
+      "create table",
+      "Create_Table",
+      "create_table",
+    ]);
+    if (text) return text;
+  }
+  return "";
+}
+
+/** 建表语句里 id 列带 AUTO_RANDOM / AUTO_INCREMENT 时，插入省略 id。 */
+export function applyCreateTableIdMode(columns: TaskColumn[], createSql: string): TaskColumn[] {
+  if (!createSql.trim()) return columns;
+  return columns.map((column) => {
+    if (column.name.toLowerCase() !== "id") return column;
+    const definition = columnDefinitionFromCreate(createSql, column.name);
+    if (!definition) return column;
+    return {
+      ...column,
+      autoIncrement: column.autoIncrement || /\bauto_increment\b/i.test(definition),
+      autoRandom: column.autoRandom === true || /\bauto_random\b/i.test(definition),
+    };
+  });
+}
+
+export function columnDefinitionFromCreate(createSql: string, columnName: string): string {
+  const needle = "`" + columnName + "`";
+  const lowerNeedle = needle.toLowerCase();
+  const lowerSql = createSql.toLowerCase();
+  let from = 0;
+  while (from < createSql.length) {
+    const at = lowerSql.indexOf(lowerNeedle, from);
+    if (at < 0) return "";
+    const trimmed = createSql.slice(0, at).trimEnd();
+    const tail = trimmed.slice(-40);
+    if (/\b(primary\s+key|unique\s+key|fulltext\s+key|key|index|constraint)\s*\($/i.test(tail)) {
+      from = at + needle.length;
+      continue;
+    }
+    const boundary =
+      trimmed.endsWith("(") || trimmed.endsWith(",") || trimmed.endsWith("\n") || trimmed === "";
+    if (!boundary) {
+      from = at + needle.length;
+      continue;
+    }
+    return sliceColumnDefinition(createSql, at);
+  }
+  return "";
+}
+
+export function isAutoRandomExplicitInsertError(error: unknown): boolean {
+  const text = error instanceof Error ? error.message : String(error ?? "");
+  return /auto_random/i.test(text) && (/explicit/i.test(text) || /\b8216\b/.test(text));
+}
+
+function serverAssignsId(column: TaskColumn): boolean {
+  return column.autoIncrement || column.autoRandom === true;
+}
+
+function usableInsertId(value: unknown): string {
+  if (typeof value === "bigint") {
+    const text = value.toString();
+    return text !== "0" && SAFE_ID.test(text) ? text : "";
+  }
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text || text === "0" || !SAFE_ID.test(text)) return "";
+    return text;
+  }
+  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) return String(value);
+  return "";
+}
+
+function insertSuppliesId(sql: string): boolean {
+  if (!/^INSERT\s+INTO\s+tasks\b/i.test(sql)) return false;
+  const head = sql.slice(0, sql.toUpperCase().indexOf("VALUES"));
+  return /`id`/i.test(head);
+}
+
+async function loadTaskColumns(gateway: PipelineGateway): Promise<TaskColumn[]> {
+  const columns = parseTaskColumns(await gateway.select(TASK_COLUMNS_SQL));
+  if (columns.length === 0) return columns;
+  try {
+    const createSql = showCreateTableSql(await gateway.select(TASK_CREATE_SQL));
+    return applyCreateTableIdMode(columns, createSql);
+  } catch {
+    return columns;
+  }
+}
+
+async function executeTaskWrite(
+  gateway: PipelineGateway,
+  plan: PlannedWrite,
+  columns: TaskColumn[],
+  draft: PipelineTaskDraft,
+  existing: PipelineTaskSnapshot | null,
+  insertId: string,
+): Promise<{
+  plan: PlannedWrite;
+  result: { lastInsertId?: number | string; rowsAffected?: number };
+}> {
+  try {
+    const result = await gateway.execute(plan.sql, plan.params);
+    return { plan, result };
+  } catch (error) {
+    // 8216 出现时第一条 INSERT 已被 TiDB 拒绝，库里没有新行。只重试这一次，避免双写。
+    if (!insertSuppliesId(plan.sql) || !isAutoRandomExplicitInsertError(error)) {
+      throw asPublic(error, "任务没有写入公司库");
+    }
+    const retryColumns = columns.map((column) =>
+      column.name.toLowerCase() === "id" ? { ...column, autoRandom: true } : column,
+    );
+    const retry = planPipelineTaskWrite(retryColumns, draft, existing, insertId);
+    if (!retry.sql || insertSuppliesId(retry.sql)) {
+      throw asPublic(error, "任务没有写入公司库");
+    }
+    try {
+      const result = await gateway.execute(retry.sql, retry.params);
+      return { plan: retry, result };
+    } catch (retryError) {
+      throw asPublic(retryError, "任务没有写入公司库");
+    }
+  }
+}
+
+async function confirmWrittenTask(
+  gateway: PipelineGateway,
+  columns: TaskColumn[],
+  draft: PipelineTaskDraft,
+  resolvedId: string,
+): Promise<PipelineTaskSnapshot | null> {
+  if (resolvedId && SAFE_ID.test(resolvedId)) {
+    const byId = await selectTasks(gateway, columns, [resolvedId]);
+    if (byId[0]) return byId[0];
+  }
+  const roles = indexRoles(columns);
+  if (
+    roles.plannerTaskId &&
+    acceptsText(roles.plannerTaskId) &&
+    SAFE_ID.test(draft.plannerTaskId)
+  ) {
+    const byPlanner = await selectTasks(
+      gateway,
+      columns,
+      [draft.plannerTaskId],
+      roles.plannerTaskId.name,
+    );
+    if (byPlanner[0]) return byPlanner[0];
+  }
+  return selectLatestByTitle(gateway, columns, draft);
+}
+
+async function selectLatestByTitle(
+  gateway: PipelineGateway,
+  columns: TaskColumn[],
+  draft: PipelineTaskDraft,
+): Promise<PipelineTaskSnapshot | null> {
+  const roles = indexRoles(columns);
+  const title = roles.title;
+  const assignee = roles.assignee;
+  const idColumn = roles.id;
+  if (!title || !assignee || !idColumn || !acceptsText(title)) return null;
+  const titleText = draft.title.trim();
+  const assigneeText = (draft.assignee || "").trim();
+  if (!titleText || !assigneeText) return null;
+  const pieces = [
+    `CAST(\`${idColumn.name}\` AS CHAR) AS id`,
+    `\`${assignee.name}\` AS assignee`,
+    roles.status ? `\`${roles.status.name}\` AS status` : "NULL AS status",
+    roles.plannerTaskId
+      ? `\`${roles.plannerTaskId.name}\` AS planner_task_id`
+      : "NULL AS planner_task_id",
+  ];
+  const sql = `SELECT ${pieces.join(", ")} FROM tasks WHERE \`${title.name}\` = $1 AND \`${assignee.name}\` = $2 ORDER BY \`${idColumn.name}\` DESC LIMIT 1`;
+  const raw = await gateway.select(sql, [titleText, assigneeText]);
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const rows = list
+    .map((row) => snapshotFromRow(row))
+    .filter((row): row is PipelineTaskSnapshot => Boolean(row));
+  return rows[rows.length - 1] || null;
+}
+
+function sliceColumnDefinition(sql: string, start: number): string {
+  let depth = 0;
+  let quote: "'" | '"' | "`" | null = null;
+  for (let i = start; i < sql.length; i++) {
+    const ch = sql[i];
+    if (quote) {
+      if (ch === "\\" && quote !== "`") {
+        i += 1;
+        continue;
+      }
+      if (ch === quote) {
+        if (sql[i + 1] === quote) {
+          i += 1;
+          continue;
+        }
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "(") depth += 1;
+    else if (ch === ")") {
+      if (depth === 0) return sql.slice(start, i).trim();
+      depth -= 1;
+    } else if (ch === "," && depth === 0) {
+      return sql.slice(start, i).trim();
+    }
+  }
+  return sql.slice(start).trim();
+}
+
+function renderTaskCreateTable(columns: TaskColumn[]): string {
+  const lines = columns.map((column) => {
+    const identity =
+      column.name.toLowerCase() === "id"
+        ? column.autoRandom
+          ? " AUTO_RANDOM"
+          : column.autoIncrement
+            ? " AUTO_INCREMENT"
+            : ""
+        : "";
+    const nullSql = column.nullable ? " NULL" : " NOT NULL";
+    return `  \`${column.name}\` ${column.columnType}${nullSql}${identity}`;
+  });
+  return `CREATE TABLE \`tasks\` (\n${lines.join(",\n")}\n)`;
+}
+
+function nextMemoryTaskId(seq: number): string {
+  return `88${String(seq).padStart(17, "0")}`;
+}
+
 function indexRoles(columns: TaskColumn[]): Partial<Record<Role, TaskColumn>> {
   const found: Partial<Record<Role, TaskColumn>> = {};
   for (const role of Object.keys(ROLE_NAMES) as Role[]) {
@@ -539,7 +812,7 @@ function parseMysqlEnum(columnType: string): string[] {
 
 function requireAssignee(assignee: string | null | undefined): string {
   const slug = (assignee || "").trim();
-  if (!slug) throw new Error("先指定公司名册工人，任务未写入");
+  if (!slug) throw new Error("先指定有心跳的工人，任务未写入");
   if (!SAFE_ID.test(slug)) throw new Error("工人标识无效，任务未写入");
   return slug;
 }

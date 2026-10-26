@@ -58,8 +58,9 @@
 - 本地 `journal` 为空且远端非空时，**强制跳过上传**并拉回远端，严禁开发期以空本地冲掉远端数据。
 - 启动期注入的示例任务（id 为纯数字）不得覆盖远端真实用户待办。
 
-### ⑤ 公司名册以库为准
-- Agent 下拉、筛选、派活人选、在线心跳以 `tongyun_pipeline.agents`（active）+ `workers`（enabled，含 cursor-cloud）为准。
+### ⑤ 派活名单以有心跳的工人为准
+- Agent 下拉、筛选、派活人选只列 `tongyun_pipeline.workers` 里 enabled 且有 `last_seen` / 心跳的人（含 cursor-cloud）。
+- `agents` 只给对得上的工人补显示名。没有 worker 心跳的成员不进派活名单。不另加显示用的 DDL 列。
 - 本机 `domain_agents` 只在没配 DSN、且没有公司库缓存时作离线兜底，不是真相源。配了 DSN 时读库失败不得用本机静态登记顶上。
 - 细则见 [docs/planner-db-ssot-not-local-roster.md](docs/planner-db-ssot-not-local-roster.md)。
 
@@ -130,3 +131,9 @@ src-tauri/
    - **高风险（必须阿橦本人批）**：计费、密钥相关、CI/发布流程（`.github/workflows`、updater、签名）的改动。
 
 不要把密钥、Token、密码写进本文件或仓库任何位置。
+
+## 已知坑
+
+- `tongyun_pipeline.tasks.id` 在 TiDB 上是 `AUTO_RANDOM`，`information_schema.COLUMNS.EXTRA` 是空字符串。不能只拿 `/auto_increment/` 判断。要看 `SHOW CREATE TABLE` 里的 `AUTO_RANDOM`，插入省略 id；显式插入会 8216。回执 id 用 `lastInsertId` 或按 `planner_task_id` 回读，不要把本机雪花数当成库内 id。
+- 派活名单不要把 `agents` 行直接列出来。只列 enabled 且有心跳的 `workers`。不要为这个加 DDL 显示列。
+- 侧栏「数据库同步失败」只认个人库 `backend=database && channel=database && status=error`。`user_prefs` 只有「机密无口令拒明文」可以打断整次同步；单表失败和存储恢复前的「未配置」不能把侧栏打红。公司库派活失败只在 Agent 面板。

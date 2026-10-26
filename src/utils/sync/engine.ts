@@ -119,6 +119,13 @@ export class SyncEngine {
    */
   reloadFromStorage(): void {
     this.rememberBackend(this.resolveStoredBackend());
+    if (this._errorMessage === "未配置同步后端") {
+      if (this.isConfigured()) {
+        this._status = "idle";
+        this._errorMessage = null;
+      }
+      this._statusChannel = "none";
+    }
     this.notify();
   }
 
@@ -257,8 +264,11 @@ export class SyncEngine {
     }
 
     if (!this.isConfigured()) {
+      // 存储把 DSN 写回 localStorage 之前，backend 可能已经是 database。
+      // 这不是一次个人库写入失败，channel 留在 none，侧栏不跟着变红。
       this._errorMessage = "未配置同步后端";
       this._status = "error";
+      this._statusChannel = "none";
       this.notify();
       return;
     }

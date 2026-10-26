@@ -1,14 +1,14 @@
 # 公司名册以库为准
 
-Agent 面板的下拉、筛选、派活人选和在线心跳，以 `tongyun_pipeline` 为准。本机 `domain_agents` 里的「本地助手」静态登记不是真相源。
+Agent 面板的下拉、筛选、派活人选和在线心跳，以 `tongyun_pipeline.workers` 为准。本机 `domain_agents` 里的「本地助手」静态登记不是真相源。不新增显示用的 DDL 列。
 
 ## 读什么
 
-- `agents`：只要 `status = active`。展示名用 `display_name`，人选 id 用 `slug`。
-- `workers`：只要 `enabled`。`assignee` 对得上 agent 的 slug / 别名时，把 `last_seen_at` 和 `status` 贴到那一行。
-- `agents` 里没有、但 worker 已启用的人（现在的 `cursor-cloud`）仍然入册，展示为 Cursor。
+- `workers`：只要 `enabled`，并且有 `last_seen_at` 或心跳（`tone` 不是 none）。没有心跳的工人不进派活名单。
+- `agents`：只给对得上的工人补显示名（`display_name`）。人选 id 仍用 worker 的 `assignee` / agent 的 `slug`。仅因 agents 行存在、没有 worker 心跳的成员（例如不开定时任务的阿党、阿码）不进下拉和顶栏。
+- `agents` 里没有、但 worker 已启用且有心跳的人（现在的 `cursor-cloud`）仍然入册，展示为 Cursor。
 
-心跳：`last_seen_at` 在 3 分钟内且状态不是 offline，算在线，并写出年龄（例如「在线 · 12秒前」）。
+心跳：`last_seen_at` 在 3 分钟内且状态不是 offline，算在线，并写出年龄（例如「在线 · 12秒前」）。更早的 `last_seen_at` 仍算有心跳，显示为离线。
 
 ## 什么时候不读本机登记
 
@@ -34,10 +34,10 @@ Agent 面板的下拉、筛选、派活人选和在线心跳，以 `tongyun_pipe
 
 ## 开工与改派
 
-「新建」和「开始」写入 `tongyun_pipeline.tasks`。`assignee` 用公司名册 slug（`cursor-cloud`、`agy-ibz` 这种）。`status` 用库里的可领值，优先 `todo`。列名从 `information_schema` 读，不猜一套固定 DDL。
+「新建」和「开始」写入 `tongyun_pipeline.tasks`。`assignee` 用有心跳的工人 slug（`cursor-cloud`、`agy-ibz` 这种）。`status` 用库里的可领值，优先 `todo`。列名从 `information_schema` 读，不猜一套固定 DDL。`id` 若是 TiDB `AUTO_RANDOM`（`EXTRA` 可能是空字符串，以 `SHOW CREATE TABLE` 为准），插入时省略 id，再用 `lastInsertId` 或 `planner_task_id` 回读真实 id。显式插入触发 8216 时只重试一次省略 id 的 INSERT。
 
 写失败时本机看板不动，并显示错误。不会只把 `runStatus` 改成 running 来冒充开工。
 
-本机「待跑 / 跑着」跟库里的 status：可领停在待跑，工人领成 doing / running 之后才进跑着。卡片上的改派下拉只列公司名册，成功后回写 `tasks.assignee` 并放回可领。本机离线兜底不能当工人。
+本机「待跑 / 跑着」跟库里的 status：可领停在待跑，工人领成 doing / running 之后才进跑着。卡片上的改派下拉只列有心跳的工人，成功后回写 `tasks.assignee` 并放回可领。本机离线兜底不能当工人。
 
 「改回自己」会先把公司库那一行标成取消；写失败则卡片仍留给工人。

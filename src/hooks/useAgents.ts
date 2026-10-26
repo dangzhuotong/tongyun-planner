@@ -139,7 +139,7 @@ export function useAgents() {
   const slugOrThrow = useCallback(
     (assignee?: string) => {
       const slug = companyRosterSlug(roster, assignee);
-      if (!slug) throw new Error("工人不在公司名册里，任务未写入");
+      if (!slug) throw new Error("工人没有心跳或不在可派名单里，任务未写入");
       return slug;
     },
     [roster],

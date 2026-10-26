@@ -1,7 +1,8 @@
 import type { AgentKind, DomainAgent } from "../../types";
 
 /**
- * 公司名册的唯一真相是 tongyun_pipeline.agents（active）+ workers（enabled）。
+ * 派活名册以 tongyun_pipeline.workers 为准：enabled，并且有 last_seen 或心跳。
+ * agents 只给对得上的工人补显示名，没有 worker 心跳的成员不进名单。
  * 本机 domain_agents 只在「没配 DSN 且没有公司库缓存」时作离线兜底。
  * 配了 DSN 时，读库失败不得用本机静态登记顶上。
  * 见 docs/planner-db-ssot-not-local-roster.md。
@@ -233,6 +234,14 @@ export function formatHeartbeat(heartbeat: Heartbeat, locale = "zh-CN"): string 
   return `${state} · ${formatAge(heartbeat.ageMs, en)}`;
 }
 
+/** 公司库条目要有 worker 心跳。本机离线兜底不走这条。 */
+export function hasWorkerHeartbeat(
+  entry: Pick<CompanyRosterEntry, "source" | "tone" | "lastSeenAt">,
+): boolean {
+  if (entry.source !== "company") return true;
+  return entry.lastSeenAt != null || entry.tone !== "none";
+}
+
 export function mergeCompanyRoster(
   agents: PipelineAgentRow[] | null | undefined,
   workers: PipelineWorkerRow[] | null | undefined,
@@ -264,14 +273,19 @@ export function mergeCompanyRoster(
       consumed.add(key);
     }
     const best = pickFreshest(matched);
-    entries.push(entryFromAgent(agent, best, now));
+    if (!best) continue;
+    const entry = entryFromAgent(agent, best, now);
+    if (!hasWorkerHeartbeat(entry)) continue;
+    entries.push(entry);
   }
 
   for (const [key, rows] of groups) {
     if (consumed.has(key)) continue;
     const best = pickFreshest(rows);
     if (!best) continue;
-    entries.push(entryFromWorker(best, now));
+    const entry = entryFromWorker(best, now);
+    if (!hasWorkerHeartbeat(entry)) continue;
+    entries.push(entry);
   }
 
   entries.sort(compareRosterEntries);
@@ -315,9 +329,11 @@ export function selectVisibleRoster(input: {
   localFallback: CompanyRosterEntry[];
 }): { entries: CompanyRosterEntry[]; via: Exclude<RosterVia, "fixture"> } {
   if (input.company) {
-    return { entries: input.company, via: "pipeline" };
+    return { entries: input.company.filter(hasWorkerHeartbeat), via: "pipeline" };
   }
-  const cache = input.companyCache.filter((entry) => entry.source === "company" && entry.id);
+  const cache = input.companyCache.filter(
+    (entry) => entry.source === "company" && entry.id && hasWorkerHeartbeat(entry),
+  );
   if (input.dsnConfigured) {
     return cache.length > 0
       ? { entries: cache, via: "cache" }

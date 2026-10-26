@@ -108,6 +108,47 @@ describe("company roster merge", () => {
     expect(entries.find((entry) => entry.id === "ama")?.online).toBe(true);
   });
 
+  it("没有 worker 心跳的 agents 不进派活名单，对得上的工人仍用 agent 显示名", () => {
+    const entries = mergeCompanyRoster(
+      [
+        ...fixtureAgentRows(),
+        {
+          id: 9,
+          slug: "ashen",
+          display_name: "阿审",
+          status: "active",
+          sort_order: 40,
+        },
+        {
+          id: 10,
+          slug: "azhuang",
+          display_name: "阿装",
+          status: "active",
+          sort_order: 50,
+        },
+      ],
+      [
+        ...fixtureWorkerRows(NOW),
+        {
+          assignee: "silent-worker",
+          status: "",
+          enabled: 1,
+          last_seen_at: null,
+        },
+      ],
+      NOW,
+    );
+    const ids = entries.map((entry) => entry.id);
+    expect(ids).not.toContain("ashen");
+    expect(ids).not.toContain("azhuang");
+    expect(ids).not.toContain("silent-worker");
+    expect(entries.some((entry) => entry.handle === "阿审" || entry.handle === "阿装")).toBe(false);
+    expect(entries.find((entry) => entry.id === "ama")?.handle).toBe("阿码");
+    expect(entries.find((entry) => entry.id === "ama")?.tone).not.toBe("none");
+    expect(entries.find((entry) => entry.id === "adang")?.lastSeenAt).not.toBeNull();
+    expect(entries.find((entry) => entry.id === "cursor-cloud")?.handle).toBe("Cursor");
+  });
+
   it("无心跳与强制离线", () => {
     expect(describeHeartbeat(null, null, NOW)).toEqual({
       online: false,
@@ -235,6 +276,29 @@ describe("visible roster follows the database", () => {
     expect(picked.via).toBe("cache");
     expect(picked.entries.some((entry) => entry.id === "cursor-cloud")).toBe(true);
     expect(picked.entries.some((entry) => entry.handle === "本地助手")).toBe(false);
+    const staleAgent = selectVisibleRoster({
+      dsnConfigured: true,
+      company: null,
+      companyCache: [
+        ...cached,
+        {
+          id: "ashen",
+          handle: "阿审",
+          slug: "ashen",
+          kind: "pipeline_bridge",
+          enabled: true,
+          source: "company",
+          online: false,
+          tone: "none",
+          ageMs: null,
+          lastSeenAt: null,
+          sortOrder: 40,
+          updatedAt: NOW,
+        },
+      ],
+      localFallback: [],
+    });
+    expect(staleAgent.entries.some((entry) => entry.id === "ashen")).toBe(false);
   });
 
   it("没配 DSN 且没有公司缓存时，才用本机离线兜底", async () => {
