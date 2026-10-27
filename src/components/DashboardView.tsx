@@ -57,7 +57,16 @@ export const DashboardView: React.FC<DashboardViewProps> = React.memo(
     const d = t.dashboard;
     const { journal } = usePersonal();
 
-    const [nickname] = useState(() => localStorage.getItem("tongyun_nickname") || "");
+    const [nickname] = useState(() => {
+      const raw = localStorage.getItem("tongyun_nickname");
+      if (!raw) return "";
+      try {
+        const parsed = JSON.parse(raw);
+        return typeof parsed === "string" ? parsed.trim() : String(raw).trim();
+      } catch {
+        return raw.trim().replace(/^["']|["']$/g, "");
+      }
+    });
     const today = getLocalDateString();
     const localeKey = config.locale || "zh-CN";
 
