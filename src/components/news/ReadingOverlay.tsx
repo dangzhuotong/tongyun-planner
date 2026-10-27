@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { openExternal } from "../../utils/openExternal";
 import type { Article } from "./types";
+import { sanitizeArticleHtml } from "./rssParser";
 
 interface ReadingOverlayProps {
   article: Article;
@@ -168,11 +169,17 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
               </div>
             )}
 
-            <div className={colCls + " " + bodyCls + " text-slate-700 whitespace-pre-wrap"}>
-              {article.content ||
-                article.description ||
-                "暂无正文内容，请点击上方「原文」链接阅读完整文章。"}
-            </div>
+            <div
+              className={`${colCls} ${bodyCls} prose prose-slate max-w-none text-slate-700 dark:text-slate-200 leading-relaxed font-normal [&_p]:mb-4 [&_img]:rounded-xl [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_a]:text-[#4D7C5D] [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-[#4D7C5D]/40 [&_blockquote]:pl-4 [&_blockquote]:my-3 [&_blockquote]:italic [&_pre]:bg-slate-100 [&_pre]:dark:bg-[#252830] [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto`}
+              dangerouslySetInnerHTML={{
+                __html: sanitizeArticleHtml(
+                  article.content ||
+                    (article.description
+                      ? `<p>${article.description}</p>`
+                      : "<p>暂无正文内容，请点击上方「原文」链接阅读完整文章。</p>"),
+                ),
+              }}
+            />
           </div>
         </div>
 

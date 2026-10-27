@@ -12,6 +12,7 @@ export interface Article {
   author?: string;
   description: string;
   content: string;
+  coverImage?: string;
   feedId?: string;
   feedName?: string;
 }
@@ -76,14 +77,16 @@ export const PLATFORMS: PlatformDef[] = [
 
 export const DEFAULT_FEEDS: RSSFeed[] = [
   { id: "sspai", name: "少数派 · 极客利器", url: "https://sspai.com/feed", category: "tech" },
-  { id: "hn", name: "Hacker News · Top", url: "https://hnrss.org/frontpage", category: "tech" },
+  { id: "ifanr", name: "爱范儿 · 创新产品", url: "https://www.ifanr.com/feed", category: "tech" },
+  { id: "solidot", name: "Solidot · 奇客资讯", url: "https://www.solidot.org/index.rss", category: "tech" },
   {
     id: "ruanyifeng",
     name: "阮一峰的网络日志",
     url: "https://www.ruanyifeng.com/blog/atom.xml",
     category: "tech",
   },
-  { id: "zhihu-daily", name: "知乎每日精选", url: "https://www.zhihu.com/rss", category: "daily" },
+  { id: "v2ex", name: "V2EX · 讨论热榜", url: "https://www.v2ex.com/index.xml", category: "daily" },
+  { id: "hn", name: "Hacker News · 全球前沿", url: "https://hnrss.org/frontpage", category: "tech" },
 ];
 
 export const FEED_CATEGORY_LABELS: Record<RSSFeed["category"], string> = {

@@ -45,7 +45,11 @@ export const RSSView: React.FC<RSSViewProps> = ({
 }) => {
   const [feeds, setFeeds] = useState<RSSFeed[]>(() => {
     const saved = localStorage.getItem("tongyun_rss_feeds");
-    return saved ? safeJsonParse(saved, DEFAULT_FEEDS) : DEFAULT_FEEDS;
+    let list: RSSFeed[] = saved ? safeJsonParse(saved, DEFAULT_FEEDS) : DEFAULT_FEEDS;
+    // 自动过滤已下线的死源（如知乎），保证开箱即用可用性
+    list = list.filter((f) => !f.url.includes("zhihu.com/rss"));
+    if (list.length === 0) list = DEFAULT_FEEDS;
+    return list;
   });
   const [selectedFeed, setSelectedFeed] = useState<RSSFeed>(feeds[0] || DEFAULT_FEEDS[0]);
   const [articles, setArticles] = useState<Article[]>([]);
@@ -87,13 +91,23 @@ export const RSSView: React.FC<RSSViewProps> = ({
           console.warn("Direct fetch failed:", e);
         }
       }
-      if (xmlText) {
+      if (!xmlText && !isTauri) {
+        try {
+          const proxyRes = await fetch(
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`,
+          );
+          if (proxyRes.ok) xmlText = await proxyRes.text();
+        } catch (e: any) {
+          console.warn("Proxy fetch failed:", e);
+        }
+      }
+      if (xmlText && xmlText.trim().length > 0) {
         const parsed = parseRSSXML(xmlText);
         if (parsed.length > 0) {
           return parsed.map((a) => ({ ...a, feedId: feed.id, feedName: feed.name }));
         }
       }
-      throw new Error("无法拉取该订阅源。请确认 URL 正确且网络通畅，或在「订阅管理」中更换源。");
+      throw new Error(`未能成功获取该订阅源（${feed.name}）。请确认 URL 正确或稍后重试。`);
     };
 
     try {
@@ -138,6 +152,12 @@ export const RSSView: React.FC<RSSViewProps> = ({
     if (selectedFeed.id === id && updated.length > 0) {
       setSelectedFeed(updated[0]);
     }
+  };
+
+  const handleResetFeeds = () => {
+    setFeeds(DEFAULT_FEEDS);
+    localStorage.setItem("tongyun_rss_feeds", JSON.stringify(DEFAULT_FEEDS));
+    setSelectedFeed(DEFAULT_FEEDS[0]);
   };
 
   const filteredArticles = useMemo(() => {
@@ -220,14 +240,24 @@ export const RSSView: React.FC<RSSViewProps> = ({
 
         {showFeedManager ? (
           <div className="space-y-5 flex-grow max-w-xl mx-auto py-2 overflow-y-auto">
-            <div className="bg-white/70 border border-[#EFEBE4] p-4 rounded-xl space-y-1.5">
-              <span className="text-[10px] font-bold text-[#4D7C5D] dark:text-[#6DAF7E] tracking-wider">
-                订阅管理
-              </span>
-              <p className="text-[10px] text-slate-400 leading-relaxed">
-                添加符合 RSS 2.0 或 Atom 规范的订阅源。应用通过 Rust
-                后端代理拉取，无需担心跨域限制。
-              </p>
+            <div className="bg-white/70 border border-[#EFEBE4] p-4 rounded-xl space-y-1.5 flex items-start justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-bold text-[#4D7C5D] dark:text-[#6DAF7E] tracking-wider block mb-1">
+                  订阅管理
+                </span>
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  添加符合 RSS 2.0 或 Atom 规范的订阅源。应用通过 Rust
+                  后端代理拉取，无需担心跨域限制。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleResetFeeds}
+                className="flex-shrink-0 text-[10px] font-bold px-3 py-1.5 rounded-lg border border-[#4D7C5D]/30 text-[#4D7C5D] dark:text-[#78C496] hover:bg-[#4D7C5D]/10 transition-colors cursor-pointer"
+                title="一键恢复为精选推荐订阅源（少数派、爱范儿、Solidot、阮一峰网络日志、V2EX等）"
+              >
+                恢复精选源
+              </button>
             </div>
             <div className="space-y-3 bg-white/70 border border-[#EFEBE4] p-4 rounded-xl">
               <h3 className="text-[11px] font-bold text-slate-600">添加新订阅</h3>
@@ -372,6 +402,20 @@ export const RSSView: React.FC<RSSViewProps> = ({
                   )}
                 </button>
                 <div className="space-y-2" onClick={() => onOpenArticle(article)}>
+                  {article.coverImage && (
+                    <div className="w-full h-32 overflow-hidden rounded-lg bg-slate-100 dark:bg-[#252830] flex-shrink-0 mb-1.5">
+                      <img
+                        src={article.coverImage}
+                        alt=""
+                        loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          const parent = (e.currentTarget as HTMLElement).parentElement;
+                          if (parent) parent.style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-[10px] text-slate-300 font-medium pr-8">
                     {article.author && (
                       <span className="truncate max-w-[120px]">{article.author}</span>

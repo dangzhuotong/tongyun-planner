@@ -460,13 +460,15 @@ fn file_list(app: AppHandle, prefix: String) -> Result<Vec<String>, String> {
 #[tauri::command]
 fn fetch_rss(url: String) -> Result<String, String> {
     let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .user_agent("TongYunPlanner/1.0 RSS Reader")
+        .timeout(std::time::Duration::from_secs(20))
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
         .build()
         .map_err(|e| e.to_string())?;
 
     let res = client.get(&url)
-        .header("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml, */*")
+        .header("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.9, */*;q=0.8")
+        .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+        .header("Cache-Control", "no-cache")
         .send()
         .map_err(|e| format!("E_NETWORK: {}", e))?;
 

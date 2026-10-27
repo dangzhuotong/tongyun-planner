@@ -45,6 +45,21 @@ const DEFAULT_PROXY = "https://api.allorigins.win/get?url=";
 
 const PRESETS: { title: string; url: string; icon: React.ReactNode }[] = [
   {
+    title: "少数派",
+    url: "https://sspai.com/feed",
+    icon: <Newspaper className="w-3.5 h-3.5" />,
+  },
+  {
+    title: "爱范儿",
+    url: "https://www.ifanr.com/feed",
+    icon: <Globe className="w-3.5 h-3.5" />,
+  },
+  {
+    title: "Solidot 奇客",
+    url: "https://www.solidot.org/index.rss",
+    icon: <Code2 className="w-3.5 h-3.5" />,
+  },
+  {
     title: "V2EX 热榜",
     url: "https://www.v2ex.com/index.xml",
     icon: <Newspaper className="w-3.5 h-3.5" />,
@@ -54,13 +69,6 @@ const PRESETS: { title: string; url: string; icon: React.ReactNode }[] = [
     url: "https://hnrss.org/frontpage",
     icon: <TrendingUp className="w-3.5 h-3.5" />,
   },
-  {
-    title: "GitHub Trending",
-    url: "https://github.com/trending",
-    icon: <Code2 className="w-3.5 h-3.5" />,
-  },
-  { title: "36氪 快讯", url: "https://36kr.com/feed", icon: <Globe className="w-3.5 h-3.5" /> },
-  { title: "少数派", url: "https://sspai.com/feed", icon: <Newspaper className="w-3.5 h-3.5" /> },
 ];
 
 async function fetchRSS(
