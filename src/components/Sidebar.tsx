@@ -74,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     handleToggleWidget,
     handleToggleWidgetLock,
     isWidgetLocked,
-    resetTasks,
+    resetTasks: _resetTasks,
     onEnterFlowMode,
     onTestMicroBreak,
     onOpenSunsetShutdown,
@@ -195,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
         <button
           onClick={() => setActiveTab(tab)}
           className={`w-full flex items-center rounded-xl text-[13px] font-semibold tracking-wide transition-all border cursor-pointer ${
-            isCollapsed ? "justify-center p-2" : "gap-3 px-3.5 py-2"
+            isCollapsed ? "justify-center p-2" : "gap-2.5 px-3 py-1.5"
           } ${isActive ? activeClass : inactiveClass}`}
           title={isCollapsed ? label : undefined}
         >
@@ -267,7 +267,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
           }
         }}
         className={`w-full flex items-center rounded-xl text-[13px] font-semibold tracking-wide transition-all border cursor-pointer ${
-          isCollapsed ? "justify-center p-2" : "gap-3 px-3.5 py-2"
+          isCollapsed ? "justify-center p-2" : "gap-2.5 px-3 py-1.5"
         } ${isGroupActive ? activeClass : inactiveClass}`}
         title={isCollapsed ? label : undefined}
       >
@@ -296,10 +296,10 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     return (
       <aside
         className={`hidden md:flex flex-shrink-0 border-r border-[#EFEBE4] dark:border-[#282A30] bg-[#F4EFEA]/90 dark:bg-[#16171B] flex-col justify-between z-10 relative select-none overflow-hidden transition-[width,padding] duration-300 ease-in-out ${
-          isCollapsed ? "w-[54px] px-1.5 py-4" : "w-[210px] p-4"
+          isCollapsed ? "w-[54px] px-1.5 py-3" : "w-[210px] p-3"
         }`}
       >
-        <div className="space-y-5 flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-0.5">
+        <div className="space-y-3 flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-0.5">
           {/* Logo — simplified */}
           <div
             className={`flex items-center gap-2.5 ${isCollapsed ? "justify-center px-0" : "px-1"}`}
@@ -462,7 +462,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
           <button
             onClick={onEnterFlowMode}
             className={`w-full flex items-center rounded-xl text-[13px] font-semibold tracking-wide transition-all border border-[#4D7C5D]/20 dark:border-[#4D7C5D]/30 text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1]/50 dark:bg-[#1F2C23]/40 hover:bg-[#F0F5F1] dark:hover:bg-[#1F2C23]/80 cursor-pointer ${
-              isCollapsed ? "justify-center p-2" : "gap-3 px-3.5 py-2.5"
+              isCollapsed ? "justify-center p-2" : "gap-2.5 px-3 py-1.5"
             }`}
             title={isCollapsed ? t.flow?.title || "心流模式" : undefined}
           >
@@ -517,7 +517,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
           ) : (
             <div
               data-task-id={pomodoroTaskId || ""}
-              className={`px-3.5 py-3 rounded-xl bg-white/60 dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#282A30] space-y-2.5 ${pomodoroIsActive ? "pomodoro-active-glow" : ""}`}
+              className={`px-3 py-2.5 rounded-xl bg-white/60 dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#282A30] space-y-2 ${pomodoroIsActive ? "pomodoro-active-glow" : ""}`}
             >
               <div className="flex justify-between items-center text-[10px] font-semibold text-slate-500 dark:text-slate-400">
                 <span className="flex items-center gap-1.5">
@@ -743,76 +743,21 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
               </div>
 
               {/* Random Micro-Break Toggle & Interval Switcher & Preview */}
-              <div className="flex items-center justify-between pt-1.5 text-[9px] text-slate-400 font-medium">
-                <span
-                  className="flex items-center gap-1.5 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300"
-                  title="专注时随机提醒：喝水润喉、眺望窗外、深呼吸与伸展（每次5秒）"
-                  onClick={() => {
-                    const next = !randomBreakEnabled;
-                    setRandomBreakEnabled(next);
-                    localStorage.setItem("tongyun_random_break", String(next));
-                    if (next) void audioEngine.playMicroBreakSound();
-                  }}
-                >
-                  <Timer className="w-3 h-3 text-slate-400" />
-                  <span>{s.randomBreak || "微休息"}</span>
-                </span>
-                <div className="flex items-center gap-1.5">
-                  {/* 时长切换按钮（循环 3~5分 / 5~10分 / 1~2分 / 30秒测试） */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const intervals: Array<"3-5" | "5-10" | "1-2" | "test-30s"> = [
-                        "3-5",
-                        "5-10",
-                        "1-2",
-                        "test-30s",
-                      ];
-                      const currentIdx = intervals.indexOf(microBreakInterval || "3-5");
-                      const nextInterval = intervals[(currentIdx + 1) % intervals.length];
-                      setMicroBreakInterval(nextInterval);
-                      localStorage.setItem("tongyun_random_break_interval", nextInterval);
+              <div className="space-y-1.5 pt-1 text-[9px] text-slate-400 font-medium">
+                <div className="flex items-center justify-between">
+                  <span
+                    className="flex items-center gap-1.5 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 shrink-0"
+                    title="专注时随机提醒：喝水润喉、眺望窗外、深呼吸与伸展（每次5秒）"
+                    onClick={() => {
+                      const next = !randomBreakEnabled;
+                      setRandomBreakEnabled(next);
+                      localStorage.setItem("tongyun_random_break", String(next));
+                      if (next) void audioEngine.playMicroBreakSound();
                     }}
-                    className="px-1.5 py-0.5 rounded border border-slate-200 dark:border-[#33353A] hover:bg-slate-100 dark:hover:bg-[#33353A] text-slate-500 hover:text-[#4D7C5D] dark:hover:text-[#78A887] text-[8px] font-mono font-semibold transition-colors cursor-pointer"
-                    title={`点击切换提醒间隔：当前每 ${
-                      microBreakInterval === "test-30s"
-                        ? "15~30秒（极速测试）"
-                        : microBreakInterval === "1-2"
-                          ? "1~2分钟"
-                          : microBreakInterval === "5-10"
-                            ? "5~10分钟"
-                            : "3~5分钟"
-                    } 随机提醒`}
                   >
-                    {microBreakInterval === "test-30s"
-                      ? "30s测"
-                      : microBreakInterval === "1-2"
-                        ? "1~2m"
-                        : microBreakInterval === "5-10"
-                          ? "5~10m"
-                          : "3~5m"}
-                  </button>
-
-                  {/* 立即体验 5 秒弹窗预览按钮 */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onTestMicroBreak) {
-                        onTestMicroBreak();
-                      } else {
-                        void audioEngine.playMicroBreakSound();
-                      }
-                    }}
-                    className="px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[8px] font-semibold transition-colors cursor-pointer flex items-center gap-0.5"
-                    title="立即体验 5 秒微休息（随机喝水、眺望窗外或深呼吸卡片）"
-                  >
-                    <Volume2 className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
-                    <span>体验5s</span>
-                  </button>
-
-                  {/* 开关 Toggle */}
+                    <Timer className="w-3 h-3 text-slate-400 shrink-0" />
+                    <span className="whitespace-nowrap">{s.randomBreak || "微休息"}</span>
+                  </span>
                   <button
                     type="button"
                     onClick={() => {
@@ -823,7 +768,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                         void audioEngine.playMicroBreakSound();
                       }
                     }}
-                    className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer ${
+                    className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer shrink-0 ${
                       randomBreakEnabled ? "bg-[#4D7C5D]" : "bg-slate-200 dark:bg-[#33353A]"
                     }`}
                     title={s.randomBreakDesc || "专注中随机提醒喝水、看窗外、舒展护眼"}
@@ -835,36 +780,66 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                     />
                   </button>
                 </div>
-              </div>
 
-              {/* Auto Noise on Focus */}
-              <div className="flex items-center justify-between text-[9px] text-slate-400 font-medium">
-                <span className="flex items-center gap-1.5">
-                  <Coffee className="w-3 h-3 text-slate-400" />
-                  <span>{s.autoNoise}</span>
-                </span>
-                <button
-                  onClick={() => {
-                    const next = !autoNoiseEnabled;
-                    setAutoNoiseEnabled(next);
-                    localStorage.setItem("tongyun_auto_noise", String(next));
-                    if (next) {
-                      startNoise(selectedNoiseType, noiseVolume);
-                    } else {
-                      stopNoise("manual");
-                    }
-                  }}
-                  className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer ${
-                    autoNoiseEnabled ? "bg-[#4D7C5D]" : "bg-slate-200 dark:bg-[#33353A]"
-                  }`}
-                  title={s.autoNoiseDesc}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-transform ${
-                      autoNoiseEnabled ? "translate-x-3.5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
+                {/* 开启后展示次级调节与体验按钮，避免横向挤压变形 */}
+                {randomBreakEnabled && (
+                  <div className="flex items-center justify-between pl-4.5 pt-0.5 text-[8px] text-slate-400 font-medium animate-fade-in-up">
+                    <span className="text-slate-400">提醒间隔</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const intervals: Array<"3-5" | "5-10" | "1-2" | "test-30s"> = [
+                            "3-5",
+                            "5-10",
+                            "1-2",
+                            "test-30s",
+                          ];
+                          const currentIdx = intervals.indexOf(microBreakInterval || "3-5");
+                          const nextInterval = intervals[(currentIdx + 1) % intervals.length];
+                          setMicroBreakInterval(nextInterval);
+                          localStorage.setItem("tongyun_random_break_interval", nextInterval);
+                        }}
+                        className="px-1.5 py-0.5 rounded border border-slate-200 dark:border-[#33353A] hover:bg-slate-100 dark:hover:bg-[#33353A] text-slate-500 hover:text-[#4D7C5D] dark:hover:text-[#78A887] text-[8px] font-mono font-semibold transition-colors cursor-pointer"
+                        title={`点击切换提醒间隔：当前每 ${
+                          microBreakInterval === "test-30s"
+                            ? "15~30秒（极速测试）"
+                            : microBreakInterval === "1-2"
+                              ? "1~2分钟"
+                              : microBreakInterval === "5-10"
+                                ? "5~10分钟"
+                                : "3~5分钟"
+                        } 随机提醒`}
+                      >
+                        {microBreakInterval === "test-30s"
+                          ? "30s测"
+                          : microBreakInterval === "1-2"
+                            ? "1~2m"
+                            : microBreakInterval === "5-10"
+                              ? "5~10m"
+                              : "3~5m"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onTestMicroBreak) {
+                            onTestMicroBreak();
+                          } else {
+                            void audioEngine.playMicroBreakSound();
+                          }
+                        }}
+                        className="px-1.5 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[8px] font-semibold transition-colors cursor-pointer flex items-center gap-0.5"
+                        title="立即体验 5 秒微休息（随机喝水、眺望窗外或深呼吸卡片）"
+                      >
+                        <Volume2 className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>体验5s</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* White Noise — collapsible */}
@@ -956,6 +931,33 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                       </span>
                     </div>
 
+                    {/* Auto Noise on Focus Toggle inside expanded panel */}
+                    <div className="flex items-center justify-between pt-0.5 text-[9px] text-slate-400 font-medium">
+                      <span>{s.autoNoise}</span>
+                      <button
+                        onClick={() => {
+                          const next = !autoNoiseEnabled;
+                          setAutoNoiseEnabled(next);
+                          localStorage.setItem("tongyun_auto_noise", String(next));
+                          if (next) {
+                            startNoise(selectedNoiseType, noiseVolume);
+                          } else {
+                            stopNoise("manual");
+                          }
+                        }}
+                        className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer ${
+                          autoNoiseEnabled ? "bg-[#4D7C5D]" : "bg-slate-200 dark:bg-[#33353A]"
+                        }`}
+                        title={s.autoNoiseDesc}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full bg-white shadow-sm transition-transform ${
+                            autoNoiseEnabled ? "translate-x-3.5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
                     <div className="flex items-center justify-between pt-0.5 text-[9px] text-slate-400 font-medium">
                       <span>{s.soundSelect}</span>
                       <select
@@ -993,12 +995,12 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
         </div>
 
         {/* Bottom section */}
-        <div className="space-y-1.5 pt-3 border-t border-slate-200/60 dark:border-[#282A30] flex-shrink-0">
-          {/* 数据库同步状态。WebDAV 结果在设置里，不占这里。 */}
+        <div className="space-y-1 pt-2 border-t border-slate-200/60 dark:border-[#282A30] flex-shrink-0">
+          {/* 数据库同步状态 */}
           <div
             data-sync-channel="database"
             title={s.syncStatusHint}
-            className={`pb-1.5 text-[9px] flex items-center text-slate-500 dark:text-slate-400 font-medium border-b border-slate-100 dark:border-[#282A30] mb-1.5 select-none ${isCollapsed ? "justify-center" : "justify-between"}`}
+            className={`pb-1 text-[9px] flex items-center text-slate-500 dark:text-slate-400 font-medium border-b border-slate-100 dark:border-[#282A30] mb-0.5 select-none ${isCollapsed ? "justify-center" : "justify-between"}`}
           >
             <div className="flex items-center gap-1">
               {syncStatus === "syncing" ? (
@@ -1019,7 +1021,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
               )}
             </div>
             {!isCollapsed && lastBackupTime && (
-              <span className="text-slate-400 dark:text-slate-500">
+              <span className="text-slate-400 dark:text-slate-500 font-mono">
                 {new Date(lastBackupTime).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -1028,57 +1030,52 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
             )}
           </div>
 
-          {/* Settings — now a bottom icon button */}
-          <NavButton tab="settings" icon={<Settings className="w-4 h-4" />} label={s.settings} />
-
           {/* Quick Capture & Sunset Shutdown tools */}
-          <div className="grid grid-cols-2 gap-1.5 w-full">
-            {onOpenQuickCapture && (
-              <button
-                onClick={onOpenQuickCapture}
-                className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50/60 dark:hover:bg-orange-950/20 border border-slate-200/60 dark:border-[#2E313A] cursor-pointer ${
-                  isCollapsed ? "p-2 col-span-2" : ""
-                }`}
-                title="极速捕捉灵感 (Alt+N / Ctrl+Shift+K)"
-              >
-                <Command className="w-3 h-3 text-orange-500" />
-                {!isCollapsed && <span>极速捕捉</span>}
-              </button>
-            )}
-            {onOpenSunsetShutdown && (
-              <button
-                onClick={onOpenSunsetShutdown}
-                className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/20 border border-slate-200/60 dark:border-[#2E313A] cursor-pointer ${
-                  isCollapsed ? "p-2 col-span-2" : ""
-                }`}
-                title="日落离线仪轨 (下班收官)"
-              >
-                <Sunset className="w-3 h-3 text-rose-500" />
-                {!isCollapsed && <span>日落关机</span>}
-              </button>
-            )}
-          </div>
+          {(onOpenQuickCapture || onOpenSunsetShutdown) && (
+            <div className="grid grid-cols-2 gap-1 w-full">
+              {onOpenQuickCapture && (
+                <button
+                  onClick={onOpenQuickCapture}
+                  className={`flex items-center justify-center gap-1 py-1 rounded-lg text-[10px] font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50/60 dark:hover:bg-orange-950/20 border border-slate-200/60 dark:border-[#2E313A] cursor-pointer ${
+                    isCollapsed ? "p-2 col-span-2" : ""
+                  }`}
+                  title="极速捕捉灵感 (Alt+N / Ctrl+Shift+K)"
+                >
+                  <Command className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                  {!isCollapsed && <span className="whitespace-nowrap">极速捕捉</span>}
+                </button>
+              )}
+              {onOpenSunsetShutdown && (
+                <button
+                  onClick={onOpenSunsetShutdown}
+                  className={`flex items-center justify-center gap-1 py-1 rounded-lg text-[10px] font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/20 border border-slate-200/60 dark:border-[#2E313A] cursor-pointer ${
+                    isCollapsed ? "p-2 col-span-2" : ""
+                  }`}
+                  title="日落离线仪轨 (下班收官)"
+                >
+                  <Sunset className="w-3 h-3 text-rose-500 flex-shrink-0" />
+                  {!isCollapsed && <span className="whitespace-nowrap">日落关机</span>}
+                </button>
+              )}
+            </div>
+          )}
 
-          {/* Widget & utility buttons */}
-          <button
-            onClick={handleToggleWidget}
-            className={`w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-medium transition-all text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#202228] border border-slate-200/60 dark:border-[#2E313A] cursor-pointer ${
-              isCollapsed ? "p-2" : "px-3"
-            }`}
-            title={isCollapsed ? s.widget : undefined}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            {!isCollapsed && <span>{s.widget}</span>}
-          </button>
-
+          {/* Widget toggle with lock integrated */}
           {isCollapsed ? (
-            <div className="flex flex-col gap-1.5 items-center w-full">
+            <div className="flex flex-col gap-1 items-center w-full">
+              <button
+                onClick={handleToggleWidget}
+                className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#202228] border border-slate-200/60 dark:border-[#2E313A] transition-all cursor-pointer"
+                title={s.widget}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
               <button
                 onClick={() => handleToggleWidgetLock()}
                 className={`w-9 h-9 flex items-center justify-center rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
                   isWidgetLocked
-                    ? "text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#1F2C23] border-[#C4D7B2]/30 dark:border-[#2D4534]"
-                    : "text-slate-500 dark:text-slate-400 border-slate-200/60 dark:border-[#2E313A] bg-transparent hover:bg-slate-50 dark:hover:bg-[#202228]"
+                    ? "text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#1F2C23] border-[#C4D7B2]/40 dark:border-[#2D4534]"
+                    : "text-slate-400 dark:text-slate-500 border-slate-200/60 dark:border-[#2E313A] bg-transparent hover:bg-slate-50 dark:hover:bg-[#202228]"
                 }`}
                 title={isWidgetLocked ? s.unlockWidget : s.lockWidget}
               >
@@ -1088,48 +1085,49 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                   <Lock className="w-3.5 h-3.5" />
                 )}
               </button>
-              <button
-                onClick={resetTasks}
-                className="w-9 h-9 flex items-center justify-center rounded-lg text-[10px] font-medium text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-[#2E313A] bg-transparent hover:bg-slate-50 dark:hover:bg-[#202228] transition-all cursor-pointer"
-                title={s.reset}
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="flex items-center gap-1 w-full">
               <button
-                onClick={() => handleToggleWidgetLock()}
-                className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-medium border transition-all cursor-pointer ${
-                  isWidgetLocked
-                    ? "text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#1F2C23] border-[#C4D7B2]/30 dark:border-[#2D4534]"
-                    : "text-slate-500 dark:text-slate-400 border-slate-200/60 dark:border-[#2E313A] bg-transparent hover:bg-slate-50 dark:hover:bg-[#202228]"
-                }`}
+                onClick={handleToggleWidget}
+                className="flex-grow flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg text-[11px] font-medium transition-all text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#202228] border border-slate-200/60 dark:border-[#2E313A] cursor-pointer"
+                title={s.widget}
               >
-                {isWidgetLocked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                {isWidgetLocked ? s.unlockWidget : s.lockWidget}
+                <LayoutGrid className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="whitespace-nowrap">{s.widget}</span>
               </button>
               <button
-                onClick={resetTasks}
-                className="flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-medium text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-[#2E313A] bg-transparent hover:bg-slate-50 dark:hover:bg-[#202228] transition-all cursor-pointer"
+                onClick={() => handleToggleWidgetLock()}
+                className={`flex-shrink-0 px-2 py-1 rounded-lg text-[10px] font-medium border transition-all cursor-pointer flex items-center justify-center ${
+                  isWidgetLocked
+                    ? "text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#1F2C23] border-[#C4D7B2]/40 dark:border-[#2D4534]"
+                    : "text-slate-400 dark:text-slate-500 border-slate-200/60 dark:border-[#2E313A] bg-transparent hover:bg-slate-50 dark:hover:bg-[#202228]"
+                }`}
+                title={isWidgetLocked ? s.unlockWidget : s.lockWidget}
               >
-                <RotateCcw className="w-3 h-3" />
-                {s.reset}
+                {isWidgetLocked ? (
+                  <Unlock className="w-3 h-3" />
+                ) : (
+                  <Lock className="w-3 h-3" />
+                )}
               </button>
             </div>
           )}
 
+          {/* Settings — now a bottom icon button */}
+          <NavButton tab="settings" icon={<Settings className="w-4 h-4" />} label={s.settings} />
+
           {/* Collapse / Expand Toggle Button */}
           <button
             onClick={toggleCollapsed}
-            className="w-full flex items-center justify-center py-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#202228] border border-transparent hover:border-slate-200/60 dark:hover:border-[#2E313A] transition-all cursor-pointer mt-1"
+            className="w-full flex items-center justify-center py-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#202228] border border-transparent hover:border-slate-200/60 dark:hover:border-[#2E313A] transition-all cursor-pointer"
             title={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
           >
             {isCollapsed ? (
               <ChevronRight className="w-4 h-4" />
             ) : (
-              <div className="flex items-center gap-2 text-[11px] font-medium">
-                <ChevronLeft className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 text-[11px] font-medium">
+                <ChevronLeft className="w-3.5 h-3.5" />
                 <span>收起侧边栏</span>
               </div>
             )}
