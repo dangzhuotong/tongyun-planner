@@ -3,6 +3,7 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 
 interface Props {
   pluginName: string;
+  pluginId?: string;
   children: React.ReactNode;
 }
 

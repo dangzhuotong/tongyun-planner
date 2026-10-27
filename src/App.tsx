@@ -97,7 +97,7 @@ import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
 import { fetchCompanyRoster } from "./utils/pipeline/pipelineGateway";
-import { initPlugins, usePluginRegistry } from "./plugins";
+import { initPlugins, usePluginRegistry, PluginErrorBoundary } from "./plugins";
 import { sidebarStatusFromSync } from "./utils/sync/sidebarDbStatus";
 import { storage } from "./utils/unifiedStorage";
 import {
@@ -1365,7 +1365,7 @@ const MainLayout = React.memo(function MainLayout({
   onOpenQuickCapture,
 }: MainLayoutProps) {
   const [workSurface, setWorkSurfaceState] = useState<WorkSurface>(() => readWorkSurface());
-  const { workbenchViews, isEnabled: isPluginEnabled } = usePluginRegistry();
+  const { workbenchViews, isEnabled: isPluginEnabled, allPlugins } = usePluginRegistry();
 
   const setWorkSurface = useCallback((next: WorkSurface) => {
     setWorkSurfaceState(next);
@@ -1825,10 +1825,32 @@ const MainLayout = React.memo(function MainLayout({
             onEditTask={handleEditTask}
           />
         )}
+        {activeTab.startsWith("plugin:") && (() => {
+          const pluginId = activeTab.replace("plugin:", "");
+          const plugin = allPlugins.find((p) => p.manifest.id === pluginId);
+          const viewRender =
+            plugin?.workbenchView?.render || plugin?.sidebarItem?.render;
+          if (!plugin || !viewRender) return null;
+          return (
+            <PluginErrorBoundary
+              pluginId={pluginId}
+              pluginName={plugin.manifest.name}
+            >
+              {viewRender({
+                tasks,
+                onAddTask: handleAddTaskWithAI,
+                onEditTask: handleEditTask,
+                onTaskClick: handleTaskClick,
+                onOpenSettings: () => setActiveTab("settings"),
+              })}
+            </PluginErrorBoundary>
+          );
+        })()}
       </main>
     );
   }, [
     activeTab,
+    allPlugins,
     tasks,
     mineTasks,
     workSurface,

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { TongyunPlugin, PluginContext } from "./types";
+import { getPluginDatabase } from "./database";
 
 const ENABLED_PLUGINS_KEY = "tongyun_enabled_plugins";
 
@@ -40,25 +41,38 @@ class PluginRegistry {
     }
   }
 
-  private createPluginContext(pluginId: string): PluginContext {
+  private async createPluginContext(plugin: TongyunPlugin): Promise<PluginContext> {
+    const pluginId = plugin.manifest.id;
+    const db = await getPluginDatabase(pluginId, plugin.manifest);
+
     return {
       storage: {
         getItem: (key: string) => {
-          return localStorage.getItem(`plugin:${pluginId}:${key}`);
+          return typeof localStorage !== "undefined"
+            ? localStorage.getItem(`plugin:${pluginId}:${key}`)
+            : null;
         },
         setItem: (key: string, value: string) => {
-          localStorage.setItem(`plugin:${pluginId}:${key}`, value);
+          if (typeof localStorage !== "undefined") {
+            localStorage.setItem(`plugin:${pluginId}:${key}`, value);
+          }
         },
         removeItem: (key: string) => {
-          localStorage.removeItem(`plugin:${pluginId}:${key}`);
+          if (typeof localStorage !== "undefined") {
+            localStorage.removeItem(`plugin:${pluginId}:${key}`);
+          }
         },
       },
+      db,
       emit: (event: string, payload?: unknown) => {
-        window.dispatchEvent(
-          new CustomEvent(`tongyun:plugin:${pluginId}:${event}`, { detail: payload }),
-        );
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent(`tongyun:plugin:${pluginId}:${event}`, { detail: payload }),
+          );
+        }
       },
       on: (event: string, handler: (payload?: unknown) => void) => {
+        if (typeof window === "undefined") return () => {};
         const listener = (e: Event) => {
           handler((e as CustomEvent).detail);
         };
@@ -77,28 +91,49 @@ class PluginRegistry {
     this.plugins.set(id, plugin);
 
     // 如果未曾在 localStorage 中显式配置过，则使用 manifest.defaultEnabled（默认为 true）
-    const stored = typeof localStorage !== "undefined" ? localStorage.getItem(ENABLED_PLUGINS_KEY) : null;
+    const stored =
+      typeof localStorage !== "undefined" ? localStorage.getItem(ENABLED_PLUGINS_KEY) : null;
     if (!stored && plugin.manifest.defaultEnabled !== false) {
       this.enabledPluginIds.add(id);
       this.saveEnabledState();
     }
 
-    // 若当前为启用状态，执行 activate
+    // 若当前为启用状态，异步执行 activate
     if (this.enabledPluginIds.has(id)) {
-      this.activatePlugin(plugin);
+      void this.activatePlugin(plugin);
     }
 
     this.notify();
   }
 
-  private activatePlugin(plugin: TongyunPlugin): void {
+  /**
+   * 注销并卸载插件
+   */
+  unregister(id: string): boolean {
+    const plugin = this.plugins.get(id);
+    if (!plugin) return false;
+
+    if (this.enabledPluginIds.has(id)) {
+      this.deactivatePlugin(plugin);
+      this.enabledPluginIds.delete(id);
+      this.saveEnabledState();
+    }
+
+    this.plugins.delete(id);
+    this.contexts.delete(id);
+    this.notify();
+    return true;
+  }
+
+  private async activatePlugin(plugin: TongyunPlugin): Promise<void> {
     const id = plugin.manifest.id;
     if (!this.contexts.has(id)) {
-      this.contexts.set(id, this.createPluginContext(id));
+      const ctx = await this.createPluginContext(plugin);
+      this.contexts.set(id, ctx);
     }
     const ctx = this.contexts.get(id)!;
     try {
-      void plugin.activate?.(ctx);
+      await plugin.activate?.(ctx);
     } catch (e) {
       console.error(`[PluginRegistry] Failed to activate plugin "${id}":`, e);
     }
@@ -122,7 +157,7 @@ class PluginRegistry {
 
     const plugin = this.plugins.get(id);
     if (plugin) {
-      this.activatePlugin(plugin);
+      void this.activatePlugin(plugin);
     }
     this.notify();
   }
@@ -228,5 +263,6 @@ export function usePluginRegistry() {
     enable: (id: string) => pluginRegistry.enable(id),
     disable: (id: string) => pluginRegistry.disable(id),
     toggle: (id: string) => pluginRegistry.toggle(id),
+    unregister: (id: string) => pluginRegistry.unregister(id),
   };
 }
