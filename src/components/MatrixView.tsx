@@ -16,6 +16,7 @@ import {
   Bot,
   Plus,
   Sparkles,
+  Moon,
 } from "lucide-react";
 import { useAgents, getRunStatusLabel } from "../hooks/useAgents";
 import type { Task, TaskCategory, PomodoroLog } from "../types";
@@ -86,6 +87,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     // Fullscreen expand/collapse for a specific quadrant
     const [expandedQuadrant, setExpandedQuadrant] = useState<TaskCategory | null>(null);
     const [showMethodologyHelp, setShowMethodologyHelp] = useState(false);
+    const [showEveningOnly, setShowEveningOnly] = useState(false);
     const [activeAddQuadrant, setActiveAddQuadrant] = useState<TaskCategory | null>(null);
     const [mobileActiveQuadrant, setMobileActiveQuadrant] =
       useState<TaskCategory>("urgent-important");
@@ -170,6 +172,10 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     const debouncedQuery = useDebouncedValue(effectiveQuery, 200);
     const effectiveSetQuery = setSearchQuery || setLocalSearch;
 
+    const eveningTaskCount = useMemo(() => {
+      return tasks.filter((t) => t.isEvening).length;
+    }, [tasks]);
+
     const tasksByQuadrant = useMemo(() => {
       const query = debouncedQuery.toLowerCase();
       const grouped: Record<TaskCategory, Task[]> = {
@@ -180,6 +186,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
       };
 
       tasks.forEach((task) => {
+        if (showEveningOnly && !task.isEvening) return;
         const matchesSearch =
           !query ||
           task.title.toLowerCase().includes(query) ||
@@ -233,6 +240,24 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
 
           {/* Right: Guide & AI Inbox */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowEveningOnly(!showEveningOnly)}
+              className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
+                showEveningOnly
+                  ? "bg-[#8D82C4]/20 text-[#5C528B] dark:text-[#C5BCF0] border-[#8D82C4]/50 shadow-2xs"
+                  : "text-slate-500 dark:text-slate-400 hover:text-[#5C528B] dark:hover:text-[#C5BCF0] border-[#EFEBE4] dark:border-[#383A42] bg-[#FAF8F5] dark:bg-[#282A30]"
+              }`}
+              title="切换为只看今晚清单 (Things 3 This Evening)"
+            >
+              <Moon className={`w-3.5 h-3.5 ${showEveningOnly ? "fill-[#8D82C4]/40 text-[#5C528B] dark:text-[#C5BCF0]" : ""}`} />
+              <span>今晚清单</span>
+              {eveningTaskCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#8D82C4]/25 text-[#5C528B] dark:text-[#C5BCF0] font-mono">
+                  {eveningTaskCount}
+                </span>
+              )}
+            </button>
+
             <button
               onClick={() => setShowMethodologyHelp(!showMethodologyHelp)}
               className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
@@ -601,6 +626,25 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                                   }`}
                                 />
                               </button>
+
+                              {onEditTask && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditTask(task.id, { isEvening: !task.isEvening });
+                                  }}
+                                  className={`p-1 rounded shrink-0 cursor-pointer transition-colors ${
+                                    task.isEvening
+                                      ? "text-[#8D82C4] bg-[#F3F0FA] dark:bg-[#2B263B]"
+                                      : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                  }`}
+                                  title={task.isEvening ? "移出今晚清单" : "移入今晚清单 (🌙 This Evening)"}
+                                >
+                                  <Moon
+                                    className={`w-3.5 h-3.5 ${task.isEvening ? "fill-[#8D82C4]/40 text-[#8D82C4]" : ""}`}
+                                  />
+                                </button>
+                              )}
 
                               <button
                                 onClick={() => handleStartFocus(task.id, task.title)}

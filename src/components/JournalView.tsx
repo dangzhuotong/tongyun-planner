@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { getDailyJournalPrompt, formatPromptForJournal } from "../utils/journalPrompts";
 import { PolaroidCard } from "./journal/PolaroidCard";
+import { MoodPixelCanvas } from "./journal/MoodPixelCanvas";
+import { JournalPostcardModal } from "./journal/JournalPostcardModal";
 import {
   WashiTape,
   VintageStamp,
@@ -87,6 +89,8 @@ export function JournalView({
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tagOpen, setTagOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showMoodCanvas, setShowMoodCanvas] = useState(false);
+  const [showPostcardModal, setShowPostcardModal] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const activeDateRef = useRef<HTMLButtonElement>(null);
@@ -558,6 +562,16 @@ export function JournalView({
   const editorInner = (
     <>
       <div className="flex items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setShowPostcardModal(true)}
+          className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg text-[#8B6E3C] dark:text-[#D4A373] bg-[#FAF3E0] dark:bg-[#2D281E] border border-[#EFE2C5] dark:border-[#423825] hover:bg-[#F3E9CD] dark:hover:bg-[#383124] cursor-pointer transition-colors shadow-2xs"
+          title="生成今日手账明信片并导出分享"
+        >
+          <Camera className="w-3.5 h-3.5" />
+          <span>生成明信片</span>
+        </button>
+
         {selected &&
           (confirmDelete ? (
             <div className="ml-auto flex items-center gap-1.5">
@@ -823,6 +837,16 @@ export function JournalView({
           <ListChecks className="w-3.5 h-3.5" />
           {addTodoEnabled ? "✓ " : ""}
           {j.addTodo}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowMoodCanvas(true)}
+          className="flex items-center gap-1.5 text-[11px] font-bold rounded-xl px-3 py-1.5 cursor-pointer transition-colors border border-[#DEEAE2] dark:border-[#2D3A31] text-[#4D7C5D] dark:text-[#78C496] bg-[#F0F5F1] dark:bg-[#1E2620] hover:bg-[#E4EEE6] dark:hover:bg-[#253328]"
+          title="查看年度情绪像素色块画卷 (Year in Pixels)"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>情绪画卷</span>
         </button>
 
         <div
@@ -1198,6 +1222,22 @@ export function JournalView({
           )}
         </aside>
       </div>
+
+      <MoodPixelCanvas
+        isOpen={showMoodCanvas}
+        onClose={() => setShowMoodCanvas(false)}
+        journal={journal}
+        onSelectDate={(d) => navigateToDate(d)}
+      />
+
+      <JournalPostcardModal
+        isOpen={showPostcardModal}
+        onClose={() => setShowPostcardModal(false)}
+        entry={selected || undefined}
+        dateStr={currentDate}
+        completedTasks={completedTasks}
+        lunarText={lunarText}
+      />
     </div>
   );
 }

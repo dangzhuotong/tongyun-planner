@@ -73,6 +73,8 @@ export interface Task {
   stamp?: string;
   /** 时间盒区间 (HH:mm) */
   timeBlock?: { start: string; end: string };
+  /** 🌙 是否归入今晚清单 (Things 3 This Evening) */
+  isEvening?: boolean;
   /** 负责人类型：自己 (human) | 本地 Agent (agent)，缺省为 human */
   assigneeKind?: AssigneeKind;
   /** 关联的本地 Agent ID（当 assigneeKind 为 agent 时非空） */
