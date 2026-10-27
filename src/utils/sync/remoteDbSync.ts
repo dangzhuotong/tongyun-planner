@@ -63,6 +63,53 @@ export function isRemoteDsnConfigured(): boolean {
 }
 
 /**
+ * 远端日记主键。纯数字 id 原样使用；`journal-<uuid>` 映射成稳定 bigint，
+ * 才能走 ON DUPLICATE KEY UPDATE。否则每次同步都会新插一行，或因 id 无默认值整段失败。
+ */
+export function remoteJournalId(localId: string): bigint {
+  const id = String(localId ?? "");
+  if (/^\d+$/.test(id) && id.length > 0 && id.length <= 18) {
+    try {
+      const asNum = BigInt(id);
+      if (asNum > 0n && asNum < 1n << 62n) return asNum;
+    } catch {
+      // 落到哈希
+    }
+  }
+  let hash = 0xcbf29ce484222325n;
+  const prime = 0x100000001b3n;
+  for (let i = 0; i < id.length; i++) {
+    hash ^= BigInt(id.charCodeAt(i));
+    hash = (hash * prime) & 0x7fffffffffffffffn;
+  }
+  if (hash === 0n) hash = 1n;
+  return hash | (1n << 62n);
+}
+
+/** 把 SQLite 毫秒、数字字符串或日期解析成毫秒。无法解析时返回 0。 */
+export function unixMillis(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "bigint") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (value instanceof Date) {
+    const n = value.getTime();
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+    if (/^\d+$/.test(trimmed)) {
+      const n = Number(trimmed);
+      return Number.isFinite(n) ? n : 0;
+    }
+  }
+  const parsed = new Date(String(value ?? "")).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/**
  * 为不同 SQL 方言规范化语句占位符。
  * MySQL / TiDB 协议使用 '?' 占位符，如果发送 PostgreSQL 风格的 '$1', '$2' 会被 MySQL 当作未知字段列报错。
  * SQLite 同时兼容 '?' 与 '$1'。
@@ -325,72 +372,43 @@ export async function syncFullSchemaWithRemote(options?: {
       };
 
       const dayStr = j.entry_date || new Date(j.created_at || now).toISOString().split("T")[0];
-      const isNumId = /^\d+$/.test(String(j.id));
-      const remoteId = isNumId ? BigInt(j.id) : null;
+      const remoteId = remoteJournalId(String(j.id));
+      const deletedMs = unixMillis(j.deleted_at) || null;
 
-      if (remoteId) {
-        await remoteDb.execute(
-          `INSERT INTO journal_entries (
-            id, day, title, body, meta_json, link_key, entry_date, is_daily,
-            mood, ai_comment, template_id, washi_tape, stamp, stickers_json,
-            created_at, updated_at, deleted_at
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-            FROM_UNIXTIME($16 / 1000), ${j.deleted_at ? `FROM_UNIXTIME(${j.deleted_at} / 1000)` : "NULL"}
-          ) ON DUPLICATE KEY UPDATE
-            day=VALUES(day), title=VALUES(title), body=VALUES(body), meta_json=VALUES(meta_json),
-            link_key=VALUES(link_key), entry_date=VALUES(entry_date), is_daily=VALUES(is_daily),
-            mood=VALUES(mood), ai_comment=VALUES(ai_comment), template_id=VALUES(template_id),
-            washi_tape=VALUES(washi_tape), stamp=VALUES(stamp), stickers_json=VALUES(stickers_json),
-            created_at=VALUES(created_at), updated_at=VALUES(updated_at), deleted_at=VALUES(deleted_at)`,
-          [
-            remoteId,
-            dayStr,
-            j.title || "",
-            j.body || "",
-            JSON.stringify(metaObj),
-            j.link_key ?? null,
-            j.entry_date ?? null,
-            j.is_daily ?? 1,
-            j.mood ?? null,
-            j.ai_comment ?? null,
-            j.template_id ?? null,
-            j.washi_tape ?? null,
-            j.stamp ?? null,
-            j.stickers_json ?? null,
-            j.created_at || now,
-            j.updated_at || now,
-          ],
-        );
-      } else {
-        await remoteDb.execute(
-          `INSERT INTO journal_entries (
-            day, title, body, meta_json, link_key, entry_date, is_daily,
-            mood, ai_comment, template_id, washi_tape, stamp, stickers_json,
-            created_at, updated_at, deleted_at
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-            $14, FROM_UNIXTIME($15 / 1000), ${j.deleted_at ? `FROM_UNIXTIME(${j.deleted_at} / 1000)` : "NULL"}
-          )`,
-          [
-            dayStr,
-            j.title || "",
-            j.body || "",
-            JSON.stringify(metaObj),
-            j.link_key ?? null,
-            j.entry_date ?? null,
-            j.is_daily ?? 1,
-            j.mood ?? null,
-            j.ai_comment ?? null,
-            j.template_id ?? null,
-            j.washi_tape ?? null,
-            j.stamp ?? null,
-            j.stickers_json ?? null,
-            j.created_at || now,
-            j.updated_at || now,
-          ],
-        );
-      }
+      await remoteDb.execute(
+        `INSERT INTO journal_entries (
+          id, day, title, body, meta_json, link_key, entry_date, is_daily,
+          mood, ai_comment, template_id, washi_tape, stamp, stickers_json,
+          created_at, updated_at, deleted_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+          FROM_UNIXTIME($16 / 1000), FROM_UNIXTIME($17 / 1000)
+        ) ON DUPLICATE KEY UPDATE
+          day=VALUES(day), title=VALUES(title), body=VALUES(body), meta_json=VALUES(meta_json),
+          link_key=VALUES(link_key), entry_date=VALUES(entry_date), is_daily=VALUES(is_daily),
+          mood=VALUES(mood), ai_comment=VALUES(ai_comment), template_id=VALUES(template_id),
+          washi_tape=VALUES(washi_tape), stamp=VALUES(stamp), stickers_json=VALUES(stickers_json),
+          created_at=VALUES(created_at), updated_at=VALUES(updated_at), deleted_at=VALUES(deleted_at)`,
+        [
+          remoteId,
+          dayStr,
+          j.title || "",
+          j.body || "",
+          JSON.stringify(metaObj),
+          j.link_key || j.entry_date || dayStr,
+          j.entry_date ?? dayStr,
+          j.is_daily ?? 1,
+          j.mood ?? null,
+          j.ai_comment ?? null,
+          j.template_id ?? null,
+          j.washi_tape ?? null,
+          j.stamp ?? null,
+          j.stickers_json ?? null,
+          j.created_at || now,
+          j.updated_at || now,
+          deletedMs,
+        ],
+      );
       jPushed++;
     }
     stats.tables.journal_entries = { pushed: jPushed, pulled: 0 };
@@ -813,15 +831,25 @@ export async function syncFullSchemaWithRemote(options?: {
 
     let jPulled = 0;
     if (remoteJournals && remoteJournals.length > 0) {
+      const chronological = [...remoteJournals].sort(
+        (a, b) => unixMillis(a.updated_at) - unixMillis(b.updated_at),
+      );
       await queueDomainWrite(async (db) => {
         await db.execute("BEGIN IMMEDIATE");
         try {
-          for (const rj of remoteJournals) {
+          for (const rj of chronological) {
             const meta = safeJsonParse<any>(rj.meta_json, {});
             const localId = meta.original_id || String(rj.id);
-            const createdMs = rj.created_at || now;
-            const updatedMs = rj.updated_at ? new Date(rj.updated_at).getTime() : now;
-            const deletedMs = rj.deleted_at ? new Date(rj.deleted_at).getTime() : null;
+            const createdMs = unixMillis(rj.created_at) || now;
+            const updatedMs = unixMillis(rj.updated_at) || now;
+            const deletedMs = unixMillis(rj.deleted_at) || null;
+            const existing = await db
+              .select<{ updated_at: number }[]>(
+                "SELECT updated_at FROM journal_entries WHERE id = $1",
+                [localId],
+              )
+              .catch(() => []);
+            if (unixMillis(existing?.[0]?.updated_at) > updatedMs) continue;
 
             await db.execute(
               `INSERT OR REPLACE INTO journal_entries (
@@ -1261,22 +1289,25 @@ export async function syncFullSchemaWithRemote(options?: {
       .catch(() => []);
     const pulledJournal = (journalRows || []).map((j) => {
       const meta = safeJsonParse<any>(j.meta_json, {});
+      const stored = j.data ? safeJsonParse<any>(j.data, null) : null;
       return {
-        id: meta.original_id || String(j.id),
-        date: j.entry_date || j.day || "",
-        linkKey: j.link_key || j.day || "",
-        title: j.title || "",
-        content: j.body || "",
-        isDaily: j.is_daily != null ? Boolean(j.is_daily) : true,
-        mood: j.mood ?? undefined,
-        aiComment: j.ai_comment ?? undefined,
-        templateId: j.template_id ?? undefined,
-        washiTape: j.washi_tape ?? undefined,
-        stamp: j.stamp ?? undefined,
-        stickers: j.stickers_json ? safeJsonParse(j.stickers_json, []) : [],
-        attachments: meta.attachments || [],
-        createdAt: j.created_at || now,
-        updatedAt: j.updated_at ? new Date(j.updated_at).getTime() : now,
+        id: stored?.id || meta.original_id || String(j.id),
+        date: j.entry_date || j.day || stored?.date || "",
+        linkKey: j.link_key || j.day || stored?.linkKey || "",
+        title: j.title || stored?.title || "",
+        content: j.body || stored?.content || "",
+        isDaily: j.is_daily != null ? Boolean(j.is_daily) : (stored?.isDaily ?? true),
+        mood: j.mood ?? stored?.mood ?? undefined,
+        aiComment: j.ai_comment ?? stored?.aiComment ?? undefined,
+        templateId: j.template_id ?? stored?.templateId ?? undefined,
+        washiTape: j.washi_tape ?? stored?.washiTape ?? undefined,
+        stamp: j.stamp ?? stored?.stamp ?? undefined,
+        stickers: j.stickers_json
+          ? safeJsonParse(j.stickers_json, [])
+          : stored?.stickers || [],
+        attachments: meta.attachments || stored?.attachments || [],
+        createdAt: unixMillis(j.created_at) || stored?.createdAt || now,
+        updatedAt: unixMillis(j.updated_at) || stored?.updatedAt || now,
       };
     });
 

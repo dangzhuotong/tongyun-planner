@@ -108,13 +108,21 @@ export function JournalView({
   // 本地草稿，避免每次按键都触发父级重渲染造成的光标跳动
   const [draftContent, setDraftContent] = useState(() => selected?.content || "");
   const [prevSelected, setPrevSelected] = useState(selected);
+  const draftDirtyRef = useRef(false);
   if (selected !== prevSelected) {
+    const sameDay =
+      draftDirtyRef.current &&
+      Boolean(selected?.date) &&
+      selected?.date === prevSelected?.date &&
+      selected?.date === currentDate;
     setPrevSelected(selected);
-    setDraftContent(selected?.content || "");
-    setConfirmDelete(false);
+    // 同步回写会换成新对象。同一天还在输入时保留草稿，避免正文被旧内容盖掉。
+    if (!sameDay) {
+      setDraftContent(selected?.content || "");
+      setConfirmDelete(false);
+    }
   }
 
-  const draftDirtyRef = useRef(false);
   const draftContentRef = useRef(draftContent);
   const selectedRef = useRef<JournalEntry | null>(selected);
   const viewDateRef = useRef(viewDate);

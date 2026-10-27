@@ -9,6 +9,7 @@ import {
   wrapDatabaseForDialect,
   LAST_REMOTE_SYNC_TIME_KEY,
   SYNC_TABLES_WHITELIST,
+  remoteJournalId,
 } from "./remoteDbSync";
 import { setDatabaseOverrideForTesting } from "../../data/domainDatabase";
 import { writeSyncSecretsPassphrase, setSyncSecretsOptIn } from "./syncSecretsPref";
@@ -297,6 +298,13 @@ function createMockDb() {
         return tables.tasks.filter((t) => (t.updated_at || 0) >= minUpdated) as any;
       }
       if (sql.includes("FROM journal_entries")) {
+        if (sql.includes("WHERE id =") && params?.[0] != null) {
+          return tables.journal_entries.filter((j) => String(j.id) === String(params[0])) as any;
+        }
+        if (sql.includes("updated_at >") && params?.[0] != null) {
+          const min = Number(params[0]) || 0;
+          return tables.journal_entries.filter((j) => (j.updated_at || 0) > min) as any;
+        }
         return tables.journal_entries as any;
       }
       if (sql.includes("FROM habits")) {
@@ -459,6 +467,50 @@ describe("Remote Database Full Schema Sync (PRD remote-all + full-schema)", () =
     ).toBeDefined();
     expect(freshLocalDb.tables.habits.find((h) => h.id === "habit-1")).toBeDefined();
     expect(freshLocalDb.tables.sticky_notes.find((n) => n.id === "note-1")).toBeDefined();
+  });
+
+  it("journal-uuid 重复同步覆盖同一行，拉回时保留本地更新的正文", async () => {
+    const localDb = createMockDb();
+    const remoteDb = createMockDb();
+    setDatabaseOverrideForTesting(localDb as any);
+    setRemoteDsn("mysql://user:pass@host:4000/tongyun_personal");
+    setRemoteDatabaseOverrideForTesting(remoteDb as any);
+    localStorage.removeItem(LAST_REMOTE_SYNC_TIME_KEY);
+
+    const id = "journal-6f1c0b2e-1a2b-4c3d-9e8f-001122334455";
+    localDb.tables.journal_entries.push({
+      id,
+      link_key: "2026-10-27",
+      title: "2026-10-27",
+      body: "第一稿",
+      entry_date: "2026-10-27",
+      is_daily: 1,
+      updated_at: 1_700_000_000_000,
+      created_at: 1_700_000_000_000,
+      data: JSON.stringify({ id, content: "第一稿", date: "2026-10-27" }),
+    });
+
+    await syncFullSchemaWithRemote();
+    expect(remoteDb.tables.journal_entries).toHaveLength(1);
+    expect(String(remoteDb.tables.journal_entries[0].id)).toBe(String(remoteJournalId(id)));
+
+    localDb.tables.journal_entries[0].body = "改过的正文";
+    localDb.tables.journal_entries[0].updated_at = 1_700_000_100_000;
+    localStorage.removeItem(LAST_REMOTE_SYNC_TIME_KEY);
+    await syncFullSchemaWithRemote();
+
+    expect(remoteDb.tables.journal_entries).toHaveLength(1);
+    expect(remoteDb.tables.journal_entries[0].body).toBe("改过的正文");
+
+    const localRow = localDb.tables.journal_entries.find((j) => j.id === id);
+    expect(localRow).toBeDefined();
+    localRow!.updated_at = 1_700_000_100_000;
+    remoteDb.tables.journal_entries[0].body = "远端旧稿";
+    remoteDb.tables.journal_entries[0].updated_at = 1_600_000_000_000;
+    localStorage.setItem(LAST_REMOTE_SYNC_TIME_KEY, "1700000100000");
+    await syncFullSchemaWithRemote();
+
+    expect(localDb.tables.journal_entries.find((j) => j.id === id)?.body).toBe("改过的正文");
   });
 
   it("验收标准 3: 机密无口令拒明文（检测到敏感密钥且无口令时严禁明文推入远端）", async () => {
