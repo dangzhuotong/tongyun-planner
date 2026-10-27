@@ -207,25 +207,32 @@ class TaskRepository {
     this.syncPartition(completed, true);
   }
 
-  /** 只删这一行。列表里没出现的任务不会被顺带删掉。 */
+  /** 只给这一行打删除标记。列表里没出现的任务不会被顺带删掉。 */
   remove(id: string): void {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          await db.execute("DELETE FROM tasks WHERE id = $1", [id]).catch(() => undefined);
+          const now = Date.now();
+          await db
+            .execute("UPDATE tasks SET deleted_at = $1, updated_at = $1 WHERE id = $2", [now, id])
+            .catch(() => undefined);
           await db.execute("DELETE FROM domain_tasks WHERE id = $1", [id]).catch(() => undefined);
         }),
       )
       .catch((error) => console.error("Task repository delete failed", error));
   }
 
-  /** 清空已完成分区。未完成任务不动。 */
+  /** 给已完成分区打删除标记。未完成任务不动。 */
   removeCompleted(): void {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
+          const now = Date.now();
           await db
-            .execute("DELETE FROM tasks WHERE completed_at IS NOT NULL")
+            .execute(
+              "UPDATE tasks SET deleted_at = $1, updated_at = $1 WHERE completed_at IS NOT NULL AND deleted_at IS NULL",
+              [now],
+            )
             .catch(() => undefined);
           await db
             .execute("DELETE FROM domain_tasks WHERE completed_at IS NOT NULL")
@@ -346,11 +353,17 @@ class TaskRepository {
           for (const r of taskRows) allExisting.set(r.id, r.data);
 
           const desiredIds = new Set(desired.map((task) => task.id));
+          const removedAt = Date.now();
           await db.execute("BEGIN IMMEDIATE");
           try {
             for (const id of allExisting.keys()) {
               if (!desiredIds.has(id)) {
-                await db.execute("DELETE FROM tasks WHERE id = $1", [id]).catch(() => undefined);
+                await db
+                  .execute(
+                    "UPDATE tasks SET deleted_at = $1, updated_at = $1 WHERE id = $2 AND deleted_at IS NULL",
+                    [removedAt, id],
+                  )
+                  .catch(() => undefined);
                 await db
                   .execute("DELETE FROM domain_tasks WHERE id = $1", [id])
                   .catch(() => undefined);
@@ -536,12 +549,16 @@ class JournalRepository {
 
           const existing = new Map(rows.map((row) => [row.id, row.data]));
           const desiredIds = new Set(entries.map((entry) => entry.id));
+          const removedAt = Date.now();
           await db.execute("BEGIN IMMEDIATE");
           try {
             for (const row of rows) {
               if (!desiredIds.has(row.id)) {
                 await db
-                  .execute("DELETE FROM journal_entries WHERE id = $1", [row.id])
+                  .execute(
+                    "UPDATE journal_entries SET deleted_at = $1, updated_at = $1 WHERE id = $2 AND deleted_at IS NULL",
+                    [removedAt, row.id],
+                  )
                   .catch(() => undefined);
                 await db
                   .execute("DELETE FROM domain_journal WHERE id = $1", [row.id])
@@ -652,8 +669,12 @@ class JournalRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
+          const now = Date.now();
           await db
-            .execute("DELETE FROM journal_entries WHERE id = $1", [id])
+            .execute(
+              "UPDATE journal_entries SET deleted_at = $1, updated_at = $1 WHERE id = $2",
+              [now, id],
+            )
             .catch(() => undefined);
           await db.execute("DELETE FROM domain_journal WHERE id = $1", [id]).catch(() => undefined);
         }),

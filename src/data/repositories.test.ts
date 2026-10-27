@@ -25,8 +25,15 @@ describe("Repositories (Tasks, Journal, and P0 Entities)", () => {
 
     const mockDb = {
       select: vi.fn(async (sql: string, _params?: any[]) => {
-        if (sql.includes("FROM tasks")) return mockTables.tasks;
-        if (sql.includes("FROM journal_entries")) return mockTables.journal_entries;
+        const hideDeleted = sql.includes("deleted_at IS NULL");
+        if (sql.includes("FROM tasks")) {
+          return hideDeleted ? mockTables.tasks.filter((t) => !t.deleted_at) : mockTables.tasks;
+        }
+        if (sql.includes("FROM journal_entries")) {
+          return hideDeleted
+            ? mockTables.journal_entries.filter((j) => !j.deleted_at)
+            : mockTables.journal_entries;
+        }
         if (sql.includes("FROM sticky_notes")) return mockTables.sticky_notes;
         if (sql.includes("FROM countdowns")) return mockTables.countdowns;
         if (sql.includes("FROM timeblocks")) return mockTables.timeblocks;
@@ -57,6 +64,21 @@ describe("Repositories (Tasks, Journal, and P0 Entities)", () => {
             created_at: params?.[14],
             updated_at: params?.[15],
           });
+        } else if (sql.includes("UPDATE tasks SET deleted_at")) {
+          const now = params?.[0];
+          if (sql.includes("completed_at IS NOT NULL")) {
+            mockTables.tasks = mockTables.tasks.map((t) =>
+              t.completed_at || t.completedAt ? { ...t, deleted_at: now, updated_at: now } : t,
+            );
+          } else if (params?.[1] != null) {
+            mockTables.tasks = mockTables.tasks.map((t) =>
+              t.id === params[1] ? { ...t, deleted_at: now, updated_at: now } : t,
+            );
+          }
+        } else if (sql.includes("UPDATE journal_entries SET deleted_at")) {
+          mockTables.journal_entries = mockTables.journal_entries.map((j) =>
+            j.id === params?.[1] ? { ...j, deleted_at: params?.[0], updated_at: params?.[0] } : j,
+          );
         } else if (sql.includes("DELETE FROM tasks")) {
           if (sql.includes("completed_at IS NOT NULL")) {
             mockTables.tasks = mockTables.tasks.filter((t) => !t.completed_at && !t.completedAt);

@@ -34,6 +34,11 @@ describe("quickCapture natural language parsing", () => {
     expect(res.dueDate).toBe("2026-10-15");
   });
 
+  it("resolves @明天 from the provided local day", () => {
+    const res = parseQuickCaptureInput("交周报 @明天", "2026-10-27");
+    expect(res.dueDate).toBe("2026-10-28");
+  });
+
   it("handles empty or simple input gracefully", () => {
     const empty = parseQuickCaptureInput("   ");
     expect(empty.type).toBe("task");

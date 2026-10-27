@@ -1,4 +1,5 @@
 import type { TaskCategory } from "../types";
+import { addLocalDays, getLocalDateString } from "./date";
 
 export interface ParsedCapture {
   type: "task" | "note" | "journal";
@@ -11,7 +12,7 @@ export interface ParsedCapture {
 /** 解析极速捕捉胶囊的输入内容 */
 export function parseQuickCaptureInput(
   rawText: string,
-  todayStr: string = new Date().toISOString().slice(0, 10),
+  todayStr: string = getLocalDateString(),
 ): ParsedCapture {
   const trimmed = rawText.trim();
   if (!trimmed) {
@@ -83,9 +84,7 @@ export function parseQuickCaptureInput(
     dueDate = todayStr;
     cleanTitle = cleanTitle.replace(/@今天/g, "").trim();
   } else if (cleanTitle.includes("@明天")) {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    dueDate = d.toISOString().slice(0, 10);
+    dueDate = addLocalDays(todayStr, 1);
     cleanTitle = cleanTitle.replace(/@明天/g, "").trim();
   } else {
     const dateMatch = cleanTitle.match(/@(\d{4}-\d{2}-\d{2})/);

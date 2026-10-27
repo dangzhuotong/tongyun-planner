@@ -300,6 +300,7 @@ export class SyncEngine {
     try {
       let hasConflicts = false;
       if (this._currentBackend === "database") {
+        // 按行水位追平。不走坚果云的分类整包。
         await syncFullSchemaWithRemote();
       } else if (this._currentBackend === "webdav") {
         hasConflicts = await this.syncWebDAV();

@@ -108,7 +108,7 @@ function createMockDb() {
           stickers_json: params?.[13],
           created_at: params?.[14],
           updated_at: Date.now(),
-          deleted_at: null,
+          deleted_at: sql.includes("FROM_UNIXTIME($17") ? (params?.[16] ?? null) : null,
         });
         return { rowsAffected: 1 };
       }
@@ -294,6 +294,9 @@ function createMockDb() {
     async select<T = any>(sql: string, params?: any[]): Promise<T[]> {
       if (sql.includes("SELECT 1")) return [{ 1: 1 }] as any;
       if (sql.includes("FROM tasks")) {
+        if (sql.includes("WHERE id =") && params?.[0] != null) {
+          return tables.tasks.filter((t) => String(t.id) === String(params[0])) as any;
+        }
         const minUpdated = params?.[0] || 0;
         return tables.tasks.filter((t) => (t.updated_at || 0) >= minUpdated) as any;
       }
@@ -511,6 +514,45 @@ describe("Remote Database Full Schema Sync (PRD remote-all + full-schema)", () =
     await syncFullSchemaWithRemote();
 
     expect(localDb.tables.journal_entries.find((j) => j.id === id)?.body).toBe("改过的正文");
+  });
+
+  it("本地更新更晚的待办不被旧远端行盖掉，日记删除标记会推上去", async () => {
+    const localDb = createMockDb();
+    const remoteDb = createMockDb();
+    setDatabaseOverrideForTesting(localDb as any);
+    setRemoteDsn("mysql://user:pass@host:4000/tongyun_personal");
+    setRemoteDatabaseOverrideForTesting(remoteDb as any);
+
+    localDb.tables.tasks.push({
+      id: "task-keep",
+      title: "本地新标题",
+      updated_at: 2_000,
+      deleted_at: null,
+    });
+    remoteDb.tables.tasks.push({
+      id: "task-keep",
+      title: "远端旧标题",
+      updated_at: 1_000,
+      deleted_at: null,
+    });
+    localStorage.setItem(LAST_REMOTE_SYNC_TIME_KEY, "5000");
+    await syncFullSchemaWithRemote();
+    expect(localDb.tables.tasks.find((t) => t.id === "task-keep")?.title).toBe("本地新标题");
+
+    localDb.tables.journal_entries.push({
+      id: "journal-deleted",
+      title: "已删日记",
+      body: "正文",
+      entry_date: "2026-10-27",
+      is_daily: 1,
+      created_at: 3_000,
+      updated_at: 3_000,
+      deleted_at: 3_000,
+    });
+    localStorage.removeItem(LAST_REMOTE_SYNC_TIME_KEY);
+    await syncFullSchemaWithRemote();
+    const remoteJournal = remoteDb.tables.journal_entries.find((j) => j.title === "已删日记");
+    expect(remoteJournal?.deleted_at).toBe(3_000);
   });
 
   it("验收标准 3: 机密无口令拒明文（检测到敏感密钥且无口令时严禁明文推入远端）", async () => {

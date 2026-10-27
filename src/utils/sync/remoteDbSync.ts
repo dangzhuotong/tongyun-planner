@@ -109,6 +109,30 @@ export function unixMillis(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+const LOCAL_STAMP_COLUMN = {
+  tasks: "updated_at",
+  journal_entries: "updated_at",
+  habits: "updated_at",
+  sticky_notes: "updated_at",
+  countdowns: "updated_at",
+  timeblocks: "updated_at",
+  pomodoro_logs: "timestamp",
+} as const;
+
+/** 本地这一行更新更晚时，远端旧行不能盖回来。 */
+async function localChangeIsNewer(
+  db: { select: <T>(sql: string, params?: unknown[]) => Promise<T> },
+  table: keyof typeof LOCAL_STAMP_COLUMN,
+  id: string,
+  remoteUpdated: number,
+): Promise<boolean> {
+  const column = LOCAL_STAMP_COLUMN[table];
+  const rows = await db
+    .select<{ stamp: number }[]>(`SELECT ${column} AS stamp FROM ${table} WHERE id = $1`, [id])
+    .catch(() => []);
+  return unixMillis(rows?.[0]?.stamp) > remoteUpdated;
+}
+
 /**
  * 为不同 SQL 方言规范化语句占位符。
  * MySQL / TiDB 协议使用 '?' 占位符，如果发送 PostgreSQL 风格的 '$1', '$2' 会被 MySQL 当作未知字段列报错。
@@ -720,13 +744,13 @@ export async function syncFullSchemaWithRemote(options?: {
   }
 
   // ==========================================
-  // PULL: 远端数据库 -> 本地 SQLite
+  // PULL: 只取上次同步之后远端更新过的行。本地更新更晚的行留在本机。
   // ==========================================
 
-  // 1. Pull tasks (数据库优先：全量拉取远端未遗漏的所有待办并同步本地)
+  // 1. Pull tasks
   try {
     const remoteTasks = await remoteDb
-      .select<any[]>("SELECT * FROM tasks")
+      .select<any[]>("SELECT * FROM tasks WHERE updated_at > $1", [lastSyncAt])
       .catch(async () => []);
 
     let taskPulled = 0;
@@ -736,6 +760,9 @@ export async function syncFullSchemaWithRemote(options?: {
         try {
           for (const rt of remoteTasks) {
             const payload = safeJsonParse<any>(rt.payload_json, {});
+            const remoteUpdated = unixMillis(rt.updated_at);
+            const remoteDeleted = unixMillis(rt.deleted_at) || null;
+            if (await localChangeIsNewer(db, "tasks", String(rt.id), remoteUpdated)) continue;
             await db.execute(
               `INSERT OR REPLACE INTO tasks (
                 id, title, description, notes, category, due_date, due_time,
@@ -777,10 +804,17 @@ export async function syncFullSchemaWithRemote(options?: {
                 JSON.stringify(payload.dependsOn || []),
                 JSON.stringify(payload.attachments || []),
                 payload.data || null,
-                rt.updated_at,
-                rt.deleted_at ?? null,
+                remoteUpdated || now,
+                remoteDeleted,
               ],
             );
+            if (remoteDeleted) {
+              await db
+                .execute("DELETE FROM domain_tasks WHERE id = $1", [rt.id])
+                .catch(() => undefined);
+              taskPulled++;
+              continue;
+            }
             // 同步维护 domain_tasks 保持三源兼容
             await db
               .execute(
@@ -826,7 +860,10 @@ export async function syncFullSchemaWithRemote(options?: {
   // 2. Pull journal_entries
   try {
     const remoteJournals = await remoteDb
-      .select<any[]>("SELECT * FROM journal_entries")
+      .select<any[]>(
+        "SELECT * FROM journal_entries WHERE updated_at > FROM_UNIXTIME($1 / 1000)",
+        [lastSyncAt],
+      )
       .catch(() => []);
 
     let jPulled = 0;
@@ -843,13 +880,7 @@ export async function syncFullSchemaWithRemote(options?: {
             const createdMs = unixMillis(rj.created_at) || now;
             const updatedMs = unixMillis(rj.updated_at) || now;
             const deletedMs = unixMillis(rj.deleted_at) || null;
-            const existing = await db
-              .select<{ updated_at: number }[]>(
-                "SELECT updated_at FROM journal_entries WHERE id = $1",
-                [localId],
-              )
-              .catch(() => []);
-            if (unixMillis(existing?.[0]?.updated_at) > updatedMs) continue;
+            if (await localChangeIsNewer(db, "journal_entries", localId, updatedMs)) continue;
 
             await db.execute(
               `INSERT OR REPLACE INTO journal_entries (
@@ -896,7 +927,9 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 3. Pull pomodoro_logs
   try {
-    const remoteLogs = await remoteDb.select<any[]>("SELECT * FROM pomodoro_logs").catch(() => []);
+    const remoteLogs = await remoteDb
+      .select<any[]>("SELECT * FROM pomodoro_logs WHERE occurred_at > $1", [lastSyncAt])
+      .catch(() => []);
     let pomoPulled = 0;
     if (remoteLogs && remoteLogs.length > 0) {
       await queueDomainWrite(async (db) => {
@@ -904,7 +937,8 @@ export async function syncFullSchemaWithRemote(options?: {
           const durationMin = rp.duration_sec
             ? Math.round(rp.duration_sec / 60)
             : rp.duration || 25;
-          const timestampMs = rp.occurred_at || rp.timestamp || now;
+          const timestampMs = unixMillis(rp.occurred_at || rp.timestamp) || now;
+          if (await localChangeIsNewer(db, "pomodoro_logs", String(rp.id), timestampMs)) continue;
           await db.execute(
             `INSERT OR REPLACE INTO pomodoro_logs (
               id, timestamp, duration, task_id, task_title, created_at, deleted_at, data
@@ -932,11 +966,16 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 4. Pull habits
   try {
-    const remoteHabits = await remoteDb.select<any[]>("SELECT * FROM habits").catch(() => []);
+    const remoteHabits = await remoteDb
+      .select<any[]>("SELECT * FROM habits WHERE updated_at > $1", [lastSyncAt])
+      .catch(() => []);
     let habitPulled = 0;
     if (remoteHabits && remoteHabits.length > 0) {
       await queueDomainWrite(async (db) => {
         for (const rh of remoteHabits) {
+          if (await localChangeIsNewer(db, "habits", String(rh.id), unixMillis(rh.updated_at))) {
+            continue;
+          }
           const meta = safeJsonParse<any>(rh.meta_json, {});
           await db.execute(
             `INSERT OR REPLACE INTO habits (id, name, emoji, done_today, streak, last_done_date, updated_at, deleted_at, data)
@@ -1033,11 +1072,18 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 7. Pull sticky_notes
   try {
-    const remoteNotes = await remoteDb.select<any[]>("SELECT * FROM sticky_notes").catch(() => []);
+    const remoteNotes = await remoteDb
+      .select<any[]>("SELECT * FROM sticky_notes WHERE updated_at > $1", [lastSyncAt])
+      .catch(() => []);
     let notesPulled = 0;
     if (remoteNotes && remoteNotes.length > 0) {
       await queueDomainWrite(async (db) => {
         for (const rn of remoteNotes) {
+          if (
+            await localChangeIsNewer(db, "sticky_notes", String(rn.id), unixMillis(rn.updated_at))
+          ) {
+            continue;
+          }
           await db.execute(
             `INSERT OR REPLACE INTO sticky_notes (id, title, text, color, rotate, updated_at, deleted_at, data)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -1065,12 +1111,17 @@ export async function syncFullSchemaWithRemote(options?: {
   // 8. Pull countdowns
   try {
     const remoteCountdowns = await remoteDb
-      .select<any[]>("SELECT * FROM countdowns")
+      .select<any[]>("SELECT * FROM countdowns WHERE updated_at > $1", [lastSyncAt])
       .catch(() => []);
     let cdPulled = 0;
     if (remoteCountdowns && remoteCountdowns.length > 0) {
       await queueDomainWrite(async (db) => {
         for (const rc of remoteCountdowns) {
+          if (
+            await localChangeIsNewer(db, "countdowns", String(rc.id), unixMillis(rc.updated_at))
+          ) {
+            continue;
+          }
           await db.execute(
             `INSERT OR REPLACE INTO countdowns (id, title, target_date, emoji, color, is_lunar, updated_at, deleted_at, data)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -1098,11 +1149,18 @@ export async function syncFullSchemaWithRemote(options?: {
 
   // 9. Pull timeblocks
   try {
-    const remoteBlocks = await remoteDb.select<any[]>("SELECT * FROM timeblocks").catch(() => []);
+    const remoteBlocks = await remoteDb
+      .select<any[]>("SELECT * FROM timeblocks WHERE updated_at > $1", [lastSyncAt])
+      .catch(() => []);
     let tbPulled = 0;
     if (remoteBlocks && remoteBlocks.length > 0) {
       await queueDomainWrite(async (db) => {
         for (const rb of remoteBlocks) {
+          if (
+            await localChangeIsNewer(db, "timeblocks", String(rb.id), unixMillis(rb.updated_at))
+          ) {
+            continue;
+          }
           await db.execute(
             `INSERT OR REPLACE INTO timeblocks (id, date, start_time, end_time, task_id, title, color, updated_at, deleted_at, data)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
@@ -1141,6 +1199,7 @@ export async function syncFullSchemaWithRemote(options?: {
 
       // 本地现有配置
       const localPrefs = await localDb.select<any[]>("SELECT * FROM user_prefs WHERE id = 1");
+      if (unixMillis(localPrefs[0]?.updated_at) <= unixMillis(rp.updated_at)) {
       const localCustom =
         localPrefs.length > 0 ? safeJsonParse<any>(localPrefs[0].customization_json, {}) : {};
 
@@ -1177,6 +1236,7 @@ export async function syncFullSchemaWithRemote(options?: {
       });
       stats.tables.user_prefs.pulled = 1;
       stats.pulled += 1;
+      }
     }
   } catch (err) {
     console.warn("[remoteDbSync] Pull user_prefs error:", err);
