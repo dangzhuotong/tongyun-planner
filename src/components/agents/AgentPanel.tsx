@@ -431,8 +431,16 @@ export function AgentPanel({
           <button
             type="button"
             data-agent-new-task
-            onClick={() => setIsCreating((prev) => !prev)}
-            className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#4D7C5D] text-white hover:bg-[#3F684C] cursor-pointer flex items-center gap-1.5 shadow-xs transition-colors"
+            onClick={() => {
+              setIsCreating((prev) => {
+                const next = !prev;
+                if (next) setIsRequesting(false);
+                return next;
+              });
+            }}
+            className={`text-[11px] font-bold px-3 py-1.5 rounded-lg ${
+              isCreating ? "bg-[#3F684C] text-white" : "bg-[#4D7C5D] text-white hover:bg-[#3F684C]"
+            } cursor-pointer flex items-center gap-1.5 shadow-xs transition-colors`}
           >
             <Plus className="w-3.5 h-3.5" />
             {ap.newTask || "新建"}
@@ -440,8 +448,18 @@ export function AgentPanel({
           <button
             type="button"
             data-requirement-open
-            onClick={() => setIsRequesting((prev) => !prev)}
-            className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#383A42] text-slate-600 dark:text-slate-200 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] cursor-pointer"
+            onClick={() => {
+              setIsRequesting((prev) => {
+                const next = !prev;
+                if (next) setIsCreating(false);
+                return next;
+              });
+            }}
+            className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border ${
+              isRequesting
+                ? "border-[#4D7C5D] bg-[#4D7C5D]/10 text-[#4D7C5D] dark:text-[#78C496]"
+                : "border-[#EFEBE4] dark:border-[#383A42] text-slate-600 dark:text-slate-200 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30]"
+            } cursor-pointer transition-colors`}
           >
             {ap.requirementOpen}
           </button>
@@ -476,12 +494,19 @@ export function AgentPanel({
         via={rosterVia}
         error={rosterError}
         loading={loading}
+        selectedId={agentFilter}
+        onSelect={(id) => setAgentFilter((prev) => (prev === id ? "all" : id))}
         onRefresh={() => {
           refreshRoster().catch((error) => console.error("Failed to refresh roster", error));
         }}
       />
 
-      {isRequesting && <RequirementComposer onSubmit={submitRequirement} />}
+      {isRequesting && (
+        <RequirementComposer
+          onSubmit={submitRequirement}
+          onClose={() => setIsRequesting(false)}
+        />
+      )}
 
       {actionError && (
         <p

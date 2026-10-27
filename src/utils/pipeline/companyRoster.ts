@@ -193,8 +193,10 @@ export function parseSeenAt(value: unknown): number | null {
     const trimmed = value.trim();
     if (!trimmed) return null;
     if (/^\d+(\.\d+)?$/.test(trimmed)) return epochToMs(Number(trimmed));
-    const parsed = Date.parse(trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T"));
-    return Number.isNaN(parsed) ? null : parsed;
+    const hasTz = /([zZ]|[+-]\d{2}(:?\d{2})?)$/.test(trimmed);
+    const iso = trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T");
+    const parsed = Date.parse(hasTz ? iso : `${iso}Z`);
+    return Number.isNaN(parsed) ? (Number.isNaN(Date.parse(iso)) ? null : Date.parse(iso)) : parsed;
   }
   return null;
 }
