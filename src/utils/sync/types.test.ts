@@ -138,6 +138,12 @@ describe("sync types & pure core logic", () => {
       expect(deduped.map((t) => t.id)).toEqual(["1"]);
     });
 
+    it("should return empty array when tasks is null, undefined, or not an array", () => {
+      expect(dedupeActiveTasks(undefined as any, [])).toEqual([]);
+      expect(dedupeActiveTasks(null as any, [])).toEqual([]);
+      expect(dedupeActiveTasks({} as any, [])).toEqual([]);
+    });
+
     it("should merge completed tasks with local winning on conflict", () => {
       const active: Task[] = [
         { id: "1", title: "Active 1", category: "urgent-important" },

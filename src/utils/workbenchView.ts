@@ -129,6 +129,7 @@ export function runActionsFor(status: TaskRunStatus | undefined): TaskRunStatus[
 export function partitionMineTasks(tasks: Task[]): MinePartition {
   const cards: Task[] = [];
   const dispatched: Task[] = [];
+  if (!Array.isArray(tasks)) return { cards, dispatched };
   for (const task of tasks) {
     if (isDispatchedAgentTask(task)) dispatched.push(task);
     else cards.push(task);
@@ -147,6 +148,7 @@ export function mineCardTasks(tasks: Task[]): Task[] {
 
 export function partitionAgentBoard(tasks: Task[], agentId?: string): AgentBoard {
   const board: AgentBoard = { queued: [], running: [], settled: [] };
+  if (!Array.isArray(tasks)) return board;
   for (const task of tasks) {
     if (isPureHumanTask(task)) continue;
     if (agentId && task.assigneeAgentId !== agentId) continue;

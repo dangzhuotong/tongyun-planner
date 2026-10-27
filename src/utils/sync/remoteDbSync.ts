@@ -122,14 +122,32 @@ export async function loadRemoteDatabase(dsn?: string): Promise<Database | null>
   }
 }
 
+export let lastRemoteDsnError: string | null = null;
+
 export async function testRemoteDsn(dsn?: string): Promise<boolean> {
+  lastRemoteDsnError = null;
   try {
     const db = await loadRemoteDatabase(dsn);
-    if (!db) return false;
+    if (!db) {
+      lastRemoteDsnError = "无法加载数据库驱动或未配置 DSN";
+      return false;
+    }
     await db.select("SELECT 1");
     return true;
-  } catch (err) {
+  } catch (err: any) {
     console.warn("[remoteDbSync] Remote connection test failed:", err);
+    lastRemoteDsnError = err?.message || String(err);
+    // 尝试重连一次（应对闲置断连）
+    try {
+      const db = await loadRemoteDatabase(dsn);
+      if (db) {
+        await db.select("SELECT 1");
+        lastRemoteDsnError = null;
+        return true;
+      }
+    } catch {
+      // 保留原始错误
+    }
     return false;
   }
 }
@@ -1124,9 +1142,143 @@ export async function syncFullSchemaWithRemote(options?: {
     localStorage.setItem(LAST_REMOTE_SYNC_TIME_KEY, String(now));
   }
 
-  // 触发全局同步事件通知 UI 刷新
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: stats }));
+  // 从本地 SQLite 查询拉取后的完整数据并刷新 localStorage 和 UI
+  try {
+    const taskRows = await localDb
+      .select<any[]>("SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY updated_at DESC")
+      .catch(() => []);
+    const pulledTasks: any[] = [];
+    const pulledCompleted: any[] = [];
+    for (const r of taskRows || []) {
+      const payload = safeJsonParse<any>(r.payload_json, {});
+      const item: any = {
+        id: r.id,
+        title: r.title,
+        description: r.description ?? undefined,
+        notes: r.notes ?? undefined,
+        category: r.category || "urgent-important",
+        dueDate: r.due_date ?? undefined,
+        dueTime: r.due_time ?? undefined,
+        isFavorite: Boolean(r.is_favorite),
+        isPinned: Boolean(r.is_pinned),
+        repeat: r.repeat_rule ?? undefined,
+        repeatAnchorDay: r.repeat_anchor_day ?? undefined,
+        priority: r.priority || "medium",
+        energyLevel: r.energy_level ?? undefined,
+        estimatedPomodoros: r.estimated_pomodoros ?? undefined,
+        journalId: r.journal_id ?? undefined,
+        completedAt: r.completed_at ?? undefined,
+        assigneeKind: r.assignee_kind || "human",
+        assigneeAgentId: r.assignee_agent_id ?? undefined,
+        runStatus: r.run_status ?? undefined,
+        stamp: r.stamp ?? undefined,
+        timeBlockStart: r.time_block_start ?? undefined,
+        timeBlockEnd: r.time_block_end ?? undefined,
+        subtasks: payload.subtasks || [],
+        tags: payload.tags || [],
+        dependsOn: payload.dependsOn || [],
+        attachments: payload.attachments || [],
+        data: payload.data || undefined,
+        updatedAt: r.updated_at,
+        deletedAt: r.deleted_at ?? undefined,
+      };
+      if (r.completed_at) {
+        pulledCompleted.push(item);
+      } else {
+        pulledTasks.push(item);
+      }
+    }
+
+    const noteRows = await localDb
+      .select<any[]>("SELECT * FROM sticky_notes WHERE deleted_at IS NULL ORDER BY updated_at DESC")
+      .catch(() => []);
+    const pulledNotes = (noteRows || []).map((n) => ({
+      id: n.id,
+      title: n.title ?? undefined,
+      text: n.body || n.text || "",
+      color: n.color,
+      rotate: n.rotate || 0,
+      updatedAt: n.updated_at,
+      data: n.data ?? undefined,
+    }));
+
+    const pomoRows = await localDb
+      .select<any[]>("SELECT * FROM pomodoro_logs WHERE deleted_at IS NULL ORDER BY timestamp DESC")
+      .catch(() => []);
+    const pulledPomodoro = (pomoRows || []).map((p) => ({
+      id: p.id,
+      timestamp: p.timestamp || p.occurred_at || now,
+      duration: p.duration || (p.duration_sec ? Math.round(p.duration_sec / 60) : 25),
+      taskId: p.task_id ?? undefined,
+      taskTitle: p.task_title ?? undefined,
+      createdAt: p.created_at || p.timestamp || now,
+      data: p.data ?? undefined,
+    }));
+
+    const countdownRows = await localDb
+      .select<any[]>("SELECT * FROM countdowns WHERE deleted_at IS NULL ORDER BY target_date ASC")
+      .catch(() => []);
+    const pulledCountdowns = (countdownRows || []).map((c) => ({
+      id: c.id,
+      title: c.title,
+      targetDate: c.target_date,
+      emoji: c.emoji ?? undefined,
+      color: c.color ?? undefined,
+      isLunar: Boolean(c.is_lunar),
+      updatedAt: c.updated_at,
+      data: c.data ?? undefined,
+    }));
+
+    const journalRows = await localDb
+      .select<any[]>("SELECT * FROM journal_entries WHERE deleted_at IS NULL ORDER BY updated_at DESC")
+      .catch(() => []);
+    const pulledJournal = (journalRows || []).map((j) => {
+      const meta = safeJsonParse<any>(j.meta_json, {});
+      return {
+        id: meta.original_id || String(j.id),
+        date: j.entry_date || j.day || "",
+        linkKey: j.link_key || j.day || "",
+        title: j.title || "",
+        content: j.body || "",
+        isDaily: j.is_daily != null ? Boolean(j.is_daily) : true,
+        mood: j.mood ?? undefined,
+        aiComment: j.ai_comment ?? undefined,
+        templateId: j.template_id ?? undefined,
+        washiTape: j.washi_tape ?? undefined,
+        stamp: j.stamp ?? undefined,
+        stickers: j.stickers_json ? safeJsonParse(j.stickers_json, []) : [],
+        attachments: meta.attachments || [],
+        createdAt: j.created_at || now,
+        updatedAt: j.updated_at ? new Date(j.updated_at).getTime() : now,
+      };
+    });
+
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("aero_todos", JSON.stringify(pulledTasks));
+      localStorage.setItem("aero_completed_todos", JSON.stringify(pulledCompleted));
+      localStorage.setItem("aero_sticky_notes", JSON.stringify(pulledNotes));
+      localStorage.setItem("aero_pomodoro_logs", JSON.stringify(pulledPomodoro));
+      localStorage.setItem("tongyun_countdowns", JSON.stringify(pulledCountdowns));
+      localStorage.setItem("tongyun_journal", JSON.stringify(pulledJournal));
+      localStorage.setItem("tongyun_last_updated", String(now));
+      localStorage.setItem("tongyun_sync_version", String(now));
+    }
+
+    if (typeof window !== "undefined") {
+      const syncDataPayload = {
+        version: now,
+        tasks: pulledTasks,
+        completedTasks: pulledCompleted,
+        stickyNotes: pulledNotes,
+        pomodoroLogs: pulledPomodoro,
+        countdowns: pulledCountdowns,
+        customizationConfig: null,
+        journal: pulledJournal,
+      };
+      window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: syncDataPayload }));
+    }
+  } catch (err) {
+    console.warn("[remoteDbSync] Failed to reload and broadcast local sync data:", err);
   }
 
   return stats;

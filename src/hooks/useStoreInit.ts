@@ -100,10 +100,12 @@ export function useStoreInit(
         const repositoryData = await taskRepository.load();
         const localTasksRaw = localStorage.getItem("aero_todos");
         const localCompletedRaw = localStorage.getItem("aero_completed_todos");
-        const localTasks = localTasksRaw ? safeJsonParse<Task[]>(localTasksRaw, []) : [];
-        const localCompleted = localCompletedRaw
+        const parsedActive = localTasksRaw ? safeJsonParse<Task[]>(localTasksRaw, []) : [];
+        const parsedCompleted = localCompletedRaw
           ? safeJsonParse<Task[]>(localCompletedRaw, [])
           : [];
+        const localTasks = Array.isArray(parsedActive) ? parsedActive : [];
+        const localCompleted = Array.isArray(parsedCompleted) ? parsedCompleted : [];
 
         // 合并三源：tasks 表 + domain_tasks + aero_todos/aero_completed_todos
         const merged = mergeTaskSources(repositoryData, {

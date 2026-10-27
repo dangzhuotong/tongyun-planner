@@ -87,9 +87,27 @@ export function useTasks() {
     }
   }, []);
 
-  const totalCount = tasks.length + completedTasks.length;
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+  const safeCompleted = Array.isArray(completedTasks) ? completedTasks : [];
+  const totalCount = safeTasks.length + safeCompleted.length;
   const progressPercentage =
-    totalCount === 0 ? 0 : Math.round((completedTasks.length / totalCount) * 100);
+    totalCount === 0 ? 0 : Math.round((safeCompleted.length / totalCount) * 100);
+
+  const safeSetTasks = useCallback((action: React.SetStateAction<Task[]>) => {
+    setTasks((prev) => {
+      const prevSafe = Array.isArray(prev) ? prev : [];
+      const next = typeof action === "function" ? action(prevSafe) : action;
+      return Array.isArray(next) ? next : prevSafe;
+    });
+  }, []);
+
+  const safeSetCompletedTasks = useCallback((action: React.SetStateAction<Task[]>) => {
+    setCompletedTasks((prev) => {
+      const prevSafe = Array.isArray(prev) ? prev : [];
+      const next = typeof action === "function" ? action(prevSafe) : action;
+      return Array.isArray(next) ? next : prevSafe;
+    });
+  }, []);
 
   const handleComplete = useCallback(
     (id: string, shouldSync: boolean = true) => {
@@ -509,10 +527,10 @@ export function useTasks() {
   }, [saveCompleted, syncState]);
 
   return {
-    tasks,
-    setTasks,
-    completedTasks,
-    setCompletedTasks,
+    tasks: safeTasks,
+    setTasks: safeSetTasks,
+    completedTasks: safeCompleted,
+    setCompletedTasks: safeSetCompletedTasks,
     expandedNoteId,
     setExpandedNoteId,
     editingNotes,

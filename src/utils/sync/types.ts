@@ -426,7 +426,8 @@ function readJson<T>(key: string, fallback: string): T {
 
 /** 从活动任务列表里剔除已存在于 completed 中的任务，保证「已完成」不会重复出现在待办里 */
 export function dedupeActiveTasks(tasks: Task[], completed: Task[]): Task[] {
-  if (!completed || completed.length === 0) return tasks;
+  if (!Array.isArray(tasks)) return [];
+  if (!Array.isArray(completed) || completed.length === 0) return tasks;
   const doneIds = new Set(completed.map((t) => t.id));
   return tasks.filter((t) => !doneIds.has(t.id));
 }

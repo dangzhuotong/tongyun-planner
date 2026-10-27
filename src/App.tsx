@@ -588,19 +588,27 @@ function AppBody() {
   // ============ 云端同步（统一走 syncEngine）============
   const applySyncDataToState = useCallback(
     (data: SyncData) => {
+      if (!data || typeof data !== "object") return;
+      if (!Array.isArray(data.tasks)) {
+        console.warn("[sync] Received invalid SyncData without tasks array, ignoring", data);
+        return;
+      }
       beginSyncApply();
       isRestoringRef.current = true;
       try {
-        const tasks = dedupeActiveTasks(data.tasks, data.completedTasks);
+        const completedTasks = Array.isArray(data.completedTasks) ? data.completedTasks : [];
+        const tasks = dedupeActiveTasks(data.tasks, completedTasks);
         tasksHook.setTasks(tasks);
         tasksHook.saveTasks(tasks);
-        tasksHook.setCompletedTasks(data.completedTasks);
-        tasksHook.saveCompleted(data.completedTasks);
-        notesHook.setStickyNotes(data.stickyNotes);
-        pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
-        countdownHook.setCountdowns(data.countdowns);
-        setJournal(data.journal || []);
-        localStorage.setItem("tongyun_journal", JSON.stringify(data.journal || []));
+        tasksHook.setCompletedTasks(completedTasks);
+        tasksHook.saveCompleted(completedTasks);
+        if (Array.isArray(data.stickyNotes)) notesHook.setStickyNotes(data.stickyNotes);
+        if (Array.isArray(data.pomodoroLogs)) pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
+        if (Array.isArray(data.countdowns)) countdownHook.setCountdowns(data.countdowns);
+        if (Array.isArray(data.journal)) {
+          setJournal(data.journal);
+          localStorage.setItem("tongyun_journal", JSON.stringify(data.journal));
+        }
         if (data.customizationConfig) {
           customizationHook.setCustomizationConfig((prev) =>
             withLocalSecrets(data.customizationConfig!, prev),

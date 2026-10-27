@@ -23,7 +23,7 @@ import {
   isWebDavUrlLocked,
   urlForPreset,
 } from "../../utils/sync/webdavForm";
-import { getRemoteDsn, setRemoteDsn } from "../../utils/sync/remoteDbSync";
+import { getRemoteDsn, setRemoteDsn, lastRemoteDsnError } from "../../utils/sync/remoteDbSync";
 import {
   hasSyncSecretsDecryptFailed,
   readSyncSecretsPassphrase,
@@ -587,7 +587,14 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                 setIsLoading(true);
                 const ok = await syncEngine.testConnection();
                 setIsLoading(false);
-                triggerToast(ok ? "连接成功 ✅" : "连接失败 ❌", ok ? "success" : "error");
+                if (ok) {
+                  triggerToast("连接成功 ✅", "success");
+                } else {
+                  const reason = syncBackend === "database" && lastRemoteDsnError
+                    ? ` (${lastRemoteDsnError})`
+                    : "";
+                  triggerToast(`连接失败 ❌${reason}`, "error");
+                }
               }}
               disabled={isLoading}
               className="flex-1 bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] hover:border-[#4D7C5D] dark:hover:border-[#6DAF7E] text-slate-600 dark:text-slate-200 py-2 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
