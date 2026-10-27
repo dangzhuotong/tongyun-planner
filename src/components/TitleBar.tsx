@@ -4,6 +4,7 @@ import { Minus, Maximize2, X } from "lucide-react";
 import { useTranslation } from "../i18n/LanguageContext";
 import logo from "../assets/logo.png";
 import { WorkbenchSwitch } from "./agents/WorkbenchSwitch";
+import { usePluginRegistry } from "../plugins/core/registry";
 import type { WorkSurface } from "../utils/workbenchView";
 
 interface TitleBarProps {
@@ -15,6 +16,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(
   ({ workSurface, onWorkSurfaceChange }) => {
     const { t } = useTranslation();
     const tb = t.titleBar;
+    const { workbenchViews } = usePluginRegistry();
+    const hasWorkbenchViews = workbenchViews.length > 0;
     const handleMinimize = () => getCurrentWebviewWindow().minimize();
     const handleToggleMaximize = () => getCurrentWebviewWindow().toggleMaximize();
     const handleClose = () => getCurrentWebviewWindow().hide();
@@ -41,9 +44,11 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(
             {tb.subtitle}
           </span>
         </div>
-        <div className="flex items-center justify-center shrink-0">
-          <WorkbenchSwitch value={workSurface} onChange={onWorkSurfaceChange} />
-        </div>
+        {hasWorkbenchViews && (
+          <div className="flex items-center justify-center shrink-0">
+            <WorkbenchSwitch value={workSurface} onChange={onWorkSurfaceChange} />
+          </div>
+        )}
         <div className="flex items-center gap-0.5 shrink-0">
           <button
             onClick={handleMinimize}

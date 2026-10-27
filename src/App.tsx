@@ -97,6 +97,7 @@ import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
 import { fetchCompanyRoster } from "./utils/pipeline/pipelineGateway";
+import { initPlugins, usePluginRegistry } from "./plugins";
 import { sidebarStatusFromSync } from "./utils/sync/sidebarDbStatus";
 import { storage } from "./utils/unifiedStorage";
 import {
@@ -643,6 +644,7 @@ function AppBody() {
       .then(() => {
         if (cancelled) return;
         syncEngine.reloadFromStorage();
+        initPlugins();
         return fetchCompanyRoster({ force: true });
       })
       .catch((error) => {
@@ -1363,6 +1365,8 @@ const MainLayout = React.memo(function MainLayout({
   onOpenQuickCapture,
 }: MainLayoutProps) {
   const [workSurface, setWorkSurfaceState] = useState<WorkSurface>(() => readWorkSurface());
+  const { workbenchViews, isEnabled: isPluginEnabled } = usePluginRegistry();
+
   const setWorkSurface = useCallback((next: WorkSurface) => {
     setWorkSurfaceState(next);
     try {
@@ -1371,6 +1375,12 @@ const MainLayout = React.memo(function MainLayout({
       /* 隐私模式或配额满时只留在这次会话里 */
     }
   }, []);
+
+  useEffect(() => {
+    if (workSurface === "agent" && !isPluginEnabled("pipeline")) {
+      setWorkSurface("mine");
+    }
+  }, [workSurface, isPluginEnabled, setWorkSurface]);
   const openMineTab = useCallback(
     (tab: AppTab) => {
       setWorkSurface("mine");
@@ -1382,6 +1392,23 @@ const MainLayout = React.memo(function MainLayout({
 
   const mainContent = useMemo(() => {
     if (workSurface === "agent") {
+      const activeWorkbench = workbenchViews.find((v) => v.viewId === "agent");
+      if (activeWorkbench) {
+        return (
+          <main className="flex-grow p-4 sm:p-6 overflow-y-auto flex flex-col min-h-0 z-10 relative custom-scrollbar">
+            {activeWorkbench.render({
+              tasks,
+              onAddTask: handleAddTaskWithAI,
+              onEditTask: handleEditTask,
+              onTaskClick: handleTaskClick,
+              onOpenSettings: () => {
+                setWorkSurface("mine");
+                setActiveTab("settings");
+              },
+            })}
+          </main>
+        );
+      }
       return (
         <main className="flex-grow p-4 sm:p-6 overflow-y-auto flex flex-col min-h-0 z-10 relative custom-scrollbar">
           <AgentPanel
