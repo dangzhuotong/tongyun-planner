@@ -7,6 +7,7 @@ import { applyDueAnchor, nextRepeatingDue, withMonthlyAnchor } from "../utils/ne
 import { scheduleStorageWrite } from "../utils/deferredStorage";
 import { taskRepository, dispatchRepository } from "../data/repositories";
 import { applyAssigneeUpdates } from "../utils/agentDispatch";
+import { syncEngine } from "../utils/sync/engine";
 
 function createInitialTasks(): Task[] {
   const today = getLocalDateString();
@@ -60,6 +61,9 @@ export function useTasks() {
       scheduleStorageWrite("aero_todos", updatedTasks);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
       taskRepository.syncActive(updatedTasks);
+      if (syncEngine.currentBackend === "database") {
+        syncEngine.markDirty("tasks");
+      }
     } catch (e) {
       console.error("保存任务失败", e);
     }
@@ -70,6 +74,9 @@ export function useTasks() {
       scheduleStorageWrite("aero_completed_todos", updatedCompleted);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
       taskRepository.syncCompleted(updatedCompleted);
+      if (syncEngine.currentBackend === "database") {
+        syncEngine.markDirty("completedTasks");
+      }
     } catch (e) {
       console.error("保存已完成任务失败", e);
     }
@@ -82,6 +89,9 @@ export function useTasks() {
       scheduleStorageWrite("aero_completed_todos", updatedCompleted);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
       taskRepository.syncSnapshot(updatedTasks, updatedCompleted);
+      if (syncEngine.currentBackend === "database") {
+        syncEngine.markDirty("tasks", "completedTasks");
+      }
     } catch (e) {
       console.error("批量保存失败", e);
     }

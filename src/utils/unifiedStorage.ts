@@ -20,6 +20,8 @@ function getAllKnownKeys(): string[] {
     "tongyun_webdav_user",
     "tongyun_webdav_pass",
     "tongyun_sync_backend",
+    "tongyun_remote_dsn",
+    "tongyun_last_remote_sync_time",
     "aero_last_backup_time",
     "tongyun_sync_version",
     "tongyun_last_updated",

@@ -762,7 +762,8 @@ function AppBody() {
   useEffect(() => {
     if (!isHydrated || !isMainWebview()) return;
     syncEngine.reloadFromStorage();
-    syncEngine.setAutoSync(customizationHook.customizationConfig.enableAutoBackup !== false);
+    const isDb = syncEngine.currentBackend === "database";
+    syncEngine.setAutoSync(isDb || customizationHook.customizationConfig.enableAutoBackup !== false);
     return () => {
       syncEngine.setAutoSync(false);
     };
@@ -772,17 +773,15 @@ function AppBody() {
     isFirstLoad.current = false;
   }, []);
 
-  // 启动时从云端同步（仅 main 窗口）
+  // 启动时从云端同步（仅 main 窗口，数据库优先：若配置数据库则 50ms 立即执行首轮全量拉取）
   useEffect(() => {
-    if (
-      !isHydrated ||
-      !isMainWebview() ||
-      customizationHook.customizationConfig.enableAutoBackup === false
-    )
-      return;
+    if (!isHydrated || !isMainWebview()) return;
     syncEngine.reloadFromStorage();
+    const isDb = syncEngine.currentBackend === "database";
+    if (!isDb && customizationHook.customizationConfig.enableAutoBackup === false) return;
     if (!syncEngine.isConfigured()) return;
-    const timer = setTimeout(() => syncEngine.sync(), 3000);
+    const delay = isDb ? 50 : 3000;
+    const timer = setTimeout(() => syncEngine.sync(), delay);
     return () => clearTimeout(timer);
   }, [isHydrated, customizationHook.customizationConfig.enableAutoBackup]);
 

@@ -169,7 +169,7 @@ export class SyncEngine {
   /**
    * Mark specific categories as dirty.
    * If no categories are specified, marks ALL as dirty (backward compat).
-   * Restarts the 30s debounced sync timer.
+   * Restarts the debounced sync timer (1s for database, 30s for webdav).
    */
   markDirty(...cats: SyncCategory[]): void {
     if (cats.length === 0) {
@@ -180,17 +180,36 @@ export class SyncEngine {
     }
     this.saveDirtyCategories();
 
-    if (this.enableAutoSync) {
+    const isDb = this._currentBackend === "database";
+    const shouldAutoSync = this.enableAutoSync || isDb;
+
+    if (shouldAutoSync) {
       if (this.debounceTimer !== null) {
         clearTimeout(this.debounceTimer);
       }
+      const debounceDelay = isDb ? 1000 : 30000;
       this.debounceTimer = setTimeout(() => {
         this.debounceTimer = null;
         if (this.dirty && this.isConfigured() && this._conflicts.length === 0) {
           this.sync();
         }
-      }, 30000);
+      }, debounceDelay);
     }
+  }
+
+  /**
+   * 标记脏分类并立刻异步触发同步（直写模式，不等待防抖）。
+   */
+  markDirtyAndSync(...cats: SyncCategory[]): Promise<void> {
+    this.markDirty(...cats);
+    if (this.debounceTimer !== null) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    if (this.isConfigured() && this._conflicts.length === 0) {
+      return this.sync();
+    }
+    return Promise.resolve();
   }
 
   subscribe(listener: SyncListener): () => void {

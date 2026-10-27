@@ -705,11 +705,11 @@ export async function syncFullSchemaWithRemote(options?: {
   // PULL: 远端数据库 -> 本地 SQLite
   // ==========================================
 
-  // 1. Pull tasks
+  // 1. Pull tasks (数据库优先：全量拉取远端未遗漏的所有待办并同步本地)
   try {
     const remoteTasks = await remoteDb
-      .select<any[]>("SELECT * FROM tasks WHERE updated_at > $1", [lastSyncAt])
-      .catch(async () => remoteDb.select<any[]>("SELECT * FROM tasks"));
+      .select<any[]>("SELECT * FROM tasks")
+      .catch(async () => []);
 
     let taskPulled = 0;
     if (remoteTasks && remoteTasks.length > 0) {
@@ -763,6 +763,33 @@ export async function syncFullSchemaWithRemote(options?: {
                 rt.deleted_at ?? null,
               ],
             );
+            // 同步维护 domain_tasks 保持三源兼容
+            await db
+              .execute(
+                `INSERT OR REPLACE INTO domain_tasks (
+                  id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [
+                  rt.id,
+                  rt.completed_at ?? null,
+                  rt.due_date ?? null,
+                  rt.updated_at || now,
+                  JSON.stringify(payload.data || {
+                    id: rt.id,
+                    title: rt.title,
+                    description: rt.description,
+                    category: rt.category,
+                    dueDate: rt.due_date,
+                    dueTime: rt.due_time,
+                    priority: rt.priority,
+                    completedAt: rt.completed_at,
+                  }),
+                  rt.assignee_kind || "human",
+                  rt.assignee_agent_id ?? null,
+                  rt.run_status ?? null,
+                ],
+              )
+              .catch(() => undefined);
             taskPulled++;
           }
           await db.execute("COMMIT");
