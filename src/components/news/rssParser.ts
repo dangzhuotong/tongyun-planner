@@ -134,9 +134,19 @@ function extractCoverImage(item: Element, htmlContent: string): string | undefin
  * 轻量安全 HTML 清洗，保留段落、换行、链接、图片、引用与加粗，剔除脚本与事件注入
  */
 export function sanitizeArticleHtml(html: string): string {
-  if (!html) return "";
+  if (!html || !html.trim()) return "";
+  let clean = html.trim();
+
+  // 若内容为纯文本（不包含 HTML 常见标签），将连续换行转换为 <p> 段落
+  if (!/<[a-z][\s\S]*>/i.test(clean)) {
+    return clean
+      .split(/\n{2,}/)
+      .map((p) => `<p>${decodeEntities(p).replace(/\n/g, "<br/>")}</p>`)
+      .join("");
+  }
+
   // 移除 script, style, iframe, form, button, svg 等不安全标签
-  let clean = html
+  clean = clean
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
     .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
