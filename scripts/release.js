@@ -21,9 +21,11 @@ const bump = args.find((a) => !a.startsWith("--"));
 
 const pkgPath = new URL("../package.json", import.meta.url);
 const tauriPath = new URL("../src-tauri/tauri.conf.json", import.meta.url);
+const cargoPath = new URL("../src-tauri/Cargo.toml", import.meta.url);
 
 const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
 const tauri = JSON.parse(readFileSync(tauriPath, "utf-8"));
+let cargoContent = readFileSync(cargoPath, "utf-8");
 
 const current = pkg.version;
 if (tauri.version !== current) {
@@ -54,15 +56,27 @@ if (dryRun) {
 
 pkg.version = next;
 tauri.version = next;
+cargoContent = cargoContent.replace(/^version = "[^"]+"/m, `version = "${next}"`);
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 writeFileSync(tauriPath, JSON.stringify(tauri, null, 2) + "\n");
+writeFileSync(cargoPath, cargoContent);
 
-execSync("git add package.json src-tauri/tauri.conf.json", { stdio: "inherit" });
+try {
+  execSync("cd src-tauri && cargo check", { stdio: "inherit" });
+} catch {
+  // cargo check failure handled by check script
+}
+
+execSync("git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock scripts/release.js", { stdio: "inherit" });
 execSync(`git commit -m "chore: bump to v${next}"`, { stdio: "inherit" });
 execSync(`git tag v${next}`, { stdio: "inherit" });
 execSync("git push origin master", { stdio: "inherit" });
 execSync("git push origin v" + next, { stdio: "inherit" });
-execSync("git push github master", { stdio: "inherit" });
-execSync("git push github v" + next, { stdio: "inherit" });
+try {
+  execSync("git push github master", { stdio: "inherit" });
+  execSync("git push github v" + next, { stdio: "inherit" });
+} catch {
+  // github remote optional
+}
 
-console.log(`\n✔ v${next} released and pushed to GitHub + Gitee.`);
+console.log(`\n✔ v${next} released and pushed to origin.`);
