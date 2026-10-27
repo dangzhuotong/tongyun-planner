@@ -44,11 +44,13 @@ describe("PluginRegistry", () => {
     localStorage.clear();
   });
 
-  it("registers a plugin and activates it if defaultEnabled", () => {
+  it("registers a plugin and activates it if defaultEnabled", async () => {
     pluginRegistry.register(dummyPlugin);
     expect(pluginRegistry.getPlugin("test-plugin")).toBe(dummyPlugin);
     expect(pluginRegistry.isEnabled("test-plugin")).toBe(true);
-    expect(dummyPlugin.activate).toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(dummyPlugin.activate).toHaveBeenCalled();
+    });
   });
 
   it("can disable and enable a plugin, triggering lifecycle hooks", () => {

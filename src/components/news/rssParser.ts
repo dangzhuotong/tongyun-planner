@@ -288,3 +288,242 @@ export function parseRSSXML(xmlText: string): Article[] {
     return [];
   }
 }
+
+/**
+ * 判断文章是否仅为导读/简报（未提供完整正文）
+ * 典型特征：字数少于 320 字，或包含「查看全文」「阅读全文」且字数较短
+ */
+export function isTeaserArticle(article: { content?: string; description?: string }): boolean {
+  const content = (article.content || "").trim();
+  const desc = (article.description || "").trim();
+  const plain = stripHtml(content || desc);
+
+  if (!plain) return true;
+  if (plain.length < 320) return true;
+  if (
+    /(?:查看全文|阅读全文|继续阅读|Read\s+more|read\s+full)/i.test(plain) &&
+    plain.length < 800
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 从网页 HTML 中提取核心正文并清洗格式
+ */
+export function extractArticleFromHtml(html: string, baseUrl?: string): string {
+  if (!html || !html.trim()) return "";
+
+  // 1. DOMParser 解析（优先在浏览器环境与 Tauri WebView 中使用）
+  if (typeof DOMParser !== "undefined") {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+
+      // 移除噪音元素（脚本、样式、导航、页眉页脚、弹窗、分享按钮等）
+      const noiseSelectors = [
+        "script",
+        "style",
+        "noscript",
+        "svg",
+        "iframe",
+        "header",
+        "footer",
+        "nav",
+        "aside",
+        "form",
+        ".header",
+        ".footer",
+        ".nav",
+        ".menu",
+        ".sidebar",
+        ".comment",
+        ".comments",
+        ".share",
+        ".sharing",
+        ".recommend",
+        ".related",
+        ".ad",
+        ".ads",
+        ".advertisement",
+        ".social-share",
+        ".article__header__actions",
+        ".article__actions",
+      ];
+      noiseSelectors.forEach((sel) => {
+        doc.querySelectorAll(sel).forEach((el) => el.remove());
+      });
+
+      // 修复懒加载图片属性并转为绝对路径
+      doc.querySelectorAll("img").forEach((img) => {
+        const lazySrc =
+          img.getAttribute("data-src") ||
+          img.getAttribute("data-original") ||
+          img.getAttribute("data-actualsrc");
+        if (lazySrc) {
+          img.setAttribute("src", lazySrc);
+        }
+        const src = img.getAttribute("src");
+        if (src && baseUrl) {
+          try {
+            img.setAttribute("src", new URL(src, baseUrl).href);
+          } catch {
+            // ignore invalid URL
+          }
+        }
+      });
+
+      // 修复链接中的相对路径
+      if (baseUrl) {
+        doc.querySelectorAll("a[href]").forEach((a) => {
+          const href = a.getAttribute("href");
+          if (
+            href &&
+            !href.startsWith("http://") &&
+            !href.startsWith("https://") &&
+            !href.startsWith("#") &&
+            !href.startsWith("mailto:")
+          ) {
+            try {
+              a.setAttribute("href", new URL(href, baseUrl).href);
+            } catch {
+              // ignore
+            }
+          }
+        });
+      }
+
+      // 优先候选选择器
+      const candidates = [
+        "article",
+        "[itemprop='articleBody']",
+        ".article__content",
+        ".article-content",
+        ".post-content",
+        ".entry-content",
+        ".rich_media_content",
+        ".markdown-body",
+        "main",
+        "#content",
+        ".content",
+      ];
+
+      for (const sel of candidates) {
+        const el = doc.querySelector(sel);
+        if (el) {
+          const text = (el.textContent || "").trim();
+          if (text.length >= 80) {
+            return sanitizeArticleHtml(el.innerHTML);
+          }
+        }
+      }
+
+      // 兜底方案：寻找包含最多段落 <p> 的父容器
+      const paragraphs = Array.from(doc.querySelectorAll("p"));
+      if (paragraphs.length >= 2) {
+        const parentCounts = new Map<HTMLElement, number>();
+        paragraphs.forEach((p) => {
+          if (p.parentElement) {
+            parentCounts.set(p.parentElement, (parentCounts.get(p.parentElement) || 0) + 1);
+          }
+        });
+        let bestParent: HTMLElement | null = null;
+        let maxCount = 0;
+        parentCounts.forEach((count, el) => {
+          if (count > maxCount) {
+            maxCount = count;
+            bestParent = el;
+          }
+        });
+        if (bestParent && ((bestParent as HTMLElement).textContent || "").trim().length >= 80) {
+          return sanitizeArticleHtml((bestParent as HTMLElement).innerHTML);
+        }
+      }
+    } catch {
+      // 降级为正则解析
+    }
+  }
+
+  // 2. 正则降级解析（用于纯 Node / Vitest 测试环境）
+  let clean = html.replace(
+    /<(script|style|svg|noscript|iframe|header|footer|nav|aside|form)[^>]*>[\s\S]*?<\/\1>/gi,
+    "",
+  );
+  clean = clean.replace(/\s+on\w+=["'][^"']*["']/gi, "");
+
+  const articleMatch = clean.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+  if (articleMatch && stripHtml(articleMatch[1]).length >= 80) {
+    return sanitizeArticleHtml(articleMatch[1]);
+  }
+
+  const mainMatch = clean.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  if (mainMatch && stripHtml(mainMatch[1]).length >= 80) {
+    return sanitizeArticleHtml(mainMatch[1]);
+  }
+
+  const classMatch = clean.match(
+    /<div[^>]+class=["'][^"']*(?:article-content|post-content|entry-content|content-article|rich_media_content|markdown-body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+  );
+  if (classMatch && stripHtml(classMatch[1]).length >= 80) {
+    return sanitizeArticleHtml(classMatch[1]);
+  }
+
+  return "";
+}
+
+/**
+ * 获取指定 URL 的原始 HTML（支持 Tauri 本地原生 GET 绕过 CORS，并支持浏览器降级）
+ */
+export async function fetchUrlContent(url: string): Promise<string> {
+  // 1. 优先尝试 Tauri 原生 fetch_rss，自带桌面 Chrome User-Agent 且彻底绕过 CORS
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const res = await invoke<string>("fetch_rss", { url });
+    if (res && res.trim().length > 0) {
+      return res;
+    }
+  } catch {
+    // 降级到网络 fetch
+  }
+
+  // 2. 直接浏览器 fetch
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+    });
+    if (resp.ok) {
+      return await resp.text();
+    }
+  } catch {
+    // 降级到公开代理
+  }
+
+  // 3. 公开 CORS 代理降级
+  try {
+    const proxyResp = await fetch(
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    );
+    if (proxyResp.ok) {
+      return await proxyResp.text();
+    }
+  } catch {
+    // ignore
+  }
+
+  throw new Error("无法获取原网页内容");
+}
+
+/**
+ * 智能抓取并提取网页长文正文
+ */
+export async function fetchFullArticle(url: string): Promise<string> {
+  const html = await fetchUrlContent(url);
+  const extracted = extractArticleFromHtml(html, url);
+  if (!extracted || stripHtml(extracted).length < 150) {
+    throw new Error("未能在原网页中提取到长文正文");
+  }
+  return extracted;
+}

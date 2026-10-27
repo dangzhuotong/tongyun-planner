@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { safeFormatDate, stripHtml, sanitizeArticleHtml, parseRSSXML } from "./rssParser";
+import {
+  safeFormatDate,
+  stripHtml,
+  sanitizeArticleHtml,
+  parseRSSXML,
+  isTeaserArticle,
+  extractArticleFromHtml,
+} from "./rssParser";
 
 describe("rssParser unit tests", () => {
   describe("safeFormatDate", () => {
@@ -67,6 +74,35 @@ describe("rssParser unit tests", () => {
     it("returns empty array safely without throwing ReferenceError", () => {
       expect(() => parseRSSXML("<xml></xml>")).not.toThrow();
       expect(parseRSSXML("")).toEqual([]);
+    });
+  });
+
+  describe("isTeaserArticle", () => {
+    it("identifies short teasers like 少数派 summary", () => {
+      const teaser = {
+        title: "Apple Sports",
+        content: "作为一个从小看CCTV-5体育频道下饭的「体育迷」...<a href='https://sspai.com'>查看全文</a>",
+      };
+      expect(isTeaserArticle(teaser)).toBe(true);
+    });
+
+    it("identifies empty articles as teasers", () => {
+      expect(isTeaserArticle({ content: "", description: "" })).toBe(true);
+    });
+
+    it("identifies long articles with full content as not teasers", () => {
+      const longText = "<p>" + "全长文章内容测试，详细阐述各种设计架构与使用心得。".repeat(20) + "</p>";
+      expect(isTeaserArticle({ content: longText })).toBe(false);
+    });
+  });
+
+  describe("extractArticleFromHtml", () => {
+    it("extracts content from <article> tag", () => {
+      const html = `<html><body><nav>Menu</nav><article><p>Hello full article body text here that is long enough to meet the threshold of useful article content for reader mode display.</p></article><footer>Footer</footer></body></html>`;
+      const extracted = extractArticleFromHtml(html);
+      expect(extracted).toContain("Hello full article body text");
+      expect(extracted).not.toContain("<nav");
+      expect(extracted).not.toContain("<footer");
     });
   });
 });
