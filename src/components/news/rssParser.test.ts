@@ -1,0 +1,72 @@
+import { describe, it, expect } from "vitest";
+import { safeFormatDate, stripHtml, sanitizeArticleHtml, parseRSSXML } from "./rssParser";
+
+describe("rssParser unit tests", () => {
+  describe("safeFormatDate", () => {
+    it("handles valid RFC 822 date", () => {
+      const formatted = safeFormatDate("Tue, 27 Oct 2026 15:27:57 +0800");
+      expect(formatted).toMatch(/2026-10-27/);
+    });
+
+    it("handles ISO 8601 date", () => {
+      const formatted = safeFormatDate("2026-10-27T03:02:20Z");
+      expect(formatted).toMatch(/2026-10-27/);
+    });
+
+    it("handles completely invalid date string without throwing RangeError", () => {
+      expect(() => safeFormatDate("not a real date string")).not.toThrow();
+      const res = safeFormatDate("not a real date string");
+      expect(res).toBe("not a real date ");
+    });
+
+    it("handles empty or null string gracefully", () => {
+      expect(safeFormatDate("")).toBe("");
+      expect(safeFormatDate(null)).toBe("");
+      expect(safeFormatDate(undefined)).toBe("");
+    });
+  });
+
+  describe("stripHtml", () => {
+    it("strips tags and decodes entities", () => {
+      const html = "<p>Hello &amp; <b>World</b>&nbsp;!</p>";
+      expect(stripHtml(html)).toBe("Hello & World !");
+    });
+
+    it("handles CDATA blocks", () => {
+      const html = "<![CDATA[<p>Content inside CDATA &quot;quotes&quot;</p>]]>";
+      expect(stripHtml(html)).toBe('Content inside CDATA "quotes"');
+    });
+  });
+
+  describe("sanitizeArticleHtml", () => {
+    it("removes script, style, and iframe tags", () => {
+      const dangerous = `<p>Safe text</p><script>alert(1)</script><iframe src="https://evil.com"></iframe><style>body{color:red}</style>`;
+      const clean = sanitizeArticleHtml(dangerous);
+      expect(clean).not.toContain("<script");
+      expect(clean).not.toContain("<iframe");
+      expect(clean).not.toContain("<style");
+      expect(clean).toContain("<p>Safe text</p>");
+    });
+
+    it("removes inline on* handlers", () => {
+      const dangerous = `<img src="pic.jpg" onerror="alert(1)" onload="evil()" />`;
+      const clean = sanitizeArticleHtml(dangerous);
+      expect(clean).not.toContain("onerror");
+      expect(clean).not.toContain("onload");
+    });
+
+    it("adds target and rel attributes to links", () => {
+      const html = `<a href="https://sspai.com">Link</a>`;
+      const clean = sanitizeArticleHtml(html);
+      expect(clean).toContain('target="_blank"');
+      expect(clean).toContain('rel="noopener noreferrer"');
+    });
+  });
+
+  describe("parseRSSXML fallback when no DOMParser in Node environment", () => {
+    it("returns empty array safely without throwing ReferenceError", () => {
+      expect(() => parseRSSXML("<xml></xml>")).not.toThrow();
+      expect(parseRSSXML("")).toEqual([]);
+    });
+  });
+});
