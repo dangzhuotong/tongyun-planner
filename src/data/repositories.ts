@@ -115,19 +115,8 @@ class TaskRepository {
             });
 
           const existing = new Map(rows.map((row) => [row.id, row.data]));
-          const desiredIds = new Set(items.map((task) => task.id));
           await db.execute("BEGIN IMMEDIATE");
           try {
-            for (const row of rows) {
-              if (!desiredIds.has(row.id)) {
-                await db
-                  .execute("DELETE FROM tasks WHERE id = $1", [row.id])
-                  .catch(() => undefined);
-                await db
-                  .execute("DELETE FROM domain_tasks WHERE id = $1", [row.id])
-                  .catch(() => undefined);
-              }
-            }
             for (const task of items) {
               const data = JSON.stringify(task);
               if (existing.get(task.id) === data) continue;
@@ -211,7 +200,39 @@ class TaskRepository {
   }
 
   syncCompleted(completed: Task[]): void {
+    if (completed.length === 0) {
+      this.removeCompleted();
+      return;
+    }
     this.syncPartition(completed, true);
+  }
+
+  /** 只删这一行。列表里没出现的任务不会被顺带删掉。 */
+  remove(id: string): void {
+    this.queue = this.queue
+      .then(() =>
+        queueDomainWrite(async (db) => {
+          await db.execute("DELETE FROM tasks WHERE id = $1", [id]).catch(() => undefined);
+          await db.execute("DELETE FROM domain_tasks WHERE id = $1", [id]).catch(() => undefined);
+        }),
+      )
+      .catch((error) => console.error("Task repository delete failed", error));
+  }
+
+  /** 清空已完成分区。未完成任务不动。 */
+  removeCompleted(): void {
+    this.queue = this.queue
+      .then(() =>
+        queueDomainWrite(async (db) => {
+          await db
+            .execute("DELETE FROM tasks WHERE completed_at IS NOT NULL")
+            .catch(() => undefined);
+          await db
+            .execute("DELETE FROM domain_tasks WHERE completed_at IS NOT NULL")
+            .catch(() => undefined);
+        }),
+      )
+      .catch((error) => console.error("Task repository clear completed failed", error));
   }
 
   async load(): Promise<{ tasks: Task[]; completed: Task[] } | null> {

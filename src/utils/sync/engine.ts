@@ -8,6 +8,7 @@ import {
 } from "./types";
 import { WebDAVProvider } from "./webdavProvider";
 import { isRemoteDsnConfigured, syncFullSchemaWithRemote, testRemoteDsn } from "./remoteDbSync";
+import { requestCategoryReplace } from "./syncApplyGuard";
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "conflict" | "offline";
 
@@ -351,6 +352,7 @@ export class SyncEngine {
 
     this._conflicts = [];
     if (typeof window !== "undefined") {
+      requestCategoryReplace();
       window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
     }
     return false;
@@ -381,6 +383,7 @@ export class SyncEngine {
           await this.webdavProvider.acceptRemote(conflict);
         }
         if (typeof window !== "undefined") {
+          requestCategoryReplace();
           window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
         }
       }

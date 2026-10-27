@@ -18,3 +18,16 @@ export function endSyncApply(): void {
 export function isSyncApplying(): boolean {
   return depth > 0;
 }
+
+/** WebDAV 整包和手动恢复要按分类覆盖本地行。远端库拉回已经按行写过，不要再对账删除。 */
+let categoryReplace = false;
+
+export function requestCategoryReplace(): void {
+  categoryReplace = true;
+}
+
+export function consumeCategoryReplace(): boolean {
+  const pending = categoryReplace;
+  categoryReplace = false;
+  return pending;
+}

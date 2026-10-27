@@ -58,7 +58,11 @@ describe("Repositories (Tasks, Journal, and P0 Entities)", () => {
             updated_at: params?.[15],
           });
         } else if (sql.includes("DELETE FROM tasks")) {
-          mockTables.tasks = mockTables.tasks.filter((t) => t.id !== params?.[0]);
+          if (sql.includes("completed_at IS NOT NULL")) {
+            mockTables.tasks = mockTables.tasks.filter((t) => !t.completed_at && !t.completedAt);
+          } else if (params?.[0] != null) {
+            mockTables.tasks = mockTables.tasks.filter((t) => t.id !== params[0]);
+          }
         } else if (sql.includes("DELETE FROM journal_entries")) {
           mockTables.journal_entries = mockTables.journal_entries.filter(
             (j) => j.id !== params?.[0],
@@ -94,6 +98,24 @@ describe("Repositories (Tasks, Journal, and P0 Entities)", () => {
       expect(loaded?.tasks[0].id).toBe("task_test_1");
       expect(loaded?.tasks[0].title).toBe("体验纯数据库模式待办");
       expect(loaded?.tasks[0].category).toBe("urgent-important");
+    });
+
+    it("upserting one task leaves the other row in place", async () => {
+      const keep: Task = { id: "keep", title: "留下", category: "urgent-important" };
+      const drop: Task = { id: "drop", title: "删掉", category: "urgent-not-important" };
+
+      taskRepository.syncActive([keep, drop]);
+      await new Promise((r) => setTimeout(r, 50));
+      taskRepository.syncActive([keep]);
+      await new Promise((r) => setTimeout(r, 50));
+
+      const kept = await taskRepository.load();
+      expect(kept?.tasks.map((t) => t.id).sort()).toEqual(["drop", "keep"]);
+
+      taskRepository.remove("drop");
+      await new Promise((r) => setTimeout(r, 50));
+      const afterDelete = await taskRepository.load();
+      expect(afterDelete?.tasks.map((t) => t.id)).toEqual(["keep"]);
     });
   });
 

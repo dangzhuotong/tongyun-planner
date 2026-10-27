@@ -119,8 +119,7 @@ export function useCrossWindowSync(
         case "reset":
           tH.setTasks(tH.INITIAL_TASKS);
           tH.setCompletedTasks([]);
-          tH.saveTasks(tH.INITIAL_TASKS);
-          tH.saveCompleted([]);
+          tH.replaceStoredTasks(tH.INITIAL_TASKS, []);
           break;
         case "clear_completed":
           tH.setCompletedTasks([]);

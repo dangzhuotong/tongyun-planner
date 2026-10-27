@@ -107,8 +107,8 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
     }
     if (prevJournal.current === journal) return;
     prevJournal.current = journal;
-    journalRepository.syncSnapshot(journal);
-    // 云端回写不 bump / 不标脏，防止空本地再次推上去
+    // 行级 upsert/delete 已经落库。这里不再按整本数组对账删除，避免同步回写把刚写的日记清掉。
+    // WebDAV 仍在标脏后整包上传当前分类。
     if (isSyncApplying()) return;
     const changed: SyncCategory[] = ["journal"];
     bumpSyncVersion();

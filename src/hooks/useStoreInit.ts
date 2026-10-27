@@ -132,7 +132,7 @@ export function useStoreInit(
         handlersRef.current.tasksHook.setTasks(resolvedTasks);
         handlersRef.current.tasksHook.setCompletedTasks(resolvedCompleted);
 
-        // 合并后再写回三源一致，避免稀疏快照误删完整源数据
+        // 合并后只补写已有行，不用整表对账删掉另一来源里多出来的任务
         handlersRef.current.tasksHook.saveAll(resolvedTasks, resolvedCompleted);
       } catch (e) {
         console.warn("数据加载失败，使用初始任务", e);

@@ -88,7 +88,8 @@ export function useTasks() {
       scheduleStorageWrite("aero_todos", updatedTasks);
       scheduleStorageWrite("aero_completed_todos", updatedCompleted);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
-      taskRepository.syncSnapshot(updatedTasks, updatedCompleted);
+      taskRepository.syncActive(updatedTasks);
+      taskRepository.syncCompleted(updatedCompleted);
       if (syncEngine.currentBackend === "database") {
         syncEngine.markDirty("tasks", "completedTasks");
       }
@@ -228,12 +229,18 @@ export function useTasks() {
       // 原子写入：del 后 tasks/completedTasks 都已更新，React 18 自动批处理
       const filteredActive = tasks.filter((t) => t.id !== id);
       const filteredCompleted = completedTasks.filter((t) => t.id !== id);
-      saveAll(filteredActive, filteredCompleted);
+      scheduleStorageWrite("aero_todos", filteredActive);
+      scheduleStorageWrite("aero_completed_todos", filteredCompleted);
+      scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
+      taskRepository.remove(id);
+      if (syncEngine.currentBackend === "database") {
+        syncEngine.markDirty(fromCompleted ? "completedTasks" : "tasks");
+      }
       setDetailTaskId((prev) => (prev === id ? null : prev));
       dispatchRepository.cancelDispatch(id);
       if (shouldSync) syncState(id, "delete");
     },
-    [tasks, completedTasks, saveAll, syncState],
+    [tasks, completedTasks, syncState],
   );
 
   const handleUndoDelete = useCallback(
@@ -522,19 +529,39 @@ export function useTasks() {
     [handleEditTask],
   );
 
+  /** WebDAV 整包覆盖、重置时用。日常改一条任务不要走这里。 */
+  const replaceStoredTasks = useCallback(async (updatedTasks: Task[], updatedCompleted: Task[]) => {
+    try {
+      scheduleStorageWrite("aero_todos", updatedTasks);
+      scheduleStorageWrite("aero_completed_todos", updatedCompleted);
+      scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
+      taskRepository.syncSnapshot(updatedTasks, updatedCompleted);
+      if (syncEngine.currentBackend === "database") {
+        syncEngine.markDirty("tasks", "completedTasks");
+      }
+    } catch (e) {
+      console.error("整包替换任务失败", e);
+    }
+  }, []);
+
   const resetTasks = useCallback(() => {
     const freshTasks = createInitialTasks();
     setTasks(freshTasks);
     setCompletedTasks([]);
-    saveAll(freshTasks, []);
+    replaceStoredTasks(freshTasks, []);
     syncState("reset", "reset");
-  }, [saveAll, syncState]);
+  }, [replaceStoredTasks, syncState]);
 
   const handleClearCompleted = useCallback(() => {
     setCompletedTasks([]);
-    saveCompleted([]);
+    taskRepository.removeCompleted();
+    scheduleStorageWrite("aero_completed_todos", []);
+    scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
+    if (syncEngine.currentBackend === "database") {
+      syncEngine.markDirty("completedTasks");
+    }
     syncState("clear_completed", "clear_completed");
-  }, [saveCompleted, syncState]);
+  }, [syncState]);
 
   return {
     tasks: safeTasks,
@@ -550,6 +577,7 @@ export function useTasks() {
     saveTasks,
     saveCompleted,
     saveAll,
+    replaceStoredTasks,
     progressPercentage,
     handleComplete,
     handleUndoComplete,

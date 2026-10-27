@@ -96,6 +96,7 @@ import { createId } from "./utils/id";
 import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
+import { journalRepository } from "./data/repositories";
 import { fetchCompanyRoster } from "./utils/pipeline/pipelineGateway";
 import { initPlugins, usePluginRegistry, PluginErrorBoundary } from "./plugins";
 import { sidebarStatusFromSync } from "./utils/sync/sidebarDbStatus";
@@ -110,7 +111,7 @@ import {
   type SyncData,
   type SyncConflict,
 } from "./utils/sync/types";
-import { beginSyncApply, endSyncApply, isSyncApplying } from "./utils/sync/syncApplyGuard";
+import { beginSyncApply, consumeCategoryReplace, endSyncApply, isSyncApplying } from "./utils/sync/syncApplyGuard";
 import { canUseAI } from "./utils/aiEngine";
 import { usePomodoroTimer, type MicroBreakSession } from "./hooks/usePomodoroTimer";
 import { MicroBreakOverlay } from "./components/MicroBreakOverlay";
@@ -589,9 +590,9 @@ function AppBody() {
   // ============ 云端同步（统一走 syncEngine）============
   const applySyncDataToState = useCallback(
     (data: SyncData) => {
-      if (!data || typeof data !== "object") return;
-      if (!Array.isArray(data.tasks)) {
-        console.warn("[sync] Received invalid SyncData without tasks array, ignoring", data);
+      if (!data || typeof data !== "object" || !Array.isArray(data.tasks)) {
+        consumeCategoryReplace();
+        if (data) console.warn("[sync] Received invalid SyncData without tasks array, ignoring", data);
         return;
       }
       beginSyncApply();
@@ -599,16 +600,19 @@ function AppBody() {
       try {
         const completedTasks = Array.isArray(data.completedTasks) ? data.completedTasks : [];
         const tasks = dedupeActiveTasks(data.tasks, completedTasks);
+        const replaceCategory = consumeCategoryReplace();
         tasksHook.setTasks(tasks);
-        tasksHook.saveTasks(tasks);
         tasksHook.setCompletedTasks(completedTasks);
-        tasksHook.saveCompleted(completedTasks);
+        if (replaceCategory) {
+          tasksHook.replaceStoredTasks(tasks, completedTasks);
+        }
         if (Array.isArray(data.stickyNotes)) notesHook.setStickyNotes(data.stickyNotes);
         if (Array.isArray(data.pomodoroLogs)) pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
         if (Array.isArray(data.countdowns)) countdownHook.setCountdowns(data.countdowns);
         if (Array.isArray(data.journal)) {
           setJournal(data.journal);
           localStorage.setItem("tongyun_journal", JSON.stringify(data.journal));
+          if (replaceCategory) journalRepository.syncSnapshot(data.journal);
         }
         if (data.customizationConfig) {
           customizationHook.setCustomizationConfig((prev) =>

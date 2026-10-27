@@ -8,6 +8,7 @@ import type {
 } from "../../types";
 import { isSyncSecretsOptIn } from "./syncSecretsPref";
 import { sanitizeRepeatAnchors } from "../nextDueDate";
+import { requestCategoryReplace } from "./syncApplyGuard";
 
 export interface SyncData {
   version: number;
@@ -537,6 +538,7 @@ export function applySyncData(data: SyncData): void {
   localStorage.setItem("tongyun_last_updated", String(Date.now()));
 
   if (typeof window !== "undefined") {
+    requestCategoryReplace();
     window.dispatchEvent(
       new CustomEvent(SYNC_APPLIED_EVENT, {
         detail: { ...data, tasks, completedTasks },
