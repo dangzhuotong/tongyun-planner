@@ -81,7 +81,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
     isPomodoroActive,
   }) => {
     const { t } = useTranslation();
-  const { getAgentHandle } = useAgents();
+    const { getAgentHandle } = useAgents();
     const lv = t.listView;
     const tc = t.taskCard;
     // Local state to filter only starred tasks
@@ -145,10 +145,10 @@ export const ListView: React.FC<ListViewProps> = React.memo(
     }, [categoryFilter, debouncedQuery, showFavoritesOnly, tagFilter, tasks]);
 
     return (
-      <div className="animate-fade-in-up rounded-2xl bg-white/90 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[600px] custom-scrollbar select-none shadow-sm relative">
+      <div className="animate-fade-in-up rounded-2xl bg-white/90 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] p-4 sm:p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[600px] custom-scrollbar select-none shadow-sm relative">
         {/* 筛选与搜索 */}
-        <div className="flex gap-3 pb-2 border-b border-[#EFEBE4] dark:border-[#282A30] items-center">
-          <div className="relative flex-grow">
+        <div className="flex flex-wrap md:flex-nowrap gap-2 md:gap-3 pb-2 border-b border-[#EFEBE4] dark:border-[#282A30] items-center">
+          <div className="relative flex-grow min-w-[200px] w-full md:w-auto">
             <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
             <input
               type="text"
@@ -158,34 +158,36 @@ export const ListView: React.FC<ListViewProps> = React.memo(
               className="w-full bg-[#FAF8F5]/80 dark:bg-[#202228] border border-[#EFEBE4] dark:border-[#2E313A] pl-10 pr-4 py-2.5 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#78C496] transition-colors font-semibold"
             />
           </div>
-          <CustomSelect
-            value={categoryFilter}
-            onChange={setCategoryFilter}
-            options={FILTER_OPTIONS}
-            className="w-48"
-          />
-          {/* Tag Filter */}
-          <CustomSelect
-            value={tagFilter}
-            onChange={setTagFilter}
-            options={tagOptions}
-            className="w-32"
-          />
-          {/* Star Filter Button */}
-          <button
-            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-xs ${
-              showFavoritesOnly
-                ? "bg-[#FCF2F0] dark:bg-[#3D2325] text-[#A34E36] dark:text-[#E06D53] border-[#F5DFDB] dark:border-[#522E31]"
-                : "bg-white dark:bg-[#202228] text-slate-500 dark:text-slate-400 border-[#EFEBE4] dark:border-[#2E313A] hover:bg-[#FAF8F5] dark:hover:bg-[#282A32]"
-            }`}
-            title={lv.search}
-          >
-            <Heart
-              className={`w-3.5 h-3.5 ${showFavoritesOnly ? "fill-[#A34E36] text-[#A34E36]" : "text-slate-400"}`}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <CustomSelect
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              options={FILTER_OPTIONS}
+              className="flex-1 md:w-48"
             />
-            <span>{lv.starred}</span>
-          </button>
+            {/* Tag Filter */}
+            <CustomSelect
+              value={tagFilter}
+              onChange={setTagFilter}
+              options={tagOptions}
+              className="w-32"
+            />
+            {/* Star Filter Button */}
+            <button
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                showFavoritesOnly
+                  ? "bg-[#FCF2F0] dark:bg-[#3D2325] text-[#A34E36] dark:text-[#E06D53] border-[#F5DFDB] dark:border-[#522E31]"
+                  : "bg-white dark:bg-[#202228] text-slate-500 dark:text-slate-400 border-[#EFEBE4] dark:border-[#2E313A] hover:bg-[#FAF8F5] dark:hover:bg-[#282A32]"
+              }`}
+              title={lv.search}
+            >
+              <Heart
+                className={`w-3.5 h-3.5 ${showFavoritesOnly ? "fill-[#A34E36] text-[#A34E36]" : "text-slate-400"}`}
+              />
+              <span>{lv.starred}</span>
+            </button>
+          </div>
         </div>
 
         {/* Inline Quick Add Component */}
@@ -321,17 +323,20 @@ export const ListView: React.FC<ListViewProps> = React.memo(
                                 task.runStatus === "queued"
                                   ? "bg-[#FEF9EE] dark:bg-[#322A1E] border-[#FBEAC4] dark:border-[#4B3C24] text-[#A26D14] dark:text-[#E8BA60]"
                                   : task.runStatus === "running"
-                                  ? "bg-[#F0F7FD] dark:bg-[#1E2D3D] border-[#D4E7F9] dark:border-[#2D4560] text-[#1B6CA8] dark:text-[#64B5F6]"
-                                  : task.runStatus === "done"
-                                  ? "bg-[#F0F5F1] dark:bg-[#232924] border-[#DEEAE2] dark:border-[#38433B] text-[#4D7C5D] dark:text-[#6FAD84]"
-                                  : task.runStatus === "failed"
-                                  ? "bg-[#FCF2F0] dark:bg-[#3D2325] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53]"
-                                  : "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42] text-slate-400"
+                                    ? "bg-[#F0F7FD] dark:bg-[#1E2D3D] border-[#D4E7F9] dark:border-[#2D4560] text-[#1B6CA8] dark:text-[#64B5F6]"
+                                    : task.runStatus === "done"
+                                      ? "bg-[#F0F5F1] dark:bg-[#232924] border-[#DEEAE2] dark:border-[#38433B] text-[#4D7C5D] dark:text-[#6FAD84]"
+                                      : task.runStatus === "failed"
+                                        ? "bg-[#FCF2F0] dark:bg-[#3D2325] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53]"
+                                        : "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42] text-slate-400"
                               }`}
                               title={`负责人: ${getAgentHandle(task.assigneeAgentId)} · 状态: ${getRunStatusLabel(task.runStatus || "queued")}`}
                             >
                               <Bot className="w-2.5 h-2.5" />
-                              <span>{getAgentHandle(task.assigneeAgentId)} · {getRunStatusLabel(task.runStatus || "queued")}</span>
+                              <span>
+                                {getAgentHandle(task.assigneeAgentId)} ·{" "}
+                                {getRunStatusLabel(task.runStatus || "queued")}
+                              </span>
                             </span>
                           )}
 

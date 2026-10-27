@@ -15,7 +15,12 @@ import {
 } from "lucide-react";
 import { getDailyJournalPrompt, formatPromptForJournal } from "../utils/journalPrompts";
 import { PolaroidCard } from "./journal/PolaroidCard";
-import { WashiTape, VintageStamp, type WashiTapeType, type StampType } from "./journal/JournalStickers";
+import {
+  WashiTape,
+  VintageStamp,
+  type WashiTapeType,
+  type StampType,
+} from "./journal/JournalStickers";
 import type {
   JournalEntry,
   Task,
@@ -192,7 +197,7 @@ export function JournalView({
 
   const handleInsertPrompt = useCallback(() => {
     const promptText = formatPromptForJournal(dailyPrompt);
-    const cur = draftDirtyRef.current ? draftContentRef.current : (selected?.content || "");
+    const cur = draftDirtyRef.current ? draftContentRef.current : selected?.content || "";
     const next = cur ? `${promptText}${cur}` : promptText;
     setDraftContent(next);
     draftDirtyRef.current = true;
@@ -210,7 +215,9 @@ export function JournalView({
   const handleCycleStamp = useCallback(() => {
     const stamps: StampType[] = ["done", "great", "pass", "fast", "super"];
     const cur = selected?.stamp;
-    const nextStamp = !cur ? "done" : stamps[(stamps.indexOf(cur as StampType) + 1) % stamps.length];
+    const nextStamp = !cur
+      ? "done"
+      : stamps[(stamps.indexOf(cur as StampType) + 1) % stamps.length];
     commit({ stamp: nextStamp });
   }, [selected?.stamp, commit]);
 
@@ -601,7 +608,9 @@ export function JournalView({
               className="flex-1 text-left text-[10px] text-slate-500 dark:text-slate-400 truncate cursor-pointer hover:text-slate-700 dark:hover:text-slate-200"
               title={promptExpanded ? "收起" : "展开问题"}
             >
-              {promptExpanded ? "▲ " : "▼ "}{dailyPrompt.question.slice(0, 30)}{dailyPrompt.question.length > 30 ? "…" : ""}
+              {promptExpanded ? "▲ " : "▼ "}
+              {dailyPrompt.question.slice(0, 30)}
+              {dailyPrompt.question.length > 30 ? "…" : ""}
             </button>
             <button
               type="button"
@@ -727,7 +736,9 @@ export function JournalView({
           {selected?.aiComment ? (
             <>
               <span className="flex-1 text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                {warmExpanded ? "" : selected.aiComment.slice(0, 25) + (selected.aiComment.length > 25 ? "…" : "")}
+                {warmExpanded
+                  ? ""
+                  : selected.aiComment.slice(0, 25) + (selected.aiComment.length > 25 ? "…" : "")}
               </span>
               <button
                 onClick={() => setWarmExpanded((v) => !v)}
@@ -746,15 +757,20 @@ export function JournalView({
           ) : (
             <>
               <span className="flex-1 text-[10px] text-slate-400 dark:text-slate-500 italic truncate">
-                {aiLoading ? (j.aiThinking || "正在写暖评...") : "写完今天，点右侧按钮收下暖评"}
+                {aiLoading ? j.aiThinking || "正在写暖评..." : "写完今天，点右侧按钮收下暖评"}
               </span>
               <button
-                onClick={() => { setWarmExpanded(true); generateAiComment(); }}
+                onClick={() => {
+                  setWarmExpanded(true);
+                  generateAiComment();
+                }}
                 disabled={aiLoading}
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#E8A0BF]/20 border border-[#E8A0BF]/40 text-[#C07090] dark:text-[#E8A0BF] hover:bg-[#E8A0BF]/30 transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
               >
                 <Sparkles className="w-2.5 h-2.5" />
-                {j.aiGenerate ? j.aiGenerate.replace("完成今天，收下今天的暖评", "完成今天") : "完成今天"}
+                {j.aiGenerate
+                  ? j.aiGenerate.replace("完成今天，收下今天的暖评", "完成今天")
+                  : "完成今天"}
               </button>
             </>
           )}
@@ -971,7 +987,7 @@ export function JournalView({
       </header>
 
       {/* 主体：日记本 + 右侧关联 */}
-      <div className="flex flex-grow min-h-0 gap-4">
+      <div className="flex flex-col lg:flex-row flex-grow min-h-0 gap-4">
         <section className="flex-grow min-w-0 flex flex-col gap-3">
           <div className="flex-grow min-h-0 flex flex-col rounded-2xl overflow-hidden bg-[#FCFBF7] dark:bg-[#1C1D21] shadow-[0_2px_14px_rgba(120,100,70,0.10)] dark:shadow-none border border-[#ECE3D2] dark:border-[#383A42] relative">
             {/* 书脊 */}
@@ -1053,7 +1069,7 @@ export function JournalView({
         </section>
 
         {/* 右：今日关联 */}
-        <aside className="w-56 flex-shrink-0 flex flex-col gap-4 border-l border-[#EFEBE4] dark:border-[#282A30] pl-3 overflow-y-auto custom-scrollbar">
+        <aside className="w-full lg:w-56 flex-shrink-0 flex flex-col gap-4 border-t lg:border-t-0 lg:border-l border-[#EFEBE4] dark:border-[#282A30] pt-4 lg:pt-0 lg:pl-3 overflow-y-auto custom-scrollbar">
           <div>
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#4D7C5D] dark:text-[#78C496] mb-2">
               <ListChecks className="w-3.5 h-3.5" />

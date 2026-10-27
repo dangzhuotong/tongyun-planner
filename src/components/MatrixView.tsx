@@ -72,7 +72,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     isPomodoroActive,
   }) => {
     const { t } = useTranslation();
-  const { getAgentHandle } = useAgents();
+    const { getAgentHandle } = useAgents();
     const lv = t.listView;
     const tc = t.taskCard;
     const m = t.matrix;
@@ -265,6 +265,36 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
             </div>
           </div>
         )}
+
+        {/* Mobile Quadrant Segmented Bar */}
+        <div className="flex md:hidden overflow-x-auto gap-2 py-1 scrollbar-none shrink-0 -mx-1 px-1">
+          <button
+            type="button"
+            onClick={() => setExpandedQuadrant(null)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
+              expandedQuadrant === null
+                ? "bg-[#4D7C5D] text-white shadow-xs"
+                : "bg-white/80 dark:bg-[#1E2026] text-slate-500 border border-[#EFEBE4] dark:border-[#2E313A]"
+            }`}
+          >
+            全部象限
+          </button>
+          {quadrants.map((q) => (
+            <button
+              key={q.id}
+              type="button"
+              onClick={() => setExpandedQuadrant(expandedQuadrant === q.id ? null : q.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                expandedQuadrant === q.id
+                  ? `${q.defaultBg} ${q.defaultText} border ${q.defaultBorder} shadow-xs font-extrabold`
+                  : "bg-white/80 dark:bg-[#1E2026] text-slate-500 border border-[#EFEBE4] dark:border-[#2E313A]"
+              }`}
+            >
+              <span>{q.icon}</span>
+              <span>{q.label}</span>
+            </button>
+          ))}
+        </div>
 
         {/* Matrix Quadrants Grid */}
         <div
@@ -562,17 +592,20 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                                     task.runStatus === "queued"
                                       ? "bg-[#FEF9EE] dark:bg-[#322A1E] border-[#FBEAC4] dark:border-[#4B3C24] text-[#A26D14] dark:text-[#E8BA60]"
                                       : task.runStatus === "running"
-                                      ? "bg-[#F0F7FD] dark:bg-[#1E2D3D] border-[#D4E7F9] dark:border-[#2D4560] text-[#1B6CA8] dark:text-[#64B5F6]"
-                                      : task.runStatus === "done"
-                                      ? "bg-[#F0F5F1] dark:bg-[#232924] border-[#DEEAE2] dark:border-[#38433B] text-[#4D7C5D] dark:text-[#6FAD84]"
-                                      : task.runStatus === "failed"
-                                      ? "bg-[#FCF2F0] dark:bg-[#3D2325] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53]"
-                                      : "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42] text-slate-400"
+                                        ? "bg-[#F0F7FD] dark:bg-[#1E2D3D] border-[#D4E7F9] dark:border-[#2D4560] text-[#1B6CA8] dark:text-[#64B5F6]"
+                                        : task.runStatus === "done"
+                                          ? "bg-[#F0F5F1] dark:bg-[#232924] border-[#DEEAE2] dark:border-[#38433B] text-[#4D7C5D] dark:text-[#6FAD84]"
+                                          : task.runStatus === "failed"
+                                            ? "bg-[#FCF2F0] dark:bg-[#3D2325] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53]"
+                                            : "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42] text-slate-400"
                                   }`}
                                   title={`负责人: ${getAgentHandle(task.assigneeAgentId)} · 状态: ${getRunStatusLabel(task.runStatus || "queued")}`}
                                 >
                                   <Bot className="w-2.5 h-2.5" />
-                                  <span>{getAgentHandle(task.assigneeAgentId)} · {getRunStatusLabel(task.runStatus || "queued")}</span>
+                                  <span>
+                                    {getAgentHandle(task.assigneeAgentId)} ·{" "}
+                                    {getRunStatusLabel(task.runStatus || "queued")}
+                                  </span>
                                 </span>
                               )}
 

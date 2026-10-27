@@ -3,6 +3,10 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Task, AppTab } from "./types";
 import { TitleBar } from "./components/TitleBar";
 import { Sidebar } from "./components/Sidebar";
+import { useIsMobile } from "./hooks/useIsMobile";
+import { MobileHeader } from "./components/mobile/MobileHeader";
+import { MobileTabBar } from "./components/mobile/MobileTabBar";
+import { MobileDrawer } from "./components/mobile/MobileDrawer";
 const DashboardView = React.lazy(() =>
   import("./components/DashboardView").then((m) => ({ default: m.DashboardView })),
 );
@@ -940,7 +944,9 @@ function AppBody() {
       if (existing) {
         handleUpsertJournal({
           ...existing,
-          content: existing.content ? `${existing.content}${anchorFormatted}` : `📌 **明日启动锚点**：${anchorText}`,
+          content: existing.content
+            ? `${existing.content}${anchorFormatted}`
+            : `📌 **明日启动锚点**：${anchorText}`,
           updatedAt: Date.now(),
         });
       } else {
@@ -1113,10 +1119,7 @@ function AppBody() {
         onToast={showMicroBreakToast}
       />
       {microBreakSession && (
-        <MicroBreakOverlay
-          onSkip={microBreakSession.skip}
-          initialTheme={microBreakSession.theme}
-        />
+        <MicroBreakOverlay onSkip={microBreakSession.skip} initialTheme={microBreakSession.theme} />
       )}
       {microBreakToast && !microBreakSession && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
@@ -1280,12 +1283,18 @@ const MainLayout = React.memo(function MainLayout({
   onOpenEnergyTimeBlock,
   onOpenQuickCapture,
 }: MainLayoutProps) {
+  const isMobile = useIsMobile();
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const mainContent = useMemo(
     () => (
-      <main className="flex-grow p-6 overflow-y-auto flex flex-col gap-5 z-10 relative custom-scrollbar min-h-0">
+      <main
+        className={`flex-grow ${isMobile ? "p-3 pb-24" : "p-6"} overflow-y-auto flex flex-col gap-4 sm:gap-5 z-10 relative custom-scrollbar min-h-0`}
+      >
         {activeTab !== "home" && (
           <>
-            <header className="flex justify-between items-center border-b border-[#EFEBE4] dark:border-[#33353A] pb-4">
+            <header
+              className={`${isMobile ? "hidden" : "flex"} justify-between items-center border-b border-[#EFEBE4] dark:border-[#33353A] pb-4`}
+            >
               <div>
                 <h2 className="text-xl font-bold tracking-wide text-[#2D323A] dark:text-slate-100">
                   {activeTab === "matrix"
@@ -1681,6 +1690,7 @@ const MainLayout = React.memo(function MainLayout({
     ),
     [
       activeTab,
+      isMobile,
       tasks,
       completedTasks,
       journal,
@@ -1747,28 +1757,40 @@ const MainLayout = React.memo(function MainLayout({
         <div
           className={`w-full h-full min-h-screen bg-[#FAFAF8] dark:bg-[#121316] text-[#2D323A] dark:text-slate-100 flex flex-col select-none overflow-hidden relative theme-font-${fontFamily || "sans"} main-window-root`}
         >
-          <TitleBar />
-          <div className="flex flex-grow min-h-0 relative">
-            <Sidebar
+          {isMobile ? (
+            <MobileHeader
               activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              progressPercentage={progressPercentage}
-              completedTasksCount={completedTasks.length}
-              tasksCount={tasks.length}
-              stickyNotesCount={notesHook.stickyNotes.length}
-              countdownCount={countdownHook.countdowns.length}
-              handleToggleWidget={widgetHook.handleToggleWidget}
-              handleToggleWidgetLock={widgetHook.handleToggleWidgetLock}
-              isWidgetLocked={widgetHook.isWidgetLocked}
-              resetTasks={resetTasks}
+              onOpenDrawer={() => setIsMobileDrawerOpen(true)}
+              onOpenQuickCapture={onOpenQuickCapture}
               syncStatus={syncStatus}
               lastBackupTime={lastBackupTime}
-              onEnterFlowMode={() => setFlowMode(true)}
-              onTestMicroBreak={onTestMicroBreak}
-              onOpenSunsetShutdown={onOpenSunsetShutdown}
-              onOpenEnergyTimeBlock={onOpenEnergyTimeBlock}
-              onOpenQuickCapture={onOpenQuickCapture}
             />
+          ) : (
+            <TitleBar />
+          )}
+          <div className="flex flex-grow min-h-0 relative">
+            {!isMobile && (
+              <Sidebar
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                progressPercentage={progressPercentage}
+                completedTasksCount={completedTasks.length}
+                tasksCount={tasks.length}
+                stickyNotesCount={notesHook.stickyNotes.length}
+                countdownCount={countdownHook.countdowns.length}
+                handleToggleWidget={widgetHook.handleToggleWidget}
+                handleToggleWidgetLock={widgetHook.handleToggleWidgetLock}
+                isWidgetLocked={widgetHook.isWidgetLocked}
+                resetTasks={resetTasks}
+                syncStatus={syncStatus}
+                lastBackupTime={lastBackupTime}
+                onEnterFlowMode={() => setFlowMode(true)}
+                onTestMicroBreak={onTestMicroBreak}
+                onOpenSunsetShutdown={onOpenSunsetShutdown}
+                onOpenEnergyTimeBlock={onOpenEnergyTimeBlock}
+                onOpenQuickCapture={onOpenQuickCapture}
+              />
+            )}
             <React.Suspense fallback={viewFallback}>{mainContent}</React.Suspense>
 
             {celebrationData && (
@@ -1822,6 +1844,29 @@ const MainLayout = React.memo(function MainLayout({
                 );
               })()}
           </div>
+          {isMobile && (
+            <>
+              <MobileTabBar
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                onOpenDrawer={() => setIsMobileDrawerOpen(true)}
+                tasksCount={tasks.length}
+              />
+              <MobileDrawer
+                isOpen={isMobileDrawerOpen}
+                onClose={() => setIsMobileDrawerOpen(false)}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                onOpenSunsetShutdown={onOpenSunsetShutdown}
+                onOpenEnergyTimeBlock={onOpenEnergyTimeBlock}
+                onEnterFlowMode={() => setFlowMode(true)}
+                tasksCount={tasks.length}
+                completedTasksCount={completedTasks.length}
+                stickyNotesCount={notesHook.stickyNotes.length}
+                countdownCount={countdownHook.countdowns.length}
+              />
+            </>
+          )}
         </div>
       )}
       {windowLabel === "main" && commandPaletteOpen && (
