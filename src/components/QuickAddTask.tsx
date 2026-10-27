@@ -296,7 +296,10 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Escape" && onCancel) {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onSubmit(e);
+              } else if (e.key === "Escape" && onCancel) {
                 e.preventDefault();
                 onCancel();
               }
@@ -305,7 +308,7 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
             className="w-full bg-transparent border-none text-[11px] text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none font-semibold"
             required
           />
-          <button type="submit" className="hidden" />
+          <button type="submit" className="sr-only" tabIndex={-1} />
         </form>
       );
     }

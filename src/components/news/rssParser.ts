@@ -132,8 +132,9 @@ function extractCoverImage(item: Element, htmlContent: string): string | undefin
 
 /**
  * 轻量安全 HTML 清洗，保留段落、换行、链接、图片、引用与加粗，剔除脚本与事件注入
+ * 增强支持：懒加载属性修复 (data-src / data-original)、跨域防盗链 (referrerpolicy="no-referrer") 与相对路径补全
  */
-export function sanitizeArticleHtml(html: string): string {
+export function sanitizeArticleHtml(html: string, baseUrl?: string): string {
   if (!html || !html.trim()) return "";
   let clean = html.trim();
 
@@ -154,12 +155,86 @@ export function sanitizeArticleHtml(html: string): string {
     .replace(/\s*on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
     .replace(/javascript:/gi, "");
 
+  // 规范化并修复图片标签：兼容懒加载 (data-src, data-original)、跨域防盗链 (referrerpolicy) 与相对路径
+  clean = clean.replace(/<img\s+([^>]*?)>/gi, (_match, attrs) => {
+    const getAttr = (name: string) => {
+      const m = attrs.match(new RegExp(`\\b${name}=["']([^"']*)["']`, "i"));
+      return m ? m[1] : null;
+    };
+
+    let src = getAttr("src");
+    const dataSrc =
+      getAttr("data-src") ||
+      getAttr("data-original") ||
+      getAttr("data-actualsrc") ||
+      getAttr("_src");
+
+    // 若 src 为空、或者只是占位 1x1 透明 gif，则优先使用真实数据源
+    if (
+      (!src ||
+        src.startsWith("data:image/gif") ||
+        src.startsWith("data:image/svg") ||
+        src.trim().length === 0) &&
+      dataSrc
+    ) {
+      src = dataSrc;
+    }
+
+    if (!src) {
+      return "";
+    }
+
+    // 相对路径解析为绝对 URL
+    if (
+      baseUrl &&
+      !src.startsWith("http://") &&
+      !src.startsWith("https://") &&
+      !src.startsWith("data:")
+    ) {
+      try {
+        src = new URL(src, baseUrl).href;
+      } catch {
+        // ignore
+      }
+    }
+
+    const restAttrs = attrs
+      .replace(/\s*\bsrc=["'][^"']*["']/gi, "")
+      .replace(/\s*\breferrerpolicy=["'][^"']*["']/gi, "")
+      .replace(/\s*\bloading=["'][^"']*["']/gi, "")
+      .trim();
+
+    return `<img src="${src}"${restAttrs ? " " + restAttrs : ""}>`;
+  });
+
   // 规范化外部链接
   clean = clean.replace(/<a\s+([^>]*?)>/gi, (_match, attrs) => {
-    if (!attrs.includes("target=")) {
-      return `<a ${attrs} target="_blank" rel="noopener noreferrer">`;
+    let resolvedAttrs = attrs;
+    if (baseUrl) {
+      const hrefMatch = attrs.match(/\bhref=["']([^"']*)["']/i);
+      if (
+        hrefMatch &&
+        hrefMatch[1] &&
+        !hrefMatch[1].startsWith("http://") &&
+        !hrefMatch[1].startsWith("https://") &&
+        !hrefMatch[1].startsWith("#") &&
+        !hrefMatch[1].startsWith("mailto:")
+      ) {
+        try {
+          const abs = new URL(hrefMatch[1], baseUrl).href;
+          resolvedAttrs = resolvedAttrs.replace(
+            /\bhref=["'][^"']*["']/i,
+            `href="${abs}"`,
+          );
+        } catch {
+          // ignore
+        }
+      }
     }
-    return `<a ${attrs}>`;
+    if (!resolvedAttrs.includes("target=")) {
+      return `<a ${resolvedAttrs} target="_blank" rel="noopener noreferrer">`;
+    }
+    return `<a ${resolvedAttrs}>`;
   });
 
   return clean;
@@ -396,6 +471,8 @@ export function extractArticleFromHtml(html: string, baseUrl?: string): string {
 
       // 优先候选选择器
       const candidates = [
+        ".article__main__content",
+        ".wangEditor-txt",
         "article",
         "[itemprop='articleBody']",
         ".article__content",
@@ -414,7 +491,7 @@ export function extractArticleFromHtml(html: string, baseUrl?: string): string {
         if (el) {
           const text = (el.textContent || "").trim();
           if (text.length >= 80) {
-            return sanitizeArticleHtml(el.innerHTML);
+            return sanitizeArticleHtml(el.innerHTML, baseUrl);
           }
         }
       }
@@ -437,7 +514,7 @@ export function extractArticleFromHtml(html: string, baseUrl?: string): string {
           }
         });
         if (bestParent && ((bestParent as HTMLElement).textContent || "").trim().length >= 80) {
-          return sanitizeArticleHtml((bestParent as HTMLElement).innerHTML);
+          return sanitizeArticleHtml((bestParent as HTMLElement).innerHTML, baseUrl);
         }
       }
     } catch {
@@ -454,19 +531,19 @@ export function extractArticleFromHtml(html: string, baseUrl?: string): string {
 
   const articleMatch = clean.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
   if (articleMatch && stripHtml(articleMatch[1]).length >= 80) {
-    return sanitizeArticleHtml(articleMatch[1]);
+    return sanitizeArticleHtml(articleMatch[1], baseUrl);
   }
 
   const mainMatch = clean.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
   if (mainMatch && stripHtml(mainMatch[1]).length >= 80) {
-    return sanitizeArticleHtml(mainMatch[1]);
+    return sanitizeArticleHtml(mainMatch[1], baseUrl);
   }
 
   const classMatch = clean.match(
-    /<div[^>]+class=["'][^"']*(?:article-content|post-content|entry-content|content-article|rich_media_content|markdown-body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+    /<div[^>]+class=["'][^"']*(?:article-content|post-content|entry-content|content-article|rich_media_content|markdown-body|article__main__content|wangEditor-txt)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
   );
   if (classMatch && stripHtml(classMatch[1]).length >= 80) {
-    return sanitizeArticleHtml(classMatch[1]);
+    return sanitizeArticleHtml(classMatch[1], baseUrl);
   }
 
   return "";
@@ -484,10 +561,23 @@ export async function fetchUrlContent(url: string): Promise<string> {
       return res;
     }
   } catch {
-    // 降级到网络 fetch
+    // 降级到本地 dev proxy 或网络 fetch
   }
 
-  // 2. 直接浏览器 fetch
+  // 2. 本地 Vite 开发服务器代理（如果在浏览器/egolite中调试，通过 Vite dev proxy 绕过 CORS）
+  try {
+    const devProxyResp = await fetch(`/api/proxy-fetch?url=${encodeURIComponent(url)}`);
+    if (devProxyResp.ok) {
+      const text = await devProxyResp.text();
+      if (text && text.trim().length > 0) {
+        return text;
+      }
+    }
+  } catch {
+    // 降级
+  }
+
+  // 3. 直接浏览器 fetch
   try {
     const resp = await fetch(url, {
       headers: {
@@ -501,7 +591,7 @@ export async function fetchUrlContent(url: string): Promise<string> {
     // 降级到公开代理
   }
 
-  // 3. 公开 CORS 代理降级
+  // 4. 公开 CORS 代理降级
   try {
     const proxyResp = await fetch(
       `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,

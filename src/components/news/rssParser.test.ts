@@ -68,6 +68,18 @@ describe("rssParser unit tests", () => {
       expect(clean).toContain('target="_blank"');
       expect(clean).toContain('rel="noopener noreferrer"');
     });
+
+    it("normalizes img tags, resolves data-src / data-original", () => {
+      const html = `<p>Test</p><img data-original="https://cdn.example.com/real.jpg" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="demo">`;
+      const clean = sanitizeArticleHtml(html);
+      expect(clean).toContain('src="https://cdn.example.com/real.jpg"');
+    });
+
+    it("resolves relative image paths against baseUrl", () => {
+      const html = `<p>Test</p><img src="/uploads/pic.png">`;
+      const clean = sanitizeArticleHtml(html, "https://example.com/news/123");
+      expect(clean).toContain('src="https://example.com/uploads/pic.png"');
+    });
   });
 
   describe("parseRSSXML fallback when no DOMParser in Node environment", () => {

@@ -50,7 +50,10 @@ export function useStoreInit(
       document.documentElement.classList.add("transparent-window");
     }
 
+    const isTauriEnv =
+      typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
     if (
+      isTauriEnv &&
       typeof Notification !== "undefined" &&
       Notification.permission !== "granted" &&
       Notification.permission !== "denied"

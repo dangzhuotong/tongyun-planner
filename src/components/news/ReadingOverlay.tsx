@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
@@ -58,6 +58,30 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
   const [extractError, setExtractError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"full" | "teaser">("full");
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // 针对反爬防盗链图片自动容错降级：首次加载失败时自动切换 no-referrer 重试
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const handleImgError = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target && target.tagName === "IMG") {
+        const img = target as HTMLImageElement;
+        if (!img.dataset.retried) {
+          img.dataset.retried = "1";
+          img.referrerPolicy = "no-referrer";
+          const currentSrc = img.src;
+          img.src = "";
+          img.src = currentSrc;
+        }
+      }
+    };
+    el.addEventListener("error", handleImgError, true);
+    return () => {
+      el.removeEventListener("error", handleImgError, true);
+    };
+  }, [fullContent, viewMode, article.content, article.description]);
 
   const sizeMap = {
     sm: { title: "text-lg md:text-xl", body: "text-xs md:text-sm leading-relaxed" },
@@ -126,11 +150,11 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
   // 计算当前呈现的正文 HTML
   let displayHtml = "";
   if (viewMode === "full" && hasExtractedFull) {
-    displayHtml = sanitizeArticleHtml(fullContent!);
+    displayHtml = sanitizeArticleHtml(fullContent!, article.link);
   } else if (article.content && article.content.trim()) {
-    displayHtml = sanitizeArticleHtml(article.content);
+    displayHtml = sanitizeArticleHtml(article.content, article.link);
   } else if (article.description && article.description.trim()) {
-    displayHtml = `<p>${sanitizeArticleHtml(article.description)}</p>`;
+    displayHtml = `<p>${sanitizeArticleHtml(article.description, article.link)}</p>`;
   }
 
   // 触发 AI 速览：若已提取全文则把全文喂给 AI，大幅提升洞察质量
@@ -309,6 +333,7 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
             {/* 正文内容渲染 */}
             {displayHtml ? (
               <div
+                ref={contentRef}
                 className={`${colCls} ${bodyCls} prose prose-slate dark:prose-invert max-w-none text-slate-700 dark:text-slate-200 leading-relaxed font-normal [&_p]:mb-4 [&_img]:rounded-xl [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:mx-auto [&_a]:text-[#4D7C5D] dark:[&_a]:text-[#76B087] [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-[#4D7C5D]/40 [&_blockquote]:pl-4 [&_blockquote]:my-3 [&_blockquote]:italic [&_pre]:bg-slate-100 [&_pre]:dark:bg-[#252830] [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_h1]:text-xl [&_h1]:font-black [&_h1]:mt-6 [&_h1]:mb-3 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-base [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-3`}
                 dangerouslySetInnerHTML={{ __html: displayHtml }}
               />

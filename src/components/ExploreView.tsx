@@ -87,6 +87,15 @@ async function fetchRSS(
     }
   }
 
+  if (!xmlText && !isTauri) {
+    try {
+      const devRes = await fetch(`/api/proxy-fetch?url=${encodeURIComponent(url)}`);
+      if (devRes.ok) xmlText = await devRes.text();
+    } catch {
+      // ignore
+    }
+  }
+
   if (!xmlText) {
     const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
     const res = await fetch(proxyUrl);

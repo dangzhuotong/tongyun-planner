@@ -93,6 +93,14 @@ export const RSSView: React.FC<RSSViewProps> = ({
       }
       if (!xmlText && !isTauri) {
         try {
+          const devRes = await fetch(`/api/proxy-fetch?url=${encodeURIComponent(feed.url)}`);
+          if (devRes.ok) xmlText = await devRes.text();
+        } catch {
+          // ignore
+        }
+      }
+      if (!xmlText && !isTauri) {
+        try {
           const proxyRes = await fetch(
             `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`,
           );
