@@ -1055,7 +1055,11 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
           </div>
         ) : displayTask ? (
           /* 挂件内卡片展示 */
-          <div className="flex-grow flex items-center justify-center w-full cursor-move">
+          <div
+            data-no-drag
+            onMouseDown={(e) => e.stopPropagation()}
+            className="flex-grow flex items-center justify-center w-full"
+          >
             <SwipeCard
               key={displayTask.id}
               task={displayTask}

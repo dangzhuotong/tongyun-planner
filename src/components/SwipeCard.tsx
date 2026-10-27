@@ -112,8 +112,10 @@ export const SwipeCard: React.FC<SwipeCardProps> = ({
 
   return (
     <div
+      data-no-drag
       onPointerDown={(e) => e.stopPropagation()}
-      className="relative w-full h-[225px] flex items-center justify-center select-none overflow-hidden"
+      onMouseDown={(e) => e.stopPropagation()}
+      className="relative w-full h-[225px] flex items-center justify-center select-none overflow-hidden touch-none"
     >
       {/* 动作状态背景：右侧绿色“完成” */}
       <motion.div
