@@ -25,10 +25,8 @@ export function stripHtml(html: string): string {
   if (!html) return "";
   const cleaned = html
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-    .replace(TAG_RE, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return decodeEntities(cleaned);
+    .replace(TAG_RE, " ");
+  return decodeEntities(cleaned).replace(/\s+/g, " ").trim();
 }
 
 /**

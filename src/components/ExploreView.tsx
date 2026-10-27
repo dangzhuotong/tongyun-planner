@@ -15,6 +15,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { createId } from "../utils/id";
+import { invoke } from "@tauri-apps/api/core";
 import { fetchWithRetry } from "../utils/cache";
 import { NewsItemActions } from "./news/NewsItemActions";
 import type { NewsActions } from "./news/newsActions";
@@ -75,13 +76,30 @@ async function fetchRSS(
   url: string,
   proxy: string,
 ): Promise<{ title: string; articles: Article[] }> {
-  const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
-  const res = await fetch(proxyUrl);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  const xmlText = data.contents || data;
+  let xmlText = "";
+  const isTauri =
+    typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__ !== undefined;
+  if (isTauri) {
+    try {
+      xmlText = await invoke<string>("fetch_rss", { url });
+    } catch (e) {
+      console.warn("ExploreView tauri fetch_rss failed:", e);
+    }
+  }
+
+  if (!xmlText) {
+    const proxyUrl = `${proxy}${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    xmlText = data.contents || data;
+  }
+
   const parser = new DOMParser();
-  const xml = parser.parseFromString(xmlText, "text/xml");
+  let xml = parser.parseFromString(xmlText, "text/xml");
+  if (xml.querySelector("parsererror") || xml.querySelectorAll("item, entry").length === 0) {
+    xml = parser.parseFromString(xmlText, "text/html");
+  }
 
   const feedTitle =
     xml.querySelector("channel > title")?.textContent ||
