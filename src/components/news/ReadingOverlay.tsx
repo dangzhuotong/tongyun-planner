@@ -60,16 +60,49 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
   const [viewMode, setViewMode] = useState<"full" | "teaser">("full");
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // 针对反爬防盗链图片自动容错降级：首次加载失败时自动切换 no-referrer 重试
+  // 针对反爬防盗链图片自动容错：优先调用 Tauri Rust 后端代理携带源站 Referer 拉取并转 Base64
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
-    const handleImgError = (e: Event) => {
+
+    // 1. 全局图片捕获错误监听器：任何图片加载失败，自动切入 Rust 原生代理拉取
+    const handleImgError = async (e: Event) => {
       const target = e.target as HTMLElement;
       if (target && target.tagName === "IMG") {
         const img = target as HTMLImageElement;
         if (!img.dataset.retried) {
           img.dataset.retried = "1";
+          const rawUrl = img.getAttribute("src") || img.src;
+          if (!rawUrl || rawUrl.startsWith("data:") || rawUrl.startsWith("blob:")) return;
+
+          // 优先尝试 Tauri 原生代理
+          try {
+            const { invoke } = await import("@tauri-apps/api/core");
+            const dataUrl = await invoke<string>("fetch_image_base64", {
+              url: rawUrl,
+              referer: article.link || null,
+            });
+            if (dataUrl && dataUrl.startsWith("data:image/")) {
+              img.src = dataUrl;
+              return;
+            }
+          } catch {
+            // 降级到网络代理或无 Referer
+          }
+
+          // 浏览器 dev proxy 降级
+          try {
+            const proxyRes = await fetch(`/api/proxy-fetch?url=${encodeURIComponent(rawUrl)}`);
+            if (proxyRes.ok) {
+              const blob = await proxyRes.blob();
+              img.src = URL.createObjectURL(blob);
+              return;
+            }
+          } catch {
+            // 降级
+          }
+
+          // 兜底切换 no-referrer
           img.referrerPolicy = "no-referrer";
           const currentSrc = img.src;
           img.src = "";
@@ -77,11 +110,34 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
         }
       }
     };
+
     el.addEventListener("error", handleImgError, true);
+
+    // 2. 主动对已知强防盗链域名（如 cdnfile.sspai.com、微信图床等）进行预先代理，避免界面闪烁
+    const imgs = Array.from(el.querySelectorAll("img"));
+    imgs.forEach(async (img) => {
+      const src = img.getAttribute("src");
+      if (src && (src.includes("cdnfile.sspai.com") || src.includes("qpic.cn"))) {
+        try {
+          const { invoke } = await import("@tauri-apps/api/core");
+          const dataUrl = await invoke<string>("fetch_image_base64", {
+            url: src,
+            referer: article.link || null,
+          });
+          if (dataUrl && dataUrl.startsWith("data:image/")) {
+            img.src = dataUrl;
+            img.dataset.retried = "1";
+          }
+        } catch {
+          // ignore
+        }
+      }
+    });
+
     return () => {
       el.removeEventListener("error", handleImgError, true);
     };
-  }, [fullContent, viewMode, article.content, article.description]);
+  }, [fullContent, viewMode, article.content, article.description, article.link]);
 
   const sizeMap = {
     sm: { title: "text-lg md:text-xl", body: "text-xs md:text-sm leading-relaxed" },

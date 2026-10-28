@@ -479,6 +479,45 @@ fn fetch_rss(url: String) -> Result<String, String> {
     res.text().map_err(|e| e.to_string())
 }
 
+// 7.1 RSS / 文章配图代理命令：支持携带目标站点 Referer 绕过防盗链，并转为 base64 data-url 返回前端
+#[tauri::command]
+fn fetch_image_base64(url: String, referer: Option<String>) -> Result<String, String> {
+    use base64::Engine;
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let mut req = client.get(&url);
+    if let Some(ref r) = referer {
+        if !r.trim().is_empty() {
+            req = req.header("Referer", r);
+        }
+    } else if let Ok(parsed) = reqwest::Url::parse(&url) {
+        if let Some(host) = parsed.host_str() {
+            req = req.header("Referer", format!("https://{}/", host));
+        }
+    }
+
+    let resp = req.send().map_err(|e| format!("E_NETWORK: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("E_HTTP_{}", resp.status().as_u16()));
+    }
+
+    let mime = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/jpeg")
+        .to_string();
+
+    let bytes = resp.bytes().map_err(|e| e.to_string())?;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{};base64,{}", mime, b64))
+}
+
 // 8. AI API 代理命令：异步 HTTP 请求到任意 AI 端点，不阻塞 UI
 #[tauri::command]
 async fn ai_proxy(url: String, method: String, headers: std::collections::HashMap<String, String>, body: Option<String>, timeout_secs: Option<u64>) -> Result<String, String> {
@@ -667,6 +706,7 @@ pub fn run() {
             file_delete,
             file_list,
             fetch_rss,
+            fetch_image_base64,
             ai_proxy,
             email::send_test_email,
             webdav_stat,
