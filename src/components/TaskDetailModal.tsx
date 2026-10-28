@@ -18,8 +18,6 @@ import {
   Download,
   ExternalLink,
   RefreshCw,
-  User,
-  Bot,
 } from "lucide-react";
 import type { Task, Attachment, TaskPriority, PomodoroLog } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
@@ -29,8 +27,6 @@ import { PRIORITY_LEVELS } from "../constants";
 import { CustomSelect } from "./CustomSelect";
 import { createId } from "../utils/id";
 import { getTaskPomodoroStats } from "../utils/pomodoroTaskStats";
-import { useAgents, getRunStatusLabel } from "../hooks/useAgents";
-import { formatRosterOption } from "../utils/pipeline/companyRoster";
 
 interface TaskDetailModalProps {
   task: Task;
@@ -60,7 +56,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
     handleStartFocus,
     isFocusing,
   }) => {
-    const { t, locale } = useTranslation();
+    const { t } = useTranslation();
     const tc = t.taskCard;
     const [notes, setNotes] = useState(task.notes || "");
     const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
@@ -72,35 +68,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
     const [estimatedPomodoros, setEstimatedPomodoros] = useState<number>(
       task.estimatedPomodoros || 0,
     );
-    const { enabledAgents } = useAgents();
-    const assigneeOptions = React.useMemo(
-      () => [
-        { value: "human", label: "自己 (Human)" },
-        ...enabledAgents.map((a) => ({
-          value: a.id,
-          label: formatRosterOption(a, { locale, style: "assignee", withHeartbeat: true }),
-        })),
-      ],
-      [enabledAgents, locale],
-    );
-    const currentAssigneeValue =
-      task.assigneeKind === "agent" && task.assigneeAgentId ? task.assigneeAgentId : "human";
-
-    const handleAssigneeSelect = (val: string) => {
-      if (val === "human") {
-        onEditTask(task.id, {
-          assigneeKind: "human",
-          assigneeAgentId: undefined,
-          runStatus: undefined,
-        });
-      } else {
-        onEditTask(task.id, {
-          assigneeKind: "agent",
-          assigneeAgentId: val,
-          runStatus: "queued",
-        });
-      }
-    };
 
     const pomodoroStats = React.useMemo(
       () => getTaskPomodoroStats(task.id, pomodoroLogs || []),
@@ -326,25 +293,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
 
             {/* Meta info */}
             <div className="flex flex-wrap gap-3">
-              {/* Assignee Selection */}
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-medium bg-[#FAF8F5] dark:bg-[#26282E] px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#33353A]">
-                <span className="font-bold uppercase tracking-wider flex items-center gap-1">
-                  {task.assigneeKind === "agent" ? (
-                    <Bot className="w-3 h-3 text-[#A26D14] dark:text-[#E8BA60]" />
-                  ) : (
-                    <User className="w-3 h-3 text-slate-400" />
-                  )}
-                  负责人
-                </span>
-                <CustomSelect
-                  value={currentAssigneeValue}
-                  onChange={handleAssigneeSelect}
-                  options={assigneeOptions}
-                  className="w-28 text-[10px]"
-                  dropdownAlign="top"
-                />
-              </div>
-
               <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-medium bg-[#FAF8F5] dark:bg-[#26282E] px-2.5 py-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#33353A]">
                 <Flag className="w-3 h-3" />
                 <span>
@@ -405,67 +353,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                   }}
                 />
               </div>
-
-              {/* Agent Dispatch Control Panel */}
-              {task.assigneeKind === "agent" && (
-                <div className="w-full flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-[#FAF8F5] dark:bg-[#202227] border border-[#EFEBE4] dark:border-[#2D3038] text-[10px]">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1">
-                      <Bot className="w-3.5 h-3.5 text-[#A26D14] dark:text-[#E8BA60]" />
-                      <span>AI 派单状态:</span>
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-md font-bold text-[9px] border ${
-                        task.runStatus === "queued"
-                          ? "bg-[#FEF9EE] dark:bg-[#322A1E] border-[#FBEAC4] dark:border-[#4B3C24] text-[#A26D14] dark:text-[#E8BA60]"
-                          : task.runStatus === "running"
-                            ? "bg-[#F0F7FD] dark:bg-[#1E2D3D] border-[#D4E7F9] dark:border-[#2D4560] text-[#1B6CA8] dark:text-[#64B5F6]"
-                            : task.runStatus === "done"
-                              ? "bg-[#F0F5F1] dark:bg-[#232924] border-[#DEEAE2] dark:border-[#38433B] text-[#4D7C5D] dark:text-[#6FAD84]"
-                              : task.runStatus === "failed"
-                                ? "bg-[#FCF2F0] dark:bg-[#3D2325] border-[#F5DFDB] dark:border-[#422D30] text-[#A34E36] dark:text-[#E06D53]"
-                                : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200"
-                      }`}
-                    >
-                      {getRunStatusLabel(task.runStatus || "queued")}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {(task.runStatus === "queued" || task.runStatus === "running") && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onEditTask(task.id, { runStatus: "done" })}
-                          className="px-2 py-1 rounded bg-[#EAF5ED] dark:bg-[#1E2E23] text-[#2F6B42] dark:text-[#78C496] border border-[#CDE5D4] dark:border-[#2B4232] hover:bg-[#DDF0E2] font-bold cursor-pointer transition-colors"
-                        >
-                          标记已跑
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onEditTask(task.id, { runStatus: "failed" })}
-                          className="px-2 py-1 rounded bg-[#FCF2F0] dark:bg-[#382224] text-[#B83E26] dark:text-[#E67058] border border-[#F5DFDB] dark:border-[#4D2B2E] hover:bg-[#F9E5E2] font-bold cursor-pointer transition-colors"
-                        >
-                          标记失败
-                        </button>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onEditTask(task.id, {
-                          assigneeKind: "human",
-                          assigneeAgentId: undefined,
-                          runStatus: undefined,
-                        })
-                      }
-                      className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold cursor-pointer transition-colors"
-                      title="取消派单并改由自己处理"
-                    >
-                      改回只派自己
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Dependencies */}
               {allTasks && allTasks.length > 0 && (

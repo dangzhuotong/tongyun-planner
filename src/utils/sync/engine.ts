@@ -7,12 +7,11 @@ import {
   SYNC_APPLIED_EVENT,
 } from "./types";
 import { WebDAVProvider } from "./webdavProvider";
-import { isRemoteDsnConfigured, syncFullSchemaWithRemote, testRemoteDsn } from "./remoteDbSync";
 import { requestCategoryReplace } from "./syncApplyGuard";
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "conflict" | "offline";
 
-export type SyncStatusChannel = "database" | "webdav" | "none";
+export type SyncStatusChannel = "webdav" | "none";
 
 export interface SyncState {
   backend: SyncBackendType;
@@ -114,9 +113,7 @@ export class SyncEngine {
   }
 
   /**
-   * SQLite 把 tongyun_sync_backend 写回 localStorage 之后再读一次。
-   * 构造函数可能赶在这之前，凭着还在的 WebDAV 地址把后端猜成 webdav。
-   * 存储里已经是 database 时，清掉那次 WebDAV 失败，避免侧栏接着变红。
+   * 存储同步配置更新后重新同步内存状态。
    */
   reloadFromStorage(): void {
     this.rememberBackend(this.resolveStoredBackend());
@@ -133,9 +130,7 @@ export class SyncEngine {
   private resolveStoredBackend(): SyncBackendType {
     const saved = localStorage.getItem("tongyun_sync_backend");
     if (saved === "webdav") return "webdav";
-    if (saved === "database") return "database";
-    if (saved === "supabase" || saved === "http") return "none";
-    if (isRemoteDsnConfigured()) return "database";
+    if (saved === "none") return "none";
     const url = localStorage.getItem("tongyun_webdav_url");
     const user = localStorage.getItem("tongyun_webdav_user");
     if (url && user) return "webdav";
@@ -143,14 +138,13 @@ export class SyncEngine {
   }
 
   private rememberBackend(next: SyncBackendType): void {
-    const previousChannel = this._statusChannel;
     this._currentBackend = next;
     const stale =
       this._status === "error" ||
       this._status === "offline" ||
       this._status === "conflict" ||
       this._status === "syncing";
-    if (next === "database" && previousChannel !== "database" && stale) {
+    if (stale) {
       this._status = "idle";
       this._errorMessage = null;
       this._statusChannel = "none";
@@ -170,7 +164,7 @@ export class SyncEngine {
   /**
    * Mark specific categories as dirty.
    * If no categories are specified, marks ALL as dirty (backward compat).
-   * Restarts the debounced sync timer (1s for database, 30s for webdav).
+   * Restarts the debounced sync timer (30s for webdav).
    */
   markDirty(...cats: SyncCategory[]): void {
     if (cats.length === 0) {
@@ -181,20 +175,16 @@ export class SyncEngine {
     }
     this.saveDirtyCategories();
 
-    const isDb = this._currentBackend === "database";
-    const shouldAutoSync = this.enableAutoSync || isDb;
-
-    if (shouldAutoSync) {
+    if (this.enableAutoSync && this._currentBackend === "webdav") {
       if (this.debounceTimer !== null) {
         clearTimeout(this.debounceTimer);
       }
-      const debounceDelay = isDb ? 1000 : 30000;
       this.debounceTimer = setTimeout(() => {
         this.debounceTimer = null;
         if (this.dirty && this.isConfigured() && this._conflicts.length === 0) {
           this.sync();
         }
-      }, debounceDelay);
+      }, 30000);
     }
   }
 
@@ -236,13 +226,11 @@ export class SyncEngine {
   }
 
   isConfigured(): boolean {
-    if (this._currentBackend === "database") return isRemoteDsnConfigured();
     const provider = this.getProvider();
     return provider ? provider.isConfigured() : false;
   }
 
   async testConnection(): Promise<boolean> {
-    if (this._currentBackend === "database") return await testRemoteDsn();
     const provider = this.getProvider();
     if (!provider) return false;
     return await provider.test();
@@ -271,12 +259,7 @@ export class SyncEngine {
   }
 
   private async doSync(): Promise<void> {
-    this._statusChannel =
-      this._currentBackend === "database"
-        ? "database"
-        : this._currentBackend === "webdav"
-          ? "webdav"
-          : "none";
+    this._statusChannel = this._currentBackend === "webdav" ? "webdav" : "none";
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       this._status = "offline";
       this.notify();
@@ -284,8 +267,6 @@ export class SyncEngine {
     }
 
     if (!this.isConfigured()) {
-      // 存储把 DSN 写回 localStorage 之前，backend 可能已经是 database。
-      // 这不是一次个人库写入失败，channel 留在 none，侧栏不跟着变红。
       this._errorMessage = "未配置同步后端";
       this._status = "error";
       this._statusChannel = "none";
@@ -299,10 +280,7 @@ export class SyncEngine {
 
     try {
       let hasConflicts = false;
-      if (this._currentBackend === "database") {
-        // 按行水位追平。不走坚果云的分类整包。
-        await syncFullSchemaWithRemote();
-      } else if (this._currentBackend === "webdav") {
+      if (this._currentBackend === "webdav") {
         hasConflicts = await this.syncWebDAV();
       }
 

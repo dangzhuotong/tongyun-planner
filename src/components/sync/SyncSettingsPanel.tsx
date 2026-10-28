@@ -23,7 +23,6 @@ import {
   isWebDavUrlLocked,
   urlForPreset,
 } from "../../utils/sync/webdavForm";
-import { getRemoteDsn, setRemoteDsn, lastRemoteDsnError } from "../../utils/sync/remoteDbSync";
 import {
   hasSyncSecretsDecryptFailed,
   readSyncSecretsPassphrase,
@@ -82,7 +81,6 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
   const [webdavPass, setWebdavPass] = useState(
     () => localStorage.getItem("tongyun_webdav_pass") || "",
   );
-  const [remoteDsn, setRemoteDsnState] = useState(() => getRemoteDsn() || "");
   const [syncBackend, setSyncBackend] = useState<SyncBackendType>(() => syncEngine.currentBackend);
   const [webdavPreset, setWebdavPreset] = useState<"jianguoyun" | "custom">(() => {
     const saved = localStorage.getItem("tongyun_webdav_url") || "";
@@ -215,10 +213,6 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
         password: webdavPass,
       });
     }
-    if (syncBackend === "database") {
-      setRemoteDsn(remoteDsn);
-      return true;
-    }
     return true;
   };
 
@@ -253,12 +247,11 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
         <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">
           同步后端
         </label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {(
             [
               ["none", "不使用"],
               ["webdav", "WebDAV"],
-              ["database", "远端数据库"],
             ] as [SyncBackendType, string][]
           ).map(([val, label]) => (
             <button
@@ -278,34 +271,6 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
           ))}
         </div>
       </div>
-
-      {syncBackend === "database" && (
-        <div className="space-y-3">
-          <div className="rounded-xl bg-[#F7F5F0] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] p-3 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            <p>
-              支持 MySQL 5.7+ / 8.0+ / TiDB 远端同构数据库全表同步。本地 SQLite 默认落盘持久化，配
-              DSN 后全量领域表推到远端并可拉回；断网本机可写，上线自动追平。
-            </p>
-          </div>
-
-          <div>
-            <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block mb-1">
-              远端数据库 DSN (MySQL / TiDB)
-            </label>
-            <input
-              type="password"
-              placeholder="mysql://user:password@host:port/dbname"
-              value={remoteDsn}
-              onChange={(e) => {
-                const val = e.target.value;
-                setRemoteDsnState(val);
-                setRemoteDsn(val);
-              }}
-              className="w-full bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] px-2.5 py-1.5 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6DAF7E]"
-            />
-          </div>
-        </div>
-      )}
 
       {syncBackend === "webdav" && (
         <div className="space-y-3">
@@ -433,7 +398,7 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
         </div>
       )}
 
-      {(syncBackend === "webdav" || syncBackend === "database") && (
+      {syncBackend === "webdav" && (
         <div className="space-y-3">
           {secretsDecryptFailed && (
             <div className="flex items-start gap-1.5 text-[11px] text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5 rounded-xl">
@@ -590,10 +555,7 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                 if (ok) {
                   triggerToast("连接成功 ✅", "success");
                 } else {
-                  const reason = syncBackend === "database" && lastRemoteDsnError
-                    ? ` (${lastRemoteDsnError})`
-                    : "";
-                  triggerToast(`连接失败 ❌${reason}`, "error");
+                  triggerToast("连接失败 ❌", "error");
                 }
               }}
               disabled={isLoading}

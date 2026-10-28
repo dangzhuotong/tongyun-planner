@@ -3,13 +3,6 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Task, AppTab } from "./types";
 import { TitleBar } from "./components/TitleBar";
 import { Sidebar } from "./components/Sidebar";
-import { AgentPanel } from "./components/agents/AgentPanel";
-import {
-  mineCardTasks,
-  readWorkSurface,
-  WORK_SURFACE_STORAGE_KEY,
-  type WorkSurface,
-} from "./utils/workbenchView";
 const DashboardView = React.lazy(() =>
   import("./components/DashboardView").then((m) => ({ default: m.DashboardView })),
 );
@@ -97,7 +90,6 @@ import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
 import { journalRepository } from "./data/repositories";
-import { fetchCompanyRoster } from "./utils/pipeline/pipelineGateway";
 import { initPlugins, usePluginRegistry, PluginErrorBoundary } from "./plugins";
 import { sidebarStatusFromSync } from "./utils/sync/sidebarDbStatus";
 import { storage } from "./utils/unifiedStorage";
@@ -112,6 +104,10 @@ import {
   type SyncConflict,
 } from "./utils/sync/types";
 import { beginSyncApply, consumeCategoryReplace, endSyncApply, isSyncApplying } from "./utils/sync/syncApplyGuard";
+import {
+  clearDismissedJournalTodos,
+  isJournalTodoDismissed,
+} from "./utils/journalTodoLink";
 import { canUseAI } from "./utils/aiEngine";
 import { usePomodoroTimer, type MicroBreakSession } from "./hooks/usePomodoroTimer";
 import { MicroBreakOverlay } from "./components/MicroBreakOverlay";
@@ -144,9 +140,11 @@ function AppBody() {
   const { t, setLocale, locale } = useTranslation();
   const tasksHook = useTasks();
   const tasksRef = useRef(tasksHook.tasks);
+  const completedRef = useRef(tasksHook.completedTasks);
   useEffect(() => {
     tasksRef.current = tasksHook.tasks;
-  }, [tasksHook.tasks]);
+    completedRef.current = tasksHook.completedTasks;
+  }, [tasksHook.tasks, tasksHook.completedTasks]);
   const pomodoroHook = usePomodoro();
   const notesHook = useStickyNotes();
   const countdownHook = useCountdown();
@@ -280,12 +278,11 @@ function AppBody() {
   const previousJournalTodoToggleRef = useRef<boolean | null>(null);
 
   useEffect(() => {
-    const currentTasks = tasksRef.current;
-    const currentByJournalId = new Map(
-      currentTasks.filter((task) => task.journalId).map((task) => [task.journalId!, task]),
-    );
+    const knownTasks = [...tasksRef.current, ...completedRef.current];
     const previous = previousJournalTodoStateRef.current;
-    const toggleChanged = previousJournalTodoToggleRef.current !== journalAddTodo;
+    const previousToggle = previousJournalTodoToggleRef.current;
+    const toggleChanged = previousToggle !== null && previousToggle !== journalAddTodo;
+    if (previousToggle === false && journalAddTodo) clearDismissedJournalTodos();
     const nextState = new Map<string, string>();
     const changedEntries: JournalEntry[] = [];
 
@@ -296,37 +293,36 @@ function AppBody() {
     }
     previousJournalTodoStateRef.current = nextState;
     previousJournalTodoToggleRef.current = journalAddTodo;
+    // 同步回写只是换了数组，日记内容没变就不生成。守卫还在时更不能新建，否则会把刚删的待办写回去。
+    if (isSyncApplying() || changedEntries.length === 0) return;
 
     for (const entry of changedEntries) {
       if (!entry.isDaily) continue;
-      const existing = currentByJournalId.get(entry.id);
+      const title = journalTodoTitle(entry);
+      const linked = knownTasks.filter(
+        (task) =>
+          task.journalId === entry.id || (task.tags?.includes("日记") && task.title === title),
+      );
+      const activeLinked = tasksRef.current.filter(
+        (task) =>
+          task.journalId === entry.id || (task.tags?.includes("日记") && task.title === title),
+      );
       if (journalAddTodo) {
-        const title = journalTodoTitle(entry);
-        if (!existing) {
-          tasksHook
-            .handleAddTask({
-              title,
-              description: entry.content.slice(0, 200),
-              notes: "",
-              category: "important-not-urgent",
-              dueDate: entry.date,
-              isExplicit: true,
-              tags: ["日记"],
-            })
-            .then((res) => {
-              if (res?.taskId) tasksHook.handleEditTask(res.taskId, { journalId: entry.id });
-            });
-        } else if (
-          existing.title !== title ||
-          existing.description !== (entry.content.slice(0, 200) || undefined)
-        ) {
-          tasksHook.handleEditTask(existing.id, {
-            title,
-            description: entry.content.slice(0, 200) || undefined,
-          });
+        if (isJournalTodoDismissed(entry.id, entry.date) || linked.length > 0) continue;
+        tasksHook.handleAddTask({
+          title,
+          description: entry.content.slice(0, 200),
+          notes: "",
+          category: "important-not-urgent",
+          dueDate: entry.date,
+          isExplicit: true,
+          tags: ["日记"],
+          journalId: entry.id,
+        });
+      } else {
+        for (const task of activeLinked) {
+          if (task.journalId === entry.id) tasksHook.handleDeleteTask(task.id);
         }
-      } else if (existing) {
-        tasksHook.handleDeleteTask(existing.id);
       }
     }
   }, [journal, journalAddTodo]);
@@ -649,10 +645,9 @@ function AppBody() {
         if (cancelled) return;
         syncEngine.reloadFromStorage();
         initPlugins();
-        return fetchCompanyRoster({ force: true });
       })
       .catch((error) => {
-        console.error("Failed to read company roster", error);
+        console.error("Failed to restore storage", error);
       });
     return () => {
       cancelled = true;
@@ -674,7 +669,7 @@ function AppBody() {
           channel: state.channel,
         }),
       );
-      if (state.backend === "database" && state.channel === "database" && state.lastSyncTime) {
+      if (state.lastSyncTime) {
         setLastBackupTime(state.lastSyncTime);
       }
       setSyncConflicts(state.conflicts || []);
@@ -764,12 +759,11 @@ function AppBody() {
     countdownHook.countdowns,
   ]);
 
-  // 自动同步开关（仅 main 窗口）。先按存储里的后端纠正，避免 WebDAV 凭据抢走 database。
+  // 自动同步开关（仅 main 窗口）。
   useEffect(() => {
     if (!isHydrated || !isMainWebview()) return;
     syncEngine.reloadFromStorage();
-    const isDb = syncEngine.currentBackend === "database";
-    syncEngine.setAutoSync(isDb || customizationHook.customizationConfig.enableAutoBackup !== false);
+    syncEngine.setAutoSync(customizationHook.customizationConfig.enableAutoBackup !== false);
     return () => {
       syncEngine.setAutoSync(false);
     };
@@ -779,15 +773,13 @@ function AppBody() {
     isFirstLoad.current = false;
   }, []);
 
-  // 启动时从云端同步（仅 main 窗口，数据库优先：若配置数据库则 50ms 立即执行首轮全量拉取）
+  // 启动时从云端同步（仅 main 窗口）
   useEffect(() => {
     if (!isHydrated || !isMainWebview()) return;
     syncEngine.reloadFromStorage();
-    const isDb = syncEngine.currentBackend === "database";
-    if (!isDb && customizationHook.customizationConfig.enableAutoBackup === false) return;
+    if (customizationHook.customizationConfig.enableAutoBackup === false) return;
     if (!syncEngine.isConfigured()) return;
-    const delay = isDb ? 50 : 3000;
-    const timer = setTimeout(() => syncEngine.sync(), delay);
+    const timer = setTimeout(() => syncEngine.sync(), 3000);
     return () => clearTimeout(timer);
   }, [isHydrated, customizationHook.customizationConfig.enableAutoBackup]);
 
@@ -1050,7 +1042,7 @@ function AppBody() {
 
   // Watercolor blobs removed — clean background for calm precision design
 
-  const widgetMineTasks = useMemo(() => mineCardTasks(tasksHook.tasks), [tasksHook.tasks]);
+  const widgetMineTasks = tasksHook.tasks;
 
   // ============ FloatingNote / Widget / Main Render ============
   if (windowLabel.startsWith("note-")) {
@@ -1368,66 +1360,8 @@ const MainLayout = React.memo(function MainLayout({
   onOpenEnergyTimeBlock,
   onOpenQuickCapture,
 }: MainLayoutProps) {
-  const [workSurface, setWorkSurfaceState] = useState<WorkSurface>(() => readWorkSurface());
-  const { workbenchViews, isEnabled: isPluginEnabled, allPlugins } = usePluginRegistry();
-
-  const setWorkSurface = useCallback((next: WorkSurface) => {
-    setWorkSurfaceState(next);
-    try {
-      localStorage.setItem(WORK_SURFACE_STORAGE_KEY, next);
-    } catch {
-      /* 隐私模式或配额满时只留在这次会话里 */
-    }
-  }, []);
-
-  useEffect(() => {
-    if (workSurface === "agent" && !isPluginEnabled("pipeline")) {
-      setWorkSurface("mine");
-    }
-  }, [workSurface, isPluginEnabled, setWorkSurface]);
-  const openMineTab = useCallback(
-    (tab: AppTab) => {
-      setWorkSurface("mine");
-      setActiveTab(tab);
-    },
-    [setActiveTab, setWorkSurface],
-  );
-  const mineTasks = useMemo(() => mineCardTasks(tasks), [tasks]);
-
+  const { allPlugins } = usePluginRegistry();
   const mainContent = useMemo(() => {
-    if (workSurface === "agent") {
-      const activeWorkbench = workbenchViews.find((v) => v.viewId === "agent");
-      if (activeWorkbench) {
-        return (
-          <main className="flex-grow p-4 sm:p-6 overflow-y-auto flex flex-col min-h-0 z-10 relative custom-scrollbar">
-            {activeWorkbench.render({
-              tasks,
-              onAddTask: handleAddTaskWithAI,
-              onEditTask: handleEditTask,
-              onTaskClick: handleTaskClick,
-              onOpenSettings: () => {
-                setWorkSurface("mine");
-                setActiveTab("settings");
-              },
-            })}
-          </main>
-        );
-      }
-      return (
-        <main className="flex-grow p-4 sm:p-6 overflow-y-auto flex flex-col min-h-0 z-10 relative custom-scrollbar">
-          <AgentPanel
-            tasks={tasks}
-            onAddTask={handleAddTaskWithAI}
-            onEditTask={handleEditTask}
-            onTaskClick={handleTaskClick}
-            onOpenSettings={() => {
-              setWorkSurface("mine");
-              setActiveTab("settings");
-            }}
-          />
-        </main>
-      );
-    }
 
     return (
       <main
@@ -1691,7 +1625,7 @@ const MainLayout = React.memo(function MainLayout({
 
         {activeTab === "home" && (
           <DashboardView
-            tasks={mineTasks}
+            tasks={tasks}
             completedTasks={completedTasks}
             pomodoroLogs={pomodoroLogs}
             handleComplete={wrappedHandleComplete}
@@ -1703,7 +1637,7 @@ const MainLayout = React.memo(function MainLayout({
         )}
         {activeTab === "matrix" && (
           <MatrixView
-            tasks={mineTasks}
+            tasks={tasks}
             handleComplete={wrappedHandleComplete}
             qColors={customizationHook.customizationConfig.qColors}
             handleStartFocus={handleStartFocus}
@@ -1723,7 +1657,7 @@ const MainLayout = React.memo(function MainLayout({
         )}
         {activeTab === "list" && (
           <ListView
-            tasks={mineTasks}
+            tasks={tasks}
             searchQuery={aiHook.searchQuery}
             setSearchQuery={aiHook.setSearchQuery}
             categoryFilter={aiHook.categoryFilter}
@@ -1749,7 +1683,7 @@ const MainLayout = React.memo(function MainLayout({
         )}
         {activeTab === "calendar" && (
           <CalendarView
-            tasks={mineTasks}
+            tasks={tasks}
             handleComplete={wrappedHandleComplete}
             handleAddTask={handleAddTaskWithAI}
           />
@@ -1796,7 +1730,7 @@ const MainLayout = React.memo(function MainLayout({
           />
         )}
         {activeTab === "gantt" && (
-          <GanttView tasks={mineTasks} onTaskClick={handleTaskClick} onEditTask={handleEditTask} />
+          <GanttView tasks={tasks} onTaskClick={handleTaskClick} onEditTask={handleEditTask} />
         )}
         {activeTab === "journal" && (
           <JournalView
@@ -1856,9 +1790,6 @@ const MainLayout = React.memo(function MainLayout({
     activeTab,
     allPlugins,
     tasks,
-    mineTasks,
-    workSurface,
-    setWorkSurface,
     completedTasks,
     journal,
     t,
@@ -1913,7 +1844,7 @@ const MainLayout = React.memo(function MainLayout({
       {flowMode ? (
         <React.Suspense fallback={viewFallback}>
           <FlowMode
-            tasks={mineTasks}
+            tasks={tasks}
             pomodoroLogs={pomodoroLogs}
             handleComplete={wrappedHandleComplete}
             onExit={() => setFlowMode(false)}
@@ -1923,11 +1854,11 @@ const MainLayout = React.memo(function MainLayout({
         <div
           className={`w-full h-full min-h-screen bg-[#FAFAF8] dark:bg-[#121316] text-[#2D323A] dark:text-slate-100 flex flex-col select-none overflow-hidden relative theme-font-${fontFamily || "sans"} main-window-root`}
         >
-          <TitleBar workSurface={workSurface} onWorkSurfaceChange={setWorkSurface} />
+          <TitleBar />
           <div className="flex flex-grow min-h-0 relative">
             <Sidebar
-              activeTab={workSurface === "agent" ? "tasks" : activeTab}
-              setActiveTab={openMineTab}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
               progressPercentage={progressPercentage}
               completedTasksCount={completedTasks.length}
               tasksCount={tasks.length}
@@ -2001,9 +1932,9 @@ const MainLayout = React.memo(function MainLayout({
           {/* Mobile Bottom Navigation Bar (md:hidden) */}
           <nav className="md:hidden flex-shrink-0 border-t border-[#EFEBE4] dark:border-[#282A30] bg-[#F4EFEA]/95 dark:bg-[#16171B]/95 backdrop-blur-md px-2 py-1.5 flex items-center justify-around z-30 select-none pb-[env(safe-area-inset-bottom,4px)]">
             <button
-              onClick={() => openMineTab("matrix")}
+              onClick={() => setActiveTab("matrix")}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer ${
-                workSurface === "mine" && activeTab === "matrix"
+                activeTab === "matrix"
                   ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               }`}
@@ -2013,9 +1944,9 @@ const MainLayout = React.memo(function MainLayout({
             </button>
 
             <button
-              onClick={() => openMineTab("list")}
+              onClick={() => setActiveTab("list")}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer relative ${
-                workSurface === "mine" && activeTab === "list"
+                activeTab === "list"
                   ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               }`}
@@ -2028,9 +1959,9 @@ const MainLayout = React.memo(function MainLayout({
             </button>
 
             <button
-              onClick={() => openMineTab("analytics")}
+              onClick={() => setActiveTab("analytics")}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer relative ${
-                workSurface === "mine" && activeTab === "analytics"
+                activeTab === "analytics"
                   ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               }`}
@@ -2043,9 +1974,9 @@ const MainLayout = React.memo(function MainLayout({
             </button>
 
             <button
-              onClick={() => openMineTab("journal")}
+              onClick={() => setActiveTab("journal")}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer ${
-                workSurface === "mine" && activeTab === "journal"
+                activeTab === "journal"
                   ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               }`}
@@ -2055,9 +1986,9 @@ const MainLayout = React.memo(function MainLayout({
             </button>
 
             <button
-              onClick={() => openMineTab("settings")}
+              onClick={() => setActiveTab("settings")}
               className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl text-[10px] font-bold transition-colors cursor-pointer ${
-                workSurface === "mine" && activeTab === "settings"
+                activeTab === "settings"
                   ? "text-[#4D7C5D] dark:text-[#6FAD84]"
                   : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               }`}
@@ -2080,7 +2011,7 @@ const MainLayout = React.memo(function MainLayout({
             setCommandPaletteOpen(false);
           }}
           onNavigate={(tab) => {
-            openMineTab(tab);
+            setActiveTab(tab);
             setFlowMode(false);
           }}
           onCreateTask={() => {}}

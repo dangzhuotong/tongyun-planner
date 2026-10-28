@@ -3,53 +3,37 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { Minus, Maximize2, X } from "lucide-react";
 import { useTranslation } from "../i18n/LanguageContext";
 import logo from "../assets/logo.png";
-import { WorkbenchSwitch } from "./agents/WorkbenchSwitch";
-import { usePluginRegistry } from "../plugins/core/registry";
-import type { WorkSurface } from "../utils/workbenchView";
 
-interface TitleBarProps {
-  workSurface: WorkSurface;
-  onWorkSurfaceChange: (next: WorkSurface) => void;
-}
+export const TitleBar: React.FC = React.memo(() => {
+  const { t } = useTranslation();
+  const tb = t.titleBar;
+  const handleMinimize = () => getCurrentWebviewWindow().minimize();
+  const handleToggleMaximize = () => getCurrentWebviewWindow().toggleMaximize();
+  const handleClose = () => getCurrentWebviewWindow().hide();
 
-export const TitleBar: React.FC<TitleBarProps> = React.memo(
-  ({ workSurface, onWorkSurfaceChange }) => {
-    const { t } = useTranslation();
-    const tb = t.titleBar;
-    const { workbenchViews } = usePluginRegistry();
-    const hasWorkbenchViews = workbenchViews.length > 0;
-    const handleMinimize = () => getCurrentWebviewWindow().minimize();
-    const handleToggleMaximize = () => getCurrentWebviewWindow().toggleMaximize();
-    const handleClose = () => getCurrentWebviewWindow().hide();
-
-    return (
-      <div
-        data-tauri-drag-region
-        className="w-full h-9 flex items-center justify-between gap-2 px-4 bg-[#F4EFEA]/80 dark:bg-[#16181C]/90 border-b border-[#EFEBE4] dark:border-[#2B2D33] z-20 relative flex-shrink-0 cursor-move select-none"
-      >
-        <div data-tauri-drag-region className="flex items-center gap-2 min-w-0">
-          <div className="w-5 h-5 overflow-hidden flex items-center justify-center rounded-md">
-            <img src={logo} alt="logo" className="w-5 h-5 object-cover rounded-md" />
-          </div>
-          <span
-            data-tauri-drag-region
-            className="text-[11px] font-bold text-[#2D323A] dark:text-slate-100 tracking-wide"
-          >
-            {t.app.title}
-          </span>
-          <span
-            data-tauri-drag-region
-            className="hidden sm:inline text-[9px] text-[#8B6E3C] dark:text-[#E2C799] font-extrabold tracking-wider uppercase"
-          >
-            {tb.subtitle}
-          </span>
+  return (
+    <div
+      data-tauri-drag-region
+      className="w-full h-9 flex items-center justify-between gap-2 px-4 bg-[#F4EFEA]/80 dark:bg-[#16181C]/90 border-b border-[#EFEBE4] dark:border-[#2B2D33] z-20 relative flex-shrink-0 cursor-move select-none"
+    >
+      <div data-tauri-drag-region className="flex items-center gap-2 min-w-0">
+        <div className="w-5 h-5 overflow-hidden flex items-center justify-center rounded-md">
+          <img src={logo} alt="logo" className="w-5 h-5 object-cover rounded-md" />
         </div>
-        {hasWorkbenchViews && (
-          <div className="flex items-center justify-center shrink-0">
-            <WorkbenchSwitch value={workSurface} onChange={onWorkSurfaceChange} />
-          </div>
-        )}
-        <div className="flex items-center gap-0.5 shrink-0">
+        <span
+          data-tauri-drag-region
+          className="text-[11px] font-bold text-[#2D323A] dark:text-slate-100 tracking-wide"
+        >
+          {t.app.title}
+        </span>
+        <span
+          data-tauri-drag-region
+          className="hidden sm:inline text-[9px] text-[#8B6E3C] dark:text-[#E2C799] font-extrabold tracking-wider uppercase"
+        >
+          {tb.subtitle}
+        </span>
+      </div>
+      <div className="flex items-center gap-0.5 shrink-0">
           <button
             onClick={handleMinimize}
             onPointerDown={(e) => e.stopPropagation()}

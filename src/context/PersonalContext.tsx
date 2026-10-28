@@ -53,16 +53,12 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
       const idx = prev.findIndex((e) => e.id === entry.id);
       return idx >= 0 ? prev.map((e) => (e.id === entry.id ? entry : e)) : [entry, ...prev];
     });
-    if (syncEngine.currentBackend === "database") {
-      syncEngine.markDirty("journal");
-    }
+    syncEngine.markDirty("journal");
   }, []);
   const handleDeleteJournal = useCallback((id: string) => {
     journalRepository.delete(id);
     setJournal((prev) => prev.filter((e) => e.id !== id));
-    if (syncEngine.currentBackend === "database") {
-      syncEngine.markDirty("journal");
-    }
+    syncEngine.markDirty("journal");
   }, []);
 
   const [calendarYear, setCalendarYear] = useState<number>(new Date().getFullYear());

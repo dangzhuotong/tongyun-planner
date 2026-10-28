@@ -5,9 +5,9 @@ import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
 import { applyDueAnchor, nextRepeatingDue, withMonthlyAnchor } from "../utils/nextDueDate";
 import { scheduleStorageWrite } from "../utils/deferredStorage";
-import { taskRepository, dispatchRepository } from "../data/repositories";
-import { applyAssigneeUpdates } from "../utils/agentDispatch";
+import { taskRepository } from "../data/repositories";
 import { syncEngine } from "../utils/sync/engine";
+import { dismissJournalTodo, restoreJournalTodo } from "../utils/journalTodoLink";
 
 function createInitialTasks(): Task[] {
   const today = getLocalDateString();
@@ -61,9 +61,7 @@ export function useTasks() {
       scheduleStorageWrite("aero_todos", updatedTasks);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
       taskRepository.syncActive(updatedTasks);
-      if (syncEngine.currentBackend === "database") {
-        syncEngine.markDirty("tasks");
-      }
+      syncEngine.markDirty("tasks");
     } catch (e) {
       console.error("保存任务失败", e);
     }
@@ -74,9 +72,7 @@ export function useTasks() {
       scheduleStorageWrite("aero_completed_todos", updatedCompleted);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
       taskRepository.syncCompleted(updatedCompleted);
-      if (syncEngine.currentBackend === "database") {
-        syncEngine.markDirty("completedTasks");
-      }
+      syncEngine.markDirty("completedTasks");
     } catch (e) {
       console.error("保存已完成任务失败", e);
     }
@@ -90,9 +86,7 @@ export function useTasks() {
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
       taskRepository.syncActive(updatedTasks);
       taskRepository.syncCompleted(updatedCompleted);
-      if (syncEngine.currentBackend === "database") {
-        syncEngine.markDirty("tasks", "completedTasks");
-      }
+      syncEngine.markDirty("tasks", "completedTasks");
     } catch (e) {
       console.error("批量保存失败", e);
     }
@@ -210,6 +204,7 @@ export function useTasks() {
     (id: string, shouldSync: boolean = true) => {
       const fromActive = tasks.find((t) => t.id === id);
       const fromCompleted = !fromActive ? completedTasks.find((t) => t.id === id) : undefined;
+      const removed = fromActive || fromCompleted;
       if (fromActive) {
         setLastDeleted({ task: fromActive, wasCompleted: false });
       } else if (fromCompleted) {
@@ -217,6 +212,7 @@ export function useTasks() {
       } else {
         setLastDeleted(null);
       }
+      if (removed) dismissJournalTodo(removed);
 
       setTasks((prev) => {
         const updated = prev.filter((t) => t.id !== id);
@@ -233,11 +229,8 @@ export function useTasks() {
       scheduleStorageWrite("aero_completed_todos", filteredCompleted);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
       taskRepository.remove(id);
-      if (syncEngine.currentBackend === "database") {
-        syncEngine.markDirty(fromCompleted ? "completedTasks" : "tasks");
-      }
+      syncEngine.markDirty(fromCompleted ? "completedTasks" : "tasks");
       setDetailTaskId((prev) => (prev === id ? null : prev));
-      dispatchRepository.cancelDispatch(id);
       if (shouldSync) syncState(id, "delete");
     },
     [tasks, completedTasks, syncState],
@@ -247,6 +240,7 @@ export function useTasks() {
     (shouldSync: boolean = true) => {
       if (!lastDeleted) return;
       const { task, wasCompleted } = lastDeleted;
+      restoreJournalTodo(task);
       setLastDeleted(null);
 
       if (wasCompleted) {
@@ -405,6 +399,7 @@ export function useTasks() {
       assigneeAgentId?: Task["assigneeAgentId"];
       runStatus?: Task["runStatus"];
       pipelineTaskId?: Task["pipelineTaskId"];
+      journalId?: string;
       id?: string;
     }) => {
       const {
@@ -417,18 +412,10 @@ export function useTasks() {
         repeat,
         tags,
         priority,
-        assigneeKind,
-        assigneeAgentId,
-        runStatus,
       } = taskData;
       const taskId = taskData.id?.trim() || createId("task");
       const initialCategory = category || "important-not-urgent";
       const initialDueDate = dueDate || getLocalDateString();
-
-      const isAgent = assigneeKind === "agent" && Boolean(assigneeAgentId);
-      const finalKind = isAgent ? "agent" : "human";
-      const finalAgentId = isAgent ? assigneeAgentId : undefined;
-      const finalStatus = isAgent ? runStatus || "queued" : undefined;
 
       const newTask: Task = withMonthlyAnchor({
         id: taskId,
@@ -441,16 +428,11 @@ export function useTasks() {
         repeat: repeat || undefined,
         tags: tags || undefined,
         priority: priority || undefined,
-        assigneeKind: finalKind,
-        assigneeAgentId: finalAgentId,
-        runStatus: finalStatus,
+        assigneeKind: "human",
         pipelineTaskId: taskData.pipelineTaskId,
+        journalId: taskData.journalId,
         updatedAt: Date.now(),
       });
-
-      if (isAgent && finalAgentId) {
-        dispatchRepository.recordDispatch(taskId, finalAgentId, finalStatus);
-      }
 
       setTasks((prev) => {
         const updated = [newTask, ...prev];
@@ -482,7 +464,7 @@ export function useTasks() {
         if (!task) return prev;
         matchedInActive = true;
         const anchored = applyDueAnchor(task, updates);
-        const nextTask = applyAssigneeUpdates(anchored, updates);
+        const nextTask = { ...anchored, ...updates, updatedAt: Date.now() };
         queueMicrotask(() => {
           syncState(
             id,
@@ -504,7 +486,7 @@ export function useTasks() {
           const task = prev.find((t) => t.id === id);
           if (!task) return prev;
           const anchored = applyDueAnchor(task, updates);
-          const nextTask = applyAssigneeUpdates(anchored, updates);
+          const nextTask = { ...anchored, ...updates, updatedAt: Date.now() };
           const updated = prev.map((t) => (t.id === id ? nextTask : t));
           saveCompleted(updated);
           return updated;
@@ -536,9 +518,7 @@ export function useTasks() {
       scheduleStorageWrite("aero_completed_todos", updatedCompleted);
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
       taskRepository.syncSnapshot(updatedTasks, updatedCompleted);
-      if (syncEngine.currentBackend === "database") {
-        syncEngine.markDirty("tasks", "completedTasks");
-      }
+      syncEngine.markDirty("tasks", "completedTasks");
     } catch (e) {
       console.error("整包替换任务失败", e);
     }
@@ -557,9 +537,7 @@ export function useTasks() {
     taskRepository.removeCompleted();
     scheduleStorageWrite("aero_completed_todos", []);
     scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
-    if (syncEngine.currentBackend === "database") {
-      syncEngine.markDirty("completedTasks");
-    }
+    syncEngine.markDirty("completedTasks");
     syncState("clear_completed", "clear_completed");
   }, [syncState]);
 

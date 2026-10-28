@@ -36,10 +36,9 @@ const zhCN: Translations = {
     unlockWidget: "挂件解锁",
     reset: "重置演示",
     syncSynced: "已同步",
-    syncSyncing: "正在同步数据库…",
-    syncError: "数据库同步失败",
-    syncStatusHint:
-      "侧栏只表示个人远端库有没有写上。没在写远端库时保持已同步。WebDAV / 坚果云自动备份失败留在设置里，不会在这里显示。工人名单读失败和派活写失败只在 Agent 面板说明。",
+    syncSyncing: "正在同步…",
+    syncError: "同步失败",
+    syncStatusHint: "WebDAV 云端同步状态。已同步表示本地数据与云端保持一致。",
     decreaseMin: "减少1分钟",
     increaseMin: "增加1分钟",
     pause: "暂停",

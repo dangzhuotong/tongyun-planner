@@ -36,10 +36,9 @@ const en: Translations = {
     unlockWidget: "Unlock Widget",
     reset: "Reset Demo",
     syncSynced: "Synced",
-    syncSyncing: "Syncing database…",
-    syncError: "Database sync failed",
-    syncStatusHint:
-      "The sidebar only shows whether a personal remote-database write succeeded. It stays synced otherwise. WebDAV auto-backup failures stay in Settings. Worker-list reads and dispatch failures stay in the Agent panel.",
+    syncSyncing: "Syncing…",
+    syncError: "Sync failed",
+    syncStatusHint: "WebDAV cloud sync status. Synced indicates local data is consistent with the cloud.",
     decreaseMin: "Decrease 1 min",
     increaseMin: "Increase 1 min",
     pause: "Pause",

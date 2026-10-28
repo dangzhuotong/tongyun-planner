@@ -58,11 +58,9 @@
 - 本地 `journal` 为空且远端非空时，**强制跳过上传**并拉回远端，严禁开发期以空本地冲掉远端数据。
 - 启动期注入的示例任务（id 为纯数字）不得覆盖远端真实用户待办。
 
-### ⑤ 派活名单以有心跳的工人为准
-- Agent 下拉、筛选、派活人选只列 `tongyun_pipeline.workers` 里 enabled 且有 `last_seen` / 心跳的人（含 cursor-cloud）。
-- `agents` 只给对得上的工人补显示名。没有 worker 心跳的成员不进派活名单。不另加显示用的 DDL 列。
-- 本机 `domain_agents` 只在没配 DSN、且没有公司库缓存时作离线兜底，不是真相源。配了 DSN 时读库失败不得用本机静态登记顶上。
-- 细则见 [docs/planner-db-ssot-not-local-roster.md](docs/planner-db-ssot-not-local-roster.md)。
+### ⑤ 开源版云同步与个人手帐边界
+- 开源版云端同步仅支持 WebDAV（含坚果云内置预设与标准自建 WebDAV），配合本地 SQLite / localStorage 存储。
+- 远端同构 SQL 数据库全表同步与团队 Pipeline Agent 派活调度能力移出本开源仓库（后续独立开库维护），保持手帐本地优先与纯粹个人效率工具定位。
 
 ---
 

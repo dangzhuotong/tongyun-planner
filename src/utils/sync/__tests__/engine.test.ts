@@ -75,58 +75,19 @@ describe("SyncEngine dirty persistence and offline", () => {
     expect(JSON.parse(localStorage.getItem("tongyun_sync_dirty") || "[]")).toEqual(["tasks"]);
   });
 
-  it("keeps the database backend when WebDAV credentials are still present", async () => {
-    localStorage.setItem("tongyun_sync_backend", "database");
-    localStorage.setItem("tongyun_webdav_url", "https://dav.jianguoyun.com/dav/");
-    localStorage.setItem("tongyun_webdav_user", "user@test.com");
-    const { SyncEngine } = await import("../engine");
-    const engine = new SyncEngine();
-    expect(engine.currentBackend).toBe("database");
-  });
-
-  it("clears a WebDAV failure after storage says the backend is the database", async () => {
-    Object.defineProperty(globalThis, "navigator", {
-      value: { onLine: false },
-      configurable: true,
-    });
+  it("defaults to WebDAV backend when WebDAV credentials are present", async () => {
+    localStorage.removeItem("tongyun_sync_backend");
     localStorage.setItem("tongyun_webdav_url", "https://dav.jianguoyun.com/dav/");
     localStorage.setItem("tongyun_webdav_user", "user@test.com");
     const { SyncEngine } = await import("../engine");
     const engine = new SyncEngine();
     expect(engine.currentBackend).toBe("webdav");
-    await engine.sync();
-    expect(engine.status).toBe("offline");
-    expect(engine.statusChannel).toBe("webdav");
-    localStorage.setItem("tongyun_sync_backend", "database");
-    engine.reloadFromStorage();
-    expect(engine.currentBackend).toBe("database");
-    expect(engine.status).toBe("idle");
-    expect(engine.statusChannel).toBe("none");
   });
 
-  it("does not paint a database-channel failure when the DSN is not restored yet", async () => {
-    localStorage.setItem("tongyun_sync_backend", "database");
-    localStorage.removeItem("tongyun_remote_dsn");
-    const { setRemoteDatabaseOverrideForTesting } = await import("../remoteDbSync");
-    setRemoteDatabaseOverrideForTesting(null);
+  it("handles backend set to none", async () => {
+    localStorage.setItem("tongyun_sync_backend", "none");
     const { SyncEngine } = await import("../engine");
-    const { sidebarStatusFromSync } = await import("../sidebarDbStatus");
     const engine = new SyncEngine();
-    await engine.sync();
-    expect(engine.currentBackend).toBe("database");
-    expect(engine.status).toBe("error");
-    expect(engine.errorMessage).toBe("未配置同步后端");
-    expect(engine.statusChannel).toBe("none");
-    expect(
-      sidebarStatusFromSync({
-        backend: engine.currentBackend,
-        status: engine.status,
-        channel: engine.statusChannel,
-      }),
-    ).toBe("synced");
-    localStorage.setItem("tongyun_remote_dsn", "mysql://user:pass@host:4000/tongyun_personal");
-    engine.reloadFromStorage();
-    expect(engine.status).toBe("idle");
-    expect(engine.statusChannel).toBe("none");
+    expect(engine.currentBackend).toBe("none");
   });
 });

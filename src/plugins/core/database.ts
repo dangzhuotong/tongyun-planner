@@ -196,12 +196,7 @@ export async function getPluginDatabase(
       rawDb = await DatabaseClass.load(dbFile);
       effectiveType = "sqlite";
     } else if (dbConfig.type === "shared") {
-      // 复用手帐主配置 DSN
-      const { getRemoteDsn, loadRemoteDatabase } = await import(
-        "../../utils/sync/remoteDbSync"
-      );
-      rawDb = await loadRemoteDatabase(getRemoteDsn() ?? undefined);
-      effectiveType = "remote";
+      rawDb = null;
     } else if (dbConfig.type === "remote") {
       const dsn =
         dbConfig.remoteDsnKey && typeof localStorage !== "undefined"

@@ -9,9 +9,12 @@ export function beginSyncApply(): void {
 }
 
 export function endSyncApply(): void {
-  // 延后到本轮 React effect 跑完再清，保证脏检测能看到 guard
+  // React 在 promise / 原生事件里的 effect 可能排在第一个 setTimeout(0) 之后。
+  // 多等一轮，避免同步回写被当成用户修改，马上再标脏再同步。
   setTimeout(() => {
-    depth = Math.max(0, depth - 1);
+    setTimeout(() => {
+      depth = Math.max(0, depth - 1);
+    }, 0);
   }, 0);
 }
 

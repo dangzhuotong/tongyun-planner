@@ -10,7 +10,7 @@ import {
   Unlock,
   Lock,
   Settings,
-  Database,
+  Cloud,
   RefreshCw,
   Target,
   ChevronDown,
@@ -156,7 +156,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     // 动态插件扩展挂载
     const { allPlugins, isEnabled: isPluginEnabled } = usePluginRegistry();
     const enabledCustomPlugins = allPlugins.filter(
-      (p) => p.manifest.id !== "pipeline" && isPluginEnabled(p.manifest.id),
+      (p) => isPluginEnabled(p.manifest.id),
     );
 
     const commitMinutes = (raw: string) => {
@@ -1036,9 +1036,9 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
 
         {/* Bottom section */}
         <div className="space-y-1 pt-2 border-t border-slate-200/60 dark:border-[#282A30] flex-shrink-0">
-          {/* 数据库同步状态 */}
+          {/* WebDAV 同步状态 */}
           <div
-            data-sync-channel="database"
+            data-sync-channel="webdav"
             title={s.syncStatusHint}
             className={`pb-1 text-[9px] flex items-center text-slate-500 dark:text-slate-400 font-medium border-b border-slate-100 dark:border-[#282A30] mb-0.5 select-none ${isCollapsed ? "justify-center" : "justify-between"}`}
           >
@@ -1046,9 +1046,9 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
               {syncStatus === "syncing" ? (
                 <RefreshCw className="w-3 h-3 text-[#4D7C5D] dark:text-[#78C496] animate-spin" />
               ) : syncStatus === "error" ? (
-                <Database className="w-3 h-3 text-red-400" />
+                <Cloud className="w-3 h-3 text-red-400" />
               ) : (
-                <Database className="w-3 h-3 text-[#4D7C5D] dark:text-[#78C496]" />
+                <Cloud className="w-3 h-3 text-[#4D7C5D] dark:text-[#78C496]" />
               )}
               {!isCollapsed && (
                 <span>

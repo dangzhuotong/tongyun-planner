@@ -15,7 +15,7 @@ export function sidebarStatusFromSync(input: {
   status: SyncStatus;
   channel?: SyncStatusChannel;
 }): SidebarDbStatus {
-  if (input.backend !== "database" || input.channel !== "database") return "synced";
+  if (input.backend === "none") return "synced";
   if (input.status === "syncing") return "syncing";
   if (input.status === "error") return "error";
   return "synced";
