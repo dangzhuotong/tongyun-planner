@@ -71,14 +71,10 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
   const [syncingIcal, setSyncingIcal] = useState(false);
   const [icalStatus, setIcalStatus] = useState<{ msg: string; isError: boolean } | null>(null);
 
-  // 配置里的订阅地址变化时同步输入框。
-  // 采用 React 官方的「渲染期派生 state」模式：与上次记录的地址不同才更新，
-  // 避免在 effect 里 setState 触发级联渲染。
-  const [syncedIcalUrl, setSyncedIcalUrl] = useState(config.calendarIcalUrl || "");
-  if (config.calendarIcalUrl !== syncedIcalUrl) {
-    setSyncedIcalUrl(config.calendarIcalUrl || "");
+  // 配置里的订阅地址变化时同步输入框
+  useEffect(() => {
     setIcalInputUrl(config.calendarIcalUrl || "");
-  }
+  }, [config.calendarIcalUrl]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
