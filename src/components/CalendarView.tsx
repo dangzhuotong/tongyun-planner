@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Calendar, Coffee, Plus, Trash2 } from "lucide-react";
-import type { Task, TimeBlock } from "../types";
+import type { Task, TimeBlock, CustomizationConfig } from "../types";
 import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
 import LunarLib from "lunar-javascript";
@@ -8,13 +8,12 @@ import { getLocalDateString } from "../utils/date";
 import { safeJsonParse } from "../utils/json";
 import { createId } from "../utils/id";
 import { usePersonal } from "../context/PersonalContext";
-
-const FIXED_FESTIVALS: Record<string, string> = {
-  "01-01": "元旦",
-  "05-01": "劳动节",
-  "10-01": "国庆节",
-  "12-25": "圣诞节",
-};
+import {
+  resolveDayHolidayMeta,
+  loadCachedICalHolidays,
+  getRegionIcalUrl,
+  type HolidayMap,
+} from "../utils/holiday";
 
 interface CalendarViewProps {
   tasks: Task[];
@@ -28,10 +27,11 @@ interface CalendarViewProps {
     dueTime?: string;
     isExplicit?: boolean;
   }) => void;
+  config?: CustomizationConfig;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = React.memo(
-  ({ tasks, handleComplete, handleAddTask }) => {
+  ({ tasks, handleComplete, handleAddTask, config }) => {
     const {
       calendarYear,
       setCalendarYear,
@@ -43,6 +43,24 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
     const { t } = useTranslation();
     const cv = t.calendarView;
     const m = t.matrix;
+
+    const [viewMode, setViewMode] = useState<"month" | "week">("month");
+    const showHolidays = config?.calendarShowHolidays ?? true;
+    const holidayRegion = config?.calendarHolidayRegion ?? "cn";
+    // 当前生效的 iCal 订阅地址：用户自定义优先，否则取该地区的官方订阅地址
+    const activeIcalUrl = config?.calendarIcalUrl || getRegionIcalUrl(holidayRegion);
+
+    // 自定义 iCal 数据缓存（按订阅地址分区，切换地区/改地址不会串数据）
+    const [customHolidays, setCustomHolidays] = useState<HolidayMap>(() =>
+      loadCachedICalHolidays(
+        config?.calendarIcalUrl || getRegionIcalUrl(config?.calendarHolidayRegion ?? "cn"),
+      ),
+    );
+
+    useEffect(() => {
+      setCustomHolidays(loadCachedICalHolidays(activeIcalUrl));
+    }, [activeIcalUrl]);
+
     // Pre-group tasks by due date using useMemo to convert O(N) filters to O(1) lookups
     const tasksByDueDate = useMemo(() => {
       const map: Record<string, Task[]> = {};
@@ -57,36 +75,6 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       return map;
     }, [tasks]);
 
-    // 联网获取节假日数据（含调休），缓存在 localStorage
-    const [holidayData, setHolidayData] = useState<Record<string, string>>({});
-    useEffect(() => {
-      const cacheKey = `tongyun_holidays_v2_${calendarYear}`;
-      try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          setHolidayData(safeJsonParse(cached, {}));
-          return;
-        }
-      } catch {
-        /* ignore cache error */
-      }
-      fetch(`https://timor.tech/api/holiday/year/${calendarYear}`)
-        .then((r) => r.json())
-        .then((data: any) => {
-          if (data.code === 0 && data.holiday) {
-            const map: Record<string, string> = {};
-            for (const [date, info] of Object.entries(data.holiday)) {
-              const entry = info as any;
-              const key = `${calendarYear}-${date}`;
-              map[key] = entry.holiday ? `休:${entry.name}` : `班:${entry.name}`;
-            }
-            localStorage.setItem(cacheKey, JSON.stringify(map));
-            setHolidayData(map);
-          }
-        })
-        .catch(() => {});
-    }, [calendarYear]);
-
     // 时间块规划
     const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>(() =>
       safeJsonParse(localStorage.getItem("tongyun_timeblocks") || "[]", []),
@@ -100,19 +88,24 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       localStorage.setItem("tongyun_timeblocks", JSON.stringify(timeBlocks));
     }, [timeBlocks]);
 
+    const effectiveSelectedDate =
+      selectedCalendarDate && !isNaN(new Date(`${selectedCalendarDate}T00:00:00`).getTime())
+        ? selectedCalendarDate
+        : getLocalDateString();
+
     const selectedDateBlocks = useMemo(
       () =>
         timeBlocks
-          .filter((b) => b.date === selectedCalendarDate)
+          .filter((b) => b.date === effectiveSelectedDate)
           .sort((a, b) => a.startTime.localeCompare(b.startTime)),
-      [timeBlocks, selectedCalendarDate],
+      [timeBlocks, effectiveSelectedDate],
     );
 
     const addTimeBlock = () => {
       if (!newBlockTitle.trim()) return;
       const block: TimeBlock = {
         id: createId("tb"),
-        date: selectedCalendarDate,
+        date: effectiveSelectedDate,
         startTime: newBlockStart,
         endTime: newBlockEnd,
         title: newBlockTitle.trim(),
@@ -129,31 +122,13 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
 
     const getDayMeta = useCallback(
       (dateStr: string) => {
-        const date = new Date(dateStr);
-        const dayOfWeek = date.getDay();
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        const entry = holidayData[dateStr];
-        if (entry) {
-          const [type, ...nameParts] = entry.split(":");
-          const name = nameParts.join(":");
-          return {
-            type: type as "休" | "班",
-            label: type,
-            name,
-            isWeekend,
-          };
-        }
-        // 固定节日兜底 (如圣诞节)
-        const fixedName = FIXED_FESTIVALS[dateStr.slice(5)];
-        if (fixedName) {
-          return { type: "休" as const, label: "休", name: fixedName, isWeekend };
-        }
-        if (isWeekend) {
-          return { type: "weekend" as const, label: "休", name: "周末", isWeekend: true };
-        }
-        return { type: "workday" as const, label: "" as const, name: "", isWeekend: false };
+        return resolveDayHolidayMeta(dateStr, {
+          showHolidays,
+          customHolidays,
+          region: holidayRegion,
+        });
       },
-      [holidayData],
+      [showHolidays, customHolidays, holidayRegion],
     );
 
     const getLunarDate = (dateStr: string) => {
@@ -179,15 +154,15 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
 
         return dayTasks
           .slice(0, 3)
-          .map((t) => (
+          .map((tk) => (
             <span
-              key={t.id}
+              key={tk.id}
               className={`w-1 h-1 rounded-full ${
-                t.category === "urgent-important"
+                tk.category === "urgent-important"
                   ? "bg-[#E8A0BF]"
-                  : t.category === "important-not-urgent"
+                  : tk.category === "important-not-urgent"
                     ? "bg-[#C4D7B2]"
-                    : t.category === "urgent-not-important"
+                    : tk.category === "urgent-not-important"
                       ? "bg-[#B2C8DF]"
                       : "bg-[#F5EBEB]"
               }`}
@@ -197,6 +172,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       [tasksByDueDate],
     );
 
+    // 月历 42 格计算
     const dayGrid = useMemo(() => {
       const firstDayIndex = new Date(calendarYear, calendarMonth, 1).getDay();
       const totalDays = new Date(calendarYear, calendarMonth + 1, 0).getDate();
@@ -215,10 +191,18 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
           <button
             key={`prev-${dayNum}`}
             onClick={() => setSelectedCalendarDate(dateStr)}
-            className={`h-11 rounded-xl text-[10px] font-bold text-slate-300 dark:text-slate-600 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] transition-all flex flex-col items-center justify-between py-1 border border-transparent cursor-pointer ${selectedCalendarDate === dateStr ? "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42]" : ""}`}
+            className={`h-11 rounded-xl text-[10px] font-bold text-slate-300 dark:text-slate-600 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] transition-all flex flex-col items-center justify-between py-1 border border-transparent cursor-pointer ${
+              selectedCalendarDate === dateStr
+                ? "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42]"
+                : ""
+            }`}
           >
             <span className="flex items-center gap-0.5">
-              {prevMeta.label && <span className="text-[4px] opacity-40">{prevMeta.label}</span>}
+              {prevMeta.label && (
+                <span className="text-[5px] px-0.5 rounded font-extrabold opacity-60">
+                  {prevMeta.label}
+                </span>
+              )}
               <span>{dayNum}</span>
             </span>
             <div className="flex gap-0.5 justify-center w-full min-h-[4px]">
@@ -240,22 +224,22 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
           "bg-white dark:bg-[#202227] border-[#FAF8F5] dark:border-[#282A30] text-slate-700 dark:text-slate-200";
         let badgeText = "";
         let badgeStyle = "";
-        if (meta.type === "休") {
+
+        if (meta.label === "休") {
           cellStyle =
             "bg-[#FFF5F3] dark:bg-[#331D1A] border-[#FFD9D0] dark:border-[#4D2822] text-[#D4380D] dark:text-[#F06A4B]";
           badgeText = "休";
           badgeStyle = "bg-[#D4380D] text-white";
-        } else if (meta.type === "班") {
+        } else if (meta.label === "班") {
           cellStyle =
             "bg-[#FAFAFA] dark:bg-[#24272E] border-[#E8E4DE] dark:border-[#353A45] text-slate-500 dark:text-slate-400";
           badgeText = "班";
           badgeStyle = "bg-slate-400 text-white";
-        } else if (meta.type === "weekend") {
+        } else if (meta.isWeekend) {
           cellStyle =
             "bg-[#FFF9F5] dark:bg-[#2A231F] border-[#F5EDE8] dark:border-[#3D332D] text-[#B88A6B] dark:text-[#D1A88A]";
-          badgeText = "休";
-          badgeStyle = "bg-[#B88A6B]/70 text-white";
         }
+
         if (isToday)
           cellStyle =
             "bg-[#F0F5F1] dark:bg-[#212E24] border-[#C4D7B2] dark:border-[#3C5B43] text-[#4D7C5D] dark:text-[#6FAD84] font-extrabold";
@@ -281,7 +265,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
               <span>{dayNum}</span>
             </span>
             <div className="flex gap-0.5 justify-center w-full min-h-[4px]">
-              {meta.type === "休" || meta.type === "班" ? (
+              {meta.label === "休" || meta.label === "班" ? (
                 <span className="text-[5px] text-inherit font-bold truncate max-w-[28px] leading-none opacity-60">
                   {meta.name.length > 3 ? meta.name.slice(0, 3) : meta.name}
                 </span>
@@ -304,10 +288,18 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
           <button
             key={`next-${dayNum}`}
             onClick={() => setSelectedCalendarDate(dateStr)}
-            className={`h-11 rounded-xl text-[10px] font-bold text-slate-300 dark:text-slate-600 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] transition-all flex flex-col items-center justify-between py-1 border border-transparent cursor-pointer ${selectedCalendarDate === dateStr ? "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42]" : ""}`}
+            className={`h-11 rounded-xl text-[10px] font-bold text-slate-300 dark:text-slate-600 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] transition-all flex flex-col items-center justify-between py-1 border border-transparent cursor-pointer ${
+              selectedCalendarDate === dateStr
+                ? "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42]"
+                : ""
+            }`}
           >
             <span className="flex items-center gap-0.5">
-              {nextMeta.label && <span className="text-[4px] opacity-40">{nextMeta.label}</span>}
+              {nextMeta.label && (
+                <span className="text-[5px] px-0.5 rounded font-extrabold opacity-60">
+                  {nextMeta.label}
+                </span>
+              )}
               <span>{dayNum}</span>
             </span>
             <div className="flex gap-0.5 justify-center w-full min-h-[4px]">
@@ -327,35 +319,134 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       setSelectedCalendarDate,
     ]);
 
+    // 周视图 7 天计算 (以当前选中日期所在周：周日 ~ 周六)
+    const weekDays = useMemo(() => {
+      const selected = new Date(`${selectedCalendarDate}T00:00:00`);
+      const baseDate = isNaN(selected.getTime()) ? new Date() : selected;
+      const dayOfWeek = baseDate.getDay(); // 0 是周日
+      const sunday = new Date(baseDate);
+      sunday.setDate(baseDate.getDate() - dayOfWeek);
+
+      const days: {
+        dateStr: string;
+        dayNum: number;
+        weekdayIndex: number;
+        meta: ReturnType<typeof getDayMeta>;
+        tasks: Task[];
+        isToday: boolean;
+        isSelected: boolean;
+      }[] = [];
+
+      const todayStr = getLocalDateString();
+      for (let i = 0; i < 7; i++) {
+        const cur = new Date(sunday);
+        cur.setDate(sunday.getDate() + i);
+        const dateStr = getLocalDateString(cur);
+        days.push({
+          dateStr,
+          dayNum: cur.getDate(),
+          weekdayIndex: i,
+          meta: getDayMeta(dateStr),
+          tasks: tasksByDueDate[dateStr] || [],
+          isToday: dateStr === todayStr,
+          isSelected: dateStr === selectedCalendarDate,
+        });
+      }
+      return days;
+    }, [selectedCalendarDate, getDayMeta, tasksByDueDate]);
+
     const selectedDayTasks = tasksByDueDate[selectedCalendarDate] || [];
+
+    const handleNavigate = (direction: -1 | 1) => {
+      if (viewMode === "month") {
+        if (direction === -1) {
+          if (calendarMonth === 0) {
+            setCalendarMonth(11);
+            setCalendarYear((y) => y - 1);
+          } else {
+            setCalendarMonth((m) => m - 1);
+          }
+        } else {
+          if (calendarMonth === 11) {
+            setCalendarMonth(0);
+            setCalendarYear((y) => y + 1);
+          } else {
+            setCalendarMonth((m) => m + 1);
+          }
+        }
+      } else {
+        // 周视图：按周加减 7 天
+        const cur = new Date(`${selectedCalendarDate}T00:00:00`);
+        if (!isNaN(cur.getTime())) {
+          cur.setDate(cur.getDate() + direction * 7);
+          const newDateStr = getLocalDateString(cur);
+          setSelectedCalendarDate(newDateStr);
+          setCalendarYear(cur.getFullYear());
+          setCalendarMonth(cur.getMonth());
+        }
+      }
+    };
+
+    const handleBackToToday = () => {
+      const today = new Date();
+      setCalendarYear(today.getFullYear());
+      setCalendarMonth(today.getMonth());
+      setSelectedCalendarDate(getLocalDateString(today));
+    };
 
     return (
       <div className="animate-fade-in-up flex flex-col gap-4 flex-grow z-10 relative select-none">
         <div className="grid grid-cols-3 gap-6 flex-grow">
-          {/* 月历网格页 */}
-          <div className="col-span-2 rounded-2xl bg-white/90 dark:bg-[#1E2025]/95 border border-[#EFEBE4] dark:border-[#33353A] p-5 flex flex-col shadow-sm min-h-[420px]">
-            {/* 日历导航 */}
+          {/* 左侧日历网格页 (月视图 / 周视图) */}
+          <div className="col-span-2 rounded-2xl bg-white/90 dark:bg-[#1E2025]/95 border border-[#EFEBE4] dark:border-[#33353A] p-5 flex flex-col shadow-sm min-h-[440px]">
+            {/* 日历导航栏 */}
             <div className="flex items-center justify-between pb-3 border-b border-[#EFEBE4] dark:border-[#33353A] mb-4">
-              <h3 className="text-sm font-bold text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-[#4D7C5D] dark:text-[#6DAF7E]" />
-                <span>
-                  {cv.yearMonth
-                    .replace("{year}", String(calendarYear))
-                    .replace("{month}", String(calendarMonth + 1))}
-                </span>
-              </h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-bold text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-[#4D7C5D] dark:text-[#6DAF7E]" />
+                  <span>
+                    {viewMode === "month"
+                      ? cv.yearMonth
+                          .replace("{year}", String(calendarYear))
+                          .replace("{month}", String(calendarMonth + 1))
+                      : `${calendarYear}年${calendarMonth + 1}月 · ${selectedCalendarDate}`}
+                  </span>
+                </h3>
+
+                {/* 视图切换 (月视图 / 周视图) */}
+                <div className="flex items-center bg-[#FAF8F5] dark:bg-[#282A30] p-0.5 rounded-lg border border-[#EFEBE4] dark:border-[#33353A]">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("month")}
+                    className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                      viewMode === "month"
+                        ? "bg-white dark:bg-[#1E2025] text-[#4D7C5D] dark:text-[#6DAF7E] shadow-xs"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                    }`}
+                  >
+                    {cv.monthView || "月视图"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("week")}
+                    className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                      viewMode === "week"
+                        ? "bg-white dark:bg-[#1E2025] text-[#4D7C5D] dark:text-[#6DAF7E] shadow-xs"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                    }`}
+                  >
+                    {cv.weekView || "周视图"}
+                  </button>
+                </div>
+              </div>
+
+              {/* 翻页与回到今天 */}
               <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => {
-                    if (calendarMonth === 0) {
-                      setCalendarMonth(11);
-                      setCalendarYear((y) => y - 1);
-                    } else {
-                      setCalendarMonth((m) => m - 1);
-                    }
-                  }}
+                  type="button"
+                  onClick={() => handleNavigate(-1)}
                   className="p-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#33353A] hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
-                  title={cv.prevMonth}
+                  title={viewMode === "month" ? cv.prevMonth : "上一周"}
                 >
                   <svg
                     className="w-3.5 h-3.5"
@@ -372,27 +463,17 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                   </svg>
                 </button>
                 <button
-                  onClick={() => {
-                    const today = new Date();
-                    setCalendarYear(today.getFullYear());
-                    setCalendarMonth(today.getMonth());
-                    setSelectedCalendarDate(getLocalDateString(today));
-                  }}
+                  type="button"
+                  onClick={handleBackToToday}
                   className="text-[10px] px-3 py-1.5 rounded-lg bg-[#4D7C5D] hover:bg-[#3D6A4F] text-white font-extrabold transition-all cursor-pointer shadow-sm"
                 >
                   {cv.backToToday}
                 </button>
                 <button
-                  onClick={() => {
-                    if (calendarMonth === 11) {
-                      setCalendarMonth(0);
-                      setCalendarYear((y) => y + 1);
-                    } else {
-                      setCalendarMonth((m) => m + 1);
-                    }
-                  }}
+                  type="button"
+                  onClick={() => handleNavigate(1)}
                   className="p-1.5 rounded-lg border border-[#EFEBE4] dark:border-[#33353A] hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
-                  title={cv.nextMonth}
+                  title={viewMode === "month" ? cv.nextMonth : "下一周"}
                 >
                   <svg
                     className="w-3.5 h-3.5"
@@ -411,19 +492,114 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
               </div>
             </div>
 
-            {/* 星期行标 */}
-            <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-extrabold uppercase tracking-wider mb-2">
-              <span className="text-[#D4380D]/60 dark:text-[#F06A4B]/80">{cv.sun}</span>
-              <span className="text-slate-400 dark:text-slate-500">{cv.mon}</span>
-              <span className="text-slate-400 dark:text-slate-500">{cv.tue}</span>
-              <span className="text-slate-400 dark:text-slate-500">{cv.wed}</span>
-              <span className="text-slate-400 dark:text-slate-500">{cv.thu}</span>
-              <span className="text-slate-400 dark:text-slate-500">{cv.fri}</span>
-              <span className="text-[#D4380D]/60 dark:text-[#F06A4B]/80">{cv.sat}</span>
-            </div>
+            {viewMode === "month" ? (
+              <>
+                {/* 星期行标 */}
+                <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-extrabold uppercase tracking-wider mb-2">
+                  <span className="text-[#D4380D]/60 dark:text-[#F06A4B]/80">{cv.sun}</span>
+                  <span className="text-slate-400 dark:text-slate-500">{cv.mon}</span>
+                  <span className="text-slate-400 dark:text-slate-500">{cv.tue}</span>
+                  <span className="text-slate-400 dark:text-slate-500">{cv.wed}</span>
+                  <span className="text-slate-400 dark:text-slate-500">{cv.thu}</span>
+                  <span className="text-slate-400 dark:text-slate-500">{cv.fri}</span>
+                  <span className="text-[#D4380D]/60 dark:text-[#F06A4B]/80">{cv.sat}</span>
+                </div>
 
-            {/* 日期格子容器 */}
-            <div className="grid grid-cols-7 gap-2 flex-grow">{dayGrid}</div>
+                {/* 42 单元格月历容器 */}
+                <div className="grid grid-cols-7 gap-2 flex-grow">{dayGrid}</div>
+              </>
+            ) : (
+              /* 周视图容器：7 列卡片 */
+              <div className="grid grid-cols-7 gap-2 flex-grow">
+                {weekDays.map((day) => {
+                  const weekdayLabels = [cv.sun, cv.mon, cv.tue, cv.wed, cv.thu, cv.fri, cv.sat];
+                  const label = weekdayLabels[day.weekdayIndex];
+                  const isWeekendDay = day.weekdayIndex === 0 || day.weekdayIndex === 6;
+
+                  const cardBorder = day.isSelected
+                    ? "border-[#A34E36] dark:border-[#E27760] bg-[#FCF2F0]/40 dark:bg-[#3A2225]/40"
+                    : day.isToday
+                      ? "border-[#4D7C5D] dark:border-[#6FAD84] bg-[#F0F5F1]/50 dark:bg-[#212E24]/40"
+                      : "border-[#EFEBE4] dark:border-[#33353A] bg-white/70 dark:bg-[#202227]/70";
+
+                  return (
+                    <div
+                      key={day.dateStr}
+                      onClick={() => setSelectedCalendarDate(day.dateStr)}
+                      className={`rounded-xl border p-2 flex flex-col justify-between transition-all cursor-pointer hover:shadow-xs ${cardBorder}`}
+                    >
+                      {/* 顶部：周几与日期 */}
+                      <div className="border-b border-[#EFEBE4]/60 dark:border-[#33353A]/60 pb-1.5 mb-1.5">
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`text-[9px] font-extrabold ${
+                              isWeekendDay
+                                ? "text-[#D4380D]/80 dark:text-[#F06A4B]"
+                                : "text-slate-400 dark:text-slate-500"
+                            }`}
+                          >
+                            {label}
+                          </span>
+                          <span
+                            className={`text-[11px] font-black ${
+                              day.isToday
+                                ? "text-[#4D7C5D] dark:text-[#6FAD84]"
+                                : "text-slate-700 dark:text-slate-200"
+                            }`}
+                          >
+                            {day.dayNum}
+                          </span>
+                        </div>
+
+                        {/* 节假日 / 调休标签 */}
+                        <div className="flex items-center justify-between mt-1 min-h-[14px]">
+                          {day.meta.label === "休" ? (
+                            <span className="text-[7px] px-1 py-0.2 rounded font-extrabold bg-[#D4380D] text-white">
+                              休
+                            </span>
+                          ) : day.meta.label === "班" ? (
+                            <span className="text-[7px] px-1 py-0.2 rounded font-extrabold bg-slate-500 text-white">
+                              班
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+                          {day.meta.name && (day.meta.label === "休" || day.meta.label === "班") && (
+                            <span className="text-[6px] text-slate-500 dark:text-slate-400 font-bold truncate max-w-[42px]">
+                              {day.meta.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 中间：当日任务预览 */}
+                      <div className="flex-grow space-y-1 overflow-y-auto max-h-[220px] custom-scrollbar pr-0.5">
+                        {day.tasks.length > 0 ? (
+                          day.tasks.map((task) => (
+                            <div
+                              key={task.id}
+                              className="text-[8px] p-1 rounded bg-[#FAF8F5] dark:bg-[#26282E] border border-[#EFEBE4]/50 dark:border-[#33353A] truncate font-medium text-slate-600 dark:text-slate-300"
+                              title={task.title}
+                            >
+                              • {task.title}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-[7px] text-slate-300 dark:text-slate-600 text-center py-4">
+                            -
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 底部点状指示 */}
+                      <div className="flex gap-0.5 justify-center pt-1 min-h-[6px]">
+                        {renderDayDots(day.dateStr)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* 右侧面板: 上=当日信息 下=待办列 */}
@@ -434,7 +610,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                 <div className="relative flex items-start justify-between">
                   <div>
                     <h4 className="text-[11px] font-extrabold text-[#2D323A] dark:text-slate-100">
-                      {new Date(selectedCalendarDate).toLocaleDateString("zh-CN", {
+                      {new Date(`${effectiveSelectedDate}T00:00:00`).toLocaleDateString("zh-CN", {
                         year: "numeric",
                         month: "long",
                         day: "numeric",
@@ -442,7 +618,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                       })}
                     </h4>
                     {(() => {
-                      const lunar = getLunarDate(selectedCalendarDate);
+                      const lunar = getLunarDate(effectiveSelectedDate);
                       if (!lunar) return null;
                       return (
                         <p className="text-[9px] text-slate-400 font-bold mt-0.5 tracking-wide">
@@ -452,22 +628,17 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                     })()}
                   </div>
                   {(() => {
-                    const meta = getDayMeta(selectedCalendarDate);
-                    if (meta.type === "workday") return null;
-                    const config: Record<
+                    const meta = getDayMeta(effectiveSelectedDate);
+                    if (!meta.label) return null;
+                    const badgeConfig: Record<
                       string,
                       { bg: string; text: string; icon: string; label: string }
                     > = {
                       休: { bg: "bg-[#D4380D]", text: "text-white", icon: "🎉", label: "休" },
-                      班: { bg: "bg-slate-400", text: "text-white", icon: "📅", label: "班" },
-                      weekend: {
-                        bg: "bg-[#B88A6B]/70",
-                        text: "text-white",
-                        icon: "🌤",
-                        label: "休",
-                      },
+                      班: { bg: "bg-slate-500", text: "text-white", icon: "📅", label: "班" },
                     };
-                    const c = config[meta.type];
+                    const c = badgeConfig[meta.label];
+                    if (!c) return null;
                     return (
                       <span
                         className={`${c.bg} ${c.text} text-[9px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1`}
@@ -479,13 +650,12 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                   })()}
                 </div>
                 {(() => {
-                  const meta = getDayMeta(selectedCalendarDate);
-                  if (!meta.name) return null;
+                  const meta = getDayMeta(effectiveSelectedDate);
+                  if (!meta.label || !meta.name) return null;
                   return (
                     <div className="mt-2 text-[9px] text-slate-500 font-bold leading-relaxed">
-                      {meta.type === "休" && `📌 ${meta.name}`}
-                      {meta.type === "班" && `📌 ${meta.name}，今天上班`}
-                      {meta.type === "weekend" && "📌 周末休息"}
+                      {meta.label === "休" && `📌 ${meta.name}`}
+                      {meta.label === "班" && `📌 ${meta.name}，今天上班`}
                     </div>
                   );
                 })()}
@@ -499,7 +669,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
               <div className="flex items-center justify-between mb-2.5">
                 <h3 className="text-[10px] font-extrabold text-[#8B6E3C] dark:text-[#E2C799] tracking-wide flex items-center gap-1.5">
                   <Calendar className="w-3 h-3 text-[#8B6E3C] dark:text-[#E2C799]" />
-                  <span>{cv.tasksForDate.replace("{date}", selectedCalendarDate)}</span>
+                  <span>{cv.tasksForDate.replace("{date}", effectiveSelectedDate)}</span>
                 </h3>
               </div>
 
@@ -625,7 +795,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
               <div className="mt-2.5">
                 <QuickAddTask
                   handleAddTask={handleAddTask}
-                  defaultDueDate={selectedCalendarDate}
+                  defaultDueDate={effectiveSelectedDate}
                   compact={true}
                   placeholder={cv.quickAddPlaceholder}
                 />

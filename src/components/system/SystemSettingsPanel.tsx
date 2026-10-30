@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { AlertTriangle, RefreshCw, Loader2, ExternalLink } from "lucide-react";
+import { AlertTriangle, RefreshCw, Loader2, ExternalLink, Calendar } from "lucide-react";
 import type { CustomizationConfig, AlertSoundType, Locale } from "../../types";
 import { NOISE_DEFINITIONS, getVisibleNoises, setVisibleNoises } from "../../constants";
 import { audioEngine } from "../../utils/audioEngine";
@@ -10,6 +10,15 @@ import { checkForAppUpdate, resolveDisplayedAppVersion } from "../../utils/updat
 import { openExternal } from "../../utils/openExternal";
 import { getVersion } from "@tauri-apps/api/app";
 import { version as bundledVersion } from "../../../package.json";
+import {
+  fetchAndParseICal,
+  saveCachedICalHolidays,
+  clearCachedICalHolidays,
+  getRegionIcalUrl,
+  HOLIDAY_REGIONS,
+  DEFAULT_HOLIDAY_REGION,
+  type HolidayRegion,
+} from "../../utils/holiday";
 
 interface SystemSettingsPanelProps {
   config: CustomizationConfig;
@@ -58,6 +67,18 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [icalInputUrl, setIcalInputUrl] = useState(config.calendarIcalUrl || "");
+  const [syncingIcal, setSyncingIcal] = useState(false);
+  const [icalStatus, setIcalStatus] = useState<{ msg: string; isError: boolean } | null>(null);
+
+  // 配置里的订阅地址变化时同步输入框。
+  // 采用 React 官方的「渲染期派生 state」模式：与上次记录的地址不同才更新，
+  // 避免在 effect 里 setState 触发级联渲染。
+  const [syncedIcalUrl, setSyncedIcalUrl] = useState(config.calendarIcalUrl || "");
+  if (config.calendarIcalUrl !== syncedIcalUrl) {
+    setSyncedIcalUrl(config.calendarIcalUrl || "");
+    setIcalInputUrl(config.calendarIcalUrl || "");
+  }
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
@@ -90,6 +111,89 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
     value: CustomizationConfig[K],
   ) => {
     onChange({ ...config, [key]: value });
+  };
+
+  const handleSyncIcal = async () => {
+    const trimmed = icalInputUrl.trim();
+    if (!trimmed) {
+      handleChange("calendarIcalUrl", "");
+      clearCachedICalHolidays(config.calendarIcalUrl);
+      setIcalStatus(null);
+      triggerToast(s.icalClearSuccess || "已清空 iCal 订阅，恢复内置法定节假日", "success");
+      return;
+    }
+
+    setSyncingIcal(true);
+    setIcalStatus(null);
+    try {
+      const res = await fetchAndParseICal(trimmed);
+      if (!res.ok) {
+        const errMsg = `${s.icalSyncFailed || "iCal 订阅同步失败："}${res.error || "无法解析日历数据"}`;
+        setIcalStatus({ msg: errMsg, isError: true });
+        triggerToast(errMsg, "error");
+        return;
+      }
+      saveCachedICalHolidays(trimmed, res.holidays);
+      handleChange("calendarIcalUrl", trimmed);
+      const successMsg = (
+        s.icalSyncSuccess || "iCal 订阅同步成功，已载入 {count} 个节假日日程"
+      ).replace("{count}", String(res.count));
+      setIcalStatus({ msg: successMsg, isError: false });
+      triggerToast(successMsg, "success");
+    } catch (err: any) {
+      const errMsg = `${s.icalSyncFailed || "iCal 订阅同步失败："}${err?.message || "网络请求异常"}`;
+      setIcalStatus({ msg: errMsg, isError: true });
+      triggerToast(errMsg, "error");
+    } finally {
+      setSyncingIcal(false);
+    }
+  };
+
+  const handleClearIcal = () => {
+    setIcalInputUrl("");
+    handleChange("calendarIcalUrl", "");
+    clearCachedICalHolidays(config.calendarIcalUrl);
+    setIcalStatus(null);
+    triggerToast(s.icalClearSuccess || "已清空 iCal 订阅，恢复内置法定节假日", "success");
+  };
+
+  // 切换地区：清掉旧订阅地址，改用新地区的官方订阅并尝试拉取
+  const handleRegionChange = async (region: HolidayRegion) => {
+    handleChange("calendarHolidayRegion", region);
+    const previousUrl = config.calendarIcalUrl;
+    const nextUrl = getRegionIcalUrl(region);
+
+    handleChange("calendarIcalUrl", nextUrl);
+    setIcalInputUrl(nextUrl);
+    clearCachedICalHolidays(previousUrl);
+
+    if (!nextUrl) {
+      setIcalStatus(null);
+      return;
+    }
+    setSyncingIcal(true);
+    setIcalStatus(null);
+    try {
+      const res = await fetchAndParseICal(nextUrl);
+      if (!res.ok) {
+        const errMsg = `${s.icalSyncFailed || "iCal 订阅同步失败："}${res.error || "无法解析日历数据"}`;
+        setIcalStatus({ msg: errMsg, isError: true });
+        triggerToast(errMsg, "error");
+        return;
+      }
+      saveCachedICalHolidays(nextUrl, res.holidays);
+      const successMsg = (
+        s.icalSyncSuccess || "iCal 订阅同步成功，已载入 {count} 个节假日日程"
+      ).replace("{count}", String(res.count));
+      setIcalStatus({ msg: successMsg, isError: false });
+      triggerToast(successMsg, "success");
+    } catch (err: any) {
+      const errMsg = `${s.icalSyncFailed || "iCal 订阅同步失败："}${err?.message || "网络请求异常"}`;
+      setIcalStatus({ msg: errMsg, isError: true });
+      triggerToast(errMsg, "error");
+    } finally {
+      setSyncingIcal(false);
+    }
   };
 
   return (
@@ -231,6 +335,122 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
             )}
           </div>
         )}
+      </div>
+
+      {/* 日历节假日与调休设置 */}
+      <div className="space-y-3 pb-3 border-b border-[#EFEBE4] dark:border-[#2D3039]">
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+          <Calendar className="w-4 h-4 text-[#4D7C5D] dark:text-[#6DAF7E]" />
+          <span>{s.calendarHolidayTitle || "日历节假日与调休"}</span>
+        </h4>
+        <p className="text-[10px] text-slate-400 font-medium">
+          {s.calendarHolidayDesc ||
+            "控制日历中的法定节假日与调休补班标记，并支持自定义 iCal (.ics) 日历订阅覆盖。"}
+        </p>
+
+        {/* 节假日与调休开关 */}
+        <div className="bg-[#FAF8F5] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] rounded-2xl p-3.5 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+              {s.showHolidaysToggle || "显示法定节假日与调休补班"}
+            </span>
+            <span className="text-[10px] text-slate-400 mt-0.5 block">
+              {s.showHolidaysHint ||
+                "在日历月视图与周视图中标记节假日「休」与调休「班」；关闭后均不显示。"}
+            </span>
+          </div>
+          <input
+            type="checkbox"
+            checked={config.calendarShowHolidays !== false}
+            onChange={(e) => handleChange("calendarShowHolidays", e.target.checked)}
+            className="w-4 h-4 accent-[#4D7C5D] cursor-pointer flex-shrink-0"
+          />
+        </div>
+
+        {/* 节假日地区选择 */}
+        <div className="bg-[#FAF8F5] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] rounded-2xl p-3.5 space-y-2">
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+            {s.holidayRegionTitle || "节假日地区"}
+          </span>
+          <p className="text-[10px] text-slate-400 font-medium">
+            {s.holidayRegionDesc ||
+              "中国内地使用内置离线年表（含调休补班）；中国香港使用特区政府 1823 官方公众假期订阅。"}
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {HOLIDAY_REGIONS.map((region) => {
+              const active = (config.calendarHolidayRegion ?? DEFAULT_HOLIDAY_REGION) === region.id;
+              return (
+                <button
+                  key={region.id}
+                  type="button"
+                  onClick={() => handleRegionChange(region.id)}
+                  disabled={syncingIcal}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-bold transition-all cursor-pointer disabled:opacity-50 ${
+                    active
+                      ? "bg-[#4D7C5D] dark:bg-[#3F684C] text-white shadow-2xs"
+                      : "bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#2D3039] text-slate-500 dark:text-slate-400 hover:bg-[#F0EDE7] dark:hover:bg-[#252830]"
+                  }`}
+                >
+                  {region.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 自定义 iCal 日历订阅 */}
+        <div className="bg-[#FAF8F5] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] rounded-2xl p-3.5 space-y-2">
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+            {s.icalSubscriptionTitle || "自定义 iCal (.ics) 日历订阅"}
+          </span>
+          <p className="text-[10px] text-slate-400 font-medium">
+            {s.icalSubscriptionDesc ||
+              "支持填入公开的 iCal 日历订阅地址（如香港特区政府 1823 公众假期、学校校历或企业轮班），覆盖内置年表。"}
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={icalInputUrl}
+              onChange={(e) => setIcalInputUrl(e.target.value)}
+              placeholder="https://example.com/calendar.ics"
+              className="flex-1 bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#2D3039] px-3 py-1.5 rounded-xl text-[11px] text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6DAF7E] font-medium"
+            />
+            <button
+              type="button"
+              disabled={syncingIcal}
+              onClick={handleSyncIcal}
+              className="px-3 py-1.5 rounded-xl bg-[#4D7C5D] hover:bg-[#3D6A4F] text-white text-[10px] font-bold transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1 flex-shrink-0 shadow-2xs"
+            >
+              {syncingIcal ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3" />
+              )}
+              <span>{s.icalSyncButton || "保存并同步"}</span>
+            </button>
+            {config.calendarIcalUrl && (
+              <button
+                type="button"
+                onClick={handleClearIcal}
+                className="px-2.5 py-1.5 rounded-xl border border-[#EFEBE4] dark:border-[#2D3039] hover:bg-slate-100 dark:hover:bg-[#282B34] text-slate-500 text-[10px] font-bold transition-all cursor-pointer flex-shrink-0"
+                title={s.icalClearButton || "清空订阅恢复内置"}
+              >
+                {s.icalClearButton || "清空"}
+              </button>
+            )}
+          </div>
+          {icalStatus && (
+            <p
+              className={`text-[10px] font-bold ${
+                icalStatus.isError
+                  ? "text-[#D4380D] dark:text-[#F06A4B]"
+                  : "text-[#4D7C5D] dark:text-[#6DAF7E]"
+              }`}
+            >
+              {icalStatus.msg}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* 白噪音管理 */}

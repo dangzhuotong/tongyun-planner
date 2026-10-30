@@ -1686,6 +1686,7 @@ const MainLayout = React.memo(function MainLayout({
             tasks={tasks}
             handleComplete={wrappedHandleComplete}
             handleAddTask={handleAddTaskWithAI}
+            config={customizationHook.customizationConfig}
           />
         )}
         {activeTab === "notes" && (

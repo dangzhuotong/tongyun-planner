@@ -26,6 +26,9 @@ const DEFAULT_CUSTOMIZATION_CONFIG: CustomizationConfig = {
   aiAutoCategorize: false,
   enableAutoBackup: true,
   enableCelebration: true,
+  calendarShowHolidays: true,
+  calendarHolidayRegion: "cn",
+  calendarIcalUrl: "",
   locale: (localStorage.getItem("tongyun_locale") === "en" ? "en" : "zh-CN") as "zh-CN" | "en",
 };
 
