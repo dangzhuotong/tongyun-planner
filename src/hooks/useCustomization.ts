@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from "react";
 import type { CustomizationConfig } from "../types";
 import { useSync } from "./useSync";
 
-const DEFAULT_CUSTOMIZATION_CONFIG: CustomizationConfig = {
+export const DEFAULT_CUSTOMIZATION_CONFIG: CustomizationConfig = {
   qColors: {
     "urgent-important": "rose",
     "important-not-urgent": "mint",

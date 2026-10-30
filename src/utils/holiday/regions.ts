@@ -12,7 +12,7 @@ export interface RegionOption {
 /**
  * 支持的节假日地区。
  * 中国内地使用内置离线年表（含调休补班）；
- * 中国香港没有调休制度，用特区政府 1823 官方 iCal 订阅。
+ * 中国香港使用内置离线法定公众假期年表，并支持特区政府 1823 官方 iCal 在线同步。
  */
 export const HOLIDAY_REGIONS: RegionOption[] = [
   {
@@ -23,8 +23,8 @@ export const HOLIDAY_REGIONS: RegionOption[] = [
   {
     id: "hk",
     label: "中国香港",
-    icalUrl: "https://www.1823.gov.hk/common/ical/en.ics",
-    builtin: false,
+    icalUrl: "https://www.1823.gov.hk/common/ical/tc.ics",
+    builtin: true,
   },
 ];
 

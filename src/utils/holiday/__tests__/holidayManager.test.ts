@@ -94,8 +94,9 @@ describe("holidayManager (节假日与调休开关决策)", () => {
       expect(meta.name).toBe("国庆节");
     });
 
-    it("香港地区不套用内地年表，内地节假日不显示为「休」", () => {
-      const meta = resolveDayHolidayMeta("2026-10-01", { region: "hk" });
+    it("香港地区不套用内地年表，内地独有的连休假不显示为「休」", () => {
+      // 2026-10-02 是周五，内地黄金周为「休」，香港为正常工作日
+      const meta = resolveDayHolidayMeta("2026-10-02", { region: "hk" });
       expect(meta.type).toBe("workday");
       expect(meta.label).toBe("");
     });
@@ -107,28 +108,54 @@ describe("holidayManager (节假日与调休开关决策)", () => {
       expect(meta.label).toBe("");
     });
 
-    it("香港地区有 iCal 订阅数据时按订阅显示", () => {
+    it("香港地区即使无自定义 iCal，也能直接走内置法定公众假期年表", () => {
+      // 2026-10-01 是国庆日
+      const meta = resolveDayHolidayMeta("2026-10-01", {
+        region: "hk",
+        showHolidays: true,
+      });
+      expect(meta.type).toBe("休");
+      expect(meta.name).toBe("国庆日");
+
+      // 2026-10-19 是重阳节翌日
+      const chungYeung = resolveDayHolidayMeta("2026-10-19", {
+        region: "hk",
+        showHolidays: true,
+      });
+      expect(chungYeung.type).toBe("休");
+      expect(chungYeung.name).toBe("重阳节翌日");
+
+      // 2026-10-02 是周五，香港无黄金周调休，为正常工作日
+      const normalWorkday = resolveDayHolidayMeta("2026-10-02", {
+        region: "hk",
+        showHolidays: true,
+      });
+      expect(normalWorkday.type).toBe("workday");
+      expect(normalWorkday.label).toBe("");
+    });
+
+    it("香港地区有自定义 iCal 订阅数据时覆盖内置数据", () => {
       const custom = {
-        "2026-10-01": { type: "休" as const, name: "中秋节翌日" },
+        "2026-10-01": { type: "休" as const, name: "自定义节日" },
       };
       const meta = resolveDayHolidayMeta("2026-10-01", {
         region: "hk",
         customHolidays: custom,
       });
       expect(meta.type).toBe("休");
-      expect(meta.name).toBe("中秋节翌日");
+      expect(meta.name).toBe("自定义节日");
     });
   });
 
   describe("地区定义", () => {
-    it("内地无 iCal 订阅地址（用内置离线年表）", () => {
+    it("内地与香港均支持内置离线年表", () => {
       expect(getRegionIcalUrl("cn")).toBe("");
       expect(getRegionOption("cn").builtin).toBe(true);
+      expect(getRegionOption("hk").builtin).toBe(true);
     });
 
-    it("香港使用 1823 官方 iCal 订阅", () => {
+    it("香港同时提供 1823 官方 iCal 订阅同步地址", () => {
       expect(getRegionIcalUrl("hk")).toContain("1823.gov.hk");
-      expect(getRegionOption("hk").builtin).toBe(false);
     });
 
     it("提供内地与香港两个地区", () => {
