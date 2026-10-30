@@ -30,6 +30,9 @@ export function saveCachedICalHolidays(url: string, data: HolidayMap): void {
   if (!url) return;
   try {
     localStorage.setItem(`${ICAL_CACHE_KEY}:${url}`, JSON.stringify(data));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("tongyun-ical-updated", { detail: { url } }));
+    }
   } catch {
     /* ignore storage errors */
   }
@@ -50,6 +53,9 @@ export function clearCachedICalHolidays(url?: string): void {
         if (key && key.startsWith(`${ICAL_CACHE_KEY}:`)) stale.push(key);
       }
       stale.forEach((key) => localStorage.removeItem(key));
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("tongyun-ical-updated", { detail: { url } }));
     }
   } catch {
     /* ignore storage errors */

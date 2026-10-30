@@ -59,6 +59,14 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
 
     useEffect(() => {
       setCustomHolidays(loadCachedICalHolidays(activeIcalUrl));
+      const handleIcalUpdate = (e: Event) => {
+        const customEv = e as CustomEvent<{ url?: string }>;
+        if (!customEv.detail?.url || customEv.detail.url === activeIcalUrl) {
+          setCustomHolidays(loadCachedICalHolidays(activeIcalUrl));
+        }
+      };
+      window.addEventListener("tongyun-ical-updated", handleIcalUpdate);
+      return () => window.removeEventListener("tongyun-ical-updated", handleIcalUpdate);
     }, [activeIcalUrl]);
 
     // Pre-group tasks by due date using useMemo to convert O(N) filters to O(1) lookups

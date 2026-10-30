@@ -153,13 +153,16 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
     triggerToast(s.icalClearSuccess || "已清空 iCal 订阅，恢复内置法定节假日", "success");
   };
 
-  // 切换地区：清掉旧订阅地址，改用新地区的官方订阅并尝试拉取
+  // 切换地区：原子化更新地区与订阅地址，单次 onChange 避免 React 状态覆盖
   const handleRegionChange = async (region: HolidayRegion) => {
-    handleChange("calendarHolidayRegion", region);
     const previousUrl = config.calendarIcalUrl;
     const nextUrl = getRegionIcalUrl(region);
 
-    handleChange("calendarIcalUrl", nextUrl);
+    onChange({
+      ...config,
+      calendarHolidayRegion: region,
+      calendarIcalUrl: nextUrl,
+    });
     setIcalInputUrl(nextUrl);
     clearCachedICalHolidays(previousUrl);
 
