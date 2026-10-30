@@ -1,3 +1,5 @@
+import type { HolidayRegion } from "./utils/holiday/types";
+
 export type TaskCategory =
   "urgent-important" | "urgent-not-important" | "important-not-urgent" | "not-urgent-not-important";
 
@@ -238,6 +240,12 @@ export interface CustomizationConfig {
    * The passphrase is never stored in this object.
    */
   syncSecrets?: boolean;
+  /** 日历是否显示中国法定节假日与调休补班标记（默认为 true） */
+  calendarShowHolidays?: boolean;
+  /** 日历节假日地区（cn=中国内地内置年表，hk=中国香港官方 iCal），默认为 cn */
+  calendarHolidayRegion?: HolidayRegion;
+  /** 自定义 iCal (.ics) 日历订阅地址（用于覆盖或补充节假日） */
+  calendarIcalUrl?: string;
 }
 
 export interface TimeBlock {

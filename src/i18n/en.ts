@@ -225,6 +225,8 @@ const en: Translations = {
     noTasks: "No tasks for this day",
     enjoyDay: "Enjoy a focused and relaxing day",
     quickAddPlaceholder: "Quick add task to today... Press Enter to save",
+    monthView: "Month",
+    weekView: "Week",
   },
 
   quickAdd: {
@@ -451,6 +453,20 @@ const en: Translations = {
     dueRemindPermission: "Enable system notifications",
     dueRemindPermissionGranted: "Notifications enabled",
     dueRemindPermissionDenied: "Notifications blocked — allow them in system settings",
+    calendarHolidayTitle: "Calendar Holidays & Workdays",
+    calendarHolidayDesc: "Control statutory holiday and shift workday badges in the calendar, with optional custom iCal (.ics) subscription override.",
+    showHolidaysToggle: "Show statutory holidays & shift workdays",
+    showHolidaysHint: "Display '休' and '班' tags on month and week calendar views; hidden when switched off.",
+    holidayRegionTitle: "Holiday Region",
+    holidayRegionDesc:
+      "Mainland China uses the built-in offline year table (including shift workdays); Hong Kong SAR uses the official 1823 public holidays feed.",
+    icalSubscriptionTitle: "Custom iCal (.ics) Calendar Subscription",
+    icalSubscriptionDesc: "Enter a public iCal URL to override built-in holidays (e.g. regional public holidays or organization calendars).",
+    icalSyncButton: "Save & Sync",
+    icalClearButton: "Clear",
+    icalClearSuccess: "Cleared iCal subscription, restored built-in statutory holidays",
+    icalSyncSuccess: "iCal subscription synced successfully, loaded {count} holiday entries",
+    icalSyncFailed: "iCal subscription sync failed: ",
     noiseSelectTitle: "Visible White Noises",
     noiseSelectDesc:
       "Select which white noise types appear in the sidebar. Unchecked ones are hidden from the main page.",
