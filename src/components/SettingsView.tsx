@@ -9,7 +9,6 @@ import { EmailSettingsPanel } from "./email/EmailSettingsPanel";
 import { SyncSettingsPanel } from "./sync/SyncSettingsPanel";
 import { SystemSettingsPanel } from "./system/SystemSettingsPanel";
 import { FunSettingsPanel } from "./fun/FunSettingsPanel";
-import { PluginsSettingsPanel } from "./plugins/PluginsSettingsPanel";
 
 interface SettingsViewProps {
   config: CustomizationConfig;
@@ -26,7 +25,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
     const { t } = useTranslation();
     const s = t.settings;
     const [subTab, setSubTab] = useState<
-      "personalization" | "ai" | "sunset" | "sync" | "system" | "fun" | "email" | "plugins"
+      "personalization" | "ai" | "sunset" | "sync" | "system" | "fun" | "email"
     >(() => {
       if (typeof sessionStorage !== "undefined") {
         const initial = sessionStorage.getItem("tongyun_settings_initial_tab");
@@ -38,7 +37,6 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
           "system",
           "fun",
           "email",
-          "plugins",
         ];
         if (initial && validTabs.includes(initial)) {
           return initial as any;
@@ -120,16 +118,21 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
       },
       { id: "fun", label: s.fun, keywords: ["趣味", "夸夸", "庆祝", "fun", "celebration"] },
       {
-        id: "plugins",
-        label: "插件中心",
-        keywords: ["插件", "扩展", "生态", "市场", "plugin", "hub", "extension", "pipeline"],
-      },
-      {
         id: "system",
         label: s.system,
         keywords: [
           "系统",
           "语言",
+          "日历",
+          "节假日",
+          "调休",
+          "法定节假日",
+          "补班",
+          "假期",
+          "ical",
+          "ics",
+          "calendar",
+          "holiday",
           "声音",
           "通知",
           "白噪音",
@@ -215,7 +218,6 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
           {subTab === "sync" && (
             <SyncSettingsPanel config={config} onChange={onChange} triggerToast={triggerToast} />
           )}
-          {subTab === "plugins" && <PluginsSettingsPanel triggerToast={triggerToast} />}
           {subTab === "system" && (
             <SystemSettingsPanel
               config={config}

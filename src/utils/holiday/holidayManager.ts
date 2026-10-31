@@ -1,4 +1,5 @@
 import { BUILTIN_CHINA_HOLIDAYS, FIXED_ANNUAL_FESTIVALS } from "./chinaHolidays";
+import { BUILTIN_HK_HOLIDAYS } from "./hkHolidays";
 import { getRegionOption } from "./regions";
 import type { HolidayMap, HolidayMeta, HolidayRegion } from "./types";
 import { safeJsonParse } from "../json";
@@ -29,6 +30,9 @@ export function saveCachedICalHolidays(url: string, data: HolidayMap): void {
   if (!url) return;
   try {
     localStorage.setItem(`${ICAL_CACHE_KEY}:${url}`, JSON.stringify(data));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("tongyun-ical-updated", { detail: { url } }));
+    }
   } catch {
     /* ignore storage errors */
   }
@@ -49,6 +53,9 @@ export function clearCachedICalHolidays(url?: string): void {
         if (key && key.startsWith(`${ICAL_CACHE_KEY}:`)) stale.push(key);
       }
       stale.forEach((key) => localStorage.removeItem(key));
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("tongyun-ical-updated", { detail: { url } }));
     }
   } catch {
     /* ignore storage errors */
@@ -98,9 +105,19 @@ export function resolveDayHolidayMeta(
     };
   }
 
-  // 2. 查内置中国内地法定节假日与调休年表（仅内地有此年表）
+  // 2. 查内置地区法定节假日年表（中国内地含调休，中国香港含法定公众假期）
   if (region === "cn") {
     const builtinEntry = BUILTIN_CHINA_HOLIDAYS[dateStr];
+    if (builtinEntry) {
+      return {
+        type: builtinEntry.type,
+        label: builtinEntry.type,
+        name: builtinEntry.name,
+        isWeekend,
+      };
+    }
+  } else if (region === "hk") {
+    const builtinEntry = BUILTIN_HK_HOLIDAYS[dateStr];
     if (builtinEntry) {
       return {
         type: builtinEntry.type,

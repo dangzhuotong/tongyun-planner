@@ -24,9 +24,7 @@ import {
   Sunset,
   Zap,
   Command,
-  Blocks,
 } from "lucide-react";
-import { usePluginRegistry } from "../plugins/core/registry";
 import type { AppTab, AlertSoundType } from "../types";
 import { audioEngine } from "../utils/audioEngine";
 import { useTranslation } from "../i18n/LanguageContext";
@@ -152,12 +150,6 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     const [focusExpanded, setFocusExpanded] = useState(() => FOCUS_GROUP.includes(activeTab));
     const [archiveExpanded, setArchiveExpanded] = useState(() => ARCHIVE_GROUP.includes(activeTab));
     const [noiseControlsExpanded, setNoiseControlsExpanded] = useState(false);
-
-    // 动态插件扩展挂载
-    const { allPlugins, isEnabled: isPluginEnabled } = usePluginRegistry();
-    const enabledCustomPlugins = allPlugins.filter(
-      (p) => isPluginEnabled(p.manifest.id),
-    );
 
     const commitMinutes = (raw: string) => {
       const val = parseInt(raw, 10);
@@ -464,38 +456,6 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                 </div>
               )}
             </div>
-
-            {/* 6. Dynamic / Custom Plugins */}
-            {enabledCustomPlugins.length > 0 && (
-              <div className="pt-2 mt-2 border-t border-slate-200/40 dark:border-[#252830] space-y-0.5">
-                {!isCollapsed && (
-                  <div className="px-3 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center justify-between">
-                    <span>扩展插件</span>
-                    <span className="text-[9px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.2 rounded-full font-bold">
-                      {enabledCustomPlugins.length}
-                    </span>
-                  </div>
-                )}
-                {enabledCustomPlugins.map((plugin) => (
-                  <NavButton
-                    key={plugin.manifest.id}
-                    tab={`plugin:${plugin.manifest.id}` as AppTab}
-                    icon={
-                      plugin.manifest.icon ? (
-                        typeof plugin.manifest.icon === "string" ? (
-                          <span className="text-sm leading-none">{plugin.manifest.icon}</span>
-                        ) : (
-                          plugin.manifest.icon
-                        )
-                      ) : (
-                        <Blocks className="w-4 h-4" />
-                      )
-                    }
-                    label={plugin.manifest.name}
-                  />
-                ))}
-              </div>
-            )}
           </nav>
 
           {/* Flow Mode — accent button */}

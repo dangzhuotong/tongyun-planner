@@ -90,7 +90,6 @@ import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
 import { journalRepository } from "./data/repositories";
-import { initPlugins, usePluginRegistry, PluginErrorBoundary } from "./plugins";
 import { sidebarStatusFromSync } from "./utils/sync/sidebarDbStatus";
 import { storage } from "./utils/unifiedStorage";
 import {
@@ -644,7 +643,6 @@ function AppBody() {
       .then(() => {
         if (cancelled) return;
         syncEngine.reloadFromStorage();
-        initPlugins();
       })
       .catch((error) => {
         console.error("Failed to restore storage", error);
@@ -1360,7 +1358,6 @@ const MainLayout = React.memo(function MainLayout({
   onOpenEnergyTimeBlock,
   onOpenQuickCapture,
 }: MainLayoutProps) {
-  const { allPlugins } = usePluginRegistry();
   const mainContent = useMemo(() => {
 
     return (
@@ -1764,32 +1761,10 @@ const MainLayout = React.memo(function MainLayout({
             onEditTask={handleEditTask}
           />
         )}
-        {activeTab.startsWith("plugin:") && (() => {
-          const pluginId = activeTab.replace("plugin:", "");
-          const plugin = allPlugins.find((p) => p.manifest.id === pluginId);
-          const viewRender =
-            plugin?.workbenchView?.render || plugin?.sidebarItem?.render;
-          if (!plugin || !viewRender) return null;
-          return (
-            <PluginErrorBoundary
-              pluginId={pluginId}
-              pluginName={plugin.manifest.name}
-            >
-              {viewRender({
-                tasks,
-                onAddTask: handleAddTaskWithAI,
-                onEditTask: handleEditTask,
-                onTaskClick: handleTaskClick,
-                onOpenSettings: () => setActiveTab("settings"),
-              })}
-            </PluginErrorBoundary>
-          );
-        })()}
       </main>
     );
   }, [
     activeTab,
-    allPlugins,
     tasks,
     completedTasks,
     journal,

@@ -154,8 +154,7 @@ export type AppTab =
   | "news"
   | "gantt"
   | "journal"
-  | "memory"
-  | `plugin:${string}`;
+  | "memory";
 
 export interface CountdownEvent {
   id: string;

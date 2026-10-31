@@ -71,14 +71,10 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
   const [syncingIcal, setSyncingIcal] = useState(false);
   const [icalStatus, setIcalStatus] = useState<{ msg: string; isError: boolean } | null>(null);
 
-  // 配置里的订阅地址变化时同步输入框。
-  // 采用 React 官方的「渲染期派生 state」模式：与上次记录的地址不同才更新，
-  // 避免在 effect 里 setState 触发级联渲染。
-  const [syncedIcalUrl, setSyncedIcalUrl] = useState(config.calendarIcalUrl || "");
-  if (config.calendarIcalUrl !== syncedIcalUrl) {
-    setSyncedIcalUrl(config.calendarIcalUrl || "");
+  // 配置里的订阅地址变化时同步输入框
+  useEffect(() => {
     setIcalInputUrl(config.calendarIcalUrl || "");
-  }
+  }, [config.calendarIcalUrl]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
@@ -157,13 +153,16 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
     triggerToast(s.icalClearSuccess || "已清空 iCal 订阅，恢复内置法定节假日", "success");
   };
 
-  // 切换地区：清掉旧订阅地址，改用新地区的官方订阅并尝试拉取
+  // 切换地区：原子化更新地区与订阅地址，单次 onChange 避免 React 状态覆盖
   const handleRegionChange = async (region: HolidayRegion) => {
-    handleChange("calendarHolidayRegion", region);
     const previousUrl = config.calendarIcalUrl;
     const nextUrl = getRegionIcalUrl(region);
 
-    handleChange("calendarIcalUrl", nextUrl);
+    onChange({
+      ...config,
+      calendarHolidayRegion: region,
+      calendarIcalUrl: nextUrl,
+    });
     setIcalInputUrl(nextUrl);
     clearCachedICalHolidays(previousUrl);
 
@@ -197,7 +196,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
   };
 
   return (
-    <div className="space-y-6 flex-grow overflow-y-auto max-h-[380px] pr-1 custom-scrollbar">
+    <div className="space-y-6 flex-grow overflow-y-auto max-h-[560px] pr-1 custom-scrollbar">
       {/* 软件更新 */}
       <div className="space-y-3 pb-3 border-b border-[#EFEBE4] dark:border-[#2D3039]">
         <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
@@ -249,7 +248,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
       </div>
 
       {/* 语言选择 */}
-      <div className="space-y-2">
+      <div className="space-y-2 pb-3 border-b border-[#EFEBE4] dark:border-[#2D3039]">
         <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.language}</h4>
         <p className="text-[10px] text-slate-400 font-medium">{s.languageDesc}</p>
         <CustomSelect
@@ -258,83 +257,6 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
           options={LOCALE_OPTIONS}
           className="w-full max-w-sm"
         />
-      </div>
-
-      {/* 系统声音选择 */}
-      <div className="space-y-2">
-        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.soundTitle}</h4>
-        <p className="text-[10px] text-slate-400 font-medium">{s.soundDesc}</p>
-        <CustomSelect
-          value={alertSoundType}
-          onChange={(val) => {
-            setAlertSoundType(val);
-            localStorage.setItem("aero_alert_sound_type", val);
-          }}
-          options={ALERT_SOUND_OPTIONS}
-          className="w-full max-w-sm"
-        />
-      </div>
-
-      {/* 任务到期系统通知 */}
-      <div className="space-y-3 pb-3 border-b border-[#EFEBE4] dark:border-[#2D3039]">
-        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.dueRemindTitle}</h4>
-        <p className="text-[10px] text-slate-400 font-medium">{s.dueRemindDesc}</p>
-        <div className="bg-[#FAF8F5] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] rounded-2xl p-3.5 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
-              {s.dueRemindToggle}
-            </span>
-            <span className="text-[10px] text-slate-400 mt-0.5 block">{s.dueRemindClickHint}</span>
-          </div>
-          <input
-            type="checkbox"
-            checked={dueRemindEnabled}
-            onChange={(e) => setDueRemindEnabled(e.target.checked)}
-            className="w-4 h-4 accent-[#4D7C5D] cursor-pointer flex-shrink-0"
-          />
-        </div>
-        {dueRemindEnabled && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                {s.dueRemindBefore}
-              </span>
-              <select
-                value={dueRemindBeforeMinutes}
-                onChange={(e) => setDueRemindBeforeMinutes(parseInt(e.target.value, 10))}
-                className="bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6DAF7E] cursor-pointer"
-              >
-                <option value={5}>5 {s.dueRemindMinutes}</option>
-                <option value={15}>15 {s.dueRemindMinutes}</option>
-                <option value={30}>30 {s.dueRemindMinutes}</option>
-                <option value={60}>60 {s.dueRemindMinutes}</option>
-              </select>
-              <span className="text-[10px] text-slate-400 font-medium">
-                {s.dueRemindBeforeDesc}
-              </span>
-            </div>
-            {typeof Notification !== "undefined" && Notification.permission !== "granted" && (
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    const result = await Notification.requestPermission();
-                    if (result === "granted") {
-                      triggerToast(s.dueRemindPermissionGranted || "通知权限已开启", "success");
-                    } else if (result === "denied") {
-                      triggerToast(s.dueRemindPermissionDenied || "通知被系统拒绝", "error");
-                    }
-                  } catch {
-                    triggerToast(s.dueRemindPermissionDenied || "通知被系统拒绝", "error");
-                  }
-                }}
-                className="text-[10px] font-bold text-[#4D7C5D] dark:text-[#6DAF7E] bg-[#F0F5F1] dark:bg-[#1A261E] border border-[#DEEAE2] dark:border-[#294231] px-3 py-1.5 rounded-lg hover:bg-[#E4EDE6] dark:hover:bg-[#233527] cursor-pointer transition-colors"
-              >
-                {s.dueRemindPermission || "开启系统通知权限"}
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* 日历节假日与调休设置 */}
@@ -451,6 +373,83 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
             </p>
           )}
         </div>
+      </div>
+
+      {/* 系统声音选择 */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.soundTitle}</h4>
+        <p className="text-[10px] text-slate-400 font-medium">{s.soundDesc}</p>
+        <CustomSelect
+          value={alertSoundType}
+          onChange={(val) => {
+            setAlertSoundType(val);
+            localStorage.setItem("aero_alert_sound_type", val);
+          }}
+          options={ALERT_SOUND_OPTIONS}
+          className="w-full max-w-sm"
+        />
+      </div>
+
+      {/* 任务到期系统通知 */}
+      <div className="space-y-3 pb-3 border-b border-[#EFEBE4] dark:border-[#2D3039]">
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">{s.dueRemindTitle}</h4>
+        <p className="text-[10px] text-slate-400 font-medium">{s.dueRemindDesc}</p>
+        <div className="bg-[#FAF8F5] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] rounded-2xl p-3.5 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+              {s.dueRemindToggle}
+            </span>
+            <span className="text-[10px] text-slate-400 mt-0.5 block">{s.dueRemindClickHint}</span>
+          </div>
+          <input
+            type="checkbox"
+            checked={dueRemindEnabled}
+            onChange={(e) => setDueRemindEnabled(e.target.checked)}
+            className="w-4 h-4 accent-[#4D7C5D] cursor-pointer flex-shrink-0"
+          />
+        </div>
+        {dueRemindEnabled && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                {s.dueRemindBefore}
+              </span>
+              <select
+                value={dueRemindBeforeMinutes}
+                onChange={(e) => setDueRemindBeforeMinutes(parseInt(e.target.value, 10))}
+                className="bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6DAF7E] cursor-pointer"
+              >
+                <option value={5}>5 {s.dueRemindMinutes}</option>
+                <option value={15}>15 {s.dueRemindMinutes}</option>
+                <option value={30}>30 {s.dueRemindMinutes}</option>
+                <option value={60}>60 {s.dueRemindMinutes}</option>
+              </select>
+              <span className="text-[10px] text-slate-400 font-medium">
+                {s.dueRemindBeforeDesc}
+              </span>
+            </div>
+            {typeof Notification !== "undefined" && Notification.permission !== "granted" && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const result = await Notification.requestPermission();
+                    if (result === "granted") {
+                      triggerToast(s.dueRemindPermissionGranted || "通知权限已开启", "success");
+                    } else if (result === "denied") {
+                      triggerToast(s.dueRemindPermissionDenied || "通知被系统拒绝", "error");
+                    }
+                  } catch {
+                    triggerToast(s.dueRemindPermissionDenied || "通知被系统拒绝", "error");
+                  }
+                }}
+                className="text-[10px] font-bold text-[#4D7C5D] dark:text-[#6DAF7E] bg-[#F0F5F1] dark:bg-[#1A261E] border border-[#DEEAE2] dark:border-[#294231] px-3 py-1.5 rounded-lg hover:bg-[#E4EDE6] dark:hover:bg-[#233527] cursor-pointer transition-colors"
+              >
+                {s.dueRemindPermission || "开启系统通知权限"}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 白噪音管理 */}

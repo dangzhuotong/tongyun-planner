@@ -10,7 +10,7 @@ import type { useTasks } from "./useTasks";
 import type { usePomodoro } from "./usePomodoro";
 import type { useStickyNotes } from "./useStickyNotes";
 import type { useCountdown } from "./useCountdown";
-import type { useCustomization } from "./useCustomization";
+import { DEFAULT_CUSTOMIZATION_CONFIG, type useCustomization } from "./useCustomization";
 import type { useWidget } from "./useWidget";
 import { taskRepository } from "../data/repositories";
 
@@ -65,8 +65,9 @@ export function useStoreInit(
     if (savedCustomization) {
       const parsed = safeJsonParse<CustomizationConfig | null>(savedCustomization, null);
       if (parsed) {
-        handlersRef.current.customizationHook.setCustomizationConfig(parsed);
-        if (parsed.locale) handlersRef.current.setLocale(parsed.locale);
+        const merged: CustomizationConfig = { ...DEFAULT_CUSTOMIZATION_CONFIG, ...parsed };
+        handlersRef.current.customizationHook.setCustomizationConfig(merged);
+        if (merged.locale) handlersRef.current.setLocale(merged.locale);
       }
     }
 
