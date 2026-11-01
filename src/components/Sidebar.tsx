@@ -24,12 +24,15 @@ import {
   Sunset,
   Zap,
   Command,
+  Radio,
+  ExternalLink,
 } from "lucide-react";
 import type { AppTab, AlertSoundType } from "../types";
 import { audioEngine } from "../utils/audioEngine";
 import { useTranslation } from "../i18n/LanguageContext";
 import { usePomodoroContext } from "../context/PomodoroContext";
 import { NOISE_DEFINITIONS, getVisibleNoises } from "../constants";
+import { CustomNoiseWindow } from "./CustomNoiseWindow";
 import logo from "../assets/logo.png";
 
 interface SidebarProps {
@@ -107,6 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
       setPomodoroTaskId,
       setPomodoroTaskTitle,
       isPlayingNoise,
+      noiseStartSignal,
       selectedNoiseType,
       setSelectedNoiseType,
       noiseVolume,
@@ -150,6 +154,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     const [focusExpanded, setFocusExpanded] = useState(() => FOCUS_GROUP.includes(activeTab));
     const [archiveExpanded, setArchiveExpanded] = useState(() => ARCHIVE_GROUP.includes(activeTab));
     const [noiseControlsExpanded, setNoiseControlsExpanded] = useState(false);
+    const [customNoiseOpen, setCustomNoiseOpen] = useState(false);
 
     const commitMinutes = (raw: string) => {
       const val = parseInt(raw, 10);
@@ -987,6 +992,26 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                         ))}
                       </select>
                     </div>
+
+                    <div className="flex items-center justify-between pt-0.5 text-[9px] text-slate-400 font-medium">
+                      <span className="flex items-center gap-1">
+                        <Radio className="w-2.5 h-2.5 text-slate-400" />
+                        {s.customNoiseEntry}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCustomNoiseOpen((prev) => !prev)}
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-semibold transition-all cursor-pointer ${
+                          customNoiseOpen
+                            ? "bg-[#4D7C5D]/10 dark:bg-[#4D7C5D]/20 border-[#4D7C5D]/20 dark:border-[#4D7C5D]/40 text-[#4D7C5D] dark:text-[#78C496]"
+                            : "bg-slate-50 dark:bg-[#252830] border-slate-200 dark:border-[#33353A] text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2E313A]"
+                        }`}
+                        title={s.customNoiseEntryHint}
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                        {customNoiseOpen ? s.customNoiseHide : s.customNoiseOpen}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1133,6 +1158,16 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
             )}
           </button>
         </div>
+
+        {customNoiseOpen && (
+          <CustomNoiseWindow
+            onClose={() => setCustomNoiseOpen(false)}
+            stopSignal={noiseStartSignal}
+            onStartExternal={() => {
+              if (isPlayingNoise) stopNoise();
+            }}
+          />
+        )}
       </aside>
     );
   },

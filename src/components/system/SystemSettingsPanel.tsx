@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { AlertTriangle, RefreshCw, Loader2, ExternalLink, Calendar } from "lucide-react";
 import type { CustomizationConfig, AlertSoundType, Locale } from "../../types";
 import { NOISE_DEFINITIONS, getVisibleNoises, setVisibleNoises } from "../../constants";
-import { audioEngine } from "../../utils/audioEngine";
 import { CustomSelect } from "../CustomSelect";
 import { useTranslation } from "../../i18n/LanguageContext";
+import { usePomodoroContext } from "../../context/PomodoroContext";
 import { useSetting } from "../../hooks/useSetting";
 import { checkForAppUpdate, resolveDisplayedAppVersion } from "../../utils/updater";
 import { openExternal } from "../../utils/openExternal";
@@ -57,6 +57,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
   const { t } = useTranslation();
   const s = t.settings;
   const sb = t.sidebar;
+  const { startNoise, stopNoise } = usePomodoroContext();
 
   const [dueRemindEnabled, setDueRemindEnabled] = useSetting("tongyun_due_remind_enabled", true);
   const [dueRemindBeforeMinutes, setDueRemindBeforeMinutes] = useSetting(
@@ -468,9 +469,10 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
               >
                 <button
                   onClick={() => {
-                    audioEngine.stopNoise();
-                    audioEngine.startNoise(def.id, 0.3);
-                    setTimeout(() => audioEngine.stopNoise(), 2000);
+                    // 试听也走上下文起停，内置播放状态才能跃迁并让外部音源停下。
+                    stopNoise("auto");
+                    startNoise(def.id, 0.3);
+                    setTimeout(() => stopNoise("auto"), 2000);
                   }}
                   className="flex-shrink-0 w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-[#4D7C5D]/15 dark:hover:bg-[#4D7C5D]/30 flex items-center justify-center cursor-pointer transition-colors text-slate-600 dark:text-slate-300"
                   title={`试听 ${(sb as any)[def.labelKey]}`}
