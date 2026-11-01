@@ -45,6 +45,7 @@ import {
   type DailySnapshotItem,
 } from "../../utils/sync/localSnapshots";
 import { openExternal } from "../../utils/openExternal";
+import { applyImportedLedgerEntries } from "../../utils/ledger/ledgerStorage";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { safeJsonParse } from "../../utils/json";
 import { buildAiToolDocFromSettings } from "../../utils/sync/aiToolDoc";
@@ -171,6 +172,8 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
       if (rawData.aiPraise) {
         localStorage.setItem("tongyun_ai_praise", JSON.stringify(rawData.aiPraise));
       }
+      // 日历轻量记账：字段缺失时不覆盖本地已有数据
+      applyImportedLedgerEntries(rawData);
       // 与导入一致：视为本机主动恢复，刷新版本并标记待同步（上传前仍会做云端冲突检测）
       bumpCategoryVersion(...ALL_SYNC_CATEGORIES);
       syncEngine.markDirty();
@@ -817,6 +820,8 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                   if (data.aiPraise) {
                     localStorage.setItem("tongyun_ai_praise", JSON.stringify(data.aiPraise));
                   }
+                  // 日历轻量记账：字段缺失时不覆盖本地已有数据
+                  applyImportedLedgerEntries(data);
                   // 导入视为本机主动恢复：刷新各分类版本并标记待同步，下次同步时上传（上传前仍会做云端冲突检测）
                   bumpCategoryVersion(...ALL_SYNC_CATEGORIES);
                   syncEngine.markDirty();

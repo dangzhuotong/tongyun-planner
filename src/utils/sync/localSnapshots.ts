@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getLocalSyncData, sanitizeConfigForSync } from "./types";
 import { safeJsonParse } from "../json";
+import { loadLedgerEntries } from "../ledger/ledgerStorage";
 
 /** 自动每日快照保留的最大天数 */
 export const DAILY_SNAPSHOT_KEEP = 14;
@@ -45,6 +46,8 @@ export function buildSnapshotPayload(
       typeof localStorage !== "undefined" ? localStorage.getItem("tongyun_ai_praise") : null,
       [],
     ),
+    // 日历轻量记账（issue #51 第 3 项）：导出后再导入不能丢数据
+    ledgerEntries: loadLedgerEntries(),
     exportedAt: now.toISOString(),
     ...(snapshotType ? { snapshotType } : {}),
   };

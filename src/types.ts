@@ -257,6 +257,22 @@ export interface TimeBlock {
   color: string;
 }
 
+/** 记账方向：in=收入，out=支出 */
+export type LedgerDirection = "in" | "out";
+
+/** 日历轻量记账条目（issue #51 第 3 项） */
+export interface LedgerEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  amount: number; // 正数，单位：元
+  direction: LedgerDirection;
+  note?: string;
+  settled: boolean; // 是否已结算
+  settledAt?: number; // 结算时间戳（毫秒）
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface WebDavConfig {
   url: string;
   username: string;
