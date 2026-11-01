@@ -18,3 +18,16 @@ export function shouldResumeNoiseAfterMicroBreak(input: {
   if (input.manuallyStopped) return false;
   return input.wasPlayingNoise || input.autoNoiseEnabled;
 }
+
+/**
+ * 内置白噪音由停到播即算一次启动，外部音源据此停下。
+ * 以播放状态的跃迁作信号，而不是包住某几个按钮调用，番茄钟自动起噪、
+ * 阶段续播、微休息恢复、设置试听等非 Sidebar 路径才都能覆盖。
+ */
+export function nextNoiseStartSignal(input: {
+  wasPlaying: boolean;
+  isPlaying: boolean;
+  signal: number;
+}): number {
+  return input.isPlaying && !input.wasPlaying ? input.signal + 1 : input.signal;
+}

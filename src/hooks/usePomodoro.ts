@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import type { AlertSoundType, PomodoroLog } from "../types";
 import { useSync } from "./useSync";
 import { audioEngine } from "../utils/audioEngine";
-import { shouldAutoStartNoise } from "../utils/noisePolicy";
+import { nextNoiseStartSignal, shouldAutoStartNoise } from "../utils/noisePolicy";
 
 export function usePomodoro() {
   const { syncState } = useSync();
@@ -35,6 +35,19 @@ export function usePomodoro() {
 
   // Offline noise state
   const [isPlayingNoise, setIsPlayingNoise] = useState<boolean>(false);
+  /** 内置白噪音每次启动自增，外部音源监听它来互斥，因此不依赖具体启动入口。 */
+  const [noiseStartSignal, setNoiseStartSignal] = useState<number>(0);
+  const [wasPlayingNoise, setWasPlayingNoise] = useState<boolean>(false);
+  if (wasPlayingNoise !== isPlayingNoise) {
+    setNoiseStartSignal(
+      nextNoiseStartSignal({
+        wasPlaying: wasPlayingNoise,
+        isPlaying: isPlayingNoise,
+        signal: noiseStartSignal,
+      }),
+    );
+    setWasPlayingNoise(isPlayingNoise);
+  }
   const [selectedNoiseType, setSelectedNoiseType] = useState<string>("brown");
   const [noiseVolume, setNoiseVolume] = useState<number>(0.35);
   /** Manual mute wins over auto-noise and micro-break resume until the user presses play. */
@@ -196,6 +209,7 @@ export function usePomodoro() {
     setPomodoroTaskTitle,
     isPlayingNoise,
     setIsPlayingNoise,
+    noiseStartSignal,
     selectedNoiseType,
     setSelectedNoiseType,
     noiseVolume,

@@ -110,6 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
       setPomodoroTaskId,
       setPomodoroTaskTitle,
       isPlayingNoise,
+      noiseStartSignal,
       selectedNoiseType,
       setSelectedNoiseType,
       noiseVolume,
@@ -154,13 +155,6 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     const [archiveExpanded, setArchiveExpanded] = useState(() => ARCHIVE_GROUP.includes(activeTab));
     const [noiseControlsExpanded, setNoiseControlsExpanded] = useState(false);
     const [customNoiseOpen, setCustomNoiseOpen] = useState(false);
-    // 外部音源与内置白噪音互斥：内置开始播放时递增，让悬浮窗停止外部播放。
-    const [externalStopSignal, setExternalStopSignal] = useState(0);
-
-    const startInternalNoise = (type: string, volume: number) => {
-      setExternalStopSignal((prev) => prev + 1);
-      startNoise(type, volume);
-    };
 
     const commitMinutes = (raw: string) => {
       const val = parseInt(raw, 10);
@@ -880,7 +874,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                         if (isPlayingNoise) {
                           stopNoise();
                         } else {
-                          startInternalNoise(selectedNoiseType, noiseVolume);
+                          startNoise(selectedNoiseType, noiseVolume);
                         }
                       }}
                       className={`px-2 py-0.5 rounded-md border text-[9px] font-semibold transition-all cursor-pointer ${
@@ -902,7 +896,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           key={sound.id}
                           onClick={() => {
                             setSelectedNoiseType(sound.id);
-                            startInternalNoise(sound.id, noiseVolume);
+                            startNoise(sound.id, noiseVolume);
                           }}
                           className={`h-5.5 rounded-md text-[9px] font-medium flex items-center justify-center transition-all cursor-pointer ${
                             selectedNoiseType === sound.id
@@ -931,7 +925,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           setNoiseVolume(val);
                           audioEngine.setVolume(val);
                           if (!isPlayingNoise && val > 0) {
-                            startInternalNoise(selectedNoiseType, val);
+                            startNoise(selectedNoiseType, val);
                           }
                         }}
                         className="flex-grow accent-[#4D7C5D] h-0.5 bg-slate-100 dark:bg-[#2A2D35] rounded-lg cursor-pointer"
@@ -951,7 +945,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           setAutoNoiseEnabled(next);
                           localStorage.setItem("tongyun_auto_noise", String(next));
                           if (next) {
-                            startInternalNoise(selectedNoiseType, noiseVolume);
+                            startNoise(selectedNoiseType, noiseVolume);
                           } else {
                             stopNoise("manual");
                           }
@@ -1168,7 +1162,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
         {customNoiseOpen && (
           <CustomNoiseWindow
             onClose={() => setCustomNoiseOpen(false)}
-            stopSignal={externalStopSignal}
+            stopSignal={noiseStartSignal}
             onStartExternal={() => {
               if (isPlayingNoise) stopNoise();
             }}

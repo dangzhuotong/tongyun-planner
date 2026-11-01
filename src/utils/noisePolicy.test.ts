@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { shouldAutoStartNoise, shouldResumeNoiseAfterMicroBreak } from "./noisePolicy";
+import {
+  nextNoiseStartSignal,
+  shouldAutoStartNoise,
+  shouldResumeNoiseAfterMicroBreak,
+} from "./noisePolicy";
 
 describe("noisePolicy", () => {
   describe("shouldAutoStartNoise", () => {
@@ -70,6 +74,20 @@ describe("noisePolicy", () => {
           manuallyStopped: true,
         }),
       ).toBe(false);
+    });
+  });
+
+  describe("nextNoiseStartSignal", () => {
+    it("外部播放中由非 Sidebar 路径起内置白噪音时递增，外部播放器据此停下", () => {
+      // 番茄钟自动起噪 / 微休息恢复 / 设置试听都只会把 isPlayingNoise 由 false 改为 true。
+      expect(nextNoiseStartSignal({ wasPlaying: false, isPlaying: true, signal: 0 })).toBe(1);
+      expect(nextNoiseStartSignal({ wasPlaying: false, isPlaying: true, signal: 7 })).toBe(8);
+    });
+
+    it("内置一直播放或停播时不递增，避免无谓地打断外部音源", () => {
+      expect(nextNoiseStartSignal({ wasPlaying: true, isPlaying: true, signal: 3 })).toBe(3);
+      expect(nextNoiseStartSignal({ wasPlaying: true, isPlaying: false, signal: 3 })).toBe(3);
+      expect(nextNoiseStartSignal({ wasPlaying: false, isPlaying: false, signal: 0 })).toBe(0);
     });
   });
 });
