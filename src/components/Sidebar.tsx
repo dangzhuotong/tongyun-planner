@@ -24,12 +24,15 @@ import {
   Sunset,
   Zap,
   Command,
+  Radio,
+  ExternalLink,
 } from "lucide-react";
 import type { AppTab, AlertSoundType } from "../types";
 import { audioEngine } from "../utils/audioEngine";
 import { useTranslation } from "../i18n/LanguageContext";
 import { usePomodoroContext } from "../context/PomodoroContext";
 import { NOISE_DEFINITIONS, getVisibleNoises } from "../constants";
+import { CustomNoiseWindow } from "./CustomNoiseWindow";
 import logo from "../assets/logo.png";
 
 interface SidebarProps {
@@ -150,6 +153,14 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     const [focusExpanded, setFocusExpanded] = useState(() => FOCUS_GROUP.includes(activeTab));
     const [archiveExpanded, setArchiveExpanded] = useState(() => ARCHIVE_GROUP.includes(activeTab));
     const [noiseControlsExpanded, setNoiseControlsExpanded] = useState(false);
+    const [customNoiseOpen, setCustomNoiseOpen] = useState(false);
+    // 外部音源与内置白噪音互斥：内置开始播放时递增，让悬浮窗停止外部播放。
+    const [externalStopSignal, setExternalStopSignal] = useState(0);
+
+    const startInternalNoise = (type: string, volume: number) => {
+      setExternalStopSignal((prev) => prev + 1);
+      startNoise(type, volume);
+    };
 
     const commitMinutes = (raw: string) => {
       const val = parseInt(raw, 10);
@@ -869,7 +880,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                         if (isPlayingNoise) {
                           stopNoise();
                         } else {
-                          startNoise(selectedNoiseType, noiseVolume);
+                          startInternalNoise(selectedNoiseType, noiseVolume);
                         }
                       }}
                       className={`px-2 py-0.5 rounded-md border text-[9px] font-semibold transition-all cursor-pointer ${
@@ -891,7 +902,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           key={sound.id}
                           onClick={() => {
                             setSelectedNoiseType(sound.id);
-                            startNoise(sound.id, noiseVolume);
+                            startInternalNoise(sound.id, noiseVolume);
                           }}
                           className={`h-5.5 rounded-md text-[9px] font-medium flex items-center justify-center transition-all cursor-pointer ${
                             selectedNoiseType === sound.id
@@ -920,7 +931,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           setNoiseVolume(val);
                           audioEngine.setVolume(val);
                           if (!isPlayingNoise && val > 0) {
-                            startNoise(selectedNoiseType, val);
+                            startInternalNoise(selectedNoiseType, val);
                           }
                         }}
                         className="flex-grow accent-[#4D7C5D] h-0.5 bg-slate-100 dark:bg-[#2A2D35] rounded-lg cursor-pointer"
@@ -940,7 +951,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           setAutoNoiseEnabled(next);
                           localStorage.setItem("tongyun_auto_noise", String(next));
                           if (next) {
-                            startNoise(selectedNoiseType, noiseVolume);
+                            startInternalNoise(selectedNoiseType, noiseVolume);
                           } else {
                             stopNoise("manual");
                           }
@@ -986,6 +997,26 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-0.5 text-[9px] text-slate-400 font-medium">
+                      <span className="flex items-center gap-1">
+                        <Radio className="w-2.5 h-2.5 text-slate-400" />
+                        {s.customNoiseEntry}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCustomNoiseOpen((prev) => !prev)}
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[9px] font-semibold transition-all cursor-pointer ${
+                          customNoiseOpen
+                            ? "bg-[#4D7C5D]/10 dark:bg-[#4D7C5D]/20 border-[#4D7C5D]/20 dark:border-[#4D7C5D]/40 text-[#4D7C5D] dark:text-[#78C496]"
+                            : "bg-slate-50 dark:bg-[#252830] border-slate-200 dark:border-[#33353A] text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2E313A]"
+                        }`}
+                        title={s.customNoiseEntryHint}
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                        {customNoiseOpen ? s.customNoiseHide : s.customNoiseOpen}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1133,6 +1164,16 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
             )}
           </button>
         </div>
+
+        {customNoiseOpen && (
+          <CustomNoiseWindow
+            onClose={() => setCustomNoiseOpen(false)}
+            stopSignal={externalStopSignal}
+            onStartExternal={() => {
+              if (isPlayingNoise) stopNoise();
+            }}
+          />
+        )}
       </aside>
     );
   },
