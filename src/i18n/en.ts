@@ -227,6 +227,22 @@ const en: Translations = {
     quickAddPlaceholder: "Quick add task to today... Press Enter to save",
     monthView: "Month",
     weekView: "Week",
+    // Calendar ledger (issue #51 item 3)
+    ledgerTitle: "Day Ledger",
+    ledgerAddTitle: "Add Entry",
+    ledgerIncome: "In",
+    ledgerExpense: "Out",
+    ledgerAmountPlaceholder: "Amount",
+    ledgerNotePlaceholder: "Note (optional)",
+    ledgerSettle: "Settled",
+    ledgerUnsettled: "Unsettled",
+    ledgerSettleDay: "Settle Day",
+    ledgerUnsettleDay: "Unsettle Day",
+    ledgerEmpty: "No entries for this day",
+    ledgerDayTotal: "Day Total",
+    ledgerMonthTotal: "Month Total",
+    ledgerMonthUnsettled: "Unsettled",
+    ledgerMonthCount: "{count} entries",
   },
 
   quickAdd: {

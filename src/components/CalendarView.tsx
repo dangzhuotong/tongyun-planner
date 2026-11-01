@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { Calendar, Coffee, Plus, Trash2 } from "lucide-react";
-import type { Task, TimeBlock, CustomizationConfig } from "../types";
+import { Calendar, Coffee, Plus, Trash2, Wallet, Check, Circle } from "lucide-react";
+import type { Task, TimeBlock, CustomizationConfig, LedgerDirection } from "../types";
 import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
 import LunarLib from "lunar-javascript";
@@ -8,6 +8,13 @@ import { getLocalDateString } from "../utils/date";
 import { safeJsonParse } from "../utils/json";
 import { createId } from "../utils/id";
 import { usePersonal } from "../context/PersonalContext";
+import { useLedger } from "../hooks/useLedger";
+import {
+  formatAmount,
+  formatCompactAmount,
+  formatNet,
+  summarizeDay,
+} from "../utils/ledger/ledgerCore";
 import {
   resolveDayHolidayMeta,
   loadCachedICalHolidays,
@@ -128,6 +135,71 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       setTimeBlocks((prev) => prev.filter((b) => b.id !== id));
     };
 
+    // ── 日历轻量记账与结算标记（issue #51 第 3 项） ──
+    const {
+      entries: ledgerEntries,
+      getMonthTotals,
+      addEntry: addLedgerEntry,
+      removeEntry: removeLedgerEntry,
+      toggleEntrySettled,
+      setDaySettled,
+    } = useLedger();
+
+    const [showLedgerInput, setShowLedgerInput] = useState(false);
+    const [ledgerAmount, setLedgerAmount] = useState("");
+    const [ledgerDirection, setLedgerDirection] = useState<LedgerDirection>("out");
+    const [ledgerNote, setLedgerNote] = useState("");
+
+    // 按日期分组，供 42 格月历 O(1) 查当日合计
+    const ledgerTotalsByDate = useMemo(() => {
+      const map: Record<string, ReturnType<typeof summarizeDay>> = {};
+      for (const entry of ledgerEntries) {
+        if (!map[entry.date]) {
+          map[entry.date] = summarizeDay(ledgerEntries, entry.date);
+        }
+      }
+      return map;
+    }, [ledgerEntries]);
+
+    const selectedDateLedgerEntries = useMemo(
+      () =>
+        ledgerEntries
+          .filter((e) => e.date === effectiveSelectedDate)
+          .sort((a, b) => a.createdAt - b.createdAt),
+      [ledgerEntries, effectiveSelectedDate],
+    );
+
+    const selectedDayLedgerTotals = useMemo(
+      () => summarizeDay(ledgerEntries, effectiveSelectedDate),
+      [ledgerEntries, effectiveSelectedDate],
+    );
+
+    const monthLedgerTotals = useMemo(
+      () => getMonthTotals(calendarYear, calendarMonth + 1),
+      [getMonthTotals, calendarYear, calendarMonth],
+    );
+
+    const handleAddLedgerEntry = () => {
+      const amount = Number(ledgerAmount);
+      if (!Number.isFinite(amount) || amount <= 0) return;
+      const created = addLedgerEntry({
+        date: effectiveSelectedDate,
+        amount,
+        direction: ledgerDirection,
+        note: ledgerNote,
+      });
+      if (!created) return;
+      setLedgerAmount("");
+      setLedgerNote("");
+    };
+
+    const handleLedgerAmountKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAddLedgerEntry();
+      }
+    };
+
     const getDayMeta = useCallback(
       (dateStr: string) => {
         return resolveDayHolidayMeta(dateStr, {
@@ -180,6 +252,40 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       [tasksByDueDate],
     );
 
+    /**
+     * 日格右上角的记账角标（issue #51 第 3 项）。
+     * 有未结算条目 → 红底提示待结算；全部已结算 → 绿底。
+     * 宽度上限与日期数字的左移留白保持一致，避免金额被截断。
+     */
+    const renderLedgerBadge = useCallback(
+      (dateStr: string) => {
+        const totals = ledgerTotalsByDate[dateStr];
+        if (!totals || !totals.hasEntries) return null;
+        const settled = totals.allSettled;
+        return (
+          <span
+            className={`absolute top-0.5 right-0.5 text-[6px] font-extrabold leading-none px-1 py-[2px] rounded-md max-w-[44px] truncate ${
+              settled
+                ? "bg-[#4D7C5D]/85 text-white dark:bg-[#6FAD84]/85"
+                : "bg-[#D4380D]/85 text-white dark:bg-[#F06A4B]/85"
+            }`}
+            title={`${totals.income > 0 ? `收 ${formatAmount(totals.income)} ` : ""}${
+              totals.expense > 0 ? `支 ${formatAmount(totals.expense)}` : ""
+            }`}
+          >
+            {formatCompactAmount(totals.net)}
+          </span>
+        );
+      },
+      [ledgerTotalsByDate],
+    );
+
+    /** 角标占据右上角时，日期数字需要左移避免压字 */
+    const ledgerBadgePadding = useCallback(
+      (dateStr: string) => (ledgerTotalsByDate[dateStr]?.hasEntries ? "pr-[46px]" : ""),
+      [ledgerTotalsByDate],
+    );
+
     // 月历 42 格计算
     const dayGrid = useMemo(() => {
       const firstDayIndex = new Date(calendarYear, calendarMonth, 1).getDay();
@@ -199,12 +305,13 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
           <button
             key={`prev-${dayNum}`}
             onClick={() => setSelectedCalendarDate(dateStr)}
-            className={`h-11 rounded-xl text-[10px] font-bold text-slate-300 dark:text-slate-600 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] transition-all flex flex-col items-center justify-between py-1 border border-transparent cursor-pointer ${
+            className={`relative h-11 rounded-xl text-[10px] font-bold text-slate-300 dark:text-slate-600 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] transition-all flex flex-col items-center justify-between py-1 border border-transparent cursor-pointer ${
               selectedCalendarDate === dateStr
                 ? "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42]"
                 : ""
             }`}
           >
+            {renderLedgerBadge(dateStr)}
             <span className="flex items-center gap-0.5">
               {prevMeta.label && (
                 <span className="text-[5px] px-0.5 rounded font-extrabold opacity-60">
@@ -259,10 +366,13 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
           <button
             key={`curr-${dayNum}`}
             onClick={() => setSelectedCalendarDate(dateStr)}
-            className={`h-11 rounded-xl text-[10px] font-bold transition-all flex flex-col items-center justify-between py-1 border cursor-pointer ${cellStyle}`}
+            className={`relative h-11 rounded-xl text-[10px] font-bold transition-all flex flex-col items-center justify-between py-1 border cursor-pointer ${cellStyle}`}
             title={meta.name || undefined}
           >
-            <span className="relative leading-none flex items-center justify-center w-full gap-0.5">
+            {renderLedgerBadge(dateStr)}
+            <span
+              className={`relative leading-none flex items-center justify-center w-full gap-0.5 ${ledgerBadgePadding(dateStr)}`}
+            >
               {badgeText && (
                 <span
                   className={`text-[5px] px-1 rounded-sm font-extrabold leading-none py-0.5 ${badgeStyle}`}
@@ -296,12 +406,13 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
           <button
             key={`next-${dayNum}`}
             onClick={() => setSelectedCalendarDate(dateStr)}
-            className={`h-11 rounded-xl text-[10px] font-bold text-slate-300 dark:text-slate-600 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] transition-all flex flex-col items-center justify-between py-1 border border-transparent cursor-pointer ${
+            className={`relative h-11 rounded-xl text-[10px] font-bold text-slate-300 dark:text-slate-600 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] transition-all flex flex-col items-center justify-between py-1 border border-transparent cursor-pointer ${
               selectedCalendarDate === dateStr
                 ? "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42]"
                 : ""
             }`}
           >
+            {renderLedgerBadge(dateStr)}
             <span className="flex items-center gap-0.5">
               {nextMeta.label && (
                 <span className="text-[5px] px-0.5 rounded font-extrabold opacity-60">
@@ -324,6 +435,8 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       selectedCalendarDate,
       getDayMeta,
       renderDayDots,
+      renderLedgerBadge,
+      ledgerBadgePadding,
       setSelectedCalendarDate,
     ]);
 
@@ -515,6 +628,48 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
 
                 {/* 42 单元格月历容器 */}
                 <div className="grid grid-cols-7 gap-2 flex-grow">{dayGrid}</div>
+
+                {/* 月度合计与未结算合计（issue #51 第 3 项） */}
+                <div className="mt-3 pt-2.5 border-t border-[#EFEBE4] dark:border-[#33353A] flex items-center justify-between gap-3 text-[10px]">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex items-center gap-1 font-bold text-slate-500 dark:text-slate-400">
+                      <span>{cv.ledgerMonthTotal}</span>
+                      <span
+                        className={`font-extrabold ${
+                          monthLedgerTotals.net < 0
+                            ? "text-[#D4380D] dark:text-[#F06A4B]"
+                            : "text-[#4D7C5D] dark:text-[#6FAD84]"
+                        }`}
+                      >
+                        {formatNet(monthLedgerTotals.net)}
+                      </span>
+                    </span>
+                    {monthLedgerTotals.unsettledCount > 0 && (
+                      <span className="flex items-center gap-1 font-bold text-slate-500 dark:text-slate-400">
+                        <span>{cv.ledgerMonthUnsettled}</span>
+                        <span className="font-extrabold text-[#D4380D] dark:text-[#F06A4B]">
+                          {formatNet(monthLedgerTotals.unsettledNet)}
+                        </span>
+                        <span className="text-[9px] text-slate-400">
+                          {cv.ledgerMonthCount.replace(
+                            "{count}",
+                            String(monthLedgerTotals.unsettledCount),
+                          )}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  {monthLedgerTotals.hasEntries && (
+                    <span className="flex items-center gap-2 text-[9px] text-slate-400 font-bold shrink-0">
+                      <span className="text-[#4D7C5D] dark:text-[#6FAD84]">
+                        {cv.ledgerIncome} {formatAmount(monthLedgerTotals.income)}
+                      </span>
+                      <span className="text-[#D4380D] dark:text-[#F06A4B]">
+                        {cv.ledgerExpense} {formatAmount(monthLedgerTotals.expense)}
+                      </span>
+                    </span>
+                  )}
+                </div>
               </>
             ) : (
               /* 周视图容器：7 列卡片 */
@@ -668,6 +823,179 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                   );
                 })()}
               </div>
+            </div>
+
+            <div className="border-t border-[#EFEBE4] dark:border-[#33353A] mx-5 my-3" />
+
+            {/* 中: 当日账目（轻量记账与结算标记，issue #51 第 3 项） */}
+            <div className="px-5 pb-3 shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-[10px] font-extrabold text-[#4D7C5D] dark:text-[#6FAD84] tracking-wide flex items-center gap-1.5">
+                  <Wallet className="w-3 h-3" />
+                  <span>{cv.ledgerTitle}</span>
+                </h3>
+                <div className="flex items-center gap-2 text-[9px] font-bold">
+                  {selectedDayLedgerTotals.hasEntries && (
+                    <>
+                      <span className="text-slate-400">{cv.ledgerDayTotal}</span>
+                      <span
+                        className={`font-extrabold ${
+                          selectedDayLedgerTotals.net < 0
+                            ? "text-[#D4380D] dark:text-[#F06A4B]"
+                            : "text-[#4D7C5D] dark:text-[#6FAD84]"
+                        }`}
+                      >
+                        {formatNet(selectedDayLedgerTotals.net)}
+                      </span>
+                    </>
+                  )}
+                  {selectedDateLedgerEntries.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDaySettled(effectiveSelectedDate, !selectedDayLedgerTotals.allSettled)
+                      }
+                      className="text-[8px] px-1.5 py-0.5 rounded border border-[#DEEAE2] dark:border-[#33353A] text-[#4D7C5D] dark:text-[#6FAD84] hover:bg-[#F0F5F1] dark:hover:bg-[#252830] transition-colors cursor-pointer font-bold"
+                    >
+                      {selectedDayLedgerTotals.allSettled
+                        ? cv.ledgerUnsettleDay
+                        : cv.ledgerSettleDay}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 当日条目列表 */}
+              {selectedDateLedgerEntries.length > 0 ? (
+                <div className="space-y-1 mb-2 max-h-[132px] overflow-y-auto custom-scrollbar pr-0.5">
+                  {selectedDateLedgerEntries.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-[#FAF8F5]/70 dark:bg-[#26282E]/70 border border-[#EFEBE4]/75 dark:border-[#33353A] group"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleEntrySettled(entry.id)}
+                        title={entry.settled ? cv.ledgerSettled : cv.ledgerUnsettled}
+                        className="shrink-0 cursor-pointer"
+                      >
+                        {entry.settled ? (
+                          <Check className="w-3.5 h-3.5 text-[#4D7C5D] dark:text-[#6FAD84]" />
+                        ) : (
+                          <Circle className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
+                        )}
+                      </button>
+                      <span
+                        className={`text-[8px] font-extrabold px-1 py-0.5 rounded shrink-0 ${
+                          entry.direction === "in"
+                            ? "bg-[#E8F3EC] text-[#4D7C5D] dark:bg-[#22301F] dark:text-[#6FAD84]"
+                            : "bg-[#FDECEA] text-[#D4380D] dark:bg-[#331D1A] dark:text-[#F06A4B]"
+                        }`}
+                      >
+                        {entry.direction === "in" ? cv.ledgerIncome : cv.ledgerExpense}
+                      </span>
+                      <span
+                        className={`text-[10px] font-extrabold shrink-0 ${
+                          entry.settled
+                            ? "text-slate-400 dark:text-slate-500 line-through"
+                            : "text-[#2D323A] dark:text-slate-200"
+                        }`}
+                      >
+                        {formatAmount(entry.amount)}
+                      </span>
+                      {entry.note && (
+                        <span className="text-[8px] text-slate-400 truncate min-w-0 flex-1">
+                          {entry.note}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeLedgerEntry(entry.id)}
+                        className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-950/40 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all cursor-pointer shrink-0"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[9px] text-slate-400 font-bold mb-2">{cv.ledgerEmpty}</p>
+              )}
+
+              {/* 记账输入 */}
+              {showLedgerInput ? (
+                <div className="p-2 rounded-xl bg-[#FAF8F5] dark:bg-[#26282E] border border-[#EFEBE4] dark:border-[#33353A] space-y-1.5 animate-fade-in-up">
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex rounded-lg overflow-hidden border border-[#EFEBE4] dark:border-[#33353A] shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setLedgerDirection("out")}
+                        className={`px-2 py-1 text-[9px] font-extrabold transition-colors cursor-pointer ${
+                          ledgerDirection === "out"
+                            ? "bg-[#D4380D] text-white"
+                            : "bg-white dark:bg-[#1C1D21] text-slate-500 dark:text-slate-400"
+                        }`}
+                      >
+                        {cv.ledgerExpense}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLedgerDirection("in")}
+                        className={`px-2 py-1 text-[9px] font-extrabold transition-colors cursor-pointer ${
+                          ledgerDirection === "in"
+                            ? "bg-[#4D7C5D] text-white"
+                            : "bg-white dark:bg-[#1C1D21] text-slate-500 dark:text-slate-400"
+                        }`}
+                      >
+                        {cv.ledgerIncome}
+                      </button>
+                    </div>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={ledgerAmount}
+                      onChange={(e) => setLedgerAmount(e.target.value)}
+                      onKeyDown={handleLedgerAmountKeyDown}
+                      placeholder={cv.ledgerAmountPlaceholder}
+                      className="flex-1 min-w-0 bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#33353A] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#C4D7B2] dark:focus:border-[#4D7C5D] font-bold"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={ledgerNote}
+                    onChange={(e) => setLedgerNote(e.target.value)}
+                    onKeyDown={handleLedgerAmountKeyDown}
+                    placeholder={cv.ledgerNotePlaceholder}
+                    className="w-full bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#33353A] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#C4D7B2] dark:focus:border-[#4D7C5D] font-medium"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowLedgerInput(false)}
+                      className="text-[9px] px-2 py-1 rounded-lg border border-[#EFEBE4] dark:border-[#33353A] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#33353A] transition-colors cursor-pointer font-bold"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddLedgerEntry}
+                      className="text-[9px] px-2 py-1 rounded-lg bg-[#4D7C5D] text-white font-bold hover:bg-[#3F684C] transition-colors cursor-pointer"
+                    >
+                      {cv.ledgerAddTitle}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowLedgerInput(true)}
+                  className="flex items-center gap-1 text-[9px] text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#6FAD84] transition-colors cursor-pointer font-medium"
+                >
+                  <Plus className="w-3 h-3" /> {cv.ledgerAddTitle}
+                </button>
+              )}
             </div>
 
             <div className="border-t border-[#EFEBE4] dark:border-[#33353A] mx-5 my-3" />

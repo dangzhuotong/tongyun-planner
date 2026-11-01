@@ -227,6 +227,22 @@ const zhCN: Translations = {
     quickAddPlaceholder: "快速添加任务到本日...按回车保存",
     monthView: "月视图",
     weekView: "周视图",
+    // 日历轻量记账（issue #51 第 3 项）
+    ledgerTitle: "当日账目",
+    ledgerAddTitle: "记一笔",
+    ledgerIncome: "收",
+    ledgerExpense: "支",
+    ledgerAmountPlaceholder: "金额",
+    ledgerNotePlaceholder: "备注（可选）",
+    ledgerSettle: "已结算",
+    ledgerUnsettled: "未结算",
+    ledgerSettleDay: "整日结算",
+    ledgerUnsettleDay: "整日取消结算",
+    ledgerEmpty: "本日暂无账目",
+    ledgerDayTotal: "当日合计",
+    ledgerMonthTotal: "本月合计",
+    ledgerMonthUnsettled: "本月未结算",
+    ledgerMonthCount: "共 {count} 笔",
   },
 
   quickAdd: {

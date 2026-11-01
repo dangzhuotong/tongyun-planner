@@ -56,6 +56,8 @@ function getAllKnownKeys(): string[] {
     "tongyun_recollect_prose",
     // 日历 & 白噪音
     "tongyun_timeblocks",
+    // 日历轻量记账（issue #51 第 3 项）
+    "tongyun_ledger_entries",
     "tongyun_visible_noises",
     // 邮件
     "tongyun_email_config",
