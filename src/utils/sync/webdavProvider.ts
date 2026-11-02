@@ -677,6 +677,23 @@ export class WebDAVProvider implements SyncProvider {
       await importDecryptedSecrets(remotePayload, localConfig);
     }
 
+    if (conflict.category === "tasks" && this.config) {
+      try {
+        const compRes = await downloadWithMeta(
+          this.config,
+          REMOTE_DIR + SYNC_CATEGORY_FILES.completedTasks,
+        );
+        if (compRes?.content) {
+          const compData = JSON.parse(compRes.content);
+          if (Array.isArray(compData)) {
+            applyCategoryPayload("completedTasks", compData);
+          }
+        }
+      } catch {
+        // remote completedTasks might not exist or network glitch
+      }
+    }
+
     if (conflict.remoteManifestVersion > 0) {
       localStorage.setItem(
         "tongyun_cat_ver_" + conflict.category,

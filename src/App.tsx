@@ -612,7 +612,7 @@ function AppBody() {
         tasksHook.setTasks(tasks);
         tasksHook.setCompletedTasks(completedTasks);
         if (replaceCategory) {
-          tasksHook.replaceStoredTasks(tasks, completedTasks);
+          tasksHook.replaceStoredTasks(tasks, completedTasks, false);
         }
         if (Array.isArray(data.stickyNotes)) notesHook.setStickyNotes(data.stickyNotes);
         if (Array.isArray(data.pomodoroLogs)) pomodoroHook.setPomodoroLogs(data.pomodoroLogs);

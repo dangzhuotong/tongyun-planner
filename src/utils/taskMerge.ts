@@ -220,24 +220,18 @@ export function mergeTaskSources(...sources: (TaskSourceCollection | null | unde
     }
   }
 
-  // 解决活动与完成列表之间的重复项：以较新操作优先，若已完成无更新则以完成为准
+  // 解决活动与完成列表之间的重复项：完成态优先。
+  // 一旦任务在任意来源中包含有效的 completedAt，必须保持为已完成状态。
+  // 严禁因活动行由于本地保存、迁移或同步而临时刷新的 updatedAt > completedAt 误把已完成任务重新复活为待办。
   for (const [id, activeTask] of activeMap.entries()) {
     const completedTask = completedMap.get(id);
     if (!completedTask) continue;
 
     const merged = mergeTwoTasks(completedTask, activeTask);
-    const activeTime = activeTask.updatedAt || 0;
-    const completedTime = completedTask.completedAt || completedTask.updatedAt || 0;
-
-    if (activeTime > completedTime) {
-      delete merged.completedAt;
-      activeMap.set(id, merged);
-      completedMap.delete(id);
-    } else {
-      if (!merged.completedAt) merged.completedAt = completedTime || Date.now();
-      completedMap.set(id, merged);
-      activeMap.delete(id);
-    }
+    const completedTime = completedTask.completedAt || completedTask.updatedAt || Date.now();
+    merged.completedAt = completedTime;
+    completedMap.set(id, merged);
+    activeMap.delete(id);
   }
 
   return {

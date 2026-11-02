@@ -241,4 +241,37 @@ describe("taskMerge: mergeTwoTasks & mergeTaskSources", () => {
       mergeTwoTasks(older, { ...newer, pipelineTaskId: "99", updatedAt: 30 }).pipelineTaskId,
     ).toBe("99");
   });
+
+  it("mergeTaskSources: 当任务在已完成中有记录时，即使活动源带有更新的 updatedAt，也必须保持完成态，不得复活为未完成", () => {
+    const activeFromSqlite = {
+      tasks: [
+        makeTask({
+          id: "t_completed_1",
+          title: "旧待办（已被其他端完成）",
+          updatedAt: 1000, // 较新的数据库写入时间戳
+        }),
+      ],
+      completed: [],
+    };
+
+    const completedFromRemote = {
+      tasks: [],
+      completed: [
+        makeTask({
+          id: "t_completed_1",
+          title: "旧待办（已被其他端完成）",
+          completedAt: 500, // 完成时间早于活动更新时间
+          updatedAt: 500,
+        }),
+      ],
+    };
+
+    const merged = mergeTaskSources(activeFromSqlite, completedFromRemote);
+
+    // 必须保留在完成列表中，不得出现在待办列表
+    expect(merged.tasks.map((t) => t.id)).not.toContain("t_completed_1");
+    expect(merged.completed.map((t) => t.id)).toContain("t_completed_1");
+    const item = merged.completed.find((t) => t.id === "t_completed_1")!;
+    expect(item.completedAt).toBe(500);
+  });
 });
