@@ -4,6 +4,29 @@ import { useSync } from "./useSync";
 import { audioEngine } from "../utils/audioEngine";
 import { nextNoiseStartSignal, shouldAutoStartNoise } from "../utils/noisePolicy";
 import { safeJsonParse } from "../utils/json";
+import {
+  MICRO_BREAK_MAX_DURATION_SEC,
+  MICRO_BREAK_MAX_GAP_SEC,
+  MICRO_BREAK_MIN_DURATION_SEC,
+  MICRO_BREAK_MIN_GAP_SEC,
+  resolveMicroBreakDuration,
+  resolveMicroBreakGaps,
+} from "../utils/microBreak";
+
+export const MICRO_BREAK_STORAGE_KEYS = {
+  gapMinSec: "tongyun_micro_break_gap_min_sec",
+  gapMaxSec: "tongyun_micro_break_gap_max_sec",
+  durationMinSec: "tongyun_micro_break_duration_min_sec",
+  durationMaxSec: "tongyun_micro_break_duration_max_sec",
+  legacyInterval: "tongyun_random_break_interval",
+} as const;
+
+function readStoredSeconds(key: string, fallback: number): number {
+  const raw = localStorage.getItem(key);
+  if (raw === null) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 
 export function usePomodoro() {
   const { syncState } = useSync();
@@ -23,14 +46,36 @@ export function usePomodoro() {
   const [randomBreakEnabled, setRandomBreakEnabled] = useState<boolean>(() => {
     return localStorage.getItem("tongyun_random_break") === "true";
   });
-  const [microBreakInterval, setMicroBreakInterval] = useState<"1-2" | "3-5" | "5-10" | "test-30s">(
-    () => {
-      return (
-        (localStorage.getItem("tongyun_random_break_interval") as
-          "1-2" | "3-5" | "5-10" | "test-30s") || "3-5"
-      );
-    },
+  const [microBreakGapMinSec, setMicroBreakGapMinSec] = useState<number>(() =>
+    readStoredSeconds(MICRO_BREAK_STORAGE_KEYS.gapMinSec, MICRO_BREAK_MIN_GAP_SEC),
   );
+  const [microBreakGapMaxSec, setMicroBreakGapMaxSec] = useState<number>(() =>
+    readStoredSeconds(MICRO_BREAK_STORAGE_KEYS.gapMaxSec, MICRO_BREAK_MAX_GAP_SEC),
+  );
+  const [microBreakDurationMinSec, setMicroBreakDurationMinSec] = useState<number>(() =>
+    readStoredSeconds(MICRO_BREAK_STORAGE_KEYS.durationMinSec, MICRO_BREAK_MIN_DURATION_SEC),
+  );
+  const [microBreakDurationMaxSec, setMicroBreakDurationMaxSec] = useState<number>(() =>
+    readStoredSeconds(MICRO_BREAK_STORAGE_KEYS.durationMaxSec, MICRO_BREAK_MAX_DURATION_SEC),
+  );
+
+  /** 统一收敛间隔范围并落盘，保证 min ≤ max、数值在允许区间内。 */
+  const setMicroBreakGap = useCallback((minSec: number, maxSec: number) => {
+    const range = resolveMicroBreakGaps(minSec, maxSec);
+    setMicroBreakGapMinSec(range.minSec);
+    setMicroBreakGapMaxSec(range.maxSec);
+    localStorage.setItem(MICRO_BREAK_STORAGE_KEYS.gapMinSec, String(range.minSec));
+    localStorage.setItem(MICRO_BREAK_STORAGE_KEYS.gapMaxSec, String(range.maxSec));
+  }, []);
+
+  /** 每次休息时长同样在范围内随机取值。 */
+  const setMicroBreakDuration = useCallback((minSec: number, maxSec: number) => {
+    const range = resolveMicroBreakDuration(minSec, maxSec);
+    setMicroBreakDurationMinSec(range.minSec);
+    setMicroBreakDurationMaxSec(range.maxSec);
+    localStorage.setItem(MICRO_BREAK_STORAGE_KEYS.durationMinSec, String(range.minSec));
+    localStorage.setItem(MICRO_BREAK_STORAGE_KEYS.durationMaxSec, String(range.maxSec));
+  }, []);
   const [autoNoiseEnabled, setAutoNoiseEnabled] = useState<boolean>(() => {
     return localStorage.getItem("tongyun_auto_noise") === "true";
   });
@@ -221,8 +266,12 @@ export function usePomodoro() {
     setAlertSoundType,
     randomBreakEnabled,
     setRandomBreakEnabled,
-    microBreakInterval,
-    setMicroBreakInterval,
+    microBreakGapMinSec,
+    microBreakGapMaxSec,
+    microBreakDurationMinSec,
+    microBreakDurationMaxSec,
+    setMicroBreakGap,
+    setMicroBreakDuration,
     autoNoiseEnabled,
     setAutoNoiseEnabled,
     pomodoroTaskId,

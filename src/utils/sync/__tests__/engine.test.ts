@@ -90,4 +90,33 @@ describe("SyncEngine dirty persistence and offline", () => {
     const engine = new SyncEngine();
     expect(engine.currentBackend).toBe("none");
   });
+
+  it("resolveConflicts resolves and clears dirty status even if conflicts array is empty", async () => {
+    localStorage.setItem("tongyun_sync_dirty", JSON.stringify(["tasks"]));
+    const { SyncEngine } = await import("../engine");
+    const engine = new SyncEngine();
+    expect(engine.dirty).toBe(true);
+    // Mock webdavProvider methods
+    (engine.webdavProvider as any).uploadCategory = async () => {};
+    (engine.webdavProvider as any).pull = async () => ({});
+
+    await engine.resolveConflicts("local");
+    expect(engine.status).toBe("success");
+    expect(engine.dirty).toBe(false);
+    expect(JSON.parse(localStorage.getItem("tongyun_sync_dirty") || "[]")).toEqual([]);
+  });
+
+  it("requestReopenConflictModal dispatches custom event", async () => {
+    const target = new EventTarget();
+    (globalThis as any).window = target;
+    const { SyncEngine } = await import("../engine");
+    const engine = new SyncEngine();
+    let dispatched = false;
+    target.addEventListener("tongyun-reopen-conflict-modal", () => {
+      dispatched = true;
+    });
+    engine.requestReopenConflictModal();
+    expect(dispatched).toBe(true);
+    delete (globalThis as any).window;
+  });
 });

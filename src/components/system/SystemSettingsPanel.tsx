@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { AlertTriangle, RefreshCw, Loader2, ExternalLink, Calendar } from "lucide-react";
+import {
+  AlertTriangle,
+  RefreshCw,
+  Loader2,
+  ExternalLink,
+  Calendar,
+  Leaf,
+  Play,
+} from "lucide-react";
 import type { CustomizationConfig, AlertSoundType, Locale } from "../../types";
 import { NOISE_DEFINITIONS, getVisibleNoises, setVisibleNoises } from "../../constants";
+import { audioEngine } from "../../utils/audioEngine";
 import { CustomSelect } from "../CustomSelect";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { usePomodoroContext } from "../../context/PomodoroContext";
@@ -10,6 +19,10 @@ import { checkForAppUpdate, resolveDisplayedAppVersion } from "../../utils/updat
 import { openExternal } from "../../utils/openExternal";
 import { getVersion } from "@tauri-apps/api/app";
 import { version as bundledVersion } from "../../../package.json";
+import {
+  MICRO_BREAK_DURATION_LIMIT_SEC,
+  MICRO_BREAK_GAP_LIMIT_SEC,
+} from "../../utils/microBreak";
 import {
   fetchAndParseICal,
   saveCachedICalHolidays,
@@ -27,7 +40,67 @@ interface SystemSettingsPanelProps {
   setAlertSoundType: (type: AlertSoundType) => void;
   resetTasks: () => void;
   triggerToast: (text: string, type: "success" | "error") => void;
+  onTestMicroBreak?: () => void;
 }
+
+interface RangeFieldProps {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix: string;
+  ariaLabel: string;
+  onCommit: (value: number) => void;
+}
+
+/** 允许中间态输入，失焦或回车时才收敛并提交，避免边输入边被改写。 */
+const RangeField: React.FC<RangeFieldProps> = ({
+  value,
+  min,
+  max,
+  step,
+  suffix,
+  ariaLabel,
+  onCommit,
+}) => {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const commit = () => {
+    const parsed = Number(draft);
+    if (!Number.isFinite(parsed)) {
+      setDraft(String(value));
+      return;
+    }
+    const clamped = Math.min(max, Math.max(min, parsed));
+    setDraft(String(clamped));
+    if (clamped !== value) onCommit(clamped);
+  };
+
+  return (
+    <label className="flex items-center gap-1">
+      <input
+        type="number"
+        inputMode="decimal"
+        value={draft}
+        min={min}
+        max={max}
+        step={step}
+        aria-label={ariaLabel}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        className="w-16 bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#2D3039] px-2 py-1 rounded-lg text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#4D7C5D] dark:focus:border-[#6DAF7E]"
+      />
+      <span className="text-[10px] text-slate-400 font-medium">{suffix}</span>
+    </label>
+  );
+};
 
 const ALERT_SOUND_OPTIONS: { value: AlertSoundType; label: string }[] = [
   { value: "beep", label: "电子 Chime 🔔 (Beep)" },
@@ -53,11 +126,62 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
   setAlertSoundType,
   resetTasks,
   triggerToast,
+  onTestMicroBreak,
 }) => {
   const { t } = useTranslation();
   const s = t.settings;
   const sb = t.sidebar;
   const { startNoise, stopNoise } = usePomodoroContext();
+
+  const {
+    randomBreakEnabled,
+    setRandomBreakEnabled,
+    microBreakGapMinSec,
+    microBreakGapMaxSec,
+    microBreakDurationMinSec,
+    microBreakDurationMaxSec,
+    setMicroBreakGap,
+    setMicroBreakDuration,
+  } = usePomodoroContext();
+
+  const gapMinMinutes = Number((microBreakGapMinSec / 60).toFixed(1));
+  const gapMaxMinutes = Number((microBreakGapMaxSec / 60).toFixed(1));
+  const gapMinLimitMinutes = MICRO_BREAK_GAP_LIMIT_SEC.min / 60;
+  const gapMaxLimitMinutes = MICRO_BREAK_GAP_LIMIT_SEC.max / 60;
+
+  const updateGapMin = (minutes: number) =>
+    setMicroBreakGap(Math.round(minutes * 60), microBreakGapMaxSec);
+  const updateGapMax = (minutes: number) =>
+    setMicroBreakGap(microBreakGapMinSec, Math.round(minutes * 60));
+  const updateDurationMin = (seconds: number) =>
+    setMicroBreakDuration(seconds, microBreakDurationMaxSec);
+  const updateDurationMax = (seconds: number) =>
+    setMicroBreakDuration(microBreakDurationMinSec, seconds);
+
+  const microBreakSummary = (
+    s.microBreakSummary ||
+    "专注中每 {gapMin}~{gapMax} 分钟随机提醒一次，每次休息 {durMin}~{durMax} 秒"
+  )
+    .replace("{gapMin}", String(gapMinMinutes))
+    .replace("{gapMax}", String(gapMaxMinutes))
+    .replace("{durMin}", String(microBreakDurationMinSec))
+    .replace("{durMax}", String(microBreakDurationMaxSec));
+
+  const handleToggleRandomBreak = (next: boolean) => {
+    setRandomBreakEnabled(next);
+    localStorage.setItem("tongyun_random_break", String(next));
+    if (next) {
+      void audioEngine.playMicroBreakSound();
+    }
+  };
+
+  const handleTestMicroBreak = () => {
+    if (onTestMicroBreak) {
+      onTestMicroBreak();
+    } else {
+      void audioEngine.playMicroBreakSound();
+    }
+  };
 
   const [dueRemindEnabled, setDueRemindEnabled] = useSetting("tongyun_due_remind_enabled", true);
   const [dueRemindBeforeMinutes, setDueRemindBeforeMinutes] = useSetting(
@@ -246,6 +370,101 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
           <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
           <span>{s.reportIssue || "反馈问题"}</span>
         </button>
+      </div>
+
+      {/* 随机微休息 */}
+      <div className="space-y-3 pb-3 border-b border-[#EFEBE4] dark:border-[#2D3039]">
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+          <Leaf className="w-4 h-4 text-[#4D7C5D] dark:text-[#6DAF7E]" />
+          <span>{s.microBreakTitle || "随机微休息"}</span>
+        </h4>
+        <p className="text-[10px] text-slate-400 font-medium">
+          {s.microBreakDesc ||
+            "专注过程中随机插入短暂休息。间隔与每次时长都在设定范围内随机取值，不再写死。"}
+        </p>
+
+        <div className="bg-[#FAF8F5] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] rounded-2xl p-3.5 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+              {s.microBreakToggle || "启用随机微休息"}
+            </span>
+            <span className="text-[10px] text-slate-400 mt-0.5 block">
+              {s.microBreakToggleHint || "窗口在后台时改为系统通知提醒，不会把主窗拉到前台。"}
+            </span>
+          </div>
+          <input
+            type="checkbox"
+            checked={randomBreakEnabled}
+            onChange={(e) => handleToggleRandomBreak(e.target.checked)}
+            className="w-4 h-4 accent-[#4D7C5D] cursor-pointer flex-shrink-0"
+          />
+        </div>
+
+        <div className="bg-[#FAF8F5] dark:bg-[#1E2026]/70 border border-[#EFEBE4] dark:border-[#2D3039] rounded-2xl p-3.5 space-y-2.5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+              {s.microBreakGapLabel || "提醒间隔"}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <RangeField
+                value={gapMinMinutes}
+                min={gapMinLimitMinutes}
+                max={gapMaxLimitMinutes}
+                step={0.5}
+                suffix={s.microBreakMinutes || "分钟"}
+                ariaLabel={`${s.microBreakGapLabel || "提醒间隔"}最短`}
+                onCommit={updateGapMin}
+              />
+              <span className="text-[10px] text-slate-400 font-bold">~</span>
+              <RangeField
+                value={gapMaxMinutes}
+                min={gapMinLimitMinutes}
+                max={gapMaxLimitMinutes}
+                step={0.5}
+                suffix={s.microBreakMinutes || "分钟"}
+                ariaLabel={`${s.microBreakGapLabel || "提醒间隔"}最长`}
+                onCommit={updateGapMax}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+              {s.microBreakDurationLabel || "每次休息"}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <RangeField
+                value={microBreakDurationMinSec}
+                min={MICRO_BREAK_DURATION_LIMIT_SEC.min}
+                max={MICRO_BREAK_DURATION_LIMIT_SEC.max}
+                step={1}
+                suffix={s.microBreakSeconds || "秒"}
+                ariaLabel={`${s.microBreakDurationLabel || "每次休息"}最短`}
+                onCommit={updateDurationMin}
+              />
+              <span className="text-[10px] text-slate-400 font-bold">~</span>
+              <RangeField
+                value={microBreakDurationMaxSec}
+                min={MICRO_BREAK_DURATION_LIMIT_SEC.min}
+                max={MICRO_BREAK_DURATION_LIMIT_SEC.max}
+                step={1}
+                suffix={s.microBreakSeconds || "秒"}
+                ariaLabel={`${s.microBreakDurationLabel || "每次休息"}最长`}
+                onCommit={updateDurationMax}
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-[#4D7C5D] dark:text-[#6DAF7E] font-bold">
+            {microBreakSummary}
+          </p>
+          <button
+            type="button"
+            onClick={handleTestMicroBreak}
+            className="flex items-center gap-1.5 text-[10px] font-bold text-[#4D7C5D] dark:text-[#6DAF7E] bg-[#F0F5F1] dark:bg-[#1A261E] hover:bg-[#E4EDE6] dark:hover:bg-[#233527] border border-[#DEEAE2] dark:border-[#294231] px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+          >
+            <Play className="w-3 h-3" />
+            <span>{s.microBreakTest || "立即体验一次"}</span>
+          </button>
+        </div>
       </div>
 
       {/* 语言选择 */}

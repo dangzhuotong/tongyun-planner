@@ -2,10 +2,16 @@ import { describe, it, expect, vi } from "vitest";
 import {
   MICRO_BREAK_MIN_GAP_SEC,
   MICRO_BREAK_MAX_GAP_SEC,
+  MICRO_BREAK_MIN_DURATION_SEC,
+  MICRO_BREAK_MAX_DURATION_SEC,
+  MICRO_BREAK_GAP_LIMIT_SEC,
+  MICRO_BREAK_DURATION_LIMIT_SEC,
   MICRO_BREAK_TAIL_SEC,
   MICRO_BREAK_THEMES,
   getRandomMicroBreakTheme,
-  getIntervalGaps,
+  resolveMicroBreakGaps,
+  resolveMicroBreakDuration,
+  pickMicroBreakDurationSec,
   scheduleMicroBreakThreshold,
   nextThresholdAfterMicroBreak,
   resolveMicroBreakSchedule,
@@ -18,7 +24,11 @@ describe("microBreak utils", () => {
     it("should export correct timing constants", () => {
       expect(MICRO_BREAK_MIN_GAP_SEC).toBe(180);
       expect(MICRO_BREAK_MAX_GAP_SEC).toBe(420);
+      expect(MICRO_BREAK_MIN_DURATION_SEC).toBe(5);
+      expect(MICRO_BREAK_MAX_DURATION_SEC).toBe(10);
       expect(MICRO_BREAK_TAIL_SEC).toBe(30);
+      expect(MICRO_BREAK_GAP_LIMIT_SEC).toEqual({ min: 30, max: 7200 });
+      expect(MICRO_BREAK_DURATION_LIMIT_SEC).toEqual({ min: 2, max: 120 });
     });
 
     it("should have 5 predefined micro-break themes with all attributes", () => {
@@ -51,17 +61,36 @@ describe("microBreak utils", () => {
     });
   });
 
-  describe("getIntervalGaps", () => {
-    it("should return correct min and max seconds for known keys", () => {
-      expect(getIntervalGaps("test-30s")).toEqual({ minSec: 15, maxSec: 30 });
-      expect(getIntervalGaps("1-2")).toEqual({ minSec: 60, maxSec: 120 });
-      expect(getIntervalGaps("3-5")).toEqual({ minSec: 180, maxSec: 300 });
-      expect(getIntervalGaps("5-10")).toEqual({ minSec: 300, maxSec: 600 });
+  describe("user-configurable ranges", () => {
+    it("keeps valid gap ranges and defaults to 3-7 minutes", () => {
+      expect(resolveMicroBreakGaps()).toEqual({ minSec: 180, maxSec: 420 });
+      expect(resolveMicroBreakGaps(60, 300)).toEqual({ minSec: 60, maxSec: 300 });
     });
 
-    it("should default to 3-5 range for undefined or unknown keys", () => {
-      expect(getIntervalGaps()).toEqual({ minSec: 180, maxSec: 300 });
-      expect(getIntervalGaps("unknown")).toEqual({ minSec: 180, maxSec: 300 });
+    it("normalizes inverted and out-of-bound gap values", () => {
+      expect(resolveMicroBreakGaps(600, 120)).toEqual({ minSec: 120, maxSec: 600 });
+      expect(resolveMicroBreakGaps(1, 999999)).toEqual({
+        minSec: MICRO_BREAK_GAP_LIMIT_SEC.min,
+        maxSec: MICRO_BREAK_GAP_LIMIT_SEC.max,
+      });
+      expect(resolveMicroBreakGaps(NaN, 120)).toEqual({ minSec: 120, maxSec: 180 });
+    });
+
+    it("normalizes break duration independently of gap limits", () => {
+      expect(resolveMicroBreakDuration()).toEqual({ minSec: 5, maxSec: 10 });
+      expect(resolveMicroBreakDuration(30, 10)).toEqual({ minSec: 10, maxSec: 30 });
+      expect(resolveMicroBreakDuration(0, 999)).toEqual({
+        minSec: MICRO_BREAK_DURATION_LIMIT_SEC.min,
+        maxSec: MICRO_BREAK_DURATION_LIMIT_SEC.max,
+      });
+    });
+
+    it("picks a duration inside the configured range on both ends", () => {
+      expect(pickMicroBreakDurationSec(5, 10, () => 0)).toBe(5);
+      expect(pickMicroBreakDurationSec(5, 10, () => 0.999)).toBe(10);
+      expect(pickMicroBreakDurationSec(5, 10, () => 1)).toBe(10);
+      expect(pickMicroBreakDurationSec(10, 5, () => 0)).toBe(5);
+      expect(pickMicroBreakDurationSec(5, 5, () => 0.7)).toBe(5);
     });
   });
 

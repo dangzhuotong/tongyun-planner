@@ -14,7 +14,8 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { CustomizationConfig } from "../../types";
-import type { SyncBackendType } from "../../utils/sync/types";
+import type { SyncBackendType, SyncConflict } from "../../utils/sync/types";
+import { CATEGORY_NAMES } from "./SyncConflictModal";
 import { storageManager, type StorageBackendType } from "../../utils/storage";
 import { syncEngine } from "../../utils/sync/engine";
 import {
@@ -98,6 +99,8 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
   );
   const [syncStatus, setSyncStatus] = useState(syncEngine.status);
   const [syncLastTime, setSyncLastTime] = useState<number | null>(syncEngine.lastSyncTime);
+  const [syncConflicts, setSyncConflicts] = useState<SyncConflict[]>(() => syncEngine.conflicts);
+  const [isResolvingConflict, setIsResolvingConflict] = useState<"local" | "remote" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const snapshotFileRef = useRef<HTMLInputElement>(null);
@@ -223,6 +226,7 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
     return syncEngine.subscribe((state) => {
       setSyncStatus(state.status);
       setSyncLastTime(state.lastSyncTime);
+      setSyncConflicts(state.conflicts || []);
       setSecretsDecryptFailed(hasSyncSecretsDecryptFailed());
     });
   }, []);
@@ -542,6 +546,98 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
             </span>
           </div>
 
+          {/* 冲突处理专区卡片 */}
+          {(syncStatus === "conflict" || syncConflicts.length > 0) && (
+            <div className="p-3.5 rounded-xl border border-amber-300 dark:border-amber-800/80 bg-amber-50/90 dark:bg-amber-950/40 space-y-3 animate-fade-in shadow-xs">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2.5 text-amber-800 dark:text-amber-200">
+                  <div className="w-6 h-6 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                      <span>{s.syncConflictTitle || "检测到云端与本地数据冲突"}</span>
+                      {syncConflicts.length > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-amber-200/70 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 font-mono">
+                          {syncConflicts.length} 项冲突
+                        </span>
+                      )}
+                    </h5>
+                    <p className="text-[10px] text-amber-800/80 dark:text-amber-300/80 mt-1 leading-relaxed">
+                      {s.syncConflictBody ||
+                        "其他设备更新了云端数据，同时本机有未上传改动。为避免覆盖，请选择保留哪一份："}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {syncConflicts.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {syncConflicts.map((c) => (
+                    <span
+                      key={c.category}
+                      className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-white/80 dark:bg-[#1E2026] border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-300 flex items-center gap-1"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      {CATEGORY_NAMES[c.category] || c.category}
+                      <span className="text-[9px] text-slate-400 font-mono">({c.fileName})</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-1 border-t border-amber-200/80 dark:border-amber-900/50">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsResolvingConflict("remote");
+                    try {
+                      await syncEngine.resolveConflicts("remote");
+                      triggerToast("已切换为云端版本（本机已更新） ✅", "success");
+                    } catch (err: any) {
+                      triggerToast(err?.message || "解决冲突失败", "error");
+                    } finally {
+                      setIsResolvingConflict(null);
+                    }
+                  }}
+                  disabled={isResolvingConflict !== null || isLoading}
+                  className="flex-1 py-2 px-3 rounded-xl text-[11px] font-bold border border-amber-300 dark:border-amber-700 bg-white dark:bg-[#232730] text-amber-800 dark:text-amber-200 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+                >
+                  {isResolvingConflict === "remote" ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Cloud className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  )}
+                  <span>{s.syncConflictAcceptRemote || "使用云端版本（覆盖本机）"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsResolvingConflict("local");
+                    try {
+                      await syncEngine.resolveConflicts("local");
+                      triggerToast("已保留本机版本并推送覆盖云端 ✅", "success");
+                    } catch (err: any) {
+                      triggerToast(err?.message || "解决冲突失败", "error");
+                    } finally {
+                      setIsResolvingConflict(null);
+                    }
+                  }}
+                  disabled={isResolvingConflict !== null || isLoading}
+                  className="flex-1 py-2 px-3 rounded-xl text-[11px] font-bold bg-[#4D7C5D] hover:bg-[#3F684C] text-white shadow-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+                >
+                  {isResolvingConflict === "local" ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                  )}
+                  <span>{s.syncConflictKeepLocal || "保留本机版本（覆盖云端）"}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button
               onClick={async () => {
@@ -561,7 +657,7 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                   triggerToast("连接失败 ❌", "error");
                 }
               }}
-              disabled={isLoading}
+              disabled={isLoading || isResolvingConflict !== null}
               className="flex-1 bg-white dark:bg-[#1E2026] border border-[#EFEBE4] dark:border-[#2D3039] hover:border-[#4D7C5D] dark:hover:border-[#6DAF7E] text-slate-600 dark:text-slate-200 py-2 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
             >
               {isLoading ? (
@@ -585,11 +681,14 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
                 setIsLoading(false);
                 if (syncEngine.status === "success") {
                   triggerToast("同步成功 ✅", "success");
+                } else if (syncEngine.status === "conflict") {
+                  triggerToast("检测到本地与云端数据冲突，请在上方选择保留哪一份 ⚠️", "error");
+                  syncEngine.requestReopenConflictModal();
                 } else if (syncEngine.status === "error") {
                   triggerToast(syncEngine.errorMessage || "同步失败", "error");
                 }
               }}
-              disabled={isLoading || syncStatus === "syncing"}
+              disabled={isLoading || syncStatus === "syncing" || isResolvingConflict !== null}
               className="flex-1 bg-[#4D7C5D] hover:bg-[#3F684C] disabled:bg-slate-300 text-white py-2 rounded-xl text-[10px] font-extrabold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
             >
               {isLoading ? (

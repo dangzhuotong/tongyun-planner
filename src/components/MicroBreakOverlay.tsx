@@ -1,7 +1,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Trees, Sparkles, CupSoda, Wind, Eye, RotateCw } from "lucide-react";
 import { useTranslation } from "../i18n/LanguageContext";
-import { type MicroBreakContent, getRandomMicroBreakTheme } from "../utils/microBreak";
+import {
+  type MicroBreakContent,
+  getRandomMicroBreakTheme,
+  MICRO_BREAK_MIN_DURATION_SEC,
+} from "../utils/microBreak";
 
 interface MicroBreakOverlayProps {
   onSkip: () => void;
@@ -10,7 +14,7 @@ interface MicroBreakOverlayProps {
 }
 
 export const MicroBreakOverlay: React.FC<MicroBreakOverlayProps> = React.memo(
-  ({ onSkip, durationSec = 5, initialTheme }) => {
+  ({ onSkip, durationSec = MICRO_BREAK_MIN_DURATION_SEC, initialTheme }) => {
     const { t } = useTranslation();
     const mb = t.microBreak || {};
     const [secondsLeft, setSecondsLeft] = useState(durationSec);
@@ -113,7 +117,7 @@ export const MicroBreakOverlay: React.FC<MicroBreakOverlayProps> = React.memo(
             </div>
           </div>
 
-          {/* Circular SVG 5-second countdown timer */}
+          {/* Circular SVG countdown timer */}
           <div className="relative w-16 h-16 flex items-center justify-center my-1">
             <svg className="w-16 h-16 -rotate-90 transform" viewBox="0 0 76 76">
               {/* Background ring */}
