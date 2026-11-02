@@ -281,7 +281,7 @@ export function usePomodoroTimer({
             taskId: s.taskId || undefined,
             taskTitle: s.taskTitle || undefined,
           };
-          pomodoroHook.setPomodoroLogs((prev: any[]) => [newLog, ...prev]);
+          pomodoroHook.addPomodoroLog(newLog);
 
           const celebrationTask =
             s.taskId && s.taskTitle ? { id: s.taskId, title: s.taskTitle } : undefined;

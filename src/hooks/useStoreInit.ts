@@ -83,6 +83,11 @@ export function useStoreInit(
     }
     if (savedBreak) handlersRef.current.pomodoroHook.setBreakDuration(parseInt(savedBreak, 10));
 
+    const savedLogs = localStorage.getItem("aero_pomodoro_logs");
+    if (savedLogs) {
+      handlersRef.current.pomodoroHook.setPomodoroLogs(safeJsonParse(savedLogs, []));
+    }
+
     const initStore = async () => {
       await initPromise;
 
