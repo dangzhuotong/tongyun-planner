@@ -156,7 +156,17 @@ export function useCrossWindowSync(
         case "add_pomodoro_log":
           try {
             const log = JSON.parse(p.title);
-            pH.setPomodoroLogs((prev: any[]) => [log, ...prev.filter((l: any) => l.id !== log.id)]);
+            pH.setPomodoroLogs((prev: any[]) => {
+              const next = [log, ...prev.filter((l: any) => l.id !== log.id)];
+              if (typeof localStorage !== "undefined") {
+                try {
+                  localStorage.setItem("aero_pomodoro_logs", JSON.stringify(next));
+                } catch {
+                  /* ignore */
+                }
+              }
+              return next;
+            });
           } catch {
             /* invalid pomodoro log sync payload */
           }
@@ -209,6 +219,16 @@ export function useCrossWindowSync(
             tH.setCompletedTasks(completed);
             tH.saveCompleted(completed);
             nH.setStickyNotes(notes);
+            if (Array.isArray(restored.pomodoroLogs)) {
+              pH.setPomodoroLogs(restored.pomodoroLogs);
+              if (typeof localStorage !== "undefined") {
+                try {
+                  localStorage.setItem("aero_pomodoro_logs", JSON.stringify(restored.pomodoroLogs));
+                } catch {
+                  /* ignore */
+                }
+              }
+            }
             setJournalRef.current(restored.journal || []);
             localStorage.setItem("tongyun_journal", JSON.stringify(restored.journal || []));
             cH.setCustomizationConfig(
@@ -221,12 +241,31 @@ export function useCrossWindowSync(
       }
     };
 
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "aero_pomodoro_logs" && e.newValue) {
+        try {
+          const logs = JSON.parse(e.newValue);
+          if (Array.isArray(logs)) {
+            handlersRef.current.pomodoroHook.setPomodoroLogs(logs);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", handleStorage);
+    }
+
     const unlistenPromise = listen("todo-sync-event", (event: any) =>
       handleSyncPayload(event.payload),
     ).catch(() => undefined);
     const unsubDev = subscribeDevSync((event) => handleSyncPayload(event.payload));
 
     return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("storage", handleStorage);
+      }
       unlistenPromise
         .then((unlisten) => {
           if (typeof unlisten === "function") unlisten();

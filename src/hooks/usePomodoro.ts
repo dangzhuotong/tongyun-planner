@@ -3,11 +3,15 @@ import type { AlertSoundType, PomodoroLog } from "../types";
 import { useSync } from "./useSync";
 import { audioEngine } from "../utils/audioEngine";
 import { nextNoiseStartSignal, shouldAutoStartNoise } from "../utils/noisePolicy";
+import { safeJsonParse } from "../utils/json";
 
 export function usePomodoro() {
   const { syncState } = useSync();
 
-  const [pomodoroLogs, setPomodoroLogs] = useState<PomodoroLog[]>([]);
+  const [pomodoroLogs, setPomodoroLogs] = useState<PomodoroLog[]>(() => {
+    if (typeof localStorage === "undefined") return [];
+    return safeJsonParse<PomodoroLog[]>(localStorage.getItem("aero_pomodoro_logs") || "[]", []);
+  });
   const [focusDuration, setFocusDuration] = useState<number>(25);
   const [breakDuration, setBreakDuration] = useState<number>(5);
   const [pomodoroTimeLeft, setPomodoroTimeLeft] = useState<number>(25 * 60);
@@ -82,6 +86,24 @@ export function usePomodoro() {
       syncState("pomodoro", "pomodoro_sync", data);
     },
     [pomodoroTaskId, pomodoroTaskTitle, syncState],
+  );
+
+  const addPomodoroLog = useCallback(
+    (log: PomodoroLog) => {
+      setPomodoroLogs((prev) => {
+        const next = [log, ...prev.filter((l) => l.id !== log.id)];
+        if (typeof localStorage !== "undefined") {
+          try {
+            localStorage.setItem("aero_pomodoro_logs", JSON.stringify(next));
+          } catch {
+            /* ignore localStorage quota/parse error */
+          }
+        }
+        return next;
+      });
+      void syncState(log.id, "add_pomodoro_log", JSON.stringify(log));
+    },
+    [syncState],
   );
 
   const handleStartFocus = useCallback(
@@ -215,6 +237,7 @@ export function usePomodoro() {
     noiseVolume,
     setNoiseVolume,
     syncPomodoro,
+    addPomodoroLog,
     handleStartFocus,
     playCompletionSound,
     startNoise,

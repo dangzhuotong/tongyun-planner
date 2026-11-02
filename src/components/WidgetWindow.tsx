@@ -35,6 +35,7 @@ import { useTranslation } from "../i18n/LanguageContext";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
 import { shouldStartDrag } from "../utils/dragTarget";
+import { audioEngine } from "../utils/audioEngine";
 
 interface WidgetWindowProps {
   tasks: Task[];
@@ -355,13 +356,26 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
   );
 
   // 专注统计
+  const [currentDateStr, setCurrentDateStr] = useState<string>(() => getLocalDateString());
+  useEffect(() => {
+    const checkDate = () => {
+      const nowStr = getLocalDateString();
+      setCurrentDateStr((prev) => (prev !== nowStr ? nowStr : prev));
+    };
+    const timer = setInterval(checkDate, 60000);
+    window.addEventListener("focus", checkDate);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", checkDate);
+    };
+  }, []);
+
   const todayLogs = useMemo(() => {
-    const todayStr = getLocalDateString();
     return pomodoroLogs.filter((log) => {
       const logDate = getLocalDateString(new Date(log.timestamp));
-      return logDate === todayStr && !log.taskId?.startsWith("break");
+      return logDate === currentDateStr && !log.taskId?.startsWith("break");
     });
-  }, [pomodoroLogs]);
+  }, [pomodoroLogs, currentDateStr]);
   const todayPomodoros = todayLogs.length;
   const todayFocusMinutes = todayLogs.reduce((acc, log) => acc + log.duration, 0);
 
@@ -876,6 +890,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
               <div className="flex items-center gap-3 mt-1">
                 <button
                   onClick={() => {
+                    void audioEngine.ensureAudioContext();
                     const nextActive = !pomodoroIsActive;
                     setPomodoroIsActive(nextActive);
                     syncPomodoro(
