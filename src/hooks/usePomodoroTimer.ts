@@ -3,6 +3,7 @@ import type { usePomodoro } from "./usePomodoro";
 import type { useTranslation } from "../i18n/LanguageContext";
 import { audioEngine } from "../utils/audioEngine";
 import { createId } from "../utils/id";
+import { claimPomodoroCompletion } from "../utils/pomodoroLock";
 import {
   announceMicroBreak,
   nextThresholdAfterMicroBreak,
@@ -234,7 +235,7 @@ export function usePomodoroTimer({
         isOnRandomBreakRef.current = false;
 
         const s = pomodoroStateRef.current;
-        if (s.windowLabel !== "main") return;
+        if (!claimPomodoroCompletion(endTime, s.isBreak)) return;
 
         pomodoroHook.playCompletionSound();
         if (pomodoroHook.isPlayingNoise || pomodoroHook.autoNoiseEnabled) {

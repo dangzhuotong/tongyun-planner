@@ -35,6 +35,7 @@ import { useTranslation } from "../i18n/LanguageContext";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
 import { shouldStartDrag } from "../utils/dragTarget";
+import { audioEngine } from "../utils/audioEngine";
 
 interface WidgetWindowProps {
   tasks: Task[];
@@ -889,6 +890,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
               <div className="flex items-center gap-3 mt-1">
                 <button
                   onClick={() => {
+                    void audioEngine.ensureAudioContext();
                     const nextActive = !pomodoroIsActive;
                     setPomodoroIsActive(nextActive);
                     syncPomodoro(
