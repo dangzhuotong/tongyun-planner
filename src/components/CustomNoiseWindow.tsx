@@ -309,7 +309,7 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
                 key={activeLink.id}
                 src={activeLink.embedUrl}
                 title={activeLink.title}
-                allow="autoplay; encrypted-media; picture-in-picture"
+                allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                 referrerPolicy="no-referrer"
                 seamless
                 className="w-full h-[150px] bg-black"
