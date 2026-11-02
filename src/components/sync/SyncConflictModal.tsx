@@ -9,7 +9,7 @@ interface SyncConflictModalProps {
   onClose: () => void;
 }
 
-const CATEGORY_NAMES: Record<SyncCategory, string> = {
+export const CATEGORY_NAMES: Record<SyncCategory, string> = {
   tasks: "待办",
   completedTasks: "已完成",
   stickyNotes: "便签",

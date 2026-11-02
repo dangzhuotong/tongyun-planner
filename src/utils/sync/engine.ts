@@ -338,39 +338,74 @@ export class SyncEngine {
   }
 
   /**
+   * 触发重新打开冲突处理弹窗事件
+   */
+  requestReopenConflictModal(): void {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("tongyun-reopen-conflict-modal"));
+    }
+  }
+
+  /**
    * 解决冲突：
    * choice === "local": 强制使用本地最新数据覆盖云端，更新指纹与清单；
    * choice === "remote": 强制使用云端冲突快照覆盖本地，并重新计算完成态。
    */
   async resolveConflicts(choice: "local" | "remote"): Promise<void> {
-    if (this._conflicts.length === 0) return;
-
     try {
-      if (choice === "local") {
-        const freshData = getLocalSyncData();
+      if (this._conflicts.length > 0) {
+        if (choice === "local") {
+          const freshData = getLocalSyncData();
+          for (const conflict of this._conflicts) {
+            // 选择本机版本：刷新版本戳为当前时间，保证其他设备的清单比较能拉到这份数据
+            bumpCategoryVersion(conflict.category);
+            const payload =
+              conflict.category === "config"
+                ? freshData.customizationConfig
+                : getCategoryPayload(freshData, conflict.category);
+            await this.webdavProvider.uploadCategory(conflict.category, payload);
+          }
+        } else {
+          for (const conflict of this._conflicts) {
+            await this.webdavProvider.acceptRemote(conflict);
+          }
+          if (typeof window !== "undefined") {
+            requestCategoryReplace();
+            window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
+          }
+        }
+
+        // 移除已解决的脏标记并清空冲突
         for (const conflict of this._conflicts) {
-          // 选择本机版本：刷新版本戳为当前时间，保证其他设备的清单比较能拉到这份数据
-          bumpCategoryVersion(conflict.category);
-          const payload =
-            conflict.category === "config"
-              ? freshData.customizationConfig
-              : getCategoryPayload(freshData, conflict.category);
-          await this.webdavProvider.uploadCategory(conflict.category, payload);
+          this.dirtyCategories.delete(conflict.category);
         }
       } else {
-        for (const conflict of this._conflicts) {
-          await this.webdavProvider.acceptRemote(conflict);
-        }
-        if (typeof window !== "undefined") {
-          requestCategoryReplace();
-          window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
+        // 当没有具体的冲突列表时，按用户意图强制整库对齐
+        if (choice === "local") {
+          const freshData = getLocalSyncData();
+          const targetCats =
+            this.dirtyCategories.size > 0
+              ? Array.from(this.dirtyCategories)
+              : ALL_SYNC_CATEGORIES;
+          for (const cat of targetCats) {
+            bumpCategoryVersion(cat);
+            const payload =
+              cat === "config"
+                ? freshData.customizationConfig
+                : getCategoryPayload(freshData, cat);
+            await this.webdavProvider.uploadCategory(cat, payload);
+          }
+          this.dirtyCategories.clear();
+        } else {
+          this.dirtyCategories.clear();
+          const pulled = await this.webdavProvider.pull();
+          if (pulled && typeof window !== "undefined") {
+            requestCategoryReplace();
+            window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
+          }
         }
       }
 
-      // 移除已解决的脏标记并清空冲突
-      for (const conflict of this._conflicts) {
-        this.dirtyCategories.delete(conflict.category);
-      }
       this.saveDirtyCategories();
 
       this._conflicts = [];

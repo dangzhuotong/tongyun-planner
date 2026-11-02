@@ -98,10 +98,10 @@ const zhCN: Translations = {
     bells: "铃音",
     alarm: "警报",
     randomBreak: "随机微休息",
-    randomBreakDesc: "专注中每 3~7 分钟随机提醒，停顿 5 秒望远护眼",
+    randomBreakDesc: "专注中按设定间隔随机提醒，短暂休息望远护眼",
     randomBreakSoundPreview: "试听微休息清风铃声",
-    randomBreakTestBtn: "体验5s",
-    randomBreakTestTitle: "立即体验 5 秒微休息（清风风铃与望远遮罩）",
+    randomBreakTestBtn: "体验",
+    randomBreakTestTitle: "立即体验一次微休息（按设置的时长）",
   },
 
   header: {
@@ -561,6 +561,17 @@ const zhCN: Translations = {
     updatingProgress: "正在下载并安装更新...",
     updateFailed: "更新失败：",
     reportIssue: "反馈问题",
+    microBreakTitle: "随机微休息",
+    microBreakDesc:
+      "专注过程中随机插入短暂休息。间隔与每次时长都在设定范围内随机取值，不再写死。",
+    microBreakToggle: "启用随机微休息",
+    microBreakToggleHint: "窗口在后台时改为系统通知提醒，不会把主窗拉到前台。",
+    microBreakGapLabel: "提醒间隔",
+    microBreakDurationLabel: "每次休息",
+    microBreakMinutes: "分钟",
+    microBreakSeconds: "秒",
+    microBreakSummary: "专注中每 {gapMin}~{gapMax} 分钟随机提醒一次，每次休息 {durMin}~{durMax} 秒",
+    microBreakTest: "立即体验一次",
   },
 
   floatingNote: {
@@ -716,7 +727,7 @@ const zhCN: Translations = {
     pomodoroTime: "番茄时间到啦！",
     pomodoroTimeBody: "太棒了！完成了一个番茄钟，喝口水休息一下吧 🌿",
     microBreakTitle: "微休息",
-    microBreakBody: "休息 5 秒，看看远处，放松一下眼睛",
+    microBreakBody: "休息片刻，看看远处，放松一下眼睛",
   },
   dashboard: {
     morning: "早上好",

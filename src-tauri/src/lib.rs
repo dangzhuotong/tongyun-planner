@@ -98,11 +98,12 @@ fn sync_todo_state(app: AppHandle, payload: TodoSyncPayload) -> Result<(), Strin
         .map_err(|e| e.to_string())
 }
 
-/// macOS Dock / Finder 再次打开时，只有「一个可见窗口都没有」才把主窗拉回来。
-/// 关红钮走的是隐藏（orderOut），System Events 的 winCount 会是 0，但窗口对象还在。
+/// macOS Dock / Finder 再次打开时，只要主窗不可见就把主窗拉回来。
+/// 不能用「有没有任何可见窗口」判断：桌面挂件单独可见时主窗仍可能是隐藏的，
+/// 那样点 Dock 图标会没有任何反应。
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-fn should_restore_main_on_reopen(has_visible_windows: bool) -> bool {
-    !has_visible_windows
+fn should_restore_main_on_reopen(main_visible: bool) -> bool {
+    !main_visible
 }
 
 fn restore_main_window(app: &AppHandle) {
@@ -157,6 +158,42 @@ fn set_widget_click_through(app: AppHandle, ignore: bool) -> Result<(), String> 
             .map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+// 6. 微休息提醒：主窗前台可见且聚焦时返回 false 由应用内浮层展示，
+// 否则发系统通知（不拉起主窗、不抢焦点）。
+#[tauri::command]
+fn notify_micro_break(app: AppHandle, title: String, body: String) -> bool {
+    use tauri_plugin_notification::NotificationExt;
+
+    // 挂件或其他本应用窗口持有焦点时，主窗的 is_focused 仍可能是 false，
+    // 因此按「主窗可见且未最小化 + 本应用任一窗口持有焦点」判断是否在前台。
+    let main = app.get_webview_window("main");
+    let main_visible = main
+        .as_ref()
+        .and_then(|window| window.is_visible().ok())
+        .unwrap_or(false);
+    let main_minimized = main
+        .as_ref()
+        .and_then(|window| window.is_minimized().ok())
+        .unwrap_or(false);
+    let app_focused = app
+        .webview_windows()
+        .values()
+        .any(|window| window.is_focused().unwrap_or(false));
+    let inline = main_visible && !main_minimized && app_focused;
+
+    if inline {
+        return false;
+    }
+
+    let _ = app
+        .notification()
+        .builder()
+        .title(&title)
+        .body(&body)
+        .show();
+    true
 }
 
 // 6. WebDAV 云备份指令 (在 Rust 端运行以规避前端浏览器的 CORS 限制)
@@ -686,6 +723,8 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         // 注册 Updater 插件
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // 注册系统通知插件（后台微休息提醒）
+        .plugin(tauri_plugin_notification::init())
         // 挂载用于多窗口间状态交互及窗口显隐控制的命令
         .invoke_handler(tauri::generate_handler![
             save_local_attachment,
@@ -693,6 +732,7 @@ pub fn run() {
             sync_todo_state,
             toggle_widget_window,
             set_widget_click_through,
+            notify_micro_break,
             webdav_mkcol,
             webdav_upload,
             webdav_download,
@@ -803,15 +843,18 @@ pub fn run() {
                     request_quit(app);
                 }
             }
-            // Dock / open -a 走 applicationShouldHandleReopen。隐藏中的主窗不算可见窗口，
-            // 这里 show 它。不在最后一窗关闭时退出：关闭本身就是隐藏，托盘「显示主窗口」仍可用。
+            // Dock / open -a 走 applicationShouldHandleReopen。挂件可见不算主窗可见，
+            // 主窗隐藏或最小化时都拉回来；主窗已经在前台就只补一次聚焦。
             #[cfg(target_os = "macos")]
-            tauri::RunEvent::Reopen {
-                has_visible_windows,
-                ..
-            } => {
-                if should_restore_main_on_reopen(has_visible_windows) {
+            tauri::RunEvent::Reopen { .. } => {
+                let main_visible = app
+                    .get_webview_window("main")
+                    .and_then(|window| window.is_visible().ok())
+                    .unwrap_or(false);
+                if should_restore_main_on_reopen(main_visible) {
                     restore_main_window(app);
+                } else if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_focus();
                 }
             }
             _ => {}
@@ -823,7 +866,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dock_reopen_restores_main_only_when_nothing_is_visible() {
+    fn dock_reopen_restores_main_whenever_main_is_hidden() {
         assert!(should_restore_main_on_reopen(false));
         assert!(!should_restore_main_on_reopen(true));
     }
