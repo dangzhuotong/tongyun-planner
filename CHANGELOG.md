@@ -7,18 +7,24 @@
 用于打 tag `v1.2.1`。相对已发布的 v1.2.0，收录此后合进默认分支的功能与修复。
 
 ### 新增
-- 日历节假日与调休开关、地区选择、iCal 订阅；香港特区 2025–2027 离线公众假期。
+- 日历节假日与调休开关、地区选择、iCal 订阅（[#52](https://github.com/dangzhuotong/tongyun-planner/pull/52)，[issue #51](https://github.com/dangzhuotong/tongyun-planner/issues/51) 第 1 项）：节假日改为内置离线年表（中国内地 2025~2027），不再依赖在线节假日接口，离线也能用；抓取走 Tauri 原生命令绕开 CORS，解析实现 RFC 5545 基础子集（`VEVENT`、`DTSTART` / `DTEND`、`SUMMARY`、`STATUS:CANCELLED`、折行展开与字符转义）。
+- 香港特区 2025–2027 离线公众假期（[#53](https://github.com/dangzhuotong/tongyun-planner/pull/53)），同时仍可用特区政府 1823 官方 iCal 在线同步。
 - 日历轻量记账与结算标记。
 - 自定义外部白噪音链接与可拖动悬浮窗。
 
 ### 修复
 - WebDAV 覆盖后，已完成任务不再因较新的 `updatedAt` 复活为未完成。
-- 日历假期地址同步时的设置页无限重绘。
+- 日历假期地址同步时的设置页无限重绘（[#53](https://github.com/dangzhuotong/tongyun-planner/pull/53)）。
+- 切地区 / 改订阅后日历不及时刷新（[#53](https://github.com/dangzhuotong/tongyun-planner/pull/53)）：切换地区改为一次 `onChange` 原子提交地区与订阅地址，iCal 缓存写入或清空后广播更新事件，视图即时刷新。
+- 调休判定收紧（[#52](https://github.com/dangzhuotong/tongyun-planner/pull/52)）：不再用宽泛的 `work` 匹配 iCal 标题，`Labour Day`、`The first day of January` 这类英文公众假期不会被误判成补班；只认明确的中文补班词与 `workday` / `working day`。
 - 桌面挂件与主窗口的番茄钟记录互相同步，挂件里也能结束一轮专注。
 - 自定义白噪音的 CSP，以及 YouTube 嵌入的 Error 153。
 
 ### 变更
-- 移除实验性的 zip 插件导入。
+- 移除实验性的 zip 插件导入（[#53](https://github.com/dangzhuotong/tongyun-planner/pull/53)）：删掉 `src/plugins/`、插件设置面板和挂载入口，并去掉 `jszip`、`@types/jszip` 依赖。
+
+### 优化
+- 「日历节假日与调休」上移到「系统与语言」语言选择下方，「搜索设置…」补齐日历 / 节假日 / 调休关键字（[#53](https://github.com/dangzhuotong/tongyun-planner/pull/53)）。
 
 ## [1.1.2] - 2026-10-19
 
