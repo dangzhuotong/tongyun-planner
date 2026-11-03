@@ -3,8 +3,8 @@
 
   <h1>橦云手帐</h1>
   <p><strong>TongYun Planner</strong></p>
-  <p>一个本地优先的桌面手帐：待办、日记、番茄钟放在同一个窗口，数据默认只在你电脑上。</p>
-  <p><em>A local-first desktop journal: to-dos, diary, and pomodoro in one window — data stays on your machine by default.</em></p>
+  <p>本地优先的桌面手帐：四象限待办 · 翻页日记 · 番茄钟 · 便签墙放在同一个窗口，数据默认只在你电脑上。</p>
+  <p><em>A local-first desktop <strong>bullet journal app</strong> &amp; task manager — Eisenhower matrix, flip-page diary, pomodoro and sticky notes in one window. Offline, privacy-first, open source, no account required.</em></p>
 
   <p>
     <a href="https://github.com/dangzhuotong/tongyun-planner/releases/latest"><strong>⬇ 下载最新版</strong></a>
@@ -24,18 +24,21 @@
 - **解决什么：** 待办散落、日记没处写、资讯看完就忘。四象限任务、翻页日记、番茄钟和资讯一键存成待办，都在同一个本地窗口里。
 - **有何不同：** 数据默认只在你的电脑上；日记是带书脊与横格的拟物手帐，而不是表单；可选 AI 给出克制的暖评，而不是催促你「更高效」。
 
+**For English readers:** TongYun Planner is an open-source, privacy-first **desktop bullet journal app** and **offline diary app** for anyone who wants their to-do list and their diary inside one offline window. It ships an Eisenhower matrix, a paper-like flip-page journal, a pomodoro timer with white noise, sticky notes and a floating desktop widget — all stored in a zero-config local SQLite database. No sign-up, no cloud account, and **no server of ours that collects your notes**; optional multi-device sync goes through **your own WebDAV** (Nutstore preset included). If you want a Notion alternative that keeps your journal files on your own machine, this is one.
+
 <div align="center">
   <br />
-  <!-- TODO(gif): 录制后放到 screenshots/gif/ 并替换下方 hero
-       计划文件：matrix-drag.gif · journal-flip.gif · news-to-task.gif
-       需阿橦 Mac 屏幕录制权限（Kap/ffmpeg）；每段 ≤8s、≤5MB、宽 960 -->
-  <img src="screenshots/dashboard.png" alt="橦云手帐主页：问候、天气、今日待办与 AI 散文" width="920" />
+  <!-- 界面巡览动图：首页 → 四象限 → 翻页日记 → 便签墙 → 番茄钟（约 9s / 2.8MB / 960px） -->
+  <a href="screenshots/dashboard.png" target="_blank" rel="noreferrer">
+    <img src="screenshots/gif/tour.gif" alt="橦云手帐界面巡览：首页、四象限看板、翻页日记、便签墙、番茄钟" width="920" />
+  </a>
+  <p><sub>首页 · 四象限看板 · 翻页日记 · 便签墙 · 番茄钟（点击查看大图）</sub></p>
 </div>
 
 <details>
 <summary><strong>English</strong></summary>
 
-**TongYun Planner（橦云手帐）** is a local-first desktop journal and task app: Eisenhower matrix, flip-page diary, pomodoro, sticky notes, and optional AI comments. Built for people who want a paper-like ritual and keep their notes on their own machine. Powered by an out-of-the-box, zero-config local SQLite database (full-schema P0), with strictly optional remote DSN sync.
+**TongYun Planner（橦云手帐）** is an open-source, privacy-first **local-first desktop bullet journal** and task app: Eisenhower matrix, flip-page diary, pomodoro timer with white noise, sticky notes, floating desktop widget, and optional AI comments. Built for people who want a paper-like ritual and keep their notes on their own machine — a **Notion alternative** for offline note-taking without an account. Powered by an out-of-the-box, zero-config local SQLite database (full-schema P0), with strictly optional WebDAV sync.
 
 [Download the latest installer](https://github.com/dangzhuotong/tongyun-planner/releases/latest) for **Windows**, **macOS Universal** (Apple Silicon and Intel), and **Linux** (AppImage / deb). The UI is Chinese by default, with a full English language pack in Settings.
 
@@ -65,7 +68,7 @@
 | 拟物翻页日记 | 内置 | 无 | 无 | 无 |
 | 开源 | MIT | 否 | 否 | 否（免费但闭源） |
 
-*Vs common tools (short): local-first zero-config SQLite (full-schema P0) + optional WebDAV sync; built-in Eisenhower matrix, pomodoro with white noise, and flip-page diary — MIT open source. Notion/TickTick are cloud accounts; Obsidian is local Markdown (matrix/pomodoro via plugins; core is free but closed-source).*
+*Vs common tools (short): local-first zero-config SQLite (full-schema P0) + optional WebDAV sync; built-in Eisenhower matrix, pomodoro with white noise, and flip-page diary — MIT open source, no account required. Notion/TickTick are cloud accounts; Obsidian is local Markdown (matrix/pomodoro via plugins; core is free but closed-source).*
 
 （本表只写可核实差异，不写价格、不写「比 X 好」。滴答清单四象限/番茄/白噪音见其[帮助中心](https://help.dida365.com/)。）
 
@@ -77,6 +80,8 @@
 - **同步是你自己开的。** 可选 WebDAV（内置坚果云预设，也可填自定义地址）同步。远端同步完全按需开启，主从关系与同步边界清晰；一旦开启，对应数据才会同步到**你配置的远端**。
 - **AI 密钥与正文。** 密钥保存在本机设置里。使用 AI 时，相关文本会发往你填写的模型服务商。同步和导出快照都会剥离 AI Key 等密钥字段，密钥只留在本机；换设备后需要重新填写。
 - **天气。** 填写城市后，会请求第三方天气接口（当前为 `uapis.cn`），仅发送城市名。
+
+**Privacy, in English:** everything you write stays on your machine. Tasks, diary entries, sticky notes and focus logs are written to a local SQLite database in your app data folder — offline-first, zero-config, no sign-up. The author runs no server that collects your content, and API keys are stripped from every sync payload and export snapshot. Want multi-device sync? You turn on **your own WebDAV** and it goes nowhere else.
 
 ---
 
