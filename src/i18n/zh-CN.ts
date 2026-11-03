@@ -240,6 +240,9 @@ const zhCN: Translations = {
     tasksForDate: "{date} 待办任务",
     noTasks: "本日无待办任务",
     enjoyDay: "享受轻松而专注的一天",
+    // 当日已完成任务（issue #51：日历面板回看当天做了啥）
+    completedTasksForDate: "已完成任务（{count}）",
+    completedAtLabel: "完成于 {time}",
     quickAddPlaceholder: "快速添加任务到本日...按回车保存",
     monthView: "月视图",
     weekView: "周视图",

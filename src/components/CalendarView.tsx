@@ -1,5 +1,16 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { Calendar, Coffee, Plus, Trash2, Wallet, Check, Circle } from "lucide-react";
+import {
+  Calendar,
+  Coffee,
+  Plus,
+  Trash2,
+  Wallet,
+  Check,
+  Circle,
+  Undo2,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import type { Task, TimeBlock, CustomizationConfig, LedgerDirection } from "../types";
 import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
@@ -7,6 +18,7 @@ import LunarLib from "lunar-javascript";
 import { getLocalDateString } from "../utils/date";
 import { safeJsonParse } from "../utils/json";
 import { createId } from "../utils/id";
+import { groupTasksByDueDate, splitDayTasks } from "../utils/calendar/dayTasks";
 import { usePersonal } from "../context/PersonalContext";
 import { useLedger } from "../hooks/useLedger";
 import {
@@ -22,9 +34,17 @@ import {
   type HolidayMap,
 } from "../utils/holiday";
 
+/** 完成时刻只精确到分钟，用于面板里回看当天做了什么。 */
+function formatCompletedTime(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 interface CalendarViewProps {
   tasks: Task[];
+  completedTasks: Task[];
   handleComplete: (id: string) => void;
+  handleUndoComplete: (id: string) => void;
   handleAddTask: (taskData: {
     title: string;
     description: string;
@@ -38,7 +58,7 @@ interface CalendarViewProps {
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = React.memo(
-  ({ tasks, handleComplete, handleAddTask, config }) => {
+  ({ tasks, completedTasks, handleComplete, handleUndoComplete, handleAddTask, config }) => {
     const {
       calendarYear,
       setCalendarYear,
@@ -77,18 +97,10 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
     }, [activeIcalUrl]);
 
     // Pre-group tasks by due date using useMemo to convert O(N) filters to O(1) lookups
-    const tasksByDueDate = useMemo(() => {
-      const map: Record<string, Task[]> = {};
-      tasks.forEach((task) => {
-        if (task.dueDate) {
-          if (!map[task.dueDate]) {
-            map[task.dueDate] = [];
-          }
-          map[task.dueDate].push(task);
-        }
-      });
-      return map;
-    }, [tasks]);
+    const tasksByDueDate = useMemo(() => groupTasksByDueDate(tasks), [tasks]);
+
+    // 已完成任务同样按任务日期（dueDate）归属，与未完成共用一套口径
+    const completedByDueDate = useMemo(() => groupTasksByDueDate(completedTasks), [completedTasks]);
 
     // 时间块规划
     const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>(() =>
@@ -476,7 +488,12 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       return days;
     }, [selectedCalendarDate, getDayMeta, tasksByDueDate]);
 
-    const selectedDayTasks = tasksByDueDate[selectedCalendarDate] || [];
+    // 当日已完成任务（issue #51 日历面板）：默认展开，可折叠
+    const [showDayCompleted, setShowDayCompleted] = useState(true);
+    const selectedDayGroups = useMemo(
+      () => splitDayTasks(tasksByDueDate, completedByDueDate, selectedCalendarDate),
+      [tasksByDueDate, completedByDueDate, selectedCalendarDate],
+    );
 
     const handleNavigate = (direction: -1 | 1) => {
       if (viewMode === "month") {
@@ -1040,32 +1057,89 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                 </div>
               )}
 
-              {/* 单日列表循环 */}
+              {/* 单日列表循环：未完成在上，当天已完成的弱样式列表在下 */}
               <div className="flex-grow overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
-                {selectedDayTasks.length > 0 ? (
-                  selectedDayTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="p-3 rounded-xl bg-[#FAF8F5]/60 dark:bg-[#26282E]/60 border border-[#EFEBE4]/75 dark:border-[#33353A] flex justify-between items-center gap-2 group hover:bg-[#FAF8F5] dark:hover:bg-[#26282E] transition-all"
-                    >
-                      <div className="min-w-0 flex-grow">
-                        <h4 className="text-[11px] font-bold text-[#2D323A] dark:text-slate-200 truncate">
-                          {task.title}
-                        </h4>
-                        {task.description && (
-                          <p className="text-[8px] text-slate-400 truncate mt-0.5">
-                            {task.description}
-                          </p>
+                {selectedDayGroups.hasAny ? (
+                  <>
+                    {selectedDayGroups.pending.map((task) => (
+                      <div
+                        key={task.id}
+                        className="p-3 rounded-xl bg-[#FAF8F5]/60 dark:bg-[#26282E]/60 border border-[#EFEBE4]/75 dark:border-[#33353A] flex justify-between items-center gap-2 group hover:bg-[#FAF8F5] dark:hover:bg-[#26282E] transition-all"
+                      >
+                        <div className="min-w-0 flex-grow">
+                          <h4 className="text-[11px] font-bold text-[#2D323A] dark:text-slate-200 truncate">
+                            {task.title}
+                          </h4>
+                          {task.description && (
+                            <p className="text-[8px] text-slate-400 truncate mt-0.5">
+                              {task.description}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleComplete(task.id)}
+                          className="text-[8px] flex-shrink-0 text-[#4D7C5D] dark:text-[#78C496] hover:bg-[#4D7C5D] hover:text-white border border-[#DEEAE2] dark:border-[#33353A] px-2 py-0.5 rounded bg-white dark:bg-[#1E2025] transition-all font-bold cursor-pointer"
+                        >
+                          {m.complete}
+                        </button>
+                      </div>
+                    ))}
+
+                    {selectedDayGroups.completed.length > 0 && (
+                      <div className="pt-0.5">
+                        <button
+                          onClick={() => setShowDayCompleted((prev) => !prev)}
+                          className="w-full flex items-center gap-1 text-[9px] font-extrabold text-slate-400 dark:text-slate-500 hover:text-[#4D7C5D] dark:hover:text-[#78C496] transition-colors cursor-pointer tracking-wide"
+                        >
+                          {showDayCompleted ? (
+                            <ChevronDown className="w-3 h-3 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-3 h-3 shrink-0" />
+                          )}
+                          <span>
+                            {cv.completedTasksForDate.replace(
+                              "{count}",
+                              String(selectedDayGroups.completed.length),
+                            )}
+                          </span>
+                        </button>
+                        {showDayCompleted && (
+                          <div className="space-y-1.5 mt-1.5">
+                            {selectedDayGroups.completed.map((task) => (
+                              <div
+                                key={task.id}
+                                className="p-2.5 rounded-xl bg-[#F0F5F1]/40 dark:bg-[#1C251F]/40 border border-[#DEEAE2]/60 dark:border-[#26382C]/60 flex justify-between items-center gap-2 group hover:bg-[#F0F5F1]/70 dark:hover:bg-[#1C251F]/70 transition-all"
+                              >
+                                <div className="min-w-0 flex-grow flex items-center gap-2">
+                                  <Check className="w-3 h-3 shrink-0 text-[#4D7C5D]/60 dark:text-[#78C496]/60" />
+                                  <div className="min-w-0">
+                                    <h4 className="text-[11px] font-bold text-slate-400 dark:text-slate-500 line-through decoration-slate-300 dark:decoration-slate-600 truncate">
+                                      {task.title}
+                                    </h4>
+                                    {task.completedAt != null && (
+                                      <p className="text-[8px] text-slate-400/80 dark:text-slate-600 truncate mt-0.5">
+                                        {cv.completedAtLabel.replace(
+                                          "{time}",
+                                          formatCompletedTime(task.completedAt),
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => handleUndoComplete(task.id)}
+                                  title={t.common.undo}
+                                  className="flex-shrink-0 p-1 rounded text-slate-400 dark:text-slate-500 hover:text-[#A34E36] dark:hover:text-[#F87171] hover:bg-[#FCF2F0]/60 dark:hover:bg-[#3D1F24]/50 transition-all cursor-pointer"
+                                >
+                                  <Undo2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleComplete(task.id)}
-                        className="text-[8px] flex-shrink-0 text-[#4D7C5D] dark:text-[#78C496] hover:bg-[#4D7C5D] hover:text-white border border-[#DEEAE2] dark:border-[#33353A] px-2 py-0.5 rounded bg-white dark:bg-[#1E2025] transition-all font-bold cursor-pointer"
-                      >
-                        {m.complete}
-                      </button>
-                    </div>
-                  ))
+                    )}
+                  </>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-center py-12 gap-2">
                     <Coffee className="w-7 h-7 text-[#8B6E3C]/30 dark:text-[#E2C799]/30" />

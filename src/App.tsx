@@ -1698,7 +1698,9 @@ const MainLayout = React.memo(function MainLayout({
         {activeTab === "calendar" && (
           <CalendarView
             tasks={tasks}
+            completedTasks={completedTasks}
             handleComplete={wrappedHandleComplete}
+            handleUndoComplete={handleUndoComplete}
             handleAddTask={handleAddTaskWithAI}
             config={customizationHook.customizationConfig}
           />
