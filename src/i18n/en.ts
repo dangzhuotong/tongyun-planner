@@ -243,6 +243,9 @@ const en: Translations = {
     tasksForDate: "{date} Tasks",
     noTasks: "No tasks for this day",
     enjoyDay: "Enjoy a focused and relaxing day",
+    // Day completed list (issue #51: review what got done)
+    completedTasksForDate: "Completed ({count})",
+    completedAtLabel: "Done at {time}",
     quickAddPlaceholder: "Quick add task to today... Press Enter to save",
     monthView: "Month",
     weekView: "Week",
