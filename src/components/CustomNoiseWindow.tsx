@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { GripVertical, Link2, Plus, Radio, Trash2, X } from "lucide-react";
+import { ExternalLink, GripVertical, Link2, Plus, Radio, Trash2, X } from "lucide-react";
 import { useTranslation } from "../i18n/LanguageContext";
+import { openExternal } from "../utils/openExternal";
 import {
   appendCustomNoiseLink,
   clampWindowPosition,
@@ -47,6 +48,13 @@ const KIND_LABEL: Record<CustomNoiseKind, string> = {
   bilibili: "Bilibili",
   media: "Audio",
 };
+
+function resolveEmbedUrl(link: CustomNoiseLink): string {
+  if (link.kind === "youtube") {
+    return link.embedUrl.replace("https://www.youtube.com/", "https://www.youtube-nocookie.com/");
+  }
+  return link.embedUrl;
+}
 
 interface CustomNoiseWindowProps {
   onClose: () => void;
@@ -307,15 +315,26 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
             ) : (
               <iframe
                 key={activeLink.id}
-                src={activeLink.embedUrl}
+                src={resolveEmbedUrl(activeLink)}
                 title={activeLink.title}
-                allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-                referrerPolicy="no-referrer"
-                seamless
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy={activeLink.kind === "bilibili" ? "no-referrer" : "strict-origin-when-cross-origin"}
                 className="w-full h-[150px] bg-black"
                 data-testid="custom-noise-embed"
               />
             )}
+            <div className="flex items-center justify-between px-2.5 py-1 bg-slate-50/90 dark:bg-[#202228]/90 border-t border-slate-100 dark:border-[#2A2D35] text-[10px] text-slate-500 dark:text-slate-400">
+              <span className="truncate flex-1 pr-2 font-medium">{activeLink.title}</span>
+              <button
+                type="button"
+                onClick={() => openExternal(activeLink.url)}
+                className="shrink-0 flex items-center gap-1 hover:text-[#4D7C5D] dark:hover:text-[#78C496] transition-colors cursor-pointer"
+                title="在默认浏览器中打开"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>浏览器打开</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
