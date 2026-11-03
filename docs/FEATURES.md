@@ -2,6 +2,8 @@
 
 产品定位与下载见 [README](../README.md)。下面是当前版本里已经有的能力，方便对照界面，而不是 README 首页的营销清单。
 
+**In English:** an offline-first, privacy-first desktop bullet journal — Eisenhower matrix task manager, flip-page diary, pomodoro timer with white noise, sticky notes and a floating desktop widget, all in one local-first desktop app. Open source (MIT), no account, no server collecting your notes; optional multi-device sync through your own WebDAV.
+
 ## 任务
 
 基于艾森豪威尔矩阵（重要 / 紧急）：
@@ -50,12 +52,12 @@
 
 - **默认本机 SQLite 零配开箱**：完全无需额外配置任何数据库服务或 DSN。安装即用，所有数据（待办、日记、专注记录等）直接落盘于本地嵌入式 SQLite 纯数据库（`tongyun_planner.db`），离线持久化且无网络强依赖。
 - **12 张 P0 全量领域表 (Full-Schema P0)**：废除单一存储 KV 表设计，采用清晰规范的纯关系型架构，各领域实体拥有独立结构化表（`tasks`, `journal_entries`, `pomodoro_logs`, `habits`, `agents`, `task_dispatch`, `sticky_notes`, `countdowns`, `timeblocks`, `user_prefs`, `sync_state`, `sync_outbox`）。
-- **可选远端 DSN 同步**：远端同构 MySQL / TiDB DSN 同步为**完全自选（Opt-in）的高级扩展能力**。严禁「必须配 DSN」，拒绝模糊混乱的「双写无主从」；单机以本机 SQLite 为第一真相源，有跨设备汇总需求时按需同步。
+- **可选 WebDAV 同步**：远端同步为**完全自选（Opt-in）**的扩展能力。严禁「必须配 DSN」，拒绝模糊混乱的「双写无主从」；单机以本机 SQLite 为第一真相源，有多设备同步需求时按需开启。开源版自 v1.1.0 起只保留 WebDAV（早期版本的 Supabase / 自建 HTTP 后端已停用），远端同构 SQL 同步与 Agent 派活调度不在本仓库内。
 - **敏感凭据绝对隔离**：API Key、模型密钥与数据库连接密码仅安全留存于本机隔离存储，不进入业务表同步出件箱，不上云端。
 
 ## 同步与备份
 
-- WebDAV 同步（内置坚果云预设，需使用坚果云「应用密码」；也支持自定义 WebDAV 地址）与可选同构远端数据库同步
+- WebDAV 同步（内置坚果云预设，需使用坚果云「应用密码」；也支持自定义 WebDAV 地址）
 - 启动、关闭、每 5 分钟自动同步，编辑停止约 30 秒后上传；离线可用，待上传分类保存在本机，联网后补传
 - 冲突检测：云端被其他设备改动时先把两端副本存到 `backups/conflicts/`，再由你选择保留哪份，不静默覆盖
 - 每日本地自动快照（保留最近 14 份）；快照导入 / 导出 JSON（不含密钥）
