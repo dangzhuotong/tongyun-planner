@@ -110,7 +110,7 @@ import {
 import { canUseAI } from "./utils/aiEngine";
 import { usePomodoroTimer, type MicroBreakSession } from "./hooks/usePomodoroTimer";
 import { MicroBreakOverlay } from "./components/MicroBreakOverlay";
-import { getRandomMicroBreakTheme } from "./utils/microBreak";
+import { getRandomMicroBreakTheme, pickMicroBreakDurationSec } from "./utils/microBreak";
 import { useDueNotifications } from "./hooks/useDueNotifications";
 import { useCrossWindowSync } from "./hooks/useCrossWindowSync";
 import { useStoreInit } from "./hooks/useStoreInit";
@@ -173,6 +173,14 @@ function AppBody() {
       .join("|");
   }, [syncConflicts]);
 
+  useEffect(() => {
+    const handleReopenConflict = () => {
+      setConflictDismissedKey(null);
+    };
+    window.addEventListener("tongyun-reopen-conflict-modal", handleReopenConflict);
+    return () => window.removeEventListener("tongyun-reopen-conflict-modal", handleReopenConflict);
+  }, []);
+
   const [celebrationData, setCelebrationData] = useState<{
     message: string;
     task?: { id: string; title: string };
@@ -202,6 +210,10 @@ function AppBody() {
     } catch {
       // ignore audio play errors in background
     }
+    const durationSec = pickMicroBreakDurationSec(
+      pomodoroHook.microBreakDurationMinSec,
+      pomodoroHook.microBreakDurationMaxSec,
+    );
     const timeout = setTimeout(() => {
       setMicroBreakSession(null);
       try {
@@ -209,15 +221,16 @@ function AppBody() {
       } catch {
         // ignore audio play errors in background
       }
-    }, 5000);
+    }, durationSec * 1000);
     setMicroBreakSession({
       skip: () => {
         clearTimeout(timeout);
         setMicroBreakSession(null);
       },
       theme: getRandomMicroBreakTheme(),
+      durationSec,
     });
-  }, []);
+  }, [pomodoroHook.microBreakDurationMinSec, pomodoroHook.microBreakDurationMaxSec]);
   const [deleteUndoToast, setDeleteUndoToast] = useState<string | null>(null);
   const deleteUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -599,7 +612,7 @@ function AppBody() {
         tasksHook.setTasks(tasks);
         tasksHook.setCompletedTasks(completedTasks);
         if (replaceCategory) {
-          tasksHook.replaceStoredTasks(tasks, completedTasks);
+          tasksHook.replaceStoredTasks(tasks, completedTasks, false);
         }
         if (Array.isArray(data.stickyNotes)) notesHook.setStickyNotes(data.stickyNotes);
         if (Array.isArray(data.pomodoroLogs)) pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
@@ -1194,7 +1207,11 @@ function AppBody() {
         onToast={showMicroBreakToast}
       />
       {microBreakSession && (
-        <MicroBreakOverlay onSkip={microBreakSession.skip} initialTheme={microBreakSession.theme} />
+        <MicroBreakOverlay
+          onSkip={microBreakSession.skip}
+          initialTheme={microBreakSession.theme}
+          durationSec={microBreakSession.durationSec}
+        />
       )}
       {microBreakToast && !microBreakSession && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
@@ -1759,6 +1776,7 @@ const MainLayout = React.memo(function MainLayout({
             resetTasks={resetTasks}
             tasks={tasks}
             onEditTask={handleEditTask}
+            onTestMicroBreak={onTestMicroBreak}
           />
         )}
       </main>

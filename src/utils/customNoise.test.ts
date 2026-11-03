@@ -25,7 +25,7 @@ describe("parseCustomNoiseUrl", () => {
       if (result.ok) {
         expect(result.link.kind).toBe("youtube");
         expect(result.link.embedUrl).toBe(
-          "https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&autoplay=1",
+          "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&autoplay=1",
         );
       }
     }
@@ -108,7 +108,7 @@ describe("appendCustomNoiseLink", () => {
     id: "a",
     url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
     kind: "youtube",
-    embedUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&autoplay=1",
+    embedUrl: "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&autoplay=1",
     title: "YouTube · dQw4w9WgXcQ",
   };
 

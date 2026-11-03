@@ -101,10 +101,10 @@ const en: Translations = {
     bells: "Bells",
     alarm: "Alarm",
     randomBreak: "Random Micro-Breaks",
-    randomBreakDesc: "Random reminders every 3-7 mins during focus to rest eyes",
+    randomBreakDesc: "Random reminders at your configured interval to rest your eyes",
     randomBreakSoundPreview: "Preview micro-break chime",
-    randomBreakTestBtn: "Test 5s",
-    randomBreakTestTitle: "Experience a 5-second micro-break preview immediately",
+    randomBreakTestBtn: "Test",
+    randomBreakTestTitle: "Preview one micro-break using your configured duration",
   },
 
   header: {
@@ -577,6 +577,19 @@ const en: Translations = {
     updatingProgress: "Downloading and installing update...",
     updateFailed: "Update failed: ",
     reportIssue: "Report Issue",
+    microBreakTitle: "Random Micro-Breaks",
+    microBreakDesc:
+      "Insert short breaks during focus. Both the interval and each break length are picked randomly inside your configured range.",
+    microBreakToggle: "Enable random micro-breaks",
+    microBreakToggleHint:
+      "When the window is in the background, reminders use system notifications without raising the main window.",
+    microBreakGapLabel: "Reminder interval",
+    microBreakDurationLabel: "Break length",
+    microBreakMinutes: "min",
+    microBreakSeconds: "sec",
+    microBreakSummary:
+      "A random reminder every {gapMin}-{gapMax} min, each break lasts {durMin}-{durMax} sec",
+    microBreakTest: "Try one now",
   },
 
   floatingNote: {
@@ -734,7 +747,7 @@ const en: Translations = {
     pomodoroTime: "Pomodoro is up!",
     pomodoroTimeBody: "Great job! Take a break and hydrate.",
     microBreakTitle: "Micro-break",
-    microBreakBody: "Rest for 5 seconds and look away from the screen",
+    microBreakBody: "Take a short break and look away from the screen",
   },
   dashboard: {
     morning: "Good morning",

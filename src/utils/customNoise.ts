@@ -85,7 +85,7 @@ function parseYouTube(url: URL): ParseCustomNoiseResult | null {
     link: {
       url: url.toString(),
       kind: "youtube",
-      embedUrl: `https://www.youtube.com/embed/${id}?rel=0&autoplay=1`,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${id}?rel=0&autoplay=1`,
       title: `YouTube · ${id}`,
     },
   };
@@ -153,6 +153,10 @@ export function parseCustomNoiseUrl(raw: string): ParseCustomNoiseResult {
   );
 }
 
+function normalizeEmbedCompareUrl(url: string): string {
+  return url.replace("https://www.youtube.com/", "https://www.youtube-nocookie.com/");
+}
+
 /** 把新链接并入列表；重复链接不新增，返回 duplicate 提示。 */
 export function appendCustomNoiseLink(
   links: CustomNoiseLink[],
@@ -161,7 +165,8 @@ export function appendCustomNoiseLink(
 ): { links: CustomNoiseLink[]; link?: CustomNoiseLink; error?: CustomNoiseError } {
   const parsed = parseCustomNoiseUrl(raw);
   if (!parsed.ok) return { links, error: parsed.error };
-  if (links.some((item) => item.embedUrl === parsed.link.embedUrl)) {
+  const targetCompare = normalizeEmbedCompareUrl(parsed.link.embedUrl);
+  if (links.some((item) => normalizeEmbedCompareUrl(item.embedUrl) === targetCompare)) {
     return { links, error: "duplicate" };
   }
   const link: CustomNoiseLink = { ...parsed.link, id: newId };

@@ -1,6 +1,12 @@
 export const MICRO_BREAK_MIN_GAP_SEC = 180;
 export const MICRO_BREAK_MAX_GAP_SEC = 420;
+export const MICRO_BREAK_MIN_DURATION_SEC = 5;
+export const MICRO_BREAK_MAX_DURATION_SEC = 10;
 export const MICRO_BREAK_TAIL_SEC = 30;
+
+/** 用户可调范围的硬边界，防止误输入把调度或计时撑坏。 */
+export const MICRO_BREAK_GAP_LIMIT_SEC = { min: 30, max: 2 * 60 * 60 };
+export const MICRO_BREAK_DURATION_LIMIT_SEC = { min: 2, max: 120 };
 
 export type MicroBreakCategory = "water" | "look-away" | "stretch" | "breathe" | "eyes";
 
@@ -50,7 +56,7 @@ export const MICRO_BREAK_THEMES: MicroBreakContent[] = [
     title: "微休息 · 舒展肩颈",
     actionText: "十指交叉向上推举，转动肩颈",
     description: "双手托天拉伸脊椎，缓缓左右转动颈项，释放斜方肌与腰背积攒的久坐紧绷感。",
-    tip: "只需 5 秒简单伸展，即可促进血液循环，赶走伏案疲劳与肩部僵硬。",
+    tip: "短暂伸展即可促进血液循环，赶走伏案疲劳与肩部僵硬。",
     emoji: "🧘",
     badgeFrom: "from-amber-50 to-orange-100 dark:from-[#2C2117] dark:to-[#201811]",
     badgeTo: "dark:from-[#2C2117] dark:to-[#201811]",
@@ -77,7 +83,7 @@ export const MICRO_BREAK_THEMES: MicroBreakContent[] = [
     title: "微休息 · 闭目润眼",
     actionText: "轻柔闭目，双手搓温轻抚眼眶",
     description: "手掌搓热轻敷在眼周，在黑暗中让眼球平缓放松，刺激泪液均匀分布，润养干涩角膜。",
-    tip: "面对屏幕时眨眼频次下降超 60%，闭目 5 秒即可给眼睛带来天然水疗。",
+    tip: "面对屏幕时眨眼频次下降超 60%，闭目片刻即可给眼睛带来天然水疗。",
     emoji: "👁️",
     badgeFrom: "from-indigo-50 to-purple-100 dark:from-[#1E1D2D] dark:to-[#161522]",
     badgeTo: "dark:from-[#1E1D2D] dark:to-[#161522]",
@@ -95,18 +101,61 @@ export function getRandomMicroBreakTheme(excludeId?: MicroBreakCategory): MicroB
   return pool[index];
 }
 
-export function getIntervalGaps(intervalKey: string = "3-5"): { minSec: number; maxSec: number } {
-  switch (intervalKey) {
-    case "test-30s":
-      return { minSec: 15, maxSec: 30 };
-    case "1-2":
-      return { minSec: 60, maxSec: 120 };
-    case "5-10":
-      return { minSec: 300, maxSec: 600 };
-    case "3-5":
-    default:
-      return { minSec: 180, maxSec: 300 };
-  }
+function clampRange(
+  minValue: number,
+  maxValue: number,
+  limitMin: number,
+  limitMax: number,
+  fallbackMin: number,
+  fallbackMax: number,
+): { minSec: number; maxSec: number } {
+  const toBounded = (value: number, fallback: number) => {
+    const n = Number.isFinite(value) ? Math.round(value) : fallback;
+    return Math.min(limitMax, Math.max(limitMin, n));
+  };
+  const minSec = toBounded(minValue, fallbackMin);
+  const maxSec = toBounded(maxValue, fallbackMax);
+  return minSec <= maxSec ? { minSec, maxSec } : { minSec: maxSec, maxSec: minSec };
+}
+
+/** 把用户设定的间隔范围收敛到合法区间；倒置或非法值自动纠正。 */
+export function resolveMicroBreakGaps(
+  minSec: number = MICRO_BREAK_MIN_GAP_SEC,
+  maxSec: number = MICRO_BREAK_MAX_GAP_SEC,
+): { minSec: number; maxSec: number } {
+  return clampRange(
+    minSec,
+    maxSec,
+    MICRO_BREAK_GAP_LIMIT_SEC.min,
+    MICRO_BREAK_GAP_LIMIT_SEC.max,
+    MICRO_BREAK_MIN_GAP_SEC,
+    MICRO_BREAK_MAX_GAP_SEC,
+  );
+}
+
+export function resolveMicroBreakDuration(
+  minSec: number = MICRO_BREAK_MIN_DURATION_SEC,
+  maxSec: number = MICRO_BREAK_MAX_DURATION_SEC,
+): { minSec: number; maxSec: number } {
+  return clampRange(
+    minSec,
+    maxSec,
+    MICRO_BREAK_DURATION_LIMIT_SEC.min,
+    MICRO_BREAK_DURATION_LIMIT_SEC.max,
+    MICRO_BREAK_MIN_DURATION_SEC,
+    MICRO_BREAK_MAX_DURATION_SEC,
+  );
+}
+
+/** 在设定范围内随机取一次休息秒数（含两端）。 */
+export function pickMicroBreakDurationSec(
+  minSec: number = MICRO_BREAK_MIN_DURATION_SEC,
+  maxSec: number = MICRO_BREAK_MAX_DURATION_SEC,
+  rng: () => number = Math.random,
+): number {
+  const { minSec: lo, maxSec: hi } = resolveMicroBreakDuration(minSec, maxSec);
+  const span = hi - lo + 1;
+  return lo + Math.min(span - 1, Math.max(0, Math.floor(rng() * span)));
 }
 
 /**

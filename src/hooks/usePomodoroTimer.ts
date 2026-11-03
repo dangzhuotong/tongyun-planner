@@ -8,16 +8,19 @@ import {
   announceMicroBreak,
   nextThresholdAfterMicroBreak,
   resolveMicroBreakSchedule,
+  resolveMicroBreakGaps,
   shouldFireMicroBreak,
-  getIntervalGaps,
+  pickMicroBreakDurationSec,
   getRandomMicroBreakTheme,
   type MicroBreakContent,
 } from "../utils/microBreak";
 import { shouldResumeNoiseAfterMicroBreak } from "../utils/noisePolicy";
+import { notifyMicroBreak } from "../utils/appNotice";
 
 export interface MicroBreakSession {
   skip: () => void;
   theme?: MicroBreakContent;
+  durationSec?: number;
 }
 
 interface UsePomodoroTimerOptions {
@@ -66,7 +69,7 @@ export function usePomodoroTimer({
     onToast,
     onMicroBreak,
     microBreakTitle: t.notification.microBreakTitle || "微休息",
-    microBreakBody: t.notification.microBreakBody || "休息 5 秒，看看远处，放松一下眼睛",
+    microBreakBody: t.notification.microBreakBody || "休息片刻，看看远处，放松一下眼睛",
   });
 
   useEffect(() => {
@@ -118,7 +121,10 @@ export function usePomodoroTimer({
     const enabledJustTurnedOn =
       pomodoroHook.randomBreakEnabled && !prevRandomBreakEnabledRef.current;
     prevRandomBreakEnabledRef.current = pomodoroHook.randomBreakEnabled;
-    const gaps = getIntervalGaps(pomodoroHook.microBreakInterval);
+    const gaps = resolveMicroBreakGaps(
+      pomodoroHook.microBreakGapMinSec,
+      pomodoroHook.microBreakGapMaxSec,
+    );
     const remainingAtStart = Math.max(0, Math.round((endTime - Date.now()) / 1000));
     const planned = resolveMicroBreakSchedule({
       enabled: pomodoroHook.randomBreakEnabled,
@@ -149,27 +155,21 @@ export function usePomodoroTimer({
         shouldFireMicroBreak(diff, nextRandomBreakRef.current, isOnRandomBreakRef.current)
       ) {
         isOnRandomBreakRef.current = true;
-        clearInterval(intervalId);
-
-        // 1. 优先暂停白噪音，保证微休息提示音清澈入耳
-        const wasPlayingNoise = ps.isPlayingNoise;
-        if (wasPlayingNoise) {
-          pomodoroHook.stopNoise("auto");
-        }
-
-        // 2. 播放清脆空灵的专属微休息开始提示音
-        void audioEngine.playMicroBreakSound();
 
         // 随机抽选本次微休息主题（喝水、眺望、拉伸、深呼吸、闭目）
         const theme = getRandomMicroBreakTheme();
 
-        // 3. 发送系统通知与 Toast
-        announceMicroBreak(
-          { title: theme.title, body: `${theme.actionText} · ${theme.tip}` },
-          { onToast: ps.onToast },
+        // 每次休息时长也在用户设定范围内随机，不再写死 5 秒
+        const durationSec = pickMicroBreakDurationSec(
+          pomodoroHook.microBreakDurationMinSec,
+          pomodoroHook.microBreakDurationMaxSec,
         );
+        const durationMs = durationSec * 1000;
 
-        const currentGaps = getIntervalGaps(pomodoroHook.microBreakInterval);
+        const currentGaps = resolveMicroBreakGaps(
+          pomodoroHook.microBreakGapMinSec,
+          pomodoroHook.microBreakGapMaxSec,
+        );
         const nextThreshold = nextThresholdAfterMicroBreak(
           diff,
           Math.random,
@@ -179,53 +179,78 @@ export function usePomodoroTimer({
         );
         nextRandomBreakRef.current = nextThreshold;
         if (nextThreshold < 0) {
-          suppressedForEndTimeRef.current = endTime + 5000;
+          suppressedForEndTimeRef.current = endTime + durationMs;
         }
 
-        const breakStartTime = Date.now();
-
-        const finishMicroBreak = (skipped: boolean = false) => {
+        void (async () => {
+          // 后台只发系统通知：不抢焦点、不打断白噪音，计时照常继续
+          const body = `${theme.actionText} · 休息 ${durationSec} 秒 · ${theme.tip}`;
+          const notified = await notifyMicroBreak(theme.title, body);
+          void audioEngine.playMicroBreakSound();
+          if (notified) {
+            isOnRandomBreakRef.current = false;
+            return;
+          }
+          // 等待判定期间会话可能已暂停或结束
           if (!isOnRandomBreakRef.current) return;
-          isOnRandomBreakRef.current = false;
-          if (microBreakTimeoutRef.current) {
-            clearTimeout(microBreakTimeoutRef.current);
-            microBreakTimeoutRef.current = null;
+
+          clearInterval(intervalId);
+
+          // 1. 优先暂停白噪音，保证微休息提示音清澈入耳
+          const wasPlayingNoise = ps.isPlayingNoise;
+          if (wasPlayingNoise) {
+            pomodoroHook.stopNoise("auto");
           }
 
-          // 关闭微休息全屏浮层
-          ps.onMicroBreak?.(null);
+          // 2. 发送 Toast
+          announceMicroBreak({ title: theme.title, body }, { onToast: ps.onToast });
 
-          // 若非手动跳过，播放轻柔水滴恢复提示音
-          if (!skipped) {
-            void audioEngine.playMicroBreakEndSound();
-          }
+          const breakStartTime = Date.now();
 
-          const psNow = pomodoroStateRef.current;
-          if (
-            shouldResumeNoiseAfterMicroBreak({
-              wasPlayingNoise,
-              autoNoiseEnabled: psNow.autoNoiseEnabled,
-              manuallyStopped: pomodoroHook.isNoiseManuallyStopped(),
-            })
-          ) {
-            pomodoroHook.startNoise(psNow.selectedNoiseType, psNow.noiseVolume);
-          }
+          const finishMicroBreak = (skipped: boolean = false) => {
+            if (!isOnRandomBreakRef.current) return;
+            isOnRandomBreakRef.current = false;
+            if (microBreakTimeoutRef.current) {
+              clearTimeout(microBreakTimeoutRef.current);
+              microBreakTimeoutRef.current = null;
+            }
 
-          // 补偿微休息暂停的时间（手动跳过则按实际暂停毫秒补偿，自然结束则补偿 5 秒）
-          const elapsed = Math.min(5000, Math.max(500, Date.now() - breakStartTime));
-          const addMs = skipped ? elapsed : 5000;
-          pomodoroHook.setPomodoroEndTime(endTime + addMs);
-        };
+            // 关闭微休息全屏浮层
+            ps.onMicroBreak?.(null);
 
-        // 唤起沉浸式微休息全屏浮层并传入随机主题
-        ps.onMicroBreak?.({
-          skip: () => finishMicroBreak(true),
-          theme,
-        });
+            // 若非手动跳过，播放轻柔水滴恢复提示音
+            if (!skipped) {
+              void audioEngine.playMicroBreakEndSound();
+            }
 
-        microBreakTimeoutRef.current = setTimeout(() => {
-          finishMicroBreak(false);
-        }, 5000);
+            const psNow = pomodoroStateRef.current;
+            if (
+              shouldResumeNoiseAfterMicroBreak({
+                wasPlayingNoise,
+                autoNoiseEnabled: psNow.autoNoiseEnabled,
+                manuallyStopped: pomodoroHook.isNoiseManuallyStopped(),
+              })
+            ) {
+              pomodoroHook.startNoise(psNow.selectedNoiseType, psNow.noiseVolume);
+            }
+
+            // 补偿微休息暂停的时间（手动跳过则按实际暂停毫秒补偿，自然结束则补偿设定时长）
+            const elapsed = Math.min(durationMs, Math.max(500, Date.now() - breakStartTime));
+            const addMs = skipped ? elapsed : durationMs;
+            pomodoroHook.setPomodoroEndTime(endTime + addMs);
+          };
+
+          // 唤起沉浸式微休息全屏浮层并传入随机主题与本次时长
+          ps.onMicroBreak?.({
+            skip: () => finishMicroBreak(true),
+            theme,
+            durationSec,
+          });
+
+          microBreakTimeoutRef.current = setTimeout(() => {
+            finishMicroBreak(false);
+          }, durationMs);
+        })();
       }
 
       if (diff <= 0 && !fired) {
@@ -329,7 +354,10 @@ export function usePomodoroTimer({
     pomodoroHook.pomodoroIsActive,
     pomodoroHook.pomodoroEndTime,
     pomodoroHook.randomBreakEnabled,
-    pomodoroHook.microBreakInterval,
+    pomodoroHook.microBreakGapMinSec,
+    pomodoroHook.microBreakGapMaxSec,
+    pomodoroHook.microBreakDurationMinSec,
+    pomodoroHook.microBreakDurationMaxSec,
     pomodoroHook.pomodoroIsBreak,
   ]);
 }

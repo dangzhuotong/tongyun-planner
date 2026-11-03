@@ -512,17 +512,22 @@ export function useTasks() {
   );
 
   /** WebDAV 整包覆盖、重置时用。日常改一条任务不要走这里。 */
-  const replaceStoredTasks = useCallback(async (updatedTasks: Task[], updatedCompleted: Task[]) => {
-    try {
-      scheduleStorageWrite("aero_todos", updatedTasks);
-      scheduleStorageWrite("aero_completed_todos", updatedCompleted);
-      scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
-      taskRepository.syncSnapshot(updatedTasks, updatedCompleted);
-      syncEngine.markDirty("tasks", "completedTasks");
-    } catch (e) {
-      console.error("整包替换任务失败", e);
-    }
-  }, []);
+  const replaceStoredTasks = useCallback(
+    async (updatedTasks: Task[], updatedCompleted: Task[], markDirty = true) => {
+      try {
+        scheduleStorageWrite("aero_todos", updatedTasks);
+        scheduleStorageWrite("aero_completed_todos", updatedCompleted);
+        scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
+        taskRepository.syncSnapshot(updatedTasks, updatedCompleted);
+        if (markDirty) {
+          syncEngine.markDirty("tasks", "completedTasks");
+        }
+      } catch (e) {
+        console.error("整包替换任务失败", e);
+      }
+    },
+    [],
+  );
 
   const resetTasks = useCallback(() => {
     const freshTasks = createInitialTasks();

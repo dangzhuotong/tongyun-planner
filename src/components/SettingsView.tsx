@@ -18,10 +18,18 @@ interface SettingsViewProps {
   resetTasks: () => void;
   tasks?: Task[];
   onEditTask?: (id: string, updates: Partial<Task>) => void;
+  onTestMicroBreak?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = React.memo(
-  ({ config, onChange, alertSoundType, setAlertSoundType, resetTasks }) => {
+  ({
+    config,
+    onChange,
+    alertSoundType,
+    setAlertSoundType,
+    resetTasks,
+    onTestMicroBreak,
+  }) => {
     const { t } = useTranslation();
     const s = t.settings;
     const [subTab, setSubTab] = useState<
@@ -136,6 +144,10 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
           "声音",
           "通知",
           "白噪音",
+          "微休息",
+          "随机微休息",
+          "间隔",
+          "休息时长",
           "重置",
           "更新",
           "检查更新",
@@ -146,6 +158,8 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
           "reset",
           "update",
           "version",
+          "micro-break",
+          "break",
         ],
       },
     ];
@@ -226,6 +240,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
               setAlertSoundType={setAlertSoundType}
               resetTasks={resetTasks}
               triggerToast={triggerToast}
+              onTestMicroBreak={onTestMicroBreak}
             />
           )}
           {subTab === "fun" && <FunSettingsPanel config={config} onChange={onChange} />}
