@@ -63,6 +63,8 @@ export function usePomodoroTimer({
     pomodoroTimeBody: t.notification.pomodoroTimeBody,
     randomBreakEnabled: pomodoroHook.randomBreakEnabled,
     isPlayingNoise: pomodoroHook.isPlayingNoise,
+    isPlayingExternalNoise: pomodoroHook.isPlayingExternalNoise,
+    noiseSource: pomodoroHook.noiseSource,
     autoNoiseEnabled: pomodoroHook.autoNoiseEnabled,
     selectedNoiseType: pomodoroHook.selectedNoiseType,
     noiseVolume: pomodoroHook.noiseVolume,
@@ -89,6 +91,8 @@ export function usePomodoroTimer({
       pomodoroTimeBody: t.notification.pomodoroTimeBody,
       randomBreakEnabled: pomodoroHook.randomBreakEnabled,
       isPlayingNoise: pomodoroHook.isPlayingNoise,
+      isPlayingExternalNoise: pomodoroHook.isPlayingExternalNoise,
+      noiseSource: pomodoroHook.noiseSource,
       autoNoiseEnabled: pomodoroHook.autoNoiseEnabled,
       selectedNoiseType: pomodoroHook.selectedNoiseType,
       noiseVolume: pomodoroHook.noiseVolume,
@@ -197,7 +201,7 @@ export function usePomodoroTimer({
           clearInterval(intervalId);
 
           // 1. 优先暂停白噪音，保证微休息提示音清澈入耳
-          const wasPlayingNoise = ps.isPlayingNoise;
+          const wasPlayingNoise = ps.isPlayingNoise || ps.isPlayingExternalNoise;
           if (wasPlayingNoise) {
             pomodoroHook.stopNoise("auto");
           }
@@ -231,7 +235,11 @@ export function usePomodoroTimer({
                 manuallyStopped: pomodoroHook.isNoiseManuallyStopped(),
               })
             ) {
-              pomodoroHook.startNoise(psNow.selectedNoiseType, psNow.noiseVolume);
+              if (psNow.noiseSource === "external") {
+                pomodoroHook.startExternalNoise();
+              } else {
+                pomodoroHook.startNoise(psNow.selectedNoiseType, psNow.noiseVolume);
+              }
             }
 
             // 补偿微休息暂停的时间（手动跳过则按实际暂停毫秒补偿，自然结束则补偿设定时长）
@@ -263,7 +271,11 @@ export function usePomodoroTimer({
         if (!claimPomodoroCompletion(endTime, s.isBreak)) return;
 
         pomodoroHook.playCompletionSound();
-        if (pomodoroHook.isPlayingNoise || pomodoroHook.autoNoiseEnabled) {
+        if (
+          pomodoroHook.isPlayingNoise ||
+          pomodoroHook.isPlayingExternalNoise ||
+          pomodoroHook.autoNoiseEnabled
+        ) {
           pomodoroHook.stopNoise("auto");
         }
 

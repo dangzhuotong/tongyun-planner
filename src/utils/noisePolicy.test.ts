@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   nextNoiseStartSignal,
+  resolveAutoNoiseTarget,
   shouldAutoStartNoise,
   shouldResumeNoiseAfterMicroBreak,
 } from "./noisePolicy";
@@ -88,6 +89,65 @@ describe("noisePolicy", () => {
       expect(nextNoiseStartSignal({ wasPlaying: true, isPlaying: true, signal: 3 })).toBe(3);
       expect(nextNoiseStartSignal({ wasPlaying: true, isPlaying: false, signal: 3 })).toBe(3);
       expect(nextNoiseStartSignal({ wasPlaying: false, isPlaying: false, signal: 0 })).toBe(0);
+    });
+  });
+
+  describe("resolveAutoNoiseTarget", () => {
+    const base = {
+      autoNoiseEnabled: true,
+      active: true,
+      isBreak: false,
+      manuallyStopped: false,
+    };
+
+    it("当选择外部音源且存在可用链接时，自动起噪目标解析为 external", () => {
+      expect(
+        resolveAutoNoiseTarget({
+          ...base,
+          noiseSource: "external",
+          hasCustomNoiseLink: true,
+        }),
+      ).toBe("external");
+    });
+
+    it("当选择外部音源但无可用链接时，回退至内置 internal", () => {
+      expect(
+        resolveAutoNoiseTarget({
+          ...base,
+          noiseSource: "external",
+          hasCustomNoiseLink: false,
+        }),
+      ).toBe("internal");
+    });
+
+    it("当选择内置音源时，自动起噪目标解析为 internal", () => {
+      expect(
+        resolveAutoNoiseTarget({
+          ...base,
+          noiseSource: "internal",
+          hasCustomNoiseLink: true,
+        }),
+      ).toBe("internal");
+    });
+
+    it("不满足自动起噪条件时返回 none", () => {
+      expect(
+        resolveAutoNoiseTarget({
+          ...base,
+          autoNoiseEnabled: false,
+          noiseSource: "external",
+          hasCustomNoiseLink: true,
+        }),
+      ).toBe("none");
+
+      expect(
+        resolveAutoNoiseTarget({
+          ...base,
+          manuallyStopped: true,
+          noiseSource: "external",
+          hasCustomNoiseLink: true,
+        }),
+      ).toBe("none");
     });
   });
 });

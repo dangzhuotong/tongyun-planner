@@ -6,9 +6,11 @@ import { openExternal } from "../utils/openExternal";
 import {
   appendCustomNoiseLink,
   clampWindowPosition,
+  loadCustomNoiseActiveId,
   loadCustomNoiseLinks,
   loadCustomNoiseWindowPosition,
   removeCustomNoiseLink,
+  saveCustomNoiseActiveId,
   saveCustomNoiseLinks,
   saveCustomNoiseWindowPosition,
   type CustomNoiseError,
@@ -51,7 +53,12 @@ const KIND_LABEL: Record<CustomNoiseKind, string> = {
 
 function resolveEmbedUrl(link: CustomNoiseLink): string {
   if (link.kind === "youtube") {
-    return link.embedUrl.replace("https://www.youtube.com/", "https://www.youtube-nocookie.com/");
+    const base = link.embedUrl.replace(
+      "https://www.youtube.com/",
+      "https://www.youtube-nocookie.com/",
+    );
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}enablejsapi=1`;
   }
   return link.embedUrl;
 }
@@ -60,20 +67,32 @@ interface CustomNoiseWindowProps {
   onClose: () => void;
   /** 每次递增表示内置白噪音开始播放，外部播放器需要停下。 */
   stopSignal: number;
-  /** 外部音源开始播放时，让侧边栏停掉内置白噪音。 */
-  onStartExternal?: () => void;
+  /** 每次递增表示番茄钟专注起噪或恢复播放外部音源。 */
+  playSignal?: number;
+  /** 外部音源音量（0~1）。 */
+  volume?: number;
+  /** 外部音源开始播放时，通知上层联动状态。 */
+  onStartExternal?: (id: string) => void;
+  /** 外部音源停止播放时回调。 */
+  onStopExternal?: () => void;
+  /** 窗口可见性。若为 false 则隐藏（但仍可保持后台播放）。 */
+  visible?: boolean;
 }
 
 export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
   onClose,
   stopSignal,
+  playSignal,
+  volume,
   onStartExternal,
+  onStopExternal,
+  visible = true,
 }) => {
   const { t } = useTranslation();
   const s = t.sidebar;
 
   const [links, setLinks] = useState<CustomNoiseLink[]>(() => loadCustomNoiseLinks());
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(() => loadCustomNoiseActiveId());
   const [input, setInput] = useState("");
   const [error, setError] = useState<CustomNoiseError | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -84,6 +103,8 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
 
   const positionRef = useRef(position);
   const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
+  const mediaRef = useRef<HTMLMediaElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const moveTo = useCallback((next: WindowPosition) => {
     positionRef.current = next;
@@ -103,11 +124,53 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
     return () => saveCustomNoiseWindowPosition(positionRef.current);
   }, []);
 
+  // 音量同步至原生多媒体标签（直链音频/视频）
+  useEffect(() => {
+    if (mediaRef.current && typeof volume === "number") {
+      mediaRef.current.volume = Math.max(0, Math.min(1, volume));
+    }
+  }, [volume, activeId]);
+
+  // YouTube 播放器通过 postMessage 联动调音
+  useEffect(() => {
+    if (iframeRef.current && typeof volume === "number") {
+      try {
+        iframeRef.current.contentWindow?.postMessage(
+          JSON.stringify({
+            event: "command",
+            func: "setVolume",
+            args: [Math.round(Math.max(0, Math.min(1, volume)) * 100)],
+          }),
+          "*",
+        );
+      } catch {
+        // ignore
+      }
+    }
+  }, [volume, activeId]);
+
   // 内置白噪音开始播放时收起外部播放器（渲染期对齐，避免额外一次 effect 提交）。
   const [lastStopSignal, setLastStopSignal] = useState(stopSignal);
   if (lastStopSignal !== stopSignal) {
     setLastStopSignal(stopSignal);
-    if (activeId !== null) setActiveId(null);
+    if (activeId !== null) {
+      setActiveId(null);
+      onStopExternal?.();
+    }
+  }
+
+  // 专注自动起噪时联动触发外部音源播放
+  const [lastPlaySignal, setLastPlaySignal] = useState(playSignal ?? 0);
+  if ((playSignal ?? 0) !== lastPlaySignal) {
+    setLastPlaySignal(playSignal ?? 0);
+    const targetId = activeId ?? (links.length > 0 ? links[0].id : null);
+    if (targetId) {
+      if (activeId !== targetId) {
+        setActiveId(targetId);
+        saveCustomNoiseActiveId(targetId);
+      }
+      onStartExternal?.(targetId);
+    }
   }
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -155,19 +218,30 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
     setInput("");
     setError(null);
     setActiveId(result.link!.id);
-    onStartExternal?.();
+    saveCustomNoiseActiveId(result.link!.id);
+    onStartExternal?.(result.link!.id);
   };
 
   const handlePlay = (id: string) => {
+    if (activeId === id) {
+      setActiveId(null);
+      onStopExternal?.();
+      return;
+    }
     setActiveId(id);
-    onStartExternal?.();
+    saveCustomNoiseActiveId(id);
+    onStartExternal?.(id);
   };
 
   const handleRemove = (id: string) => {
     const next = removeCustomNoiseLink(links, id);
     saveCustomNoiseLinks(next);
     setLinks(next);
-    if (activeId === id) setActiveId(null);
+    if (activeId === id) {
+      setActiveId(null);
+      saveCustomNoiseActiveId(null);
+      onStopExternal?.();
+    }
   };
 
   const errorText = useMemo(() => {
@@ -190,7 +264,11 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
       role="dialog"
       aria-label={s.customNoiseTitle}
       className="fixed z-[120] w-[320px] rounded-2xl border border-slate-200/80 dark:border-[#33353A] bg-white/95 dark:bg-[#1E2026]/95 backdrop-blur shadow-xl overflow-hidden text-slate-600 dark:text-slate-200"
-      style={{ left: position.x, top: position.y }}
+      style={
+        visible
+          ? { left: position.x, top: position.y }
+          : { position: "fixed", left: -9999, top: -9999, opacity: 0, pointerEvents: "none" }
+      }
     >
       <div
         onPointerDown={handlePointerDown}
@@ -206,6 +284,11 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
           <GripVertical className="w-3.5 h-3.5 text-slate-400" />
           <Radio className="w-3.5 h-3.5 text-[#4D7C5D] dark:text-[#78C496]" />
           {s.customNoiseTitle}
+          {typeof volume === "number" && (
+            <span className="text-[9px] text-slate-400 font-mono font-normal">
+              ({Math.round(volume * 100)}%)
+            </span>
+          )}
         </span>
         <button
           type="button"
@@ -295,33 +378,63 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
             {activeLink.kind === "media" ? (
               /\.(mp4|webm|m3u8)$/i.test(activeLink.embedUrl.split(/[?#]/)[0]) ? (
                 <video
+                  ref={(el) => {
+                    mediaRef.current = el;
+                  }}
                   key={activeLink.id}
                   src={activeLink.embedUrl}
                   controls
                   autoPlay
+                  onLoadedMetadata={(e) => {
+                    (e.currentTarget as HTMLVideoElement).volume = Math.max(
+                      0,
+                      Math.min(1, volume ?? 0.35),
+                    );
+                  }}
                   className="w-full h-[150px] bg-black"
                   data-testid="custom-noise-media"
                 />
               ) : (
                 <audio
+                  ref={(el) => {
+                    mediaRef.current = el;
+                  }}
                   key={activeLink.id}
                   src={activeLink.embedUrl}
                   controls
                   autoPlay
+                  onLoadedMetadata={(e) => {
+                    (e.currentTarget as HTMLAudioElement).volume = Math.max(
+                      0,
+                      Math.min(1, volume ?? 0.35),
+                    );
+                  }}
                   className="w-full h-8"
                   data-testid="custom-noise-media"
                 />
               )
             ) : (
-              <iframe
-                key={activeLink.id}
-                src={resolveEmbedUrl(activeLink)}
-                title={activeLink.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerPolicy={activeLink.kind === "bilibili" ? "no-referrer" : "strict-origin-when-cross-origin"}
-                className="w-full h-[150px] bg-black"
-                data-testid="custom-noise-embed"
-              />
+              <>
+                <iframe
+                  ref={iframeRef}
+                  key={activeLink.id}
+                  src={resolveEmbedUrl(activeLink)}
+                  title={activeLink.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy={
+                    activeLink.kind === "bilibili"
+                      ? "no-referrer"
+                      : "strict-origin-when-cross-origin"
+                  }
+                  className="w-full h-[150px] bg-black"
+                  data-testid="custom-noise-embed"
+                />
+                {activeLink.kind === "bilibili" && (
+                  <div className="px-2 py-0.5 bg-black/5 dark:bg-white/5 border-t border-slate-100 dark:border-[#2A2D35] text-[9px] text-slate-400">
+                    💡 B 站内嵌播放器受跨域限制，请直接使用画面内音量条调节
+                  </div>
+                )}
+              </>
             )}
             <div className="flex items-center justify-between px-2.5 py-1 bg-slate-50/90 dark:bg-[#202228]/90 border-t border-slate-100 dark:border-[#2A2D35] text-[10px] text-slate-500 dark:text-slate-400">
               <span className="truncate flex-1 pr-2 font-medium">{activeLink.title}</span>

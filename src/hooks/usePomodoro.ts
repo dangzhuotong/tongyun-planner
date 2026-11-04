@@ -2,7 +2,15 @@ import { useState, useCallback, useRef } from "react";
 import type { AlertSoundType, PomodoroLog } from "../types";
 import { useSync } from "./useSync";
 import { audioEngine } from "../utils/audioEngine";
-import { nextNoiseStartSignal, shouldAutoStartNoise } from "../utils/noisePolicy";
+import { nextNoiseStartSignal, resolveAutoNoiseTarget } from "../utils/noisePolicy";
+import {
+  loadCustomNoiseActiveId,
+  loadCustomNoiseLinks,
+  loadNoiseSource,
+  saveCustomNoiseActiveId,
+  saveNoiseSource,
+  type NoiseSourceType,
+} from "../utils/customNoise";
 import { safeJsonParse } from "../utils/json";
 import {
   MICRO_BREAK_MAX_DURATION_SEC,
@@ -99,6 +107,24 @@ export function usePomodoro() {
   }
   const [selectedNoiseType, setSelectedNoiseType] = useState<string>("brown");
   const [noiseVolume, setNoiseVolume] = useState<number>(0.35);
+  const [noiseSource, setNoiseSourceState] = useState<NoiseSourceType>(() => loadNoiseSource());
+  const [activeCustomNoiseId, setActiveCustomNoiseIdState] = useState<string | null>(() =>
+    loadCustomNoiseActiveId(),
+  );
+  const [isPlayingExternalNoise, setIsPlayingExternalNoise] = useState<boolean>(false);
+  const [externalPlaySignal, setExternalPlaySignal] = useState<number>(0);
+  const [externalStopSignal, setExternalStopSignal] = useState<number>(0);
+
+  const setNoiseSource = useCallback((source: NoiseSourceType) => {
+    setNoiseSourceState(source);
+    saveNoiseSource(source);
+  }, []);
+
+  const setActiveCustomNoiseId = useCallback((id: string | null) => {
+    setActiveCustomNoiseIdState(id);
+    saveCustomNoiseActiveId(id);
+  }, []);
+
   /** Manual mute wins over auto-noise and micro-break resume until the user presses play. */
   const noiseManuallyStoppedRef = useRef(false);
 
@@ -174,14 +200,22 @@ export function usePomodoro() {
       // 在用户手势上下文中预热并激活 AudioContext，确保后续微休息在无手势定时器下 100% 能够发声
       void audioEngine.ensureAudioContext();
 
-      if (
-        shouldAutoStartNoise({
-          autoNoiseEnabled,
-          active: true,
-          isBreak: false,
-          manuallyStopped: noiseManuallyStoppedRef.current,
-        })
-      ) {
+      const target = resolveAutoNoiseTarget({
+        autoNoiseEnabled,
+        active: true,
+        isBreak: false,
+        manuallyStopped: noiseManuallyStoppedRef.current,
+        noiseSource,
+        hasCustomNoiseLink: Boolean(loadCustomNoiseLinks().length),
+      });
+      if (target === "external") {
+        audioEngine.stopNoise();
+        setIsPlayingNoise(false);
+        setIsPlayingExternalNoise(true);
+        setExternalPlaySignal((s) => s + 1);
+      } else if (target === "internal") {
+        setIsPlayingExternalNoise(false);
+        setExternalStopSignal((s) => s + 1);
         audioEngine.startNoise(selectedNoiseType, noiseVolume);
         setIsPlayingNoise(true);
       }
@@ -194,6 +228,7 @@ export function usePomodoro() {
       autoNoiseEnabled,
       selectedNoiseType,
       noiseVolume,
+      noiseSource,
     ],
   );
 
@@ -204,14 +239,34 @@ export function usePomodoro() {
 
   const startNoise = useCallback((type: string, volume: number) => {
     noiseManuallyStoppedRef.current = false;
+    setNoiseSourceState("internal");
+    saveNoiseSource("internal");
+    setIsPlayingExternalNoise(false);
+    setExternalStopSignal((s) => s + 1);
     audioEngine.startNoise(type, volume);
     setIsPlayingNoise(true);
+  }, []);
+
+  const startExternalNoise = useCallback((id?: string) => {
+    noiseManuallyStoppedRef.current = false;
+    setNoiseSourceState("external");
+    saveNoiseSource("external");
+    if (id) {
+      setActiveCustomNoiseIdState(id);
+      saveCustomNoiseActiveId(id);
+    }
+    audioEngine.stopNoise();
+    setIsPlayingNoise(false);
+    setIsPlayingExternalNoise(true);
+    setExternalPlaySignal((s) => s + 1);
   }, []);
 
   const stopNoise = useCallback((reason: "manual" | "auto" = "manual") => {
     if (reason === "manual") noiseManuallyStoppedRef.current = true;
     audioEngine.stopNoise();
     setIsPlayingNoise(false);
+    setIsPlayingExternalNoise(false);
+    setExternalStopSignal((s) => s + 1);
   }, []);
 
   const isNoiseManuallyStopped = useCallback(() => noiseManuallyStoppedRef.current, []);
@@ -221,28 +276,49 @@ export function usePomodoro() {
     (active: boolean, isBreak: boolean) => {
       // 核心修复：当专注处于暂停、停止或休息时，不论 autoNoiseEnabled 是否开启，只要正在播放都必须停掉！
       if (!active || isBreak) {
-        if (isPlayingNoise || autoNoiseEnabled) {
+        if (isPlayingNoise || isPlayingExternalNoise || autoNoiseEnabled) {
           audioEngine.stopNoise();
           setIsPlayingNoise(false);
+          setIsPlayingExternalNoise(false);
+          setExternalStopSignal((s) => s + 1);
         }
         return;
       }
-      if (
-        shouldAutoStartNoise({
-          autoNoiseEnabled,
-          active,
-          isBreak,
-          manuallyStopped: noiseManuallyStoppedRef.current,
-        })
-      ) {
+      const target = resolveAutoNoiseTarget({
+        autoNoiseEnabled,
+        active,
+        isBreak,
+        manuallyStopped: noiseManuallyStoppedRef.current,
+        noiseSource,
+        hasCustomNoiseLink: Boolean(loadCustomNoiseLinks().length),
+      });
+      if (target === "external") {
+        audioEngine.stopNoise();
+        setIsPlayingNoise(false);
+        setIsPlayingExternalNoise(true);
+        setExternalPlaySignal((s) => s + 1);
+        return;
+      }
+      if (target === "internal") {
+        setIsPlayingExternalNoise(false);
+        setExternalStopSignal((s) => s + 1);
         audioEngine.startNoise(selectedNoiseType, noiseVolume);
         setIsPlayingNoise(true);
         return;
       }
       audioEngine.stopNoise();
       setIsPlayingNoise(false);
+      setIsPlayingExternalNoise(false);
+      setExternalStopSignal((s) => s + 1);
     },
-    [autoNoiseEnabled, selectedNoiseType, noiseVolume, isPlayingNoise],
+    [
+      autoNoiseEnabled,
+      selectedNoiseType,
+      noiseVolume,
+      isPlayingNoise,
+      isPlayingExternalNoise,
+      noiseSource,
+    ],
   );
 
   return {
@@ -290,8 +366,17 @@ export function usePomodoro() {
     handleStartFocus,
     playCompletionSound,
     startNoise,
+    startExternalNoise,
     stopNoise,
     isNoiseManuallyStopped,
     applyAutoNoise,
+    noiseSource,
+    setNoiseSource,
+    activeCustomNoiseId,
+    setActiveCustomNoiseId,
+    isPlayingExternalNoise,
+    setIsPlayingExternalNoise,
+    externalPlaySignal,
+    externalStopSignal,
   };
 }

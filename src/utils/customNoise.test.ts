@@ -4,6 +4,10 @@ import {
   clampWindowPosition,
   loadCustomNoiseLinks,
   loadCustomNoiseWindowPosition,
+  loadCustomNoiseActiveId,
+  saveCustomNoiseActiveId,
+  loadNoiseSource,
+  saveNoiseSource,
   parseCustomNoiseUrl,
   removeCustomNoiseLink,
   saveCustomNoiseLinks,
@@ -198,5 +202,19 @@ describe("本地存储", () => {
     expect(loadCustomNoiseWindowPosition()).toBeNull();
     store["tongyun_custom_noise_window"] = "not json";
     expect(loadCustomNoiseWindowPosition()).toBeNull();
+  });
+
+  it("当前激活音源与音源模式支持持久化和清除", () => {
+    expect(loadCustomNoiseActiveId()).toBeNull();
+    saveCustomNoiseActiveId("noise-123");
+    expect(loadCustomNoiseActiveId()).toBe("noise-123");
+    saveCustomNoiseActiveId(null);
+    expect(loadCustomNoiseActiveId()).toBeNull();
+
+    expect(loadNoiseSource()).toBe("internal");
+    saveNoiseSource("external");
+    expect(loadNoiseSource()).toBe("external");
+    saveNoiseSource("internal");
+    expect(loadNoiseSource()).toBe("internal");
   });
 });

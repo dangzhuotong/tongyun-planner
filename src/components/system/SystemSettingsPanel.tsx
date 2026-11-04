@@ -19,10 +19,7 @@ import { checkForAppUpdate, resolveDisplayedAppVersion } from "../../utils/updat
 import { openExternal } from "../../utils/openExternal";
 import { getVersion } from "@tauri-apps/api/app";
 import { version as bundledVersion } from "../../../package.json";
-import {
-  MICRO_BREAK_DURATION_LIMIT_SEC,
-  MICRO_BREAK_GAP_LIMIT_SEC,
-} from "../../utils/microBreak";
+import { MICRO_BREAK_DURATION_LIMIT_SEC, MICRO_BREAK_GAP_LIMIT_SEC } from "../../utils/microBreak";
 import {
   fetchAndParseICal,
   saveCachedICalHolidays,
@@ -687,6 +684,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
                 className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${checked ? "bg-[#4D7C5D]/8 dark:bg-[#4D7C5D]/15 border-[#4D7C5D]/25 dark:border-[#4D7C5D]/40" : "bg-white dark:bg-[#1E2026] border-[#EFEBE4] dark:border-[#2D3039]"}`}
               >
                 <button
+                  type="button"
                   onClick={() => {
                     // 试听也走上下文起停，内置播放状态才能跃迁并让外部音源停下。
                     stopNoise("auto");
@@ -698,7 +696,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
                 >
                   <span className="text-[9px]">▶</span>
                 </button>
-                <label className="flex items-center gap-1.5 flex-grow cursor-pointer select-none">
+                <label className="relative flex items-center gap-1.5 flex-grow cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={checked}
