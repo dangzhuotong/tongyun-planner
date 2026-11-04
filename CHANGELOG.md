@@ -2,6 +2,13 @@
 
 格式大致遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。应用版本号以 `package.json` / `src-tauri/tauri.conf.json` 为准，本文不负责发版。
 
+## [1.2.2] - 2026-11-04
+
+用于打 tag `v1.2.2`。相对已发布的 v1.2.1，收录此后合进默认分支的改动。
+
+### 新增
+- 日历右侧面板以弱化样式保留并展示当天已完成的任务，便于回看当日完成情况（[#59](https://github.com/dangzhuotong/tongyun-planner/pull/59)，[issue #51](https://github.com/dangzhuotong/tongyun-planner/issues/51) 用户补充反馈）。
+
 ## [1.2.1] - 2026-11-03
 
 用于打 tag `v1.2.1`。相对已发布的 v1.2.0，收录此后合进默认分支的功能与修复。
