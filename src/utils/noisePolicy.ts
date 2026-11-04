@@ -9,6 +9,27 @@ export function shouldAutoStartNoise(input: {
   return input.active && !input.isBreak;
 }
 
+export type NoiseTarget = "none" | "internal" | "external";
+
+/**
+ * 决定自动起噪时应该调用内置合成器还是外部音源。
+ * 若用户选择了外部音源且存在已配置链接，优先联动外部；否则回退为内置。
+ */
+export function resolveAutoNoiseTarget(input: {
+  autoNoiseEnabled: boolean;
+  active: boolean;
+  isBreak: boolean;
+  manuallyStopped: boolean;
+  noiseSource: "internal" | "external";
+  hasCustomNoiseLink: boolean;
+}): NoiseTarget {
+  if (!shouldAutoStartNoise(input)) return "none";
+  if (input.noiseSource === "external" && input.hasCustomNoiseLink) {
+    return "external";
+  }
+  return "internal";
+}
+
 /** A manual mute outranks both "was playing" and the auto-noise preference. */
 export function shouldResumeNoiseAfterMicroBreak(input: {
   wasPlayingNoise: boolean;

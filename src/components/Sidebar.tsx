@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Home,
   LayoutGrid,
@@ -123,8 +123,14 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
       noiseVolume,
       setNoiseVolume,
       startNoise,
+      startExternalNoise,
       stopNoise,
       applyAutoNoise,
+      noiseSource,
+      isPlayingExternalNoise,
+      setIsPlayingExternalNoise,
+      externalPlaySignal,
+      externalStopSignal,
     } = usePomodoroContext();
     const { t } = useTranslation();
     const s = t.sidebar;
@@ -162,6 +168,14 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     const [archiveExpanded, setArchiveExpanded] = useState(() => ARCHIVE_GROUP.includes(activeTab));
     const [noiseControlsExpanded, setNoiseControlsExpanded] = useState(false);
     const [customNoiseOpen, setCustomNoiseOpen] = useState(false);
+
+    useEffect(() => {
+      if (externalPlaySignal > 0) {
+        setCustomNoiseOpen(true);
+      }
+    }, [externalPlaySignal]);
+
+    const isAnyNoisePlaying = isPlayingNoise || isPlayingExternalNoise;
 
     const commitMinutes = (raw: string) => {
       const val = parseInt(raw, 10);
@@ -850,26 +864,31 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                     )}
                   </button>
                   <div className="flex items-center gap-1.5">
-                    {isPlayingNoise && !noiseControlsExpanded && (
+                    {isAnyNoisePlaying && !noiseControlsExpanded && (
                       <span className="text-[9px] text-[#4D7C5D] dark:text-[#78C496] font-bold animate-pulse">
                         播放中
                       </span>
                     )}
                     <button
                       onClick={() => {
-                        if (isPlayingNoise) {
+                        if (isAnyNoisePlaying) {
                           stopNoise();
                         } else {
-                          startNoise(selectedNoiseType, noiseVolume);
+                          if (noiseSource === "external") {
+                            startExternalNoise();
+                            setCustomNoiseOpen(true);
+                          } else {
+                            startNoise(selectedNoiseType, noiseVolume);
+                          }
                         }
                       }}
                       className={`px-2 py-0.5 rounded-md border text-[9px] font-semibold transition-all cursor-pointer ${
-                        isPlayingNoise
+                        isAnyNoisePlaying
                           ? "bg-[#4D7C5D]/10 dark:bg-[#4D7C5D]/20 border-[#4D7C5D]/20 dark:border-[#4D7C5D]/40 text-[#4D7C5D] dark:text-[#78C496]"
                           : "bg-slate-50 dark:bg-[#252830] border-slate-200 dark:border-[#33353A] text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2E313A]"
                       }`}
                     >
-                      {isPlayingNoise ? s.mute : s.play}
+                      {isAnyNoisePlaying ? s.mute : s.play}
                     </button>
                   </div>
                 </div>
@@ -910,8 +929,13 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           const val = parseFloat(e.target.value);
                           setNoiseVolume(val);
                           audioEngine.setVolume(val);
-                          if (!isPlayingNoise && val > 0) {
-                            startNoise(selectedNoiseType, val);
+                          if (!isAnyNoisePlaying && val > 0) {
+                            if (noiseSource === "external") {
+                              startExternalNoise();
+                              setCustomNoiseOpen(true);
+                            } else {
+                              startNoise(selectedNoiseType, val);
+                            }
                           }
                         }}
                         className="flex-grow accent-[#4D7C5D] h-0.5 bg-slate-100 dark:bg-[#2A2D35] rounded-lg cursor-pointer"
@@ -931,7 +955,12 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           setAutoNoiseEnabled(next);
                           localStorage.setItem("tongyun_auto_noise", String(next));
                           if (next) {
-                            startNoise(selectedNoiseType, noiseVolume);
+                            if (noiseSource === "external") {
+                              startExternalNoise();
+                              setCustomNoiseOpen(true);
+                            } else {
+                              startNoise(selectedNoiseType, noiseVolume);
+                            }
                           } else {
                             stopNoise("manual");
                           }
@@ -1116,11 +1145,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                 }`}
                 title={isWidgetLocked ? s.unlockWidget : s.lockWidget}
               >
-                {isWidgetLocked ? (
-                  <Unlock className="w-3 h-3" />
-                ) : (
-                  <Lock className="w-3 h-3" />
-                )}
+                {isWidgetLocked ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
               </button>
             </div>
           )}
@@ -1145,12 +1170,18 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
           </button>
         </div>
 
-        {customNoiseOpen && (
+        {(customNoiseOpen || isPlayingExternalNoise) && (
           <CustomNoiseWindow
             onClose={() => setCustomNoiseOpen(false)}
-            stopSignal={noiseStartSignal}
-            onStartExternal={() => {
-              if (isPlayingNoise) stopNoise();
+            stopSignal={noiseStartSignal + externalStopSignal}
+            playSignal={externalPlaySignal}
+            volume={noiseVolume}
+            visible={customNoiseOpen}
+            onStartExternal={(id) => {
+              startExternalNoise(id);
+            }}
+            onStopExternal={() => {
+              setIsPlayingExternalNoise(false);
             }}
           />
         )}

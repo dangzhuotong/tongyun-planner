@@ -238,3 +238,36 @@ export function saveCustomNoiseWindowPosition(position: WindowPosition): void {
     JSON.stringify({ x: Math.round(position.x), y: Math.round(position.y) }),
   );
 }
+
+export const CUSTOM_NOISE_ACTIVE_ID_KEY = "tongyun_custom_noise_active_id";
+export const NOISE_SOURCE_KEY = "tongyun_noise_source";
+
+export type NoiseSourceType = "internal" | "external";
+
+export function loadCustomNoiseActiveId(): string | null {
+  const storage = getStorage();
+  if (!storage) return null;
+  const val = storage.getItem(CUSTOM_NOISE_ACTIVE_ID_KEY);
+  return typeof val === "string" && val.trim() ? val.trim() : null;
+}
+
+export function saveCustomNoiseActiveId(id: string | null): void {
+  const storage = getStorage();
+  if (!storage) return;
+  if (id) {
+    storage.setItem(CUSTOM_NOISE_ACTIVE_ID_KEY, id);
+  } else {
+    storage.removeItem(CUSTOM_NOISE_ACTIVE_ID_KEY);
+  }
+}
+
+export function loadNoiseSource(): NoiseSourceType {
+  const storage = getStorage();
+  if (!storage) return "internal";
+  const val = storage.getItem(NOISE_SOURCE_KEY);
+  return val === "external" ? "external" : "internal";
+}
+
+export function saveNoiseSource(source: NoiseSourceType): void {
+  getStorage()?.setItem(NOISE_SOURCE_KEY, source);
+}
