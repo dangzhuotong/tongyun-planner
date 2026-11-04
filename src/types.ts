@@ -59,6 +59,10 @@ export interface Task {
   repeat?: string;
   /** 每月重复的锚定日（1–31）。短月钳到月末后，下一次仍回到这一天。旧数据缺失时按当前 dueDate 的日计算。 */
   repeatAnchorDay?: number;
+  /** Stable identity shared by occurrences of a repeating task. */
+  repeatSeriesId?: string;
+  /** Generated successor and its original contents, for safe undo. */
+  repeatSuccessor?: { id: string; snapshot: string };
   priority?: TaskPriority;
   subtasks?: SubTask[];
   tags?: string[];

@@ -1,10 +1,19 @@
 type PendingValue = unknown;
 
 const pending = new Map<string, PendingValue>();
+const persistenceFlushers = new Set<() => void>();
+
+export function registerPersistenceFlusher(flush: () => void): () => void {
+  persistenceFlushers.add(flush);
+  return () => {
+    persistenceFlushers.delete(flush);
+  };
+}
 let timer: number | null = null;
 let listenersInstalled = false;
 
 function flushPendingStorage(): void {
+  for (const flush of persistenceFlushers) flush();
   if (timer !== null) {
     window.clearTimeout(timer);
     timer = null;

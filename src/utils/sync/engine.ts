@@ -8,6 +8,7 @@ import {
 } from "./types";
 import { WebDAVProvider } from "./webdavProvider";
 import { requestCategoryReplace } from "./syncApplyGuard";
+import { flushPendingStorage } from "../deferredStorage";
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "conflict" | "offline";
 
@@ -39,6 +40,7 @@ export class SyncEngine {
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private onlineListener: (() => void) | null = null;
   private dirtyCategories: Set<SyncCategory> = new Set();
+  private dirtyRevisions = new Map<SyncCategory, number>();
   private enableAutoSync = false;
   /** 当前正在进行的同步（含排队的追加轮次），用于合并并发调用 */
   private running: Promise<void> | null = null;
@@ -173,6 +175,9 @@ export class SyncEngine {
     } else {
       for (const c of cats) this.dirtyCategories.add(c);
     }
+    for (const cat of cats.length === 0 ? ALL_SYNC_CATEGORIES : cats) {
+      this.dirtyRevisions.set(cat, (this.dirtyRevisions.get(cat) ?? 0) + 1);
+    }
     this.saveDirtyCategories();
 
     if (this.enableAutoSync && this._currentBackend === "webdav") {
@@ -284,7 +289,7 @@ export class SyncEngine {
         hasConflicts = await this.syncWebDAV();
       }
 
-      if (!hasConflicts) {
+      if (!hasConflicts && !this.rerunRequested) {
         this._lastSyncTime = Date.now();
         localStorage.setItem("tongyun_last_sync_time", String(this._lastSyncTime));
         localStorage.setItem("aero_last_backup_time", String(this._lastSyncTime));
@@ -309,14 +314,16 @@ export class SyncEngine {
     await this.webdavProvider.pull(this.dirtyCategories);
 
     if (this.dirtyCategories.size > 0) {
+      flushPendingStorage();
       const freshData = getLocalSyncData();
       const toPush = new Set(this.dirtyCategories);
+      const revisions = new Map([...toPush].map((cat) => [cat, this.dirtyRevisions.get(cat)]));
       const { conflicts } = await this.webdavProvider.push(freshData, toPush);
 
       // 成功上传的分类从脏列表中移除，冲突分类保留在脏列表
       const conflictedCats = new Set(conflicts.map((c) => c.category));
       for (const cat of toPush) {
-        if (!conflictedCats.has(cat)) {
+        if (!conflictedCats.has(cat) && revisions.get(cat) === this.dirtyRevisions.get(cat)) {
           this.dirtyCategories.delete(cat);
         }
       }
@@ -329,6 +336,13 @@ export class SyncEngine {
       }
     }
 
+    // An edit made while awaiting the upload belongs to the next round.
+    // Finish that round before reporting the whole sync operation complete.
+    if (this.dirtyCategories.size > 0) {
+      this.rerunRequested = true;
+      // Do not replace UI state with the previous snapshot while newer edits are pending.
+      return false;
+    }
     this._conflicts = [];
     if (typeof window !== "undefined") {
       requestCategoryReplace();
@@ -353,6 +367,8 @@ export class SyncEngine {
    */
   async resolveConflicts(choice: "local" | "remote"): Promise<void> {
     try {
+      flushPendingStorage();
+      const revisions = new Map(this.dirtyRevisions);
       if (this._conflicts.length > 0) {
         if (choice === "local") {
           const freshData = getLocalSyncData();
@@ -371,37 +387,45 @@ export class SyncEngine {
           }
           if (typeof window !== "undefined") {
             requestCategoryReplace();
-            window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
+            window.dispatchEvent(
+              new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }),
+            );
           }
         }
 
         // 移除已解决的脏标记并清空冲突
         for (const conflict of this._conflicts) {
-          this.dirtyCategories.delete(conflict.category);
+          if (
+            choice === "remote" ||
+            revisions.get(conflict.category) === this.dirtyRevisions.get(conflict.category)
+          ) {
+            this.dirtyCategories.delete(conflict.category);
+          }
         }
       } else {
         // 当没有具体的冲突列表时，按用户意图强制整库对齐
         if (choice === "local") {
           const freshData = getLocalSyncData();
           const targetCats =
-            this.dirtyCategories.size > 0
-              ? Array.from(this.dirtyCategories)
-              : ALL_SYNC_CATEGORIES;
+            this.dirtyCategories.size > 0 ? Array.from(this.dirtyCategories) : ALL_SYNC_CATEGORIES;
           for (const cat of targetCats) {
             bumpCategoryVersion(cat);
             const payload =
-              cat === "config"
-                ? freshData.customizationConfig
-                : getCategoryPayload(freshData, cat);
+              cat === "config" ? freshData.customizationConfig : getCategoryPayload(freshData, cat);
             await this.webdavProvider.uploadCategory(cat, payload);
           }
-          this.dirtyCategories.clear();
+          for (const cat of targetCats) {
+            if (revisions.get(cat) === this.dirtyRevisions.get(cat))
+              this.dirtyCategories.delete(cat);
+          }
         } else {
           this.dirtyCategories.clear();
           const pulled = await this.webdavProvider.pull();
           if (pulled && typeof window !== "undefined") {
             requestCategoryReplace();
-            window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
+            window.dispatchEvent(
+              new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }),
+            );
           }
         }
       }
@@ -409,6 +433,10 @@ export class SyncEngine {
       this.saveDirtyCategories();
 
       this._conflicts = [];
+      if (choice === "local" && this.dirty) {
+        await this.sync();
+        return;
+      }
       this._status = "success";
       this._lastSyncTime = Date.now();
       localStorage.setItem("tongyun_last_sync_time", String(this._lastSyncTime));

@@ -38,11 +38,13 @@ export function getDomainDatabase(): Promise<Database | null> {
 }
 
 export function queueDomainWrite(work: (db: Database) => Promise<void>): Promise<void> {
-  domainWriteQueue = domainWriteQueue.then(async () => {
+  const write = domainWriteQueue.then(async () => {
     const db = await getDomainDatabase();
     if (db) await work(db);
   });
-  return domainWriteQueue;
+  // Keep this operation rejected for its caller, but let the next write run.
+  domainWriteQueue = write.catch(() => undefined);
+  return write;
 }
 
 export async function createSchema(db: Database): Promise<void> {

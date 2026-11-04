@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { subscribeDevSync } from "./useSync";
+import { parseTaskCompletion } from "../utils/taskCompletion";
 import type { Task, JournalEntry, Locale } from "../types";
 import type { useTasks } from "./useTasks";
 import type { usePomodoro } from "./usePomodoro";
@@ -40,7 +41,7 @@ export function useCrossWindowSync(
       } = handlersRef.current;
       switch (p.action) {
         case "complete":
-          tH.handleComplete(p.task_id, false);
+          tH.handleComplete(p.task_id, false, parseTaskCompletion(p.title, p.task_id));
           break;
         case "undo_complete":
           tH.handleUndoComplete(p.task_id, false);

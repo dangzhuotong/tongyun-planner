@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="四项缺陷的修复、回归验证与兼容边界">
+<meta name="color-scheme" content="light">
+<title>普通版保存、同步与重复任务修复</title>
+<style>
+:root{--bg:#f6f5f2;--paper:#fff;--text:#21272b;--muted:#6d777c;--line:#e9e8e3;--accent:#0c787b;--accent-soft:#e7f5f2;--heading:#112b32;--card:#f6faf9;--shadow:0 15px 50px rgba(11,48,50,.045)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.84 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;letter-spacing:.012em}a{color:inherit;text-decoration:none}a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:3px}button{font:inherit;cursor:pointer}.layout{display:grid;grid-template-columns:260px minmax(0,850px);gap:54px;max-width:1310px;margin:auto;padding:0 32px 95px}.sidebar{position:sticky;top:0;align-self:start;height:100vh;padding:45px 0 24px;overflow:auto}.brand-mark{font-size:21px;font-weight:800;color:var(--heading)}.brand-mark b{color:var(--accent)}.sidebar small{font-size:11px;letter-spacing:.16em;color:var(--accent);font-weight:800}.motto{font-size:12px;color:var(--muted);margin-top:3px}.divider{height:1px;background:var(--line);margin:26px 0 21px}.toc-title{font-size:11px;letter-spacing:.16em;color:var(--muted);font-weight:800;margin-bottom:13px}.toc{display:flex;flex-direction:column;gap:3px}.toc a{display:flex;align-items:flex-start;gap:12px;padding:8px 10px 8px 0;font-size:12px;line-height:1.45;color:#59696d;border-radius:6px}.toc a:hover{color:var(--accent)}.toc span{font-variant-numeric:tabular-nums;color:#9ba9a9;font-size:10px;line-height:18px}.side-bottom{margin-top:25px}.side-bottom button{border:1px solid #d9e2df;border-radius:9px;padding:8px 12px;background:#fff;font-size:12px;color:#455e60}.main{min-width:0;padding-top:32px}.hero{background:linear-gradient(135deg,#123c43,#0e272d 75%);border-radius:22px;min-height:400px;padding:52px 56px;color:#fff;position:relative;overflow:hidden;box-shadow:var(--shadow)}.hero:after{content:'文';position:absolute;right:-10px;bottom:-135px;font-family:serif;font-size:340px;font-weight:900;color:rgba(255,255,255,.035);pointer-events:none}.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.21em;color:#8ed7cc}.hero h1{font-size:clamp(34px,5vw,55px);letter-spacing:-.045em;line-height:1.22;margin:36px 0 18px;font-weight:800;max-width:650px}.hero .tagline{font-size:19px;color:#d3eee7}.hero .sub{font-size:14px;max-width:570px;color:#bfd7d6;line-height:1.9;margin-top:28px}.hero-meta{display:flex;gap:9px;flex-wrap:wrap;margin-top:28px}.hero-meta span{border:1px solid rgba(255,255,255,.17);background:rgba(255,255,255,.06);font-size:11px;padding:5px 11px;border-radius:100px;color:#d7eae8}.intro,.split{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0 35px}.intro>div,.split>div{padding:19px;background:var(--paper);border:1px solid var(--line);border-radius:12px}.intro strong,.split strong{font-size:12px;display:block;color:var(--accent);margin-bottom:7px}.intro span,.split span{font-size:13px;line-height:1.65;color:#506067}.doc-section{margin:0 0 27px;padding:44px 43px;background:var(--paper);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);scroll-margin-top:25px}.section-eyebrow{font-size:10px;font-weight:800;letter-spacing:.23em;color:var(--accent);margin-bottom:12px}.doc-section h2{margin:0 0 22px;color:var(--heading);font-size:29px;letter-spacing:-.03em;line-height:1.4}.doc-section h3{font-size:17px;color:var(--heading);margin:30px 0 11px}.doc-section p,.doc-section li{font-size:14px;color:#465359;line-height:1.95}.doc-section ul,.doc-section ol{padding-left:1.45em}.doc-section blockquote{margin:20px 0;padding:20px 24px;border-left:3px solid #1b9694;background:var(--card);color:#244d50;font-size:14px;line-height:1.9;border-radius:0 12px 12px 0}.table-wrap{width:100%;overflow-x:auto;margin:21px 0 12px;border:1px solid var(--line);border-radius:12px}table{border-collapse:collapse;width:100%;font-size:12px;line-height:1.75;min-width:470px}th{text-align:left;background:#f0f7f5;color:#206d68;font-size:11px}th,td{padding:12px 13px;vertical-align:top;border-bottom:1px solid #edf0ed}tr:last-child td{border-bottom:0}td:first-child{font-weight:650;color:#24393f}tbody tr:nth-child(even){background:#fcfdfc}.steps{counter-reset:step;list-style:none!important;padding:0!important}.steps li{position:relative;padding:0 0 16px 45px}.steps li:before{counter-increment:step;content:counter(step,decimal-leading-zero);position:absolute;left:0;top:2px;background:#e7f5f2;color:#0c787b;border-radius:8px;font-size:11px;font-weight:800;padding:3px 8px}.footer{text-align:center;color:#8a9999;font-size:12px;padding:3px 0 26px}@media(max-width:950px){.layout{display:block;padding:0 18px 50px}.sidebar{height:auto;position:static;padding:20px 0 14px}.sidebar .divider,.sidebar .toc-title,.sidebar .toc{display:none}.sidebar .side-bottom{margin:12px 0 0}.main{padding-top:0}.hero{padding:40px 28px;min-height:345px}.doc-section{padding:30px 26px}}@media(max-width:560px){.hero h1{font-size:34px}.hero .tagline{font-size:17px}.hero{border-radius:15px;min-height:310px}.intro,.split{grid-template-columns:1fr;gap:8px}.intro>div,.split>div{padding:13px 18px}.doc-section{padding:26px 19px;border-radius:13px}.doc-section h2{font-size:23px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}@media print{body{background:white}.layout{display:block;padding:0;max-width:none}.sidebar{display:none}.main{padding:0}.hero{box-shadow:none;border-radius:0;min-height:0;break-after:avoid}.intro{margin:10px 0 20px}.doc-section{box-shadow:none;border:0;border-radius:0;border-bottom:1px solid #ddd;padding:25px 14px;margin:0}.table-wrap{break-inside:avoid}.doc-section h2,.doc-section h3{break-after:avoid}.footer{display:none}}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" aria-label="文档导航">
+    <div class="brand-mark">橦云手帐<b>.</b></div>
+    <small>TONGYUN DOCUMENT</small>
+    <div class="motto">已有用户优先，可靠性先行</div>
+    <div class="divider"></div>
+    <div class="toc-title">Contents / 目录</div>
+    <nav class="toc" aria-label="章节目录">
+      <a href="#section-01"><span>01</span>摘要</a>
+      <a href="#section-02"><span>02</span>核心分析</a>
+      <a href="#section-03"><span>03</span>实施计划</a>
+      <a href="#section-04"><span>04</span>兼容边界</a>
+      <a href="#section-05"><span>05</span>验证限制</a>
+    </nav>
+    <div class="side-bottom"><button type="button" onclick="window.print()">打印 / 保存 PDF</button></div>
+  </aside>
+  <main class="main" id="content">
+    <header class="hero">
+      <div class="eyebrow">修复交付 · 基于主线 283ba3d</div>
+      <h1>普通版可靠性修复</h1>
+      <div class="tagline">保存可恢复，同步不漏传，重复任务不重复生成</div>
+      <p class="sub">已先合入白噪音与设置修复 PR #61，再从主线创建独立修复分支。未改用户数据库，未启动项目服务。</p>
+      <div class="hero-meta"><span>83 个测试文件</span><span>695 项测试通过</span><span>2026-11-04</span></div>
+    </header>
+    <div class="intro" aria-label="关键摘要">
+      <div><strong>WHY / 背景</strong><span>修复审查确认的两项 P1 与两项 P2。</span></div>
+      <div><strong>WHAT / 发现</strong><span>原实现隔离回归失败，修复后类型、全量测试、Rust 检查通过。</span></div>
+      <div><strong>HOW / 行动</strong><span>保持 SQLite + WebDAV 路线，通过独立 PR 审查交付。</span></div>
+    </div>
+    <section class="doc-section" id="section-01" aria-labelledby="heading-01">
+      <div class="section-eyebrow">CHAPTER 01</div>
+      <h2 id="heading-01">执行摘要</h2>
+      <p>数据库串行队列在单次失败后可继续接收写入；WebDAV 按分类变更代数确认上传，编辑期间的新版本会追加补传，上传前刷新延迟保存，全部补传结束才刷新界面与报告成功；重复任务共享同一下一期，撤销时仅删除仍未改变的生成项。</p>
+      <blockquote>只修可靠性，不迁移数据库、不重写界面、不扩展功能。</blockquote>
+    </section>
+    <section class="doc-section" id="section-02" aria-labelledby="heading-02">
+      <div class="section-eyebrow">CHAPTER 02</div>
+      <h2 id="heading-02">核心分析</h2>
+      <p>本轮验证覆盖失败恢复、上传期间编辑及界面回写、强制本机上传期间编辑、跨窗口完成事件重放、重复事件、撤销后数据库删除、编辑后保留、完成后的下一期保留、JSON 重载与 SQLite 默认值兼容。</p>
+      <div class="table-wrap"><table><thead><tr><th>维度</th><th>现状</th><th>建议</th></tr></thead><tbody><tr><td>SQLite 写队列</td><td>一次失败后后续工作被跳过</td><td>对调用方保留本次拒绝，对内部队列恢复成功链</td></tr></tbody></table></div>
+    </section>
+    <section class="doc-section" id="section-03" aria-labelledby="heading-03">
+      <div class="section-eyebrow">CHAPTER 03</div>
+      <h2 id="heading-03">实施计划</h2>
+      <ol class="steps"><li>先修 P1：写队列恢复与同步版本确认。相关回归可在原实现上触发失败。</li><li>修复重复任务生命周期：稳定系列编号、共享完成载荷、记录下一期初始内容，用于安全撤销。</li><li>运行 npm run check：类型检查、83 文件 695 测试、cargo check 均通过。另执行生产构建，结果见交付说明。</li></ol>
+      <h3>下一步</h3><p>通过独立 PR 审查后合入。没有自动发布安装包。未使用真实 WebDAV 账号或用户数据库，也未进行桌面双窗口端到端验收。</p>
+    </section>
+
+    <section class="doc-section" id="section-04" aria-labelledby="heading-04"><h2 id="heading-04">兼容与数据边界</h2><p>Task 只增加可选的 repeatSeriesId 与 repeatSuccessor 元数据，沿用现有 JSON 数据列和备份，不修改 SQLite 表结构。老数据可继续读取；旧版本已生成的重复项不会被自动猜测删除。下一期已编辑或已完成时保留，重新完成原任务也不会覆盖这些后续工作。</p></section>
+    <section class="doc-section" id="section-05" aria-labelledby="heading-05"><h2 id="heading-05">验证限制</h2><p>隔离测试替换网络与存储边界，Hook 测试执行真实回调并替换 React 状态容器。不是完整桌面端到端测试。项目服务未启动或停止，无新服务地址，不改变原有运行状态。HTML 使用离线模板，已做占位符与锚点结构检查，未做浏览器视觉验收。</p></section>
+    <footer class="footer">橦云手帐普通版 · 2026-11-04 · 仅代码与隔离测试</footer>
+  </main>
+</div>
+</body>
+</html>
