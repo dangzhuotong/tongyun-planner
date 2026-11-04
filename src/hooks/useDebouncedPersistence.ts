@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { registerPersistenceFlusher } from "../utils/deferredStorage";
 
 /**
  * 把状态变更后的 localStorage 写入做防抖合并。
@@ -47,10 +48,12 @@ export function useDebouncedPersistence<T>(value: T, key: string, delay = 250, e
 
   // 页面关闭/隐藏前 flush 待写入数据，避免丢失
   useEffect(() => {
+    const unregister = registerPersistenceFlusher(flush);
     const onHide = () => flush();
     window.addEventListener("pagehide", onHide);
     document.addEventListener("visibilitychange", onHide);
     return () => {
+      unregister();
       window.removeEventListener("pagehide", onHide);
       document.removeEventListener("visibilitychange", onHide);
       flush();

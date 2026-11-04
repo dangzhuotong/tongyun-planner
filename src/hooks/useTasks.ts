@@ -3,11 +3,12 @@ import type { Task, SubTask } from "../types";
 import { useSync } from "./useSync";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
-import { applyDueAnchor, nextRepeatingDue, withMonthlyAnchor } from "../utils/nextDueDate";
+import { applyDueAnchor, withMonthlyAnchor } from "../utils/nextDueDate";
 import { scheduleStorageWrite } from "../utils/deferredStorage";
 import { taskRepository } from "../data/repositories";
 import { syncEngine } from "../utils/sync/engine";
 import { dismissJournalTodo, restoreJournalTodo } from "../utils/journalTodoLink";
+import { completeTask, undoTaskCompletion, type TaskCompletion } from "../utils/taskCompletion";
 
 function createInitialTasks(): Task[] {
   const today = getLocalDateString();
@@ -115,7 +116,7 @@ export function useTasks() {
   }, []);
 
   const handleComplete = useCallback(
-    (id: string, shouldSync: boolean = true) => {
+    (id: string, shouldSync: boolean = true, syncedCompletion?: TaskCompletion) => {
       const task = tasks.find((t) => t.id === id);
       if (!task) return;
 
@@ -124,26 +125,24 @@ export function useTasks() {
         if (!allCompleted) return;
       }
 
-      const completed: Task = { ...task, completedAt: Date.now() };
-      let updatedTasks: Task[];
-      if (task.repeat && task.repeat !== "none") {
-        const base = { ...task };
-        delete base.completedAt;
-        const next = nextRepeatingDue(task);
-        const spawned: Task = { ...base, id: createId("task"), dueDate: next.dueDate };
-        if (next.repeatAnchorDay != null) spawned.repeatAnchorDay = next.repeatAnchorDay;
-        else delete spawned.repeatAnchorDay;
-        updatedTasks = [spawned, ...tasks.filter((t) => t.id !== id)];
-      } else {
-        updatedTasks = tasks.filter((t) => t.id !== id);
-      }
+      const generated = syncedCompletion ?? completeTask(task);
+      const { completed } = generated;
+      const successorId = generated.successor?.id;
+      // Re-completing an undone occurrence must not overwrite later user work.
+      const successor =
+        successorId && !completedTasks.some((t) => t.id === successorId)
+          ? (tasks.find((t) => t.id === successorId) ?? generated.successor)
+          : undefined;
+      const completion = { completed, successor };
+      const remaining = tasks.filter((t) => t.id !== id && t.id !== successor?.id);
+      const updatedTasks = successor ? [successor, ...remaining] : remaining;
 
       const nextCompleted = [completed, ...completedTasks.filter((t) => t.id !== id)];
       setTasks(updatedTasks);
       setCompletedTasks(nextCompleted);
       saveAll(updatedTasks, nextCompleted);
 
-      if (shouldSync) syncState(id, "complete");
+      if (shouldSync) syncState(id, "complete", JSON.stringify(completion));
     },
     [tasks, completedTasks, saveAll, syncState],
   );
@@ -154,9 +153,16 @@ export function useTasks() {
       if (!restoredItem) return;
 
       const nextCompleted = completedTasks.filter((t) => t.id !== id);
-      const restored = { ...restoredItem };
-      delete restored.completedAt;
-      const nextTasks = [restored, ...tasks.filter((t) => t.id !== id)];
+      const nextTasks = undoTaskCompletion(restoredItem, tasks);
+      // A partition upsert does not delete omitted rows; tombstone only the retracted successor.
+      const successorId = restoredItem.repeatSuccessor?.id;
+      if (
+        successorId &&
+        tasks.some((t) => t.id === successorId) &&
+        !nextTasks.some((t) => t.id === successorId)
+      ) {
+        taskRepository.remove(successorId);
+      }
 
       setCompletedTasks(nextCompleted);
       setTasks(nextTasks);
@@ -402,17 +408,8 @@ export function useTasks() {
       journalId?: string;
       id?: string;
     }) => {
-      const {
-        title,
-        description,
-        notes,
-        category,
-        dueDate,
-        dueTime,
-        repeat,
-        tags,
-        priority,
-      } = taskData;
+      const { title, description, notes, category, dueDate, dueTime, repeat, tags, priority } =
+        taskData;
       const taskId = taskData.id?.trim() || createId("task");
       const initialCategory = category || "important-not-urgent";
       const initialDueDate = dueDate || getLocalDateString();
