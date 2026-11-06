@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 mod backup;
+mod diagnostic;
 mod email;
 mod webdav_meta;
 
@@ -808,6 +809,16 @@ fn open_external_player(app: &AppHandle, target: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn append_diagnostic_log(app: AppHandle, line: String) -> Result<(), String> {
+    diagnostic::append_log(&app, &line)
+}
+
+#[tauri::command]
+fn export_diagnostic_log(app: AppHandle) -> Result<String, String> {
+    diagnostic::export_log(&app)
+}
+
+#[tauri::command]
 fn set_external_player(app: AppHandle, url: Option<String>) -> Result<(), String> {
     let desired = match url {
         Some(raw) => {
@@ -898,7 +909,9 @@ pub fn run() {
             local_backup_dir,
             app_quit_ready,
             read_pipeline_home_files,
-            set_external_player
+            set_external_player,
+            append_diagnostic_log,
+            export_diagnostic_log
         ])
         // 6. 初始化系统托盘
         .setup(|app| {

@@ -582,6 +582,10 @@ const en: Translations = {
     updatingProgress: "Downloading and installing update...",
     updateFailed: "Update failed: ",
     reportIssue: "Report Issue",
+    exportLogs: "Export logs",
+    exportingLogs: "Exporting logs...",
+    exportLogsDone: "Log saved to Downloads",
+    exportLogsFailed: "Failed to export logs: ",
     microBreakTitle: "Random Micro-Breaks",
     microBreakDesc:
       "Insert short breaks during focus. Both the interval and each break length are picked randomly inside your configured range.",

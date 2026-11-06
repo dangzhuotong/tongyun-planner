@@ -566,6 +566,10 @@ const zhCN: Translations = {
     updatingProgress: "正在下载并安装更新...",
     updateFailed: "更新失败：",
     reportIssue: "反馈问题",
+    exportLogs: "导出运行日志",
+    exportingLogs: "正在导出日志...",
+    exportLogsDone: "日志已导出到下载目录",
+    exportLogsFailed: "导出日志失败：",
     microBreakTitle: "随机微休息",
     microBreakDesc:
       "专注过程中随机插入短暂休息。间隔与每次时长都在设定范围内随机取值，不再写死。",

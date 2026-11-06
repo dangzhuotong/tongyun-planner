@@ -2034,6 +2034,10 @@ class AppErrorBoundary extends React.Component<
     console.error("AppErrorBoundary caught:", error.message, error.stack);
     // eslint-disable-next-line no-console
     console.error("Component stack:", info.componentStack);
+    void import("./utils/diagnosticLog").then(({ flushDiagnosticLog, recordDiagnostic }) => {
+      recordDiagnostic(`AppErrorBoundary ${error.message}\n${error.stack || ""}\n${info.componentStack || ""}`);
+      return flushDiagnosticLog();
+    });
   }
   render() {
     if (this.state.hasError) {
