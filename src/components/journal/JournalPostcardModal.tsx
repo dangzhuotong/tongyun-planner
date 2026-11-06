@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { X, Download, Copy, Check, Sparkles, Heart } from "lucide-react";
 import type { JournalEntry, Task } from "../../types";
+import { taskBelongsToLocalDate } from "../../utils/date";
 
 interface JournalPostcardModalProps {
   isOpen: boolean;
@@ -30,8 +31,7 @@ export const JournalPostcardModal: React.FC<JournalPostcardModalProps> = ({
   const dt = new Date(Number(y), Number(m) - 1, Number(d));
   const weekday = weekdayNames[dt.getDay()];
 
-  // 获得已完成的任务（当天）
-  const todayDone = completedTasks.filter((t) => t.dueDate === dateStr || (t.completedAt && new Date(t.completedAt).toISOString().startsWith(dateStr)));
+  const todayDone = completedTasks.filter((t) => taskBelongsToLocalDate(t, dateStr));
 
   // 首张附件图片（如果有）
   const firstImage = entry?.attachments?.find((att) => att.type.startsWith("image/"));
