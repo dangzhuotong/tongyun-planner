@@ -2,6 +2,16 @@
 
 格式大致遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。应用版本号以 `package.json` / `src-tauri/tauri.conf.json` 为准，本文不负责发版。
 
+## [1.2.3] - 2026-11-06
+
+用于打 tag `v1.2.3`。
+
+### 修复
+- 外部白噪音不再把主窗口卡死：播放信号不会在悬浮窗回调里自我加一；YouTube / B 站改到独立窗口播放（[#63](https://github.com/dangzhuotong/tongyun-planner/pull/63)）。
+
+### 新增
+- 设置页可导出运行日志。错误和未捕获异常会写入本机诊断日志，界面恢复后可从「导出运行日志」拿到文件。
+
 ## [1.2.2] - 2026-11-04
 
 用于打 tag `v1.2.2`。相对已发布的 v1.2.1，收录此后合进默认分支的改动。

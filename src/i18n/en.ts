@@ -43,6 +43,8 @@ const en: Translations = {
     customNoiseRemove: "Remove",
     customNoiseClose: "Close floating window",
     customNoiseDragHint: "Drag the title bar; the position is remembered",
+    customNoiseIsolated:
+      "YouTube / Bilibili play in their own window so the main window stays responsive. Use that window's volume control.",
     customNoiseErrEmpty: "Paste a link first",
     customNoiseErrInvalid: "Invalid link format. Use an http/https URL.",
     customNoiseErrUnsupported:
@@ -580,6 +582,10 @@ const en: Translations = {
     updatingProgress: "Downloading and installing update...",
     updateFailed: "Update failed: ",
     reportIssue: "Report Issue",
+    exportLogs: "Export logs",
+    exportingLogs: "Exporting logs...",
+    exportLogsDone: "Log saved to Downloads",
+    exportLogsFailed: "Failed to export logs: ",
     microBreakTitle: "Random Micro-Breaks",
     microBreakDesc:
       "Insert short breaks during focus. Both the interval and each break length are picked randomly inside your configured range.",
