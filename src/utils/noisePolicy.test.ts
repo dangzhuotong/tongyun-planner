@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  autoNoiseToggleAction,
   nextNoiseStartSignal,
   resolveAutoNoiseTarget,
   shouldAutoStartNoise,
@@ -34,6 +35,33 @@ describe("noisePolicy", () => {
 
     it("lets a manual mute outrank the auto-noise preference", () => {
       expect(shouldAutoStartNoise({ ...base, manuallyStopped: true })).toBe(false);
+    });
+  });
+
+  describe("autoNoiseToggleAction", () => {
+    it("打开开关时，没在专注或正在休息都不播放", () => {
+      expect(autoNoiseToggleAction({ enabling: true, active: false, isBreak: false })).toBe(
+        "leave",
+      );
+      expect(autoNoiseToggleAction({ enabling: true, active: false, isBreak: true })).toBe(
+        "leave",
+      );
+      expect(autoNoiseToggleAction({ enabling: true, active: true, isBreak: true })).toBe("leave");
+    });
+
+    it("打开开关时，只有专注进行中才立刻播放", () => {
+      expect(autoNoiseToggleAction({ enabling: true, active: true, isBreak: false })).toBe(
+        "start",
+      );
+    });
+
+    it("关掉开关时停止播放，且不视为手动静音", () => {
+      expect(autoNoiseToggleAction({ enabling: false, active: true, isBreak: false })).toBe(
+        "stop",
+      );
+      expect(autoNoiseToggleAction({ enabling: false, active: false, isBreak: false })).toBe(
+        "stop",
+      );
     });
   });
 

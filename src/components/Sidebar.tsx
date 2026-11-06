@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import type { AppTab, AlertSoundType } from "../types";
 import { audioEngine } from "../utils/audioEngine";
+import { autoNoiseToggleAction } from "../utils/noisePolicy";
 import { useTranslation } from "../i18n/LanguageContext";
 import { usePomodoroContext } from "../context/PomodoroContext";
 import { NOISE_DEFINITIONS, getVisibleNoises } from "../constants";
@@ -954,15 +955,20 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                           const next = !autoNoiseEnabled;
                           setAutoNoiseEnabled(next);
                           localStorage.setItem("tongyun_auto_noise", String(next));
-                          if (next) {
+                          const action = autoNoiseToggleAction({
+                            enabling: next,
+                            active: pomodoroIsActive,
+                            isBreak: pomodoroIsBreak,
+                          });
+                          if (action === "start") {
                             if (noiseSource === "external") {
                               startExternalNoise();
                               setCustomNoiseOpen(true);
                             } else {
                               startNoise(selectedNoiseType, noiseVolume);
                             }
-                          } else {
-                            stopNoise("manual");
+                          } else if (action === "stop") {
+                            stopNoise("auto");
                           }
                         }}
                         className={`relative w-7 h-3.5 rounded-full transition-colors cursor-pointer ${

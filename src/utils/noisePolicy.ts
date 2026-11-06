@@ -9,6 +9,21 @@ export function shouldAutoStartNoise(input: {
   return input.active && !input.isBreak;
 }
 
+export type AutoNoiseToggleAction = "start" | "stop" | "leave";
+
+/**
+ * 打开「专注自动白噪音」只记住偏好；正在专注时才立刻播放。
+ * 关掉开关要停掉当前白噪音，但这次停止不是用户按了静音。
+ */
+export function autoNoiseToggleAction(input: {
+  enabling: boolean;
+  active: boolean;
+  isBreak: boolean;
+}): AutoNoiseToggleAction {
+  if (!input.enabling) return "stop";
+  return input.active && !input.isBreak ? "start" : "leave";
+}
+
 export type NoiseTarget = "none" | "internal" | "external";
 
 /**
