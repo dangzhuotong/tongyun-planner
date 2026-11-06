@@ -3,6 +3,7 @@ import {
   nextNoiseStartSignal,
   resolveAutoNoiseTarget,
   shouldAutoStartNoise,
+  shouldEmitExternalPlaySignal,
   shouldResumeNoiseAfterMicroBreak,
 } from "./noisePolicy";
 
@@ -75,6 +76,20 @@ describe("noisePolicy", () => {
           manuallyStopped: true,
         }),
       ).toBe(false);
+    });
+  });
+
+  describe("shouldEmitExternalPlaySignal", () => {
+    it("只有外部发起、且当前没在播外部音源时才递增", () => {
+      expect(shouldEmitExternalPlaySignal({ echo: true, alreadyPlayingExternal: false })).toBe(
+        true,
+      );
+      expect(shouldEmitExternalPlaySignal({ echo: false, alreadyPlayingExternal: false })).toBe(
+        false,
+      );
+      expect(shouldEmitExternalPlaySignal({ echo: true, alreadyPlayingExternal: true })).toBe(
+        false,
+      );
     });
   });
 

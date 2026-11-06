@@ -52,3 +52,15 @@ export function nextNoiseStartSignal(input: {
 }): number {
   return input.isPlaying && !input.wasPlaying ? input.signal + 1 : input.signal;
 }
+
+/**
+ * 播放信号只在「从外面向悬浮窗发起一次新的播放」时加一。
+ * 悬浮窗为了记下曲目而回调父级时 echo 为 false；已经在播时再收到同步也不加，
+ * 否则渲染里的回调会把信号再次加一，主线程一直重绘，窗口就假死。
+ */
+export function shouldEmitExternalPlaySignal(input: {
+  echo: boolean;
+  alreadyPlayingExternal: boolean;
+}): boolean {
+  return input.echo && !input.alreadyPlayingExternal;
+}

@@ -43,6 +43,8 @@ const en: Translations = {
     customNoiseRemove: "Remove",
     customNoiseClose: "Close floating window",
     customNoiseDragHint: "Drag the title bar; the position is remembered",
+    customNoiseIsolated:
+      "YouTube / Bilibili play in their own window so the main window stays responsive. Use that window's volume control.",
     customNoiseErrEmpty: "Paste a link first",
     customNoiseErrInvalid: "Invalid link format. Use an http/https URL.",
     customNoiseErrUnsupported:

@@ -2,7 +2,11 @@ import { useState, useCallback, useRef } from "react";
 import type { AlertSoundType, PomodoroLog } from "../types";
 import { useSync } from "./useSync";
 import { audioEngine } from "../utils/audioEngine";
-import { nextNoiseStartSignal, resolveAutoNoiseTarget } from "../utils/noisePolicy";
+import {
+  nextNoiseStartSignal,
+  resolveAutoNoiseTarget,
+  shouldEmitExternalPlaySignal,
+} from "../utils/noisePolicy";
 import {
   loadCustomNoiseActiveId,
   loadCustomNoiseLinks,
@@ -247,19 +251,29 @@ export function usePomodoro() {
     setIsPlayingNoise(true);
   }, []);
 
-  const startExternalNoise = useCallback((id?: string) => {
-    noiseManuallyStoppedRef.current = false;
-    setNoiseSourceState("external");
-    saveNoiseSource("external");
-    if (id) {
-      setActiveCustomNoiseIdState(id);
-      saveCustomNoiseActiveId(id);
-    }
-    audioEngine.stopNoise();
-    setIsPlayingNoise(false);
-    setIsPlayingExternalNoise(true);
-    setExternalPlaySignal((s) => s + 1);
-  }, []);
+  const startExternalNoise = useCallback(
+    (id?: string, options?: { echo?: boolean }) => {
+      noiseManuallyStoppedRef.current = false;
+      setNoiseSourceState("external");
+      saveNoiseSource("external");
+      if (id) {
+        setActiveCustomNoiseIdState(id);
+        saveCustomNoiseActiveId(id);
+      }
+      audioEngine.stopNoise();
+      setIsPlayingNoise(false);
+      setIsPlayingExternalNoise(true);
+      if (
+        shouldEmitExternalPlaySignal({
+          echo: options?.echo !== false,
+          alreadyPlayingExternal: isPlayingExternalNoise,
+        })
+      ) {
+        setExternalPlaySignal((s) => s + 1);
+      }
+    },
+    [isPlayingExternalNoise],
+  );
 
   const stopNoise = useCallback((reason: "manual" | "auto" = "manual") => {
     if (reason === "manual") noiseManuallyStoppedRef.current = true;
@@ -295,8 +309,15 @@ export function usePomodoro() {
       if (target === "external") {
         audioEngine.stopNoise();
         setIsPlayingNoise(false);
-        setIsPlayingExternalNoise(true);
-        setExternalPlaySignal((s) => s + 1);
+        if (
+          shouldEmitExternalPlaySignal({
+            echo: true,
+            alreadyPlayingExternal: isPlayingExternalNoise,
+          })
+        ) {
+          setIsPlayingExternalNoise(true);
+          setExternalPlaySignal((s) => s + 1);
+        }
         return;
       }
       if (target === "internal") {

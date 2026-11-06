@@ -1178,7 +1178,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
             volume={noiseVolume}
             visible={customNoiseOpen}
             onStartExternal={(id) => {
-              startExternalNoise(id);
+              startExternalNoise(id, { echo: false });
             }}
             onStopExternal={() => {
               setIsPlayingExternalNoise(false);
