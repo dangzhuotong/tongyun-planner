@@ -5,7 +5,7 @@
 ### Q: 如何安装 TongYun Planner？
 A: 一般用户请到 [Releases 最新版](https://github.com/dangzhuotong/tongyun-planner/releases/latest) 下载 Windows、macOS Universal 或 Linux 安装包。安装包未签名，Windows 可能需要「仍要运行」，macOS 请右键「打开」。
 
-v1.0 用户请手动安装 v1.1：更新公钥已更换，应用内更新无法从 1.0 升到 1.1。
+v1.0 用户请手动安装当前最新版：更新公钥已更换，应用内更新无法从 1.0 升到 1.1。
 
 ### Q: 怎么更新到新版本？
 A: 已安装 v1.1.0 及以上：打开 **设置 → 系统与语言**，看「当前版本」，点 **检查更新**。已经是最新会提示「已是最新版本」；有新版则下载并重启。启动后也会静默检查。日常更新走这一条，不必请人在 Mac 上重装。发版约定见 [docs/RELEASE.md](docs/RELEASE.md)。
@@ -13,13 +13,13 @@ A: 已安装 v1.1.0 及以上：打开 **设置 → 系统与语言**，看「�
 从源码运行：
 1. 克隆项目：`git clone https://github.com/dangzhuotong/tongyun-planner.git`
 2. 安装依赖：`npm install`
-3. 启动开发服务器：`npm run tauri dev`
+3. 本机受管工作区按 `AGENTS.md` 通过 `tongyun-dev` 启停；无统一运行约束的独立环境可使用 `npm run tauri dev`
 
 ### Q: 运行时出现错误怎么办？
 A: 请检查：
-1. Node.js 版本是否为 18.0 或更高
+1. Node.js 是否满足 Vite 7 的要求：20.19+ 或 22.12+，建议使用 22.12+
 2. npm 版本是否为 9.0 或更高
-3. Rust 版本是否为 1.70 或更高
+3. Rust 是否使用当前稳定工具链
 4. 系统依赖是否已安装（特别是 Linux 用户）
 
 ### Q: 如何构建生产版本？
@@ -36,8 +36,8 @@ A: 有以下几种方式：
 
 ### Q: 如何设置 AI 智能分类？
 A: 在设置页面中：
-1. 选择 AI 服务提供商（OpenAI 或 Anthropic）
-2. 输入 API 密钥
+1. 选择 AI 服务提供商（OpenCode、OpenAI、Anthropic、DeepSeek、Ollama 或自定义）
+2. 输入当前提供商的 API 密钥；OpenCode / Ollama 可不填
 3. 可选：自定义 API 端点和模型
 4. 启用"自动分类"选项
 
@@ -61,24 +61,24 @@ A: 在番茄钟视图中：
 1. 点击开始按钮开始计时
 2. 默认 25 分钟工作时间
 3. 工作结束后休息 5 分钟
-4. 每 4 个番茄钟后长休息 15 分钟
+4. 休息结束后切回专注状态；当前没有每四轮自动长休息机制
 
 ## 数据和存储
 
 ### Q: 数据存储在哪里？需要配置数据库吗？
-A: **完全不需要额外配置外部数据库或 DSN，零配开箱即用。** 数据默认直接存储在本地嵌入式 SQLite 纯关系型数据库（`tongyun_planner.db`）中，采用 12 张 P0 全量领域表进行结构化持久化：
+A: **完全不需要额外配置外部数据库或 DSN，零配开箱即用。** 数据默认直接存储在本地 SQLite（`tongyun_planner.db`）中，同时保留 localStorage / SQLite `storage` 兼容路径：
 - Windows：`%APPDATA%\com.tongyunplanner.app\tongyun_planner.db`
 - macOS：`~/Library/Application Support/com.tongyunplanner.app/tongyun_planner.db`
 - Linux：`~/.config/com.tongyunplanner.app/tongyun_planner.db`
 
 ### Q: 是否必须配置远端数据库 DSN？
-A: **绝不强制要求配置 DSN。** 单机嵌入式 SQLite 具备完整的 Full-Schema P0 表结构与全部业务能力，开箱即是完整功能。远端 DSN（如自建 MySQL / TiDB）仅作为完全自选（Opt-in）的同步目标，主从与数据流向清晰，杜绝无序的「双写无主从」。
+A: 无需 DSN。当前开源版只提供可选 WebDAV 跨设备同步，不提供远端 MySQL / TiDB 同步。
 
 ### Q: 如何备份数据？
 A: 有以下几种方式：
-1. 使用 WebDAV 同步或可选远端数据库同步
+1. 使用 WebDAV 同步（仅包含支持的分类，见 README）
 2. 手动复制数据目录
-3. 在设置里导出 JSON 快照
+3. 在设置里导出 JSON 快照；快照不含密钥，也不会打包本地图片附件文件，完整迁移时还需备份附件目录
 
 ### Q: 如何恢复数据？
 A: 有以下几种方式：

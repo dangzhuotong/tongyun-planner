@@ -38,7 +38,7 @@
 <details>
 <summary><strong>English</strong></summary>
 
-**TongYun Planner（橦云手帐）** is an open-source, privacy-first **local-first desktop bullet journal** and task app: Eisenhower matrix, flip-page diary, pomodoro timer with white noise, sticky notes, floating desktop widget, and optional AI comments. Built for people who want a paper-like ritual and keep their notes on their own machine — a **Notion alternative** for offline note-taking without an account. Powered by an out-of-the-box, zero-config local SQLite database (full-schema P0), with strictly optional WebDAV sync.
+**TongYun Planner（橦云手帐）** is an open-source, privacy-first **local-first desktop bullet journal** and task app: Eisenhower matrix, flip-page diary, pomodoro timer with white noise, sticky notes, floating desktop widget, and optional AI comments. Built for people who want a paper-like ritual and keep their notes on their own machine — a **Notion alternative** for offline note-taking without an account. Powered by an out-of-the-box, zero-config local SQLite database, with strictly optional WebDAV sync.
 
 [Download the latest installer](https://github.com/dangzhuotong/tongyun-planner/releases/latest) for **Windows**, **macOS Universal** (Apple Silicon and Intel), and **Linux** (AppImage / deb). The UI is Chinese by default, with a full English language pack in Settings.
 
@@ -58,19 +58,11 @@
 
 完整能力清单见 [docs/FEATURES.md](docs/FEATURES.md)。仓库根目录的 [docs/social-preview.png](docs/social-preview.png) 可上传到 GitHub Settings → Social preview（1280×640）。
 
-### 和常见工具比
+### 适合哪些使用场景
 
-| | 橦云手帐 | Notion | 滴答清单 | Obsidian |
-|---|---|---|---|---|
-| 数据位置 | 默认本机 SQLite（零配开箱），可选 WebDAV 同步 | 云端账号 | 云端账号同步 | 本地 Markdown 文件 |
-| 四象限 | 内置 | 需自建模板 | 有四象限视图 | 需插件 |
-| 番茄钟+白噪音 | 内置 | 无内置 | 有番茄与白噪音 | 需插件 |
-| 拟物翻页日记 | 内置 | 无 | 无 | 无 |
-| 开源 | MIT | 否 | 否 | 否（免费但闭源） |
-
-*Vs common tools (short): local-first zero-config SQLite (full-schema P0) + optional WebDAV sync; built-in Eisenhower matrix, pomodoro with white noise, and flip-page diary — MIT open source, no account required. Notion/TickTick are cloud accounts; Obsidian is local Markdown (matrix/pomodoro via plugins; core is free but closed-source).*
-
-（本表只写可核实差异，不写价格、不写「比 X 好」。滴答清单四象限/番茄/白噪音见其[帮助中心](https://help.dida365.com/)。）
+- 用四象限、列表和日历安排待办，在同一窗口写日记、记便签和专注计时。
+- 不注册产品账号，先在本机离线使用；有多设备需求时自行配置 WebDAV。
+- 按需连接自己的 AI 服务。调用 AI、天气和资讯服务时，需要网络，相关内容会发送给所选第三方服务。
 
 ---
 
@@ -78,55 +70,25 @@
 
 - **默认本地优先与零配开箱。** 任务、日记、便签、番茄记录写在本机（SQLite / 应用数据目录）；零配置开箱即用，无需配置外部数据库或 DSN，作者没有运营收集这些内容的服务器。
 - **同步是你自己开的。** 可选 WebDAV（内置坚果云预设，也可填自定义地址）同步。远端同步完全按需开启，主从关系与同步边界清晰；一旦开启，对应数据才会同步到**你配置的远端**。
-- **AI 密钥与正文。** 密钥保存在本机设置里。使用 AI 时，相关文本会发往你填写的模型服务商。同步和导出快照都会剥离 AI Key 等密钥字段，密钥只留在本机；换设备后需要重新填写。
+- **AI 密钥与正文。** 密钥保存在本机设置里。使用 AI 时，相关文本会发往你填写的模型服务商。默认同步与导出快照会剥离 AI Key 等密钥。只有主动开启「同步 API 密钥」并设置口令时，密钥才会加密上传到你配置的 WebDAV；其他设备需要相同口令才能导入。WebDAV 密码与加密口令不上传。
 - **天气。** 填写城市后，会请求第三方天气接口（当前为 `uapis.cn`），仅发送城市名。
 
-**Privacy, in English:** everything you write stays on your machine. Tasks, diary entries, sticky notes and focus logs are written to a local SQLite database in your app data folder — offline-first, zero-config, no sign-up. The author runs no server that collects your content, and API keys are stripped from every sync payload and export snapshot. Want multi-device sync? You turn on **your own WebDAV** and it goes nowhere else.
+**Privacy, in English:** your notes are stored locally by default. Tasks, diary entries, sticky notes and focus logs are written to a local SQLite database in your app data folder — offline-first, zero-config, no sign-up. The author runs no server that collects your content, and export snapshots omit API keys, and sync omits them by default. If you explicitly enable secret sync and set a passphrase, keys are encrypted before upload to your WebDAV. AI features send the relevant text to your chosen model service. Want multi-device sync? You turn on **your own WebDAV** and it goes nowhere else.
 
 ---
 
-## 数据存储与数据库模型 (Pure Database Architecture)
+## 数据存储与同步
 
-橦云手帐遵循**本地优先（Local-First）**，默认开箱即用本机嵌入式 SQLite 纯数据库持久化，彻底废除业务 KV 作为真相源：
+桌面端使用本机 SQLite（`tongyun_planner.db`），无需安装数据库服务或填写 DSN。任务、日记等使用领域表；现有实现也保留 localStorage、SQLite `storage` 兼容表和部分配置 JSON，尚不是完全移除 KV 的纯关系型架构。浏览器开发环境及 SQLite 不可用时会使用 localStorage 降级。
 
-- **零配开箱本机库（Zero-Config Local SQLite）**：
-  - 应用启动即自动连接并初始化内置 SQLite 数据库（`tongyun_planner.db`），无需安装外部数据库服务，**严禁「必须配 DSN」**。
-  - 用户下载安装即可离线运行，所有待办、日记、专注与配置数据 100% 留存在本地系统应用数据目录，响应极速且无网络依赖。
-- **可选 WebDAV 同步（Optional WebDAV Sync）**：
-  - 支持按需配置 WebDAV 地址（内置坚果云预设，也可填自建地址），用于多设备同步与备份。
-  - 同步为**完全自选（Opt-in）**的特性，不配置也能完整享受手帐全部功能。
-  - 架构上主从关系与变更边界清晰：以本机 SQLite 单机持久化为第一真相源，通过 `sync_state` 与 `sync_outbox` 触发可靠的远端变更同步，**绝非模糊混乱的「双写无主从」**。
-  - 从 v1.1.0 起，开源版云同步**只保留 WebDAV**（早期版本的 Supabase / 自建 HTTP 后端已停用）；远端同构 SQL 数据库同步与团队 Pipeline Agent 派活调度不在本仓库内。
-- **敏感凭据绝对隔离（Security Isolation）**：
-  - AI API Key、模型凭据与远端连接密码始终保留在本机隔离存储区，绝对不随业务表向云端同步，亦不打入导出快照。
+- **领域数据**：任务、日记、便签、番茄记录、倒数日、时间块和习惯等有对应领域表。领域仓库负责行级写入，部分本地设置通过兼容存储镜像到 SQLite。
+- **跨设备同步**：当前由 `SyncEngine` 根据待上传分类、分类版本和 WebDAV 文件指纹工作。每个分类整包读写，使用远端 `manifest.json` 记录版本；不应把已建表的 `sync_outbox` 描述为当前 WebDAV 投递入口。
+- **同步范围**：任务、已完成任务、便签、番茄记录、倒数日、日记和应用配置。记账条目包含在本地快照中；习惯、资讯收藏等不能理解为都会随 WebDAV 同步。
+- **冲突保护**：日记条目内容相同、仅排列不同会自动确认；真实内容差异会保留两端备份后让你选择。远端数据读取失败时不会当成空日记覆盖本机。
+- **附件与快照**：桌面日记图片保存为本地文件，JSON 中保存路径；跨设备同步或导入 JSON 不代表图片文件也已复制，搬迁时需要另行保留附件目录。任务附件有单独的存储后端设置。
+- **密钥**：保存在本机配置中，不代表系统钥匙串或本地加密保险库。默认不参与云同步，手动导出与每日快照不含密钥；主动开启密钥同步时，使用口令派生密钥加密后上传。
 
-### P0 全量领域表清单（Full-Schema P0，共 12 张）
-
-系统建立完整的纯关系型表结构，告别非结构化 KV 混杂存储：
-
-| 表名 | 中文说明 | 核心职责 |
-|:---|:---|:---|
-| `tasks` | 待办清单主表 | 四象限分类、截止日期时间、重复规则、优先级、执行状态与本地 Agent 关联 |
-| `journal_entries` | 手帐日记与笔记 | 日期日记与自由笔记正文、心情、贴纸坐标、胶带、朱砂印章与 AI 温暖评语 |
-| `pomodoro_logs` | 番茄专注记录 | 专注时长、关联任务与完成时间戳 |
-| `habits` | 习惯打卡定义 | 习惯名称、连续天数 streak、最后打卡日期 |
-| `agents` | AI / 工人名册 | 本地与远端派发 Agent 名册、状态与配置元数据 |
-| `task_dispatch` | 任务派发记录 | 待办派发到 Agent 的队列与执行历史状态 |
-| `sticky_notes` | 桌面便签 | 便签文字、颜色与倾斜旋转角度 |
-| `countdowns` | 倒计时事件 | 目标日期、倒数日标题、公历/农历支持与个性化颜色 |
-| `timeblocks` | 时间块规划 | 日程时间盒 (Timebox) 与日历规划区块 |
-| `user_prefs` | 用户偏好配置 | 单行全局偏好（主题模式、番茄时长、提示音、字体布局等，不含明文敏感凭据） |
-| `sync_state` | 同步状态表 | 实体级别逻辑时钟版本号与上次同步时间戳 |
-| `sync_outbox` | 同步变更出件箱 | 待推送至远端的数据变更日志（主从同步可靠投递） |
-
-> `agents` / `task_dispatch` 两张表的建表语句保留在迁移文件中，以兼容既有本机数据库；从 v1.1.0 起，对应的「Agent 派活」界面与远端 SQL 同步已从开源版下线，不对普通用户开放。
-
-### 数据库迁移 (Migrations)
-
-主仓迁移文件位于 `migrations/`：
-- `0001_initial_domain_tables.sql`：初始领域表结构
-- `0002_agent_and_dispatch.sql`：本地助手名册与派发队列支持
-- `0003_p0_full_schema.sql`：12 张 P0 全量领域表，完成旧数据与 localStorage 向纯数据库的无缝平滑迁移
+迁移文件保存在 `migrations/`，运行时建表与数据迁移逻辑见 `src/data/domainDatabase.ts`。`agents`、`task_dispatch` 等兼容表的存在，不表示开源版提供 Agent 派活或远端 SQL 同步。
 
 ---
 
@@ -150,7 +112,7 @@
 2. 在「应用程序」里右键点 App，选「打开」，再确认一次；
 3. 终端执行：`xattr -dr com.apple.quarantine /Applications/TongyunPlanner.app`
 
-**从 v1.0 升级：** 请下载并安装 v1.1.0。更新公钥已更换，v1.0 无法通过应用内更新升到 v1.1。装好 v1.1 之后，后续版本会自动提示更新。
+**从 v1.0 升级：** 请手动下载并安装当前最新版。更新公钥已更换，v1.0 无法通过应用内更新跨过此次公钥迁移。装好新版后，后续版本可通过应用内检查更新。
 
 ### 已安装之后怎么更新
 
@@ -170,15 +132,16 @@
 
 ## 从源码构建
 
-适合改代码或打 Linux 包。需要 Node.js 18+、Rust，以及各系统的原生编译工具（Windows 需 VS C++ Build Tools；macOS 需 Xcode Command Line Tools）。
+适合改代码或打 Linux 包。需要 Node.js 20.19+ 或 22.12+（建议使用 Node.js 22.12+）、Rust，以及各系统的原生编译工具（Windows 需 VS C++ Build Tools；macOS 需 Xcode Command Line Tools）。
 
 ```bash
 git clone https://github.com/dangzhuotong/tongyun-planner.git
 cd tongyun-planner
 npm install
-npm run tauri dev      # 开发
 npm run tauri build    # 产出安装包
 ```
+
+本机工作区如果有 `AGENTS.md` 统一运行规则，开发服务必须通过已登记的 `tongyun-dev` / 已确认的管理入口启停，先核对项目目录、状态与环境。上面的构建命令不启动开发服务。普通独立环境的开发入口是 `npm run tauri dev`；受管工作区不要直接执行它。
 
 常用脚本：`npm run typecheck`（类型检查）/ `npm test`（单元测试）/ `npm run check`（前端类型 + 单元测试 + Rust 编译全量检查）。
 
