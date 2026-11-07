@@ -14,12 +14,7 @@ import {
 } from "lucide-react";
 import { openExternal } from "../../utils/openExternal";
 import type { Article } from "./types";
-import {
-  sanitizeArticleHtml,
-  isTeaserArticle,
-  fetchFullArticle,
-  stripHtml,
-} from "./rssParser";
+import { sanitizeArticleHtml, isTeaserArticle, fetchFullArticle, stripHtml } from "./rssParser";
 
 interface ReadingOverlayProps {
   article: Article;
@@ -170,14 +165,16 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
 
   // 切换文章时自动初始化并针对导读源尝试抓取
   useEffect(() => {
-    setFullContent(null);
-    setExtractError(null);
-    setViewMode("full");
-
+    let cancelled = false;
     const isTeaser = isTeaserArticle(article);
     if (isTeaser && article.link) {
-      void loadFullText(article.link);
+      void Promise.resolve().then(() => {
+        if (!cancelled) return loadFullText(article.link);
+      });
     }
+    return () => {
+      cancelled = true;
+    };
   }, [article.link, article.title, loadFullText]);
 
   // 键盘快捷键（Escape 关闭）
@@ -216,9 +213,7 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
   // 触发 AI 速览：若已提取全文则把全文喂给 AI，大幅提升洞察质量
   const handleAISummaryClick = () => {
     const targetArticle: Article =
-      hasExtractedFull && fullContent
-        ? { ...article, content: fullContent }
-        : article;
+      hasExtractedFull && fullContent ? { ...article, content: fullContent } : article;
     onGenerateAISummary(targetArticle);
   };
 
@@ -318,7 +313,11 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
         <div className="flex-grow overflow-y-auto px-6 md:px-12 py-6 custom-scrollbar">
           <div className="max-w-2xl mx-auto">
             {/* 文章标题 */}
-            <h2 className={titleCls + " font-black text-[#2D323A] dark:text-slate-100 mb-4 leading-snug"}>
+            <h2
+              className={
+                titleCls + " font-black text-[#2D323A] dark:text-slate-100 mb-4 leading-snug"
+              }
+            >
               {article.title}
             </h2>
 
@@ -403,7 +402,8 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
                   <span>当前源站仅输出导读摘要</span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  少数派等订阅源为引导用户访问官网，在 RSS 中通常只包含一两句话简介。您可直接在浏览器中打开完整图文，或尝试重新解析。
+                  少数派等订阅源为引导用户访问官网，在 RSS
+                  中通常只包含一两句话简介。您可直接在浏览器中打开完整图文，或尝试重新解析。
                 </p>
                 <div className="flex items-center gap-2 pt-1 flex-wrap">
                   {article.link && (
@@ -465,11 +465,7 @@ export const ReadingOverlay: React.FC<ReadingOverlayProps> = ({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-slate-100 bg-white dark:bg-[#252831] border border-[#EFEBE4] dark:border-[#2C2E38] transition-all cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5 text-[#4D7C5D]" />
-              {isExtracting
-                ? "提取中..."
-                : hasExtractedFull
-                  ? "完整图文已就绪"
-                  : "抓取全文"}
+              {isExtracting ? "提取中..." : hasExtractedFull ? "完整图文已就绪" : "抓取全文"}
             </button>
           )}
 

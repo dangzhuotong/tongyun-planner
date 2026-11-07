@@ -32,7 +32,7 @@ export function useDueNotifications({
       }
 
       const enabledRaw = localStorage.getItem("tongyun_due_remind_enabled");
-      if (enabledRaw === "0") return;
+      if (enabledRaw === "0" || enabledRaw === "false") return;
       const beforeMinRaw = parseInt(
         localStorage.getItem("tongyun_due_remind_before_min") || "15",
         10,
@@ -96,7 +96,7 @@ export function useDueNotifications({
         }
 
         if (!phase) continue;
-        const key = `${task.id}:${phase}`;
+        const key = `${task.id}:${task.dueDate}:${task.dueTime || "day"}:${phase}`;
         if (notifiedDueRef.current.has(key)) continue;
         notifiedDueRef.current.add(key);
         try {

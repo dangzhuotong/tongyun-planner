@@ -219,6 +219,7 @@ class UnifiedStorage {
             await this.db.execute("DELETE FROM storage WHERE key = $1", [key]);
           }
         } catch (e) {
+          this.dirtyKeys.add(key);
           console.error(`SQLite flush failed for "${key}"`, e);
         }
       }

@@ -39,6 +39,10 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
   const [journal, setJournal] = useState<JournalEntry[]>(() =>
     safeJsonParse(localStorage.getItem("tongyun_journal") || "[]", []),
   );
+  const journalRef = useRef(journal);
+  useEffect(() => {
+    journalRef.current = journal;
+  }, [journal]);
   const [persistReady, setPersistReady] = useState(false);
   const [journalAddTodo, setJournalAddTodo] = useState<boolean>(() =>
     safeJsonParse(localStorage.getItem("tongyun_journal_add_todo") || "false", false),
@@ -49,15 +53,21 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const handleUpsertJournal = useCallback((entry: JournalEntry) => {
     journalRepository.upsert(entry);
-    setJournal((prev) => {
-      const idx = prev.findIndex((e) => e.id === entry.id);
-      return idx >= 0 ? prev.map((e) => (e.id === entry.id ? entry : e)) : [entry, ...prev];
-    });
+    const prev = journalRef.current;
+    const idx = prev.findIndex((e) => e.id === entry.id);
+    const next = idx >= 0 ? prev.map((e) => (e.id === entry.id ? entry : e)) : [entry, ...prev];
+    journalRef.current = next;
+    // Draft flushes can run during pagehide, before React has committed another render.
+    localStorage.setItem("tongyun_journal", JSON.stringify(next));
+    setJournal(next);
     syncEngine.markDirty("journal");
   }, []);
   const handleDeleteJournal = useCallback((id: string) => {
     journalRepository.delete(id);
-    setJournal((prev) => prev.filter((e) => e.id !== id));
+    const next = journalRef.current.filter((e) => e.id !== id);
+    journalRef.current = next;
+    localStorage.setItem("tongyun_journal", JSON.stringify(next));
+    setJournal(next);
     syncEngine.markDirty("journal");
   }, []);
 

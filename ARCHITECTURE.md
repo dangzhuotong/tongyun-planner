@@ -98,13 +98,13 @@ fn my_command(param: String) -> Result<String, String> {
 
 ## 数据存储 vs 数据同步
 
-项目中存在分工明确的存储与同步体系，职责清晰，杜绝「双写无主从」：
+本机领域持久化、兼容存储与跨设备同步分工如下：
 
-- **`src/data/` —— 本机纯数据库领域层（Domain Database）**
-  - **默认单机持久化真相源**：开箱即用嵌入式 SQLite（`tongyun_planner.db`），**零配置无需外部服务，严禁「必须配 DSN」**。
-  - **Full-Schema P0 全量领域表**：包含 `tasks`、`journal_entries`、`pomodoro_logs`、`habits` 等 12 张结构化业务表，废除单一 KV 表。
-  - **可选远端同构同步**：远端 MySQL / TiDB DSN 为完全可选配置，主从关系清晰（单机持久化优先，通过 `sync_state` 与 `sync_outbox` 进行可靠同步），绝无模糊的双写冲突。
-  - **敏感凭据绝对隔离**：API Key 等凭据保留于本机隔离存储，不入库表同步。
+- **`src/data/` 与 `src/utils/unifiedStorage.ts` —— 本机存储**
+  - 桌面端默认使用 SQLite（`tongyun_planner.db`），无需外部数据库或 DSN。
+  - 任务、日记等有独立领域表；localStorage 和 SQLite `storage` 兼容表仍参与状态恢复与配置镜像，尚未完全移除 KV。
+  - 当前开源版不提供远端 MySQL / TiDB 同步；保留的历史兼容表不代表相应产品能力可用。
+  - 凭据保存于本机配置中，不等同于系统钥匙串或本地加密存储。默认不上传密钥；用户明确开启密钥同步后，仅向其 WebDAV 上传口令加密的密文，导出快照仍不含密钥。
 
 - **`src/utils/storage/` —— 本地/附件存储后端（StorageManager）**
   - 负责"数据落在哪里"：支持 `local`（浏览器 localStorage / Tauri Store）与 `webdav` 两种后端。
@@ -113,7 +113,8 @@ fn my_command(param: String) -> Result<String, String> {
 
 - **`src/utils/sync/` —— 跨设备同步引擎（SyncEngine）**
   - 负责"多设备之间如何保持一致"：自 v1.1.0 起只支持 `webdav` 一种同步后端（内置坚果云预设，也可填自定义 WebDAV 地址）；旧版 Supabase / 自建 HTTP 配置在启动时仅提示改用 WebDAV（`legacyBackends.ts`）。
-  - 以**分类增量 + manifest 版本比较**方式推送/拉取完整业务数据（任务、便签、习惯等）。
+  - 不依赖 `sync_outbox` 驱动当前 WebDAV 上传；分类脏标记与版本维护在同步引擎中。
+  - 以**分类增量 + manifest 版本比较**方式推送/拉取完整业务数据（任务、已完成任务、便签、番茄记录、倒数日、日记和配置）。
   - 同步时机：启动、窗口关闭/退出前、每 5 分钟；编辑停止约 30 秒后防抖上传，离线时记录脏分类，联网后补传。
   - 冲突：上传前比对远端 ETag / Last-Modified（`conflict.ts`），若自上次同步后被改动则不上传，远端与本地副本另存为带时间戳的本地备份（`backups/conflicts/`），由用户选择保留哪份。
   - 本地备份：每天自动快照到应用数据目录 `backups/daily/`，保留最近 14 份（`localSnapshots.ts` + Rust `backup.rs`）；导出与快照都会剥离密钥字段。
@@ -181,9 +182,8 @@ interface CustomizationConfig {
 ## 构建系统
 
 ### 开发环境
-```bash
-npm run tauri dev
-```
+
+本机受管工作区按 `AGENTS.md` 使用 `tongyun-dev` 核对登记、状态与环境后启停服务。没有统一管理约束的独立环境可使用 `npm run tauri dev`。
 - 启动 Vite 开发服务器
 - 启动 Tauri 开发模式
 - 热重载支持

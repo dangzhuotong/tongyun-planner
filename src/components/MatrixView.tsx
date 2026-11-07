@@ -76,7 +76,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     activeFocusTaskId,
     isPomodoroActive,
   }) => {
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
     const lv = t.listView;
     const tc = t.taskCard;
     const m = t.matrix;
@@ -114,7 +114,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
           {
             id: "urgent-important",
             label: "I. " + m.urgentImportant,
-            strategy: "立即执行 (Do First)",
+            strategy: locale === "en" ? "Do First" : "立即执行 (Do First)",
             desc: "紧急且关键，需要立刻投入专注解决。",
             defaultBg: "bg-[#FCF2F0] dark:bg-[#2B2123]",
             defaultBorder: "border-[#F5DFDB] dark:border-[#422D30]",
@@ -125,7 +125,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
           {
             id: "important-not-urgent",
             label: "II. " + m.importantNotUrgent,
-            strategy: "计划安排 (Schedule)",
+            strategy: locale === "en" ? "Schedule" : "计划安排 (Schedule)",
             desc: "高价值长期目标，决定成败与核心成长，需设定明确 Deadline。",
             defaultBg: "bg-[#F0F5F1] dark:bg-[#212923]",
             defaultBorder: "border-[#DEEAE2] dark:border-[#2D3A31]",
@@ -136,7 +136,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
           {
             id: "urgent-not-important",
             label: "III. " + m.urgentNotImportant,
-            strategy: "快速处理/委派 (Delegate)",
+            strategy: locale === "en" ? "Delegate" : "快速处理/委派 (Delegate)",
             desc: "干扰项居多，尽量快速批处理或自动化解决。",
             defaultBg: "bg-[#F3F2F7] dark:bg-[#25232E]",
             defaultBorder: "border-[#E5E2EE] dark:border-[#353242]",
@@ -147,7 +147,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
           {
             id: "not-urgent-not-important",
             label: "IV. " + m.notUrgentNotImportant,
-            strategy: "精简/删除 (Eliminate)",
+            strategy: locale === "en" ? "Eliminate" : "精简/删除 (Eliminate)",
             desc: "低价值消耗项，控制耗时，能不做就不做。",
             defaultBg: "bg-[#FAF5ED] dark:bg-[#2B2721]",
             defaultBorder: "border-[#EFE5D3] dark:border-[#3E372E]",
@@ -156,7 +156,13 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
             icon: <Layers3 className="w-3.5 h-3.5" />,
           },
         ] as const,
-      [m.importantNotUrgent, m.notUrgentNotImportant, m.urgentImportant, m.urgentNotImportant],
+      [
+        m.importantNotUrgent,
+        m.notUrgentNotImportant,
+        m.urgentImportant,
+        m.urgentNotImportant,
+        locale,
+      ],
     );
 
     const activeQuadrants = useMemo(
@@ -219,7 +225,8 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
               <span>{t.header.matrix}</span>
             </h2>
             <span className="text-[10px] bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-md font-mono font-bold">
-              {totalMatchingTasks} 项待办
+              {totalMatchingTasks}{" "}
+              {locale === "en" ? (totalMatchingTasks === 1 ? "task" : "tasks") : "项待办"}
             </span>
           </div>
 
@@ -246,8 +253,10 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
               }`}
               title="切换为只看今晚清单 (Things 3 This Evening)"
             >
-              <Moon className={`w-3.5 h-3.5 ${showEveningOnly ? "fill-[#8D82C4]/40 text-[#5C528B] dark:text-[#C5BCF0]" : ""}`} />
-              <span>今晚清单</span>
+              <Moon
+                className={`w-3.5 h-3.5 ${showEveningOnly ? "fill-[#8D82C4]/40 text-[#5C528B] dark:text-[#C5BCF0]" : ""}`}
+              />
+              <span>{locale === "en" ? "This Evening" : "今晚清单"}</span>
               {eveningTaskCount > 0 && (
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#8D82C4]/25 text-[#5C528B] dark:text-[#C5BCF0] font-mono">
                   {eveningTaskCount}
@@ -265,7 +274,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
               title="象限法则指引"
             >
               <Info className="w-3.5 h-3.5" />
-              <span>象限法则指引</span>
+              <span>{locale === "en" ? "Matrix Guide" : "象限法则指引"}</span>
             </button>
 
             {onToggleAiInbox && (
@@ -497,7 +506,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                 <div className="flex-grow min-h-0 space-y-2 overflow-y-auto pr-1 z-10 custom-scrollbar">
                   {quadrantTasks.length > 0 ? (
                     quadrantTasks.map((task) => {
-                      const countdown = getDueDateCountdown(task.dueDate, task.dueTime);
+                      const countdown = getDueDateCountdown(task.dueDate, task.dueTime, locale);
                       const isOverdue = countdown?.isOverdue;
                       const cardBg = isOverdue
                         ? "bg-[#FCF2F0]/90 dark:bg-[#2F2123]"
@@ -634,7 +643,11 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                                       ? "text-[#8D82C4] bg-[#F3F0FA] dark:bg-[#2B263B]"
                                       : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                                   }`}
-                                  title={task.isEvening ? "移出今晚清单" : "移入今晚清单 (🌙 This Evening)"}
+                                  title={
+                                    task.isEvening
+                                      ? "移出今晚清单"
+                                      : "移入今晚清单 (🌙 This Evening)"
+                                  }
                                 >
                                   <Moon
                                     className={`w-3.5 h-3.5 ${task.isEvening ? "fill-[#8D82C4]/40 text-[#8D82C4]" : ""}`}
@@ -780,7 +793,9 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                                       PRIORITY_META[task.priority].dot
                                     }`}
                                   />
-                                  {PRIORITY_META[task.priority].label}
+                                  {locale === "en"
+                                    ? task.priority
+                                    : PRIORITY_META[task.priority].label}
                                 </span>
                               )}
                             </div>

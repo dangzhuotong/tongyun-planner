@@ -1375,6 +1375,7 @@ const MainLayout = React.memo(function MainLayout({
   onOpenEnergyTimeBlock,
   onOpenQuickCapture,
 }: MainLayoutProps) {
+  const [journalDate, setJournalDate] = useState<string>();
   const mainContent = useMemo(() => {
 
     return (
@@ -1410,7 +1411,7 @@ const MainLayout = React.memo(function MainLayout({
                                     ? t.journal?.title || "日记手账"
                                     : activeTab === "memory"
                                       ? t.sidebar?.memory || "时光长廊"
-                                      : t.header.completed}
+                                      : t.sidebar.settings}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                   {activeTab === "list"
@@ -1726,6 +1727,7 @@ const MainLayout = React.memo(function MainLayout({
         )}
         {activeTab === "analytics" && (
           <AnalyticsView
+            customizationConfig={customizationHook.customizationConfig}
             pomodoroLogs={pomodoroLogs}
             tasks={tasks}
             completedTasks={completedTasks}
@@ -1751,6 +1753,7 @@ const MainLayout = React.memo(function MainLayout({
         )}
         {activeTab === "journal" && (
           <JournalView
+            initialDate={journalDate}
             tasks={tasks}
             completedTasks={completedTasks}
             pomodoroLogs={pomodoroLogs}
@@ -1764,7 +1767,8 @@ const MainLayout = React.memo(function MainLayout({
             pomodoroLogs={pomodoroLogs}
             journal={journal}
             config={customizationHook.customizationConfig}
-            onOpenJournalDate={(_date) => {
+            onOpenJournalDate={(date) => {
+              setJournalDate(date);
               setActiveTab("journal");
             }}
           />
@@ -1788,6 +1792,7 @@ const MainLayout = React.memo(function MainLayout({
     tasks,
     completedTasks,
     journal,
+    journalDate,
     t,
     fontFamily,
     wrappedHandleComplete,
@@ -1936,7 +1941,7 @@ const MainLayout = React.memo(function MainLayout({
               }`}
             >
               <LayoutGrid className="w-4 h-4" />
-              <span>四象限</span>
+              <span>{t.sidebar.matrix}</span>
             </button>
 
             <button
@@ -1948,7 +1953,7 @@ const MainLayout = React.memo(function MainLayout({
               }`}
             >
               <ListTodo className="w-4 h-4" />
-              <span>清单</span>
+              <span>{t.sidebar.list}</span>
               {tasks.length > 0 && (
                 <span className="absolute top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-[#4D7C5D]" />
               )}
@@ -1963,7 +1968,7 @@ const MainLayout = React.memo(function MainLayout({
               }`}
             >
               <Clock className="w-4 h-4" />
-              <span>专注</span>
+              <span>{t.sidebar.focusMode}</span>
               {isPomodoroActive && (
                 <span className="absolute top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
               )}
@@ -1978,7 +1983,7 @@ const MainLayout = React.memo(function MainLayout({
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>手账</span>
+              <span>{t.sidebar.journal}</span>
             </button>
 
             <button
@@ -1990,7 +1995,7 @@ const MainLayout = React.memo(function MainLayout({
               }`}
             >
               <Settings className="w-4 h-4" />
-              <span>设置</span>
+              <span>{t.sidebar.settings}</span>
             </button>
           </nav>
         </div>

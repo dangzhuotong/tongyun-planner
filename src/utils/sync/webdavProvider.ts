@@ -21,6 +21,7 @@ import { importDecryptedSecrets, prepareConfigForUpload } from "./secretSync";
 import { peekForceConfigPull, clearForceConfigPull } from "./syncSecretsPref";
 import { categoryVersionAfterPull, shouldPullCategory } from "./pullDecision";
 import {
+  equivalentJournalPayloads,
   remoteFingerprint,
   getFingerprint,
   setFingerprint,
@@ -203,6 +204,14 @@ async function tryDownload(config: WebDavConfig, filename: string): Promise<stri
   }
 }
 
+function assertCategoryPayload(cat: SyncCategory, payload: unknown): void {
+  const valid =
+    cat === "config"
+      ? payload === null || (typeof payload === "object" && !Array.isArray(payload))
+      : Array.isArray(payload);
+  if (!valid) throw new Error(`云端 ${cat} 数据无效，已保留本机数据，请重新同步。`);
+}
+
 export class WebDAVProvider implements SyncProvider {
   readonly type = "webdav" as const;
   readonly displayName = "坚果云 WebDAV";
@@ -347,6 +356,13 @@ export class WebDAVProvider implements SyncProvider {
           const res = await downloadWithMeta(this.config, remoteFilePath);
           remoteContent = res.content;
           remotePayload = JSON.parse(remoteContent);
+          // Metadata can change after a reorder or a rewrite of the same journal.
+          // Acknowledge only identical entries; never merge away actual edits.
+          if (cat === "journal" && equivalentJournalPayloads(data.journal, remotePayload)) {
+            const downloadedFp = remoteFingerprint(res, remoteVersion);
+            if (downloadedFp) setFingerprint(account, fileName, downloadedFp);
+            continue;
+          }
         } catch (e) {
           console.error(`[sync] download remote content failed for conflict backup:`, e);
         }
@@ -540,19 +556,25 @@ export class WebDAVProvider implements SyncProvider {
       }
       if (!downloaded) continue;
 
-      const fp = remoteFingerprint(downloaded, remoteVer);
-      if (fp) {
-        setFingerprint(account, fileName, fp);
+      // The user may have edited while the network request was in flight.
+      // Do not acknowledge or apply a snapshot that would overwrite that edit.
+      if (!forceConfig && (dirtyOnly?.has(cat) || getLocalCategoryVersion(cat) !== localVer)) {
+        continue;
       }
-
       const remotePayload = JSON.parse(downloaded.content);
+      assertCategoryPayload(cat, remotePayload);
+      const fp = remoteFingerprint(downloaded, remoteVer);
       const localPayload =
         cat === "config" ? localData.customizationConfig : getCategoryPayload(localData, cat);
 
       // Newer local config: import encrypted secrets only, leave public fields and the version stamp.
-      if (forceConfig && localVer >= remoteVer) {
-        await importDecryptedSecrets(remotePayload, localPayload);
+      if (
+        forceConfig &&
+        (localVer >= remoteVer || dirtyOnly?.has(cat) || getLocalCategoryVersion(cat) !== localVer)
+      ) {
+        await importDecryptedSecrets(remotePayload, getLocalSyncData().customizationConfig);
         clearForceConfigPull();
+        if (fp) setFingerprint(account, fileName, fp);
         anyUpdated = true;
         continue;
       }
@@ -568,6 +590,7 @@ export class WebDAVProvider implements SyncProvider {
         "tongyun_cat_ver_" + cat,
         String(categoryVersionAfterPull(localVer, remoteVer, forceConfig)),
       );
+      if (fp) setFingerprint(account, fileName, fp);
       anyUpdated = true;
     }
 
@@ -665,6 +688,11 @@ export class WebDAVProvider implements SyncProvider {
         remotePayload = null;
       }
     }
+
+    if (remotePayload == null && !conflict.remoteContent) {
+      throw new Error("云端数据尚未成功读取，已保留本机数据，请重新同步。");
+    }
+    assertCategoryPayload(conflict.category, remotePayload);
 
     const localConfig =
       conflict.category === "config" ? getLocalSyncData().customizationConfig : null;

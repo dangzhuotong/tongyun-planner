@@ -1085,10 +1085,10 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                   className={`flex items-center justify-center gap-1 py-1 rounded-lg text-[10px] font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50/60 dark:hover:bg-orange-950/20 border border-slate-200/60 dark:border-[#2E313A] cursor-pointer ${
                     isCollapsed ? "p-2 col-span-2" : ""
                   }`}
-                  title="极速捕捉灵感 (Alt+N / Ctrl+Shift+K)"
+                  title={`${s.quickCapture} (Alt+N / Ctrl+Shift+K)`}
                 >
                   <Command className="w-3 h-3 text-orange-500 flex-shrink-0" />
-                  {!isCollapsed && <span className="whitespace-nowrap">极速捕捉</span>}
+                  {!isCollapsed && <span className="whitespace-nowrap">{s.quickCapture}</span>}
                 </button>
               )}
               {onOpenSunsetShutdown && (
@@ -1097,10 +1097,10 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                   className={`flex items-center justify-center gap-1 py-1 rounded-lg text-[10px] font-medium transition-all text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/20 border border-slate-200/60 dark:border-[#2E313A] cursor-pointer ${
                     isCollapsed ? "p-2 col-span-2" : ""
                   }`}
-                  title="日落离线仪轨 (下班收官)"
+                  title={s.shutdown}
                 >
                   <Sunset className="w-3 h-3 text-rose-500 flex-shrink-0" />
-                  {!isCollapsed && <span className="whitespace-nowrap">日落关机</span>}
+                  {!isCollapsed && <span className="whitespace-nowrap">{s.shutdown}</span>}
                 </button>
               )}
             </div>
@@ -1163,14 +1163,14 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
           <button
             onClick={toggleCollapsed}
             className="w-full flex items-center justify-center py-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#202228] border border-transparent hover:border-slate-200/60 dark:hover:border-[#2E313A] transition-all cursor-pointer"
-            title={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
+            title={isCollapsed ? s.expandSidebar : s.collapseSidebar}
           >
             {isCollapsed ? (
               <ChevronRight className="w-4 h-4" />
             ) : (
               <div className="flex items-center gap-1.5 text-[11px] font-medium">
                 <ChevronLeft className="w-3.5 h-3.5" />
-                <span>收起侧边栏</span>
+                <span>{s.collapseSidebar}</span>
               </div>
             )}
           </button>

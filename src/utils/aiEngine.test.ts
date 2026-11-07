@@ -48,6 +48,18 @@ describe("aiEngine pure helpers", () => {
   });
 
   describe("canUseAI", () => {
+    it("accepts saved provider keys with no legacy key and rejects whitespace", () => {
+      expect(
+        canUseAI({
+          ...baseConfig,
+          aiProvider: "deepseek",
+          providerApiKeys: { deepseek: "saved-key" },
+        }),
+      ).toBe(true);
+      expect(
+        canUseAI({ ...baseConfig, aiProvider: "deepseek", providerApiKeys: { deepseek: "  " } }),
+      ).toBe(false);
+    });
     it("should allow opencode and ollama without an API key", () => {
       const opencodeConfig: CustomizationConfig = {
         ...baseConfig,

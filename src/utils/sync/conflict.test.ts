@@ -127,3 +127,16 @@ describe("sync conflict utilities", () => {
     });
   });
 });
+
+describe("journal content equivalence", () => {
+  it("ignores entry and object key order but preserves nested array order and duplicate counts", async () => {
+    const { equivalentJournalPayloads: same } = await import("./conflict");
+    const a = { id: "a", content: "hello", attachments: ["x", "y"] };
+    const b = { id: "b", content: "world" };
+    expect(same([a, b], [{ content: "world", id: "b" }, a])).toBe(true);
+    expect(same([a], [{ ...a, content: "edit" }])).toBe(false);
+    expect(same([a], [{ ...a, attachments: ["y", "x"] }])).toBe(false);
+    expect(same([a, a, b], [a, b, b])).toBe(false);
+    expect(same([], null)).toBe(false);
+  });
+});

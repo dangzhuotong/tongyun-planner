@@ -1,202 +1,108 @@
 <div align="center">
-  <img src="src-tauri/icons/icon.png" alt="橦云手帐" width="96" height="96" />
 
-  <h1>橦云手帐</h1>
-  <p><strong>TongYun Planner</strong></p>
-  <p>本地优先的桌面手帐：四象限待办 · 翻页日记 · 番茄钟 · 便签墙放在同一个窗口，数据默认只在你电脑上。</p>
-  <p><em>A local-first desktop <strong>bullet journal app</strong> &amp; task manager — Eisenhower matrix, flip-page diary, pomodoro and sticky notes in one window. Offline, privacy-first, open source, no account required.</em></p>
+<img src="src-tauri/icons/icon.png" alt="橦云手帐图标" width="80" height="80" />
 
-  <p>
-    <a href="https://github.com/dangzhuotong/tongyun-planner/releases/latest"><strong>⬇ 下载最新版</strong></a>
-    &nbsp;·&nbsp; Windows · macOS Universal · Linux
-  </p>
+# 橦云手帐
 
-  <p>
-    <a href="https://github.com/dangzhuotong/tongyun-planner/releases/latest"><img src="https://img.shields.io/github/v/release/dangzhuotong/tongyun-planner?style=flat-square&color=4D7C5D&label=release" alt="Latest release" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/dangzhuotong/tongyun-planner?style=flat-square&color=4D7C5D" alt="MIT License" /></a>
-    <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20Universal%20%7C%20Linux-8B6E3C?style=flat-square" alt="Platform" />
-    <img src="https://img.shields.io/badge/i18n-中文%20%7C%20English-5B99B0?style=flat-square" alt="i18n" />
-    <img src="https://img.shields.io/badge/Tauri-2-FFC131?style=flat-square&logo=tauri&logoColor=white" alt="Tauri 2" />
-  </p>
+**把要做的事安排好，把走过的日子留下来。**
+
+一款本地优先的桌面手帐，将待办、日记、专注与回顾放在同一个温暖的窗口里。
+
+**简体中文** · [English](README.en.md)
+
+[下载最新版](https://github.com/dangzhuotong/tongyun-planner/releases/latest) · [功能详单](docs/FEATURES.md) · [反馈问题](https://github.com/dangzhuotong/tongyun-planner/issues)
+
+[![Release](https://img.shields.io/github/v/release/dangzhuotong/tongyun-planner?style=flat-square&color=4D7C5D)](https://github.com/dangzhuotong/tongyun-planner/releases/latest) [![License: MIT](https://img.shields.io/badge/License-MIT-8B6E3C?style=flat-square)](LICENSE)
+
+Windows · macOS · Linux
+
+<img src="screenshots/dashboard.png" alt="橦云手帐首页：今日回顾、习惯、灵感与待办" width="960" />
+
+<sub>纸张的质感，桌面的便利。界面示意，具体以安装版本为准。</sub>
+
 </div>
 
-- **写给谁：** 想把日记写成仪式、又在意隐私的人——学生、上班族，或任何不想把日常交给云笔记的人。
-- **解决什么：** 待办散落、日记没处写、资讯看完就忘。四象限任务、翻页日记、番茄钟和资讯一键存成待办，都在同一个本地窗口里。
-- **有何不同：** 数据默认只在你的电脑上；日记是带书脊与横格的拟物手帐，而不是表单；可选 AI 给出克制的暖评，而不是催促你「更高效」。
+## 给一天留出秩序，也留一点空白
 
-**For English readers:** TongYun Planner is an open-source, privacy-first **desktop bullet journal app** and **offline diary app** for anyone who wants their to-do list and their diary inside one offline window. It ships an Eisenhower matrix, a paper-like flip-page journal, a pomodoro timer with white noise, sticky notes and a floating desktop widget — all stored in a zero-config local SQLite database. No sign-up, no cloud account, and **no server of ours that collects your notes**; optional multi-device sync goes through **your own WebDAV** (Nutstore preset included). If you want a Notion alternative that keeps your journal files on your own machine, this is one.
+早上，安排今天最重要的事；工作时，开启一轮专注；有灵感就记张便签；晚上，写几句日记，再回头看看今天的收获。
 
-<div align="center">
-  <br />
-  <!-- 界面巡览动图：首页 → 四象限 → 翻页日记 → 便签墙 → 番茄钟（约 9s / 2.8MB / 960px） -->
-  <a href="screenshots/dashboard.png" target="_blank" rel="noreferrer">
-    <img src="screenshots/gif/tour.gif" alt="橦云手帐界面巡览：首页、四象限看板、翻页日记、便签墙、番茄钟" width="920" />
-  </a>
-  <p><sub>首页 · 四象限看板 · 翻页日记 · 便签墙 · 番茄钟（点击查看大图）</sub></p>
-</div>
+橦云手帐围绕这条日常路径设计。无需注册账号，下载安装后即可在本机使用；云同步和 AI 可以按需开启。
 
-<details>
-<summary><strong>English</strong></summary>
+### 规划 · 看清下一步
 
-**TongYun Planner（橦云手帐）** is an open-source, privacy-first **local-first desktop bullet journal** and task app: Eisenhower matrix, flip-page diary, pomodoro timer with white noise, sticky notes, floating desktop widget, and optional AI comments. Built for people who want a paper-like ritual and keep their notes on their own machine — a **Notion alternative** for offline note-taking without an account. Powered by an out-of-the-box, zero-config local SQLite database (full-schema P0), with strictly optional WebDAV sync.
+在四象限里分清轻重缓急，在列表和日历里安排时间。子任务、标签、重复规则和到期提醒，帮你把想做的事变成可以推进的步骤。
 
-[Download the latest installer](https://github.com/dangzhuotong/tongyun-planner/releases/latest) for **Windows**, **macOS Universal** (Apple Silicon and Intel), and **Linux** (AppImage / deb). The UI is Chinese by default, with a full English language pack in Settings.
+### 记录 · 接住当下的想法
 
-</details>
+用便签收下转瞬即逝的灵感，在日记里记录正文、心情和图片。日期翻页、和纸胶带、印章与每日问答，让书写多一点仪式感。
 
----
+### 专注 · 一次做好一件事
 
-## 界面
+把任务交给番茄钟，选一段白噪音，或进入只呈现当前任务的心流模式。桌面挂件陪你计时，微休息提醒你适时停一停。
 
-| 翻页日记 | 四象限看板 | 日历 |
-|:---:|:---:|:---:|
-| <img src="screenshots/journal.png" alt="翻页日记本" width="280" /> | <img src="screenshots/matrix-view.png" alt="四象限看板" width="280" /> | <img src="screenshots/calendar-view.png" alt="日历" width="280" /> |
-| **待办列表** | **便签墙** | **专注统计** |
-| <img src="screenshots/list-view.png" alt="待办列表" width="280" /> | <img src="screenshots/sticky-notes.png" alt="便签墙" width="280" /> | <img src="screenshots/analytics.png" alt="专注统计" width="280" /> |
-| **桌面挂件** | **番茄钟与白噪音** | **个性化设置** |
-| <img src="screenshots/widget.png" alt="桌面挂件" width="280" /> | <img src="screenshots/pomodoro.png" alt="番茄钟与白噪音" width="280" /> | <img src="screenshots/settings.png" alt="设置" width="280" /> |
+### 回顾 · 看见积累的分量
 
-完整能力清单见 [docs/FEATURES.md](docs/FEATURES.md)。仓库根目录的 [docs/social-preview.png](docs/social-preview.png) 可上传到 GitHub Settings → Social preview（1280×640）。
+用专注热力图了解自己的节奏，在时光长廊翻看日记、已完成任务与专注记录。一天的收获，也可以成为日落关机仪式的起点。
 
-### 和常见工具比
+## 窗口里的手帐
 
-| | 橦云手帐 | Notion | 滴答清单 | Obsidian |
-|---|---|---|---|---|
-| 数据位置 | 默认本机 SQLite（零配开箱），可选 WebDAV 同步 | 云端账号 | 云端账号同步 | 本地 Markdown 文件 |
-| 四象限 | 内置 | 需自建模板 | 有四象限视图 | 需插件 |
-| 番茄钟+白噪音 | 内置 | 无内置 | 有番茄与白噪音 | 需插件 |
-| 拟物翻页日记 | 内置 | 无 | 无 | 无 |
-| 开源 | MIT | 否 | 否 | 否（免费但闭源） |
+| 四象限规划 | 随手便签 |
+|:---:|:---:|
+| [![四象限看板](screenshots/matrix-view.png)](screenshots/matrix-view.png) | [![便签墙](screenshots/sticky-notes.png)](screenshots/sticky-notes.png) |
+| **日历日程** | **专注统计** |
+| [![日历日程](screenshots/calendar-view.png)](screenshots/calendar-view.png) | [![专注统计](screenshots/analytics.png)](screenshots/analytics.png) |
 
-*Vs common tools (short): local-first zero-config SQLite (full-schema P0) + optional WebDAV sync; built-in Eisenhower matrix, pomodoro with white noise, and flip-page diary — MIT open source, no account required. Notion/TickTick are cloud accounts; Obsidian is local Markdown (matrix/pomodoro via plugins; core is free but closed-source).*
+还有便签墙、倒数日、资讯订阅与稍后读，以及主题、字体、深色模式和日落暖色。[查看完整功能 →](docs/FEATURES.md)
 
-（本表只写可核实差异，不写价格、不写「比 X 好」。滴答清单四象限/番茄/白噪音见其[帮助中心](https://help.dida365.com/)。）
+## 本地优先，连接由你选择
 
----
-
-## 隐私与数据
-
-- **默认本地优先与零配开箱。** 任务、日记、便签、番茄记录写在本机（SQLite / 应用数据目录）；零配置开箱即用，无需配置外部数据库或 DSN，作者没有运营收集这些内容的服务器。
-- **同步是你自己开的。** 可选 WebDAV（内置坚果云预设，也可填自定义地址）同步。远端同步完全按需开启，主从关系与同步边界清晰；一旦开启，对应数据才会同步到**你配置的远端**。
-- **AI 密钥与正文。** 密钥保存在本机设置里。使用 AI 时，相关文本会发往你填写的模型服务商。同步和导出快照都会剥离 AI Key 等密钥字段，密钥只留在本机；换设备后需要重新填写。
-- **天气。** 填写城市后，会请求第三方天气接口（当前为 `uapis.cn`），仅发送城市名。
-
-**Privacy, in English:** everything you write stays on your machine. Tasks, diary entries, sticky notes and focus logs are written to a local SQLite database in your app data folder — offline-first, zero-config, no sign-up. The author runs no server that collects your content, and API keys are stripped from every sync payload and export snapshot. Want multi-device sync? You turn on **your own WebDAV** and it goes nowhere else.
-
----
-
-## 数据存储与数据库模型 (Pure Database Architecture)
-
-橦云手帐遵循**本地优先（Local-First）**，默认开箱即用本机嵌入式 SQLite 纯数据库持久化，彻底废除业务 KV 作为真相源：
-
-- **零配开箱本机库（Zero-Config Local SQLite）**：
-  - 应用启动即自动连接并初始化内置 SQLite 数据库（`tongyun_planner.db`），无需安装外部数据库服务，**严禁「必须配 DSN」**。
-  - 用户下载安装即可离线运行，所有待办、日记、专注与配置数据 100% 留存在本地系统应用数据目录，响应极速且无网络依赖。
-- **可选 WebDAV 同步（Optional WebDAV Sync）**：
-  - 支持按需配置 WebDAV 地址（内置坚果云预设，也可填自建地址），用于多设备同步与备份。
-  - 同步为**完全自选（Opt-in）**的特性，不配置也能完整享受手帐全部功能。
-  - 架构上主从关系与变更边界清晰：以本机 SQLite 单机持久化为第一真相源，通过 `sync_state` 与 `sync_outbox` 触发可靠的远端变更同步，**绝非模糊混乱的「双写无主从」**。
-  - 从 v1.1.0 起，开源版云同步**只保留 WebDAV**（早期版本的 Supabase / 自建 HTTP 后端已停用）；远端同构 SQL 数据库同步与团队 Pipeline Agent 派活调度不在本仓库内。
-- **敏感凭据绝对隔离（Security Isolation）**：
-  - AI API Key、模型凭据与远端连接密码始终保留在本机隔离存储区，绝对不随业务表向云端同步，亦不打入导出快照。
-
-### P0 全量领域表清单（Full-Schema P0，共 12 张）
-
-系统建立完整的纯关系型表结构，告别非结构化 KV 混杂存储：
-
-| 表名 | 中文说明 | 核心职责 |
-|:---|:---|:---|
-| `tasks` | 待办清单主表 | 四象限分类、截止日期时间、重复规则、优先级、执行状态与本地 Agent 关联 |
-| `journal_entries` | 手帐日记与笔记 | 日期日记与自由笔记正文、心情、贴纸坐标、胶带、朱砂印章与 AI 温暖评语 |
-| `pomodoro_logs` | 番茄专注记录 | 专注时长、关联任务与完成时间戳 |
-| `habits` | 习惯打卡定义 | 习惯名称、连续天数 streak、最后打卡日期 |
-| `agents` | AI / 工人名册 | 本地与远端派发 Agent 名册、状态与配置元数据 |
-| `task_dispatch` | 任务派发记录 | 待办派发到 Agent 的队列与执行历史状态 |
-| `sticky_notes` | 桌面便签 | 便签文字、颜色与倾斜旋转角度 |
-| `countdowns` | 倒计时事件 | 目标日期、倒数日标题、公历/农历支持与个性化颜色 |
-| `timeblocks` | 时间块规划 | 日程时间盒 (Timebox) 与日历规划区块 |
-| `user_prefs` | 用户偏好配置 | 单行全局偏好（主题模式、番茄时长、提示音、字体布局等，不含明文敏感凭据） |
-| `sync_state` | 同步状态表 | 实体级别逻辑时钟版本号与上次同步时间戳 |
-| `sync_outbox` | 同步变更出件箱 | 待推送至远端的数据变更日志（主从同步可靠投递） |
-
-> `agents` / `task_dispatch` 两张表的建表语句保留在迁移文件中，以兼容既有本机数据库；从 v1.1.0 起，对应的「Agent 派活」界面与远端 SQL 同步已从开源版下线，不对普通用户开放。
-
-### 数据库迁移 (Migrations)
-
-主仓迁移文件位于 `migrations/`：
-- `0001_initial_domain_tables.sql`：初始领域表结构
-- `0002_agent_and_dispatch.sql`：本地助手名册与派发队列支持
-- `0003_p0_full_schema.sql`：12 张 P0 全量领域表，完成旧数据与 localStorage 向纯数据库的无缝平滑迁移
-
----
-
-## 下载与安装
-
-到 **[Releases · latest](https://github.com/dangzhuotong/tongyun-planner/releases/latest)** 取安装包：
-
-| 系统 | 文件 |
+| 你关心的事 | 橦云手帐的做法 |
 |:---|:---|
-| Windows（推荐） | `TongyunPlanner_*_x64-setup.exe` |
-| Windows（MSI） | `TongyunPlanner_*_x64_en-US.msi` |
-| macOS Universal | `TongyunPlanner_*_universal.dmg` |
+| 不想注册账号 | 核心手帐功能可在本机离线使用，无需产品账号。 |
+| 想在几台设备间使用 | 可选连接自己的 WebDAV，内置坚果云预设；真实冲突会保留两端副本供你选择。 |
+| 想保留自己的备份 | 支持 JSON 导入导出和桌面端每日快照；搬迁图片时需另行保留附件目录。 |
+| 想让 AI 帮一点忙 | 接入自己的模型服务，用于整理任务、日记暖评、建议与报告；调用时相关文本会发送给所选服务。 |
+
+AI 密钥默认不同步，导出快照不含密钥。主动开启密钥同步并设置口令后，密钥才会加密上传至你的 WebDAV。同步范围和本机存储边界见[功能详单](docs/FEATURES.md)与[安全说明](SECURITY.md)。
+
+## 开始使用
+
+在 [GitHub Releases](https://github.com/dangzhuotong/tongyun-planner/releases/latest) 选择对应系统的安装包：
+
+| 系统 | 安装包 |
+|:---|:---|
+| Windows | `.exe` 安装程序，或 `.msi` |
+| macOS | Universal `.dmg`，支持 Apple Silicon 与 Intel |
 | Linux | `.AppImage` 或 `.deb` |
 
-安装包**未做代码签名**。Windows 可能出现 SmartScreen：「更多信息 → 仍要运行」。macOS 首次打开说明见下文。
+首次打开后，可在 **设置 → 系统与语言** 切换中文或 English，并检查更新。
 
-### macOS 首次打开
+安装包尚未做操作系统代码签名与 Apple 公证，首次安装可能出现系统提示。安装、旧版升级和备份迁移说明见[安装指南](docs/INSTALLATION.md)。
 
-说明：安装包没有 Apple 签名和公证，所以 macOS 首次打开会提示「Apple 无法验证 TongyunPlanner…」。三种解决办法：
-1. 系统设置 → 隐私与安全性 → 往下找到提示，点「仍要打开」；
-2. 在「应用程序」里右键点 App，选「打开」，再确认一次；
-3. 终端执行：`xattr -dr com.apple.quarantine /Applications/TongyunPlanner.app`
+<details>
+<summary><strong>从源码构建</strong></summary>
 
-**从 v1.0 升级：** 请下载并安装 v1.1.0。更新公钥已更换，v1.0 无法通过应用内更新升到 v1.1。装好 v1.1 之后，后续版本会自动提示更新。
+技术栈：Tauri 2 · React 19 · TypeScript · Rust · SQLite。
 
-### 已安装之后怎么更新
-
-日常更新走应用里的检查更新。维护者不要在 Mac 上用当前开发 tip 重装给用户。
-
-1. 打开 **设置 → 系统与语言**，看清「当前版本」。
-2. 点 **检查更新**。有新版会下载并重启；已经是最新会提示「已是最新版本」。
-3. 启动后也会静默检查，有新版同样弹窗。
-
-新版本来自维护者推送的 tag `vX.Y.Z`（与 `package.json` / `tauri.conf.json` 版本一致）。GitHub Actions 会发布 Release，并带上更新器用的 `latest.json`。合进 main 不会自动发版。步骤见 [docs/RELEASE.md](docs/RELEASE.md)。
-
-安装包在 CI 里用 **minisign** 签过更新包（`TAURI_SIGNING_*`）。**尚未做 Apple 公证**：首次安装仍可能要按上一节的 `xattr` 解除隔离（Release 说明里已写）。已经装上的 App 用检查更新换包。
-
-安装后可在设置里切换 **中文 / English**。
-
----
-
-## 从源码构建
-
-适合改代码或打 Linux 包。需要 Node.js 18+、Rust，以及各系统的原生编译工具（Windows 需 VS C++ Build Tools；macOS 需 Xcode Command Line Tools）。
+建议使用 Node.js 22.12+、Rust 稳定工具链及对应系统的原生构建依赖。
 
 ```bash
 git clone https://github.com/dangzhuotong/tongyun-planner.git
 cd tongyun-planner
-npm install
-npm run tauri dev      # 开发
-npm run tauri build    # 产出安装包
+npm ci
+npm run tauri build
 ```
 
-常用脚本：`npm run typecheck`（类型检查）/ `npm test`（单元测试）/ `npm run check`（前端类型 + 单元测试 + Rust 编译全量检查）。
+本机受管工作区的服务启停遵循 `AGENTS.md`，使用已登记的 `tongyun-dev` 管理入口。
 
----
+开发流程见[贡献指南](CONTRIBUTING.md)，实现细节见[架构说明](ARCHITECTURE.md)。
 
-## 品牌 / 图标
+</details>
 
-官方主标叫「云芽」。色值：奶茶 `#FDC89C`、云 `#FCF4E1`、芽 `#A4C48C`。本 App 图标即主标。
+## 一起把它打磨得更好
 
-各 App 变体规则与禁止事项见 [tongyun-scaffold/brand](https://github.com/dangzhuotong/tongyun-scaffold/tree/main/brand) 目录 README。
+橦云手帐是一个由个人维护、借助 AI 开发的开源项目。欢迎带着具体场景提建议，也欢迎提交修复。
 
----
+[报告问题](https://github.com/dangzhuotong/tongyun-planner/issues) · [参与贡献](CONTRIBUTING.md) · [更新记录](CHANGELOG.md) · [常见问题](FAQ.md)
 
-## 文档
-
-- [功能详单](docs/FEATURES.md) · [发版](docs/RELEASE.md) · [更新日志](CHANGELOG.md) · [常见问题](FAQ.md)
-- [贡献指南](CONTRIBUTING.md) · [安全说明](SECURITY.md) · [架构](ARCHITECTURE.md)
-
-这是作者一个人、借助 AI 做出来的第一个桌面应用（Tauri 2 + React 19 + Rust）。遇到问题欢迎开 Issue；觉得有用的话，点个 Star 就是最大的鼓励。
-
-本项目以 [MIT License](LICENSE) 开源。
+以 [MIT License](LICENSE) 开源。

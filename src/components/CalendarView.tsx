@@ -67,7 +67,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       selectedCalendarDate,
       setSelectedCalendarDate,
     } = usePersonal();
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
     const cv = t.calendarView;
     const m = t.matrix;
 
@@ -228,6 +228,14 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
         const [y, m, d] = dateStr.split("-").map(Number);
         const solar = LunarLib.Solar.fromYmd(y, m, d);
         const lunar = solar.getLunar();
+        if (locale === "en") {
+          return {
+            month: String(Math.abs(lunar.getMonth())),
+            day: String(lunar.getDay()),
+            year: String(lunar.getYear()),
+            full: `Lunar ${Math.abs(lunar.getMonth())}/${lunar.getDay()}`,
+          };
+        }
         return {
           month: lunar.getMonthInChinese(),
           day: lunar.getDayInChinese(),
@@ -318,7 +326,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
             key={`prev-${dayNum}`}
             onClick={() => setSelectedCalendarDate(dateStr)}
             className={`relative h-11 rounded-xl text-[10px] font-bold text-slate-300 dark:text-slate-600 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] transition-all flex flex-col items-center justify-between py-1 border border-transparent cursor-pointer ${
-              selectedCalendarDate === dateStr
+              effectiveSelectedDate === dateStr
                 ? "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42]"
                 : ""
             }`}
@@ -344,7 +352,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
         const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
         const isToday = dateStr === todayStr;
-        const isSelected = dateStr === selectedCalendarDate;
+        const isSelected = dateStr === effectiveSelectedDate;
         const meta = getDayMeta(dateStr);
 
         let cellStyle =
@@ -419,7 +427,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
             key={`next-${dayNum}`}
             onClick={() => setSelectedCalendarDate(dateStr)}
             className={`relative h-11 rounded-xl text-[10px] font-bold text-slate-300 dark:text-slate-600 hover:bg-[#FAF8F5] dark:hover:bg-[#282A30] transition-all flex flex-col items-center justify-between py-1 border border-transparent cursor-pointer ${
-              selectedCalendarDate === dateStr
+              effectiveSelectedDate === dateStr
                 ? "bg-[#FAF8F5] dark:bg-[#282A30] border-[#EFEBE4] dark:border-[#383A42]"
                 : ""
             }`}
@@ -444,7 +452,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
     }, [
       calendarYear,
       calendarMonth,
-      selectedCalendarDate,
+      effectiveSelectedDate,
       getDayMeta,
       renderDayDots,
       renderLedgerBadge,
@@ -454,7 +462,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
 
     // 周视图 7 天计算 (以当前选中日期所在周：周日 ~ 周六)
     const weekDays = useMemo(() => {
-      const selected = new Date(`${selectedCalendarDate}T00:00:00`);
+      const selected = new Date(`${effectiveSelectedDate}T00:00:00`);
       const baseDate = isNaN(selected.getTime()) ? new Date() : selected;
       const dayOfWeek = baseDate.getDay(); // 0 是周日
       const sunday = new Date(baseDate);
@@ -482,17 +490,17 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
           meta: getDayMeta(dateStr),
           tasks: tasksByDueDate[dateStr] || [],
           isToday: dateStr === todayStr,
-          isSelected: dateStr === selectedCalendarDate,
+          isSelected: dateStr === effectiveSelectedDate,
         });
       }
       return days;
-    }, [selectedCalendarDate, getDayMeta, tasksByDueDate]);
+    }, [effectiveSelectedDate, getDayMeta, tasksByDueDate]);
 
     // 当日已完成任务（issue #51 日历面板）：默认展开，可折叠
     const [showDayCompleted, setShowDayCompleted] = useState(true);
     const selectedDayGroups = useMemo(
-      () => splitDayTasks(tasksByDueDate, completedByDueDate, selectedCalendarDate),
-      [tasksByDueDate, completedByDueDate, selectedCalendarDate],
+      () => splitDayTasks(tasksByDueDate, completedByDueDate, effectiveSelectedDate),
+      [tasksByDueDate, completedByDueDate, effectiveSelectedDate],
     );
 
     const handleNavigate = (direction: -1 | 1) => {
@@ -514,7 +522,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
         }
       } else {
         // 周视图：按周加减 7 天
-        const cur = new Date(`${selectedCalendarDate}T00:00:00`);
+        const cur = new Date(`${effectiveSelectedDate}T00:00:00`);
         if (!isNaN(cur.getTime())) {
           cur.setDate(cur.getDate() + direction * 7);
           const newDateStr = getLocalDateString(cur);
@@ -547,7 +555,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                       ? cv.yearMonth
                           .replace("{year}", String(calendarYear))
                           .replace("{month}", String(calendarMonth + 1))
-                      : `${calendarYear}年${calendarMonth + 1}月 · ${selectedCalendarDate}`}
+                      : `${cv.yearMonth.replace("{year}", String(calendarYear)).replace("{month}", String(calendarMonth + 1))} · ${effectiveSelectedDate}`}
                   </span>
                 </h3>
 
@@ -744,11 +752,12 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                           ) : (
                             <span />
                           )}
-                          {day.meta.name && (day.meta.label === "休" || day.meta.label === "班") && (
-                            <span className="text-[6px] text-slate-500 dark:text-slate-400 font-bold truncate max-w-[42px]">
-                              {day.meta.name}
-                            </span>
-                          )}
+                          {day.meta.name &&
+                            (day.meta.label === "休" || day.meta.label === "班") && (
+                              <span className="text-[6px] text-slate-500 dark:text-slate-400 font-bold truncate max-w-[42px]">
+                                {day.meta.name}
+                              </span>
+                            )}
                         </div>
                       </div>
 
@@ -790,12 +799,15 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                 <div className="relative flex items-start justify-between">
                   <div>
                     <h4 className="text-[11px] font-extrabold text-[#2D323A] dark:text-slate-100">
-                      {new Date(`${effectiveSelectedDate}T00:00:00`).toLocaleDateString("zh-CN", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        weekday: "long",
-                      })}
+                      {new Date(`${effectiveSelectedDate}T00:00:00`).toLocaleDateString(
+                        locale === "en" ? "en-US" : "zh-CN",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          weekday: "long",
+                        },
+                      )}
                     </h4>
                     {(() => {
                       const lunar = getLunarDate(effectiveSelectedDate);
@@ -1197,7 +1209,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                   onClick={() => setShowTimeBlockInput(true)}
                   className="mt-2 flex items-center gap-1 text-[9px] text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#78C496] transition-colors cursor-pointer font-medium"
                 >
-                  <Plus className="w-3 h-3" /> 添加时间块
+                  <Plus className="w-3 h-3" /> {locale === "en" ? "Add time block" : "添加时间块"}
                 </button>
               )}
 

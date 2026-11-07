@@ -96,6 +96,7 @@ export interface Task {
 export interface PomodoroLog {
   id: string;
   timestamp: number;
+  /** Focus duration in seconds. */
   duration: number;
   taskId?: string;
   taskTitle?: string;
