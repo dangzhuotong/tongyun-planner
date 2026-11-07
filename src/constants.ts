@@ -119,7 +119,11 @@ export interface DueCountdown {
   isToday: boolean;
 }
 
-export function getDueDateCountdown(dueDateStr?: string, dueTimeStr?: string): DueCountdown | null {
+export function getDueDateCountdown(
+  dueDateStr?: string,
+  dueTimeStr?: string,
+  locale = "zh-CN",
+): DueCountdown | null {
   if (!dueDateStr) return null;
 
   const parts = dueDateStr.split("-");
@@ -144,7 +148,14 @@ export function getDueDateCountdown(dueDateStr?: string, dueTimeStr?: string): D
       const absDays = Math.floor(Math.abs(diffMs) / (1000 * 60 * 60 * 24));
       return {
         days: absDays,
-        text: absDays > 0 ? `已逾期 ${absDays} 天` : "已超时",
+        text:
+          locale === "en"
+            ? absDays > 0
+              ? `${absDays}d overdue`
+              : "Overdue"
+            : absDays > 0
+              ? `已逾期 ${absDays} 天`
+              : "已超时",
         isOverdue: true,
         isToday: false,
       };
@@ -155,7 +166,7 @@ export function getDueDateCountdown(dueDateStr?: string, dueTimeStr?: string): D
     if (isSameDay) {
       return {
         days: 0,
-        text: `今天 ${dueTimeStr}`,
+        text: locale === "en" ? `Today ${dueTimeStr}` : `今天 ${dueTimeStr}`,
         isOverdue: false,
         isToday: true,
       };
@@ -168,7 +179,7 @@ export function getDueDateCountdown(dueDateStr?: string, dueTimeStr?: string): D
     );
     return {
       days: calDiff,
-      text: `还剩 ${calDiff} 天`,
+      text: locale === "en" ? `${calDiff}d left` : `还剩 ${calDiff} 天`,
       isOverdue: false,
       isToday: false,
     };
@@ -184,21 +195,21 @@ export function getDueDateCountdown(dueDateStr?: string, dueTimeStr?: string): D
   if (diffDays < 0) {
     return {
       days: Math.abs(diffDays),
-      text: `已逾期 ${Math.abs(diffDays)} 天`,
+      text: locale === "en" ? `${Math.abs(diffDays)}d overdue` : `已逾期 ${Math.abs(diffDays)} 天`,
       isOverdue: true,
       isToday: false,
     };
   } else if (diffDays === 0) {
     return {
       days: 0,
-      text: "今天到期",
+      text: locale === "en" ? "Due today" : "今天到期",
       isOverdue: false,
       isToday: true,
     };
   } else {
     return {
       days: diffDays,
-      text: `还剩 ${diffDays} 天`,
+      text: locale === "en" ? `${diffDays}d left` : `还剩 ${diffDays} 天`,
       isOverdue: false,
       isToday: false,
     };

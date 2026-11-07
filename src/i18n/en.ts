@@ -7,6 +7,10 @@ const en: Translations = {
   },
 
   sidebar: {
+    quickCapture: "Quick Capture",
+    shutdown: "Wind Down",
+    expandSidebar: "Expand sidebar",
+    collapseSidebar: "Collapse sidebar",
     progress: "Progress",
     completed: "Completed",
     remaining: "Remaining",
@@ -57,7 +61,8 @@ const en: Translations = {
     syncSynced: "Synced",
     syncSyncing: "Syncing…",
     syncError: "Sync failed",
-    syncStatusHint: "WebDAV cloud sync status. Synced indicates local data is consistent with the cloud.",
+    syncStatusHint:
+      "WebDAV cloud sync status. Synced indicates local data is consistent with the cloud.",
     decreaseMin: "Decrease 1 min",
     increaseMin: "Increase 1 min",
     pause: "Pause",
@@ -141,7 +146,7 @@ const en: Translations = {
     importantNotUrgentDesc: "Schedule",
     urgentNotImportantDesc: "Delegate",
     notUrgentNotImportantDesc: "Eliminate",
-    taskCount: "{count} tasks",
+    taskCount: "Tasks: {count}",
     expand: "Expand quadrant",
     collapse: "Collapse",
     addPlaceholder: "Add task to {quadrant}... Press Enter to save",
@@ -229,7 +234,7 @@ const en: Translations = {
 
   calendarView: {
     today: "Today",
-    yearMonth: "{year}年{month}月",
+    yearMonth: "{month} / {year}",
     prevMonth: "Previous month",
     backToToday: "Back to Today",
     nextMonth: "Next month",
@@ -492,14 +497,17 @@ const en: Translations = {
     dueRemindPermissionGranted: "Notifications enabled",
     dueRemindPermissionDenied: "Notifications blocked — allow them in system settings",
     calendarHolidayTitle: "Calendar Holidays & Workdays",
-    calendarHolidayDesc: "Control statutory holiday and shift workday badges in the calendar, with optional custom iCal (.ics) subscription override.",
+    calendarHolidayDesc:
+      "Control statutory holiday and shift workday badges in the calendar, with optional custom iCal (.ics) subscription override.",
     showHolidaysToggle: "Show statutory holidays & shift workdays",
-    showHolidaysHint: "Display '休' and '班' tags on month and week calendar views; hidden when switched off.",
+    showHolidaysHint:
+      "Display '休' and '班' tags on month and week calendar views; hidden when switched off.",
     holidayRegionTitle: "Holiday Region",
     holidayRegionDesc:
       "Mainland China uses the built-in offline year table (including shift workdays); Hong Kong SAR uses the official 1823 public holidays feed.",
     icalSubscriptionTitle: "Custom iCal (.ics) Calendar Subscription",
-    icalSubscriptionDesc: "Enter a public iCal URL to override built-in holidays (e.g. regional public holidays or organization calendars).",
+    icalSubscriptionDesc:
+      "Enter a public iCal URL to override built-in holidays (e.g. regional public holidays or organization calendars).",
     icalSyncButton: "Save & Sync",
     icalClearButton: "Clear",
     icalClearSuccess: "Cleared iCal subscription, restored built-in statutory holidays",

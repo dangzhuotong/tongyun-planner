@@ -39,7 +39,7 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
   title,
   showStatsGlance = false,
 }) => {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const a = t.analytics;
 
   const { grid, stats, monthLabels } = useMemo(() => {
@@ -111,7 +111,13 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
         if (row === 0) {
           const month = cellDate.getMonth();
           if (month !== prevMonth) {
-            monthLabels.push({ colIndex, label: `${month + 1}月` });
+            monthLabels.push({
+              colIndex,
+              label:
+                locale === "en"
+                  ? new Date(2000, month, 1).toLocaleDateString("en-US", { month: "short" })
+                  : `${month + 1}月`,
+            });
             prevMonth = month;
           }
         }
@@ -140,7 +146,13 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
         if (row === 0) {
           const month = cellDate.getMonth();
           if (month !== prevMonth) {
-            monthLabels.push({ colIndex, label: `${month + 1}月` });
+            monthLabels.push({
+              colIndex,
+              label:
+                locale === "en"
+                  ? new Date(2000, month, 1).toLocaleDateString("en-US", { month: "short" })
+                  : `${month + 1}月`,
+            });
             prevMonth = month;
           }
         }
@@ -184,7 +196,7 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
       },
       monthLabels,
     };
-  }, [pomodoroLogs, weeks]);
+  }, [pomodoroLogs, weeks, locale]);
 
   const totalWeeks = grid.length;
   const gridW = totalWeeks * STEP;
@@ -193,9 +205,9 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
   const totalSvgH = MONTH_LABEL_HEIGHT + gridH;
 
   const dayLabels = [
-    { label: "一", offset: 0 },
-    { label: "三", offset: 2 },
-    { label: "五", offset: 4 },
+    { label: locale === "en" ? "M" : "一", offset: 0 },
+    { label: locale === "en" ? "W" : "三", offset: 2 },
+    { label: locale === "en" ? "F" : "五", offset: 4 },
   ];
 
   return (
@@ -209,7 +221,7 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
         <div className="flex items-center gap-2.5">
           {stats.streak > 0 && (
             <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FCF2F0] dark:bg-[#2B2123] border border-[#F5DFDB] dark:border-[#422D30] text-[9px] font-bold text-[#A34E36] dark:text-[#E06D53]">
-              🔥 连续 {stats.streak} 天
+              🔥 {locale === "en" ? `${stats.streak}-day streak` : `连续 ${stats.streak} 天`}
             </span>
           )}
           <div className="flex items-center gap-1 text-[8px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
@@ -273,7 +285,7 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
                   cell.isToday ? "stroke-[#A34E36] dark:stroke-[#E06D53] stroke-[1.8]" : ""
                 }`}
               >
-                <title>{`${cell.date} · ${cell.count} 个番茄`}</title>
+                <title>{`${cell.date} · ${cell.count} ${locale === "en" ? "sessions" : "个番茄"}`}</title>
               </rect>
             )),
           )}
@@ -288,11 +300,11 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
               {a.weekGlance || "本周速览"}
             </span>
             <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500">
-              近 {weeks} 周累计{" "}
+              {locale === "en" ? `Last ${weeks} weeks: ` : `近 ${weeks} 周累计 `}
               <span className="text-[#4D7C5D] dark:text-[#6FAD84] font-extrabold">
                 {stats.total}
               </span>{" "}
-              个番茄
+              {locale === "en" ? "sessions" : "个番茄"}
             </span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -349,14 +361,22 @@ export const FocusHeatmap: React.FC<FocusHeatmapProps> = ({
                 {stats.streak > 0 ? (
                   <>
                     <Flame className="w-3.5 h-3.5 text-[#A34E36] dark:text-[#E06D53]" />
-                    <span>{stats.streak} 天</span>
+                    <span>
+                      {stats.streak} {locale === "en" ? "days" : "天"}
+                    </span>
                   </>
                 ) : (
                   <span>{stats.bestDayCount} 个</span>
                 )}
               </div>
               <div className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1.5">
-                {stats.streak > 0 ? "当前连续" : "单日最高"}
+                {locale === "en"
+                  ? stats.streak > 0
+                    ? "Current streak"
+                    : "Best day"
+                  : stats.streak > 0
+                    ? "当前连续"
+                    : "单日最高"}
               </div>
             </div>
           </div>

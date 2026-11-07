@@ -67,7 +67,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       selectedCalendarDate,
       setSelectedCalendarDate,
     } = usePersonal();
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
     const cv = t.calendarView;
     const m = t.matrix;
 
@@ -228,6 +228,14 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
         const [y, m, d] = dateStr.split("-").map(Number);
         const solar = LunarLib.Solar.fromYmd(y, m, d);
         const lunar = solar.getLunar();
+        if (locale === "en") {
+          return {
+            month: String(Math.abs(lunar.getMonth())),
+            day: String(lunar.getDay()),
+            year: String(lunar.getYear()),
+            full: `Lunar ${Math.abs(lunar.getMonth())}/${lunar.getDay()}`,
+          };
+        }
         return {
           month: lunar.getMonthInChinese(),
           day: lunar.getDayInChinese(),
@@ -547,7 +555,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                       ? cv.yearMonth
                           .replace("{year}", String(calendarYear))
                           .replace("{month}", String(calendarMonth + 1))
-                      : `${calendarYear}年${calendarMonth + 1}月 · ${effectiveSelectedDate}`}
+                      : `${cv.yearMonth.replace("{year}", String(calendarYear)).replace("{month}", String(calendarMonth + 1))} · ${effectiveSelectedDate}`}
                   </span>
                 </h3>
 
@@ -791,12 +799,15 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                 <div className="relative flex items-start justify-between">
                   <div>
                     <h4 className="text-[11px] font-extrabold text-[#2D323A] dark:text-slate-100">
-                      {new Date(`${effectiveSelectedDate}T00:00:00`).toLocaleDateString("zh-CN", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        weekday: "long",
-                      })}
+                      {new Date(`${effectiveSelectedDate}T00:00:00`).toLocaleDateString(
+                        locale === "en" ? "en-US" : "zh-CN",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          weekday: "long",
+                        },
+                      )}
                     </h4>
                     {(() => {
                       const lunar = getLunarDate(effectiveSelectedDate);
@@ -1198,7 +1209,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                   onClick={() => setShowTimeBlockInput(true)}
                   className="mt-2 flex items-center gap-1 text-[9px] text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#78C496] transition-colors cursor-pointer font-medium"
                 >
-                  <Plus className="w-3 h-3" /> 添加时间块
+                  <Plus className="w-3 h-3" /> {locale === "en" ? "Add time block" : "添加时间块"}
                 </button>
               )}
 

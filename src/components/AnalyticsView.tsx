@@ -27,7 +27,7 @@ interface AnalyticsViewProps {
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
   ({ pomodoroLogs, tasks, completedTasks, customizationConfig }) => {
-    const { t } = useTranslation();
+    const { t, locale } = useTranslation();
     const a = t.analytics;
     const m = t.matrix;
 
@@ -138,10 +138,38 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
 
     const timeSlots = useMemo(() => {
       const slots = [
-        { label: "清晨 (6-9)", icon: Sunrise, start: 6, end: 9, count: 0, color: "bg-[#B2C8DF]" },
-        { label: "上午 (9-12)", icon: Sun, start: 9, end: 12, count: 0, color: "bg-[#C4D7B2]" },
-        { label: "下午 (12-18)", icon: Clock, start: 12, end: 18, count: 0, color: "bg-[#E8A0BF]" },
-        { label: "晚上 (18-24)", icon: Moon, start: 18, end: 24, count: 0, color: "bg-[#7C5D9E]" },
+        {
+          label: locale === "en" ? "Early (6–9)" : "清晨 (6-9)",
+          icon: Sunrise,
+          start: 6,
+          end: 9,
+          count: 0,
+          color: "bg-[#B2C8DF]",
+        },
+        {
+          label: locale === "en" ? "Morning (9–12)" : "上午 (9-12)",
+          icon: Sun,
+          start: 9,
+          end: 12,
+          count: 0,
+          color: "bg-[#C4D7B2]",
+        },
+        {
+          label: locale === "en" ? "Afternoon (12–18)" : "下午 (12-18)",
+          icon: Clock,
+          start: 12,
+          end: 18,
+          count: 0,
+          color: "bg-[#E8A0BF]",
+        },
+        {
+          label: locale === "en" ? "Evening (18–24)" : "晚上 (18-24)",
+          icon: Moon,
+          start: 18,
+          end: 24,
+          count: 0,
+          color: "bg-[#7C5D9E]",
+        },
       ];
       pomodoroLogs.forEach((log) => {
         const hour = new Date(log.timestamp).getHours();
@@ -149,7 +177,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
         if (slot) slot.count++;
       });
       return slots;
-    }, [pomodoroLogs]);
+    }, [pomodoroLogs, locale]);
 
     const maxSlot = Math.max(...timeSlots.map((s) => s.count), 1);
 

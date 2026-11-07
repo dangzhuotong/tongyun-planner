@@ -7,6 +7,10 @@ const zhCN: Translations = {
   },
 
   sidebar: {
+    quickCapture: "极速捕捉",
+    shutdown: "日落关机",
+    expandSidebar: "展开侧边栏",
+    collapseSidebar: "收起侧边栏",
     progress: "完成进度",
     completed: "已完成",
     remaining: "剩余待办",
@@ -483,13 +487,16 @@ const zhCN: Translations = {
     dueRemindPermissionGranted: "通知权限已开启",
     dueRemindPermissionDenied: "通知被系统拒绝，请在系统设置中允许",
     calendarHolidayTitle: "日历节假日与调休",
-    calendarHolidayDesc: "控制日历中的法定节假日与调休补班标记，并支持自定义 iCal (.ics) 日历订阅覆盖。",
+    calendarHolidayDesc:
+      "控制日历中的法定节假日与调休补班标记，并支持自定义 iCal (.ics) 日历订阅覆盖。",
     showHolidaysToggle: "显示法定节假日与调休补班",
     showHolidaysHint: "在日历月视图与周视图中标记节假日「休」与调休「班」；关闭后均不显示。",
     holidayRegionTitle: "节假日地区",
-    holidayRegionDesc: "中国内地使用内置离线年表（含调休补班）；中国香港使用特区政府 1823 官方公众假期订阅。",
+    holidayRegionDesc:
+      "中国内地使用内置离线年表（含调休补班）；中国香港使用特区政府 1823 官方公众假期订阅。",
     icalSubscriptionTitle: "自定义 iCal (.ics) 日历订阅",
-    icalSubscriptionDesc: "支持填入公开的 iCal 日历订阅地址（如香港特区政府 1823 公众假期、学校校历或企业轮班），覆盖内置年表。",
+    icalSubscriptionDesc:
+      "支持填入公开的 iCal 日历订阅地址（如香港特区政府 1823 公众假期、学校校历或企业轮班），覆盖内置年表。",
     icalSyncButton: "保存并同步",
     icalClearButton: "清空",
     icalClearSuccess: "已清空 iCal 订阅，恢复内置法定节假日",
@@ -565,8 +572,7 @@ const zhCN: Translations = {
     updateFailed: "更新失败：",
     reportIssue: "反馈问题",
     microBreakTitle: "随机微休息",
-    microBreakDesc:
-      "专注过程中随机插入短暂休息。间隔与每次时长都在设定范围内随机取值，不再写死。",
+    microBreakDesc: "专注过程中随机插入短暂休息。间隔与每次时长都在设定范围内随机取值，不再写死。",
     microBreakToggle: "启用随机微休息",
     microBreakToggleHint: "窗口在后台时改为系统通知提醒，不会把主窗拉到前台。",
     microBreakGapLabel: "提醒间隔",

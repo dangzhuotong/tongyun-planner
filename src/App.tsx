@@ -1941,7 +1941,7 @@ const MainLayout = React.memo(function MainLayout({
               }`}
             >
               <LayoutGrid className="w-4 h-4" />
-              <span>四象限</span>
+              <span>{t.sidebar.matrix}</span>
             </button>
 
             <button
@@ -1953,7 +1953,7 @@ const MainLayout = React.memo(function MainLayout({
               }`}
             >
               <ListTodo className="w-4 h-4" />
-              <span>清单</span>
+              <span>{t.sidebar.list}</span>
               {tasks.length > 0 && (
                 <span className="absolute top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-[#4D7C5D]" />
               )}
@@ -1968,7 +1968,7 @@ const MainLayout = React.memo(function MainLayout({
               }`}
             >
               <Clock className="w-4 h-4" />
-              <span>专注</span>
+              <span>{t.sidebar.focusMode}</span>
               {isPomodoroActive && (
                 <span className="absolute top-0.5 right-2 w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
               )}
@@ -1983,7 +1983,7 @@ const MainLayout = React.memo(function MainLayout({
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>手账</span>
+              <span>{t.sidebar.journal}</span>
             </button>
 
             <button
@@ -1995,7 +1995,7 @@ const MainLayout = React.memo(function MainLayout({
               }`}
             >
               <Settings className="w-4 h-4" />
-              <span>设置</span>
+              <span>{t.sidebar.settings}</span>
             </button>
           </nav>
         </div>
