@@ -37,7 +37,8 @@ import { getLocalDateString } from "../utils/date";
 import { pomodoroStatsOn, taskCompletedOn } from "../utils/dailyReview";
 import { getDailyTaskPomodoroSummaries } from "../utils/pomodoroTaskStats";
 import { useTranslation } from "../i18n/LanguageContext";
-import { callAI } from "../utils/aiEngine";
+import { registerPersistenceFlusher } from "../utils/deferredStorage";
+import { callAI, canUseAI } from "../utils/aiEngine";
 import { usePersonal } from "../context/PersonalContext";
 import { matchesSearch } from "../utils/textSearch";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
@@ -59,6 +60,7 @@ const JOURNAL_MOODS = [
 import { buildDefaultCommentPrompt } from "../utils/aiPrompts";
 
 interface JournalViewProps {
+  initialDate?: string;
   tasks: Task[];
   completedTasks: Task[];
   pomodoroLogs: Pick<PomodoroLog, "id" | "timestamp" | "duration">[];
@@ -67,6 +69,7 @@ interface JournalViewProps {
 }
 
 export function JournalView({
+  initialDate,
   tasks,
   completedTasks,
   pomodoroLogs,
@@ -84,7 +87,7 @@ export function JournalView({
   const j = t.journal as Record<string, string>;
   const today = getLocalDateString();
 
-  const [currentDate, setCurrentDate] = useState<string>(today);
+  const [currentDate, setCurrentDate] = useState<string>(initialDate || today);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tagOpen, setTagOpen] = useState(false);
@@ -113,9 +116,10 @@ export function JournalView({
   const [draftContent, setDraftContent] = useState(() => selected?.content || "");
   const [prevSelected, setPrevSelected] = useState(selected);
   const draftDirtyRef = useRef(false);
+  const [draftDirty, setDraftDirty] = useState(false);
   if (selected !== prevSelected) {
     const sameDay =
-      draftDirtyRef.current &&
+      draftDirty &&
       Boolean(selected?.date) &&
       selected?.date === prevSelected?.date &&
       selected?.date === currentDate;
@@ -142,6 +146,7 @@ export function JournalView({
   const flushDraft = useCallback(() => {
     if (!draftDirtyRef.current) return;
     draftDirtyRef.current = false;
+    setDraftDirty(false);
     const date = viewDateRef.current;
     const base =
       selectedRef.current ||
@@ -167,7 +172,18 @@ export function JournalView({
     return () => window.clearTimeout(timer);
   }, [draftContent, flushDraft]);
 
-  useEffect(() => () => flushDraft(), [flushDraft]);
+  useEffect(() => {
+    const unregister = registerPersistenceFlusher(flushDraft);
+    const onHide = () => flushDraft();
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      unregister();
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onHide);
+      flushDraft();
+    };
+  }, [flushDraft]);
 
   const commit = useCallback(
     (patch: Partial<JournalEntry>) => {
@@ -184,6 +200,7 @@ export function JournalView({
         } as JournalEntry);
       const pendingContent = draftDirtyRef.current ? draftContentRef.current : base.content;
       draftDirtyRef.current = false;
+      setDraftDirty(false);
       const next: JournalEntry = {
         ...base,
         content: pendingContent,
@@ -213,6 +230,7 @@ export function JournalView({
     const next = cur ? `${promptText}${cur}` : promptText;
     setDraftContent(next);
     draftDirtyRef.current = true;
+    setDraftDirty(true);
     draftContentRef.current = next;
     commit({ content: next });
   }, [dailyPrompt, selected?.content, commit]);
@@ -294,6 +312,7 @@ export function JournalView({
 
   const handleContentChange = (v: string) => {
     draftDirtyRef.current = true;
+    setDraftDirty(true);
     draftContentRef.current = v;
     setDraftContent(v);
   };
@@ -345,7 +364,7 @@ export function JournalView({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const generateAiComment = useCallback(async () => {
-    if (!aiConfig?.aiApiKey) {
+    if (!aiConfig || !canUseAI(aiConfig)) {
       setAiError(j.needApiKey || "请先在设置中配置 AI API Key");
       return;
     }

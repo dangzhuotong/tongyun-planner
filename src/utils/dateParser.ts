@@ -1,3 +1,4 @@
+import { addLocalMonths } from "./date";
 const WEEKDAYS: Record<string, number> = { 日: 0, 天: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6 };
 
 export interface ParsedDate {
@@ -89,24 +90,22 @@ export function parseNaturalDate(text: string): ParsedDate | null {
     const targetDay = WEEKDAYS[nextWeekMatch[1]];
     if (targetDay !== undefined) {
       targetDate = new Date(today);
-      const currentDay = targetDate.getDay();
-      let diff = targetDay - currentDay;
-      if (diff <= 0) diff += 7;
-      targetDate.setDate(targetDate.getDate() + diff + 7);
+      const mondayOffset = (today.getDay() + 6) % 7;
+      const targetOffset = (targetDay + 6) % 7;
+      targetDate.setDate(today.getDate() - mondayOffset + 7 + targetOffset);
     }
     cleaned = cleaned.replace(nextWeekMatch[0], "");
   }
 
   // 这个 X / 本周X
-  const thisWeekMatch = cleaned.match(/(?:这个|本周)(?:周|星期)([一二三四五六天日日])/);
+  const thisWeekMatch = cleaned.match(/(?:这个(?:周|星期)|本(?:周|星期))([一二三四五六天日])/);
   if (thisWeekMatch && !targetDate) {
     const targetDay = WEEKDAYS[thisWeekMatch[1]];
     if (targetDay !== undefined) {
       targetDate = new Date(today);
-      const currentDay = targetDate.getDay();
-      let diff = targetDay - currentDay;
-      if (diff <= 0) diff += 7;
-      targetDate.setDate(targetDate.getDate() + diff);
+      const mondayOffset = (today.getDay() + 6) % 7;
+      const targetOffset = (targetDay + 6) % 7;
+      targetDate.setDate(today.getDate() - mondayOffset + targetOffset);
     }
     cleaned = cleaned.replace(thisWeekMatch[0], "");
   }
@@ -139,7 +138,11 @@ export function parseNaturalDate(text: string): ParsedDate | null {
     targetDate = new Date(today);
     if (unit === "天") targetDate.setDate(targetDate.getDate() + num);
     else if (unit === "周") targetDate.setDate(targetDate.getDate() + num * 7);
-    else targetDate.setMonth(targetDate.getMonth() + num);
+    else {
+      const date = addLocalMonths(todayStr(), num);
+      const [year, month, day] = date.split("-").map(Number);
+      targetDate = new Date(year, month - 1, day);
+    }
     cleaned = cleaned.replace(afterMatch[0], "");
   }
 

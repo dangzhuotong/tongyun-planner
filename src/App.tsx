@@ -1375,6 +1375,7 @@ const MainLayout = React.memo(function MainLayout({
   onOpenEnergyTimeBlock,
   onOpenQuickCapture,
 }: MainLayoutProps) {
+  const [journalDate, setJournalDate] = useState<string>();
   const mainContent = useMemo(() => {
 
     return (
@@ -1410,7 +1411,7 @@ const MainLayout = React.memo(function MainLayout({
                                     ? t.journal?.title || "日记手账"
                                     : activeTab === "memory"
                                       ? t.sidebar?.memory || "时光长廊"
-                                      : t.header.completed}
+                                      : t.sidebar.settings}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
                   {activeTab === "list"
@@ -1726,6 +1727,7 @@ const MainLayout = React.memo(function MainLayout({
         )}
         {activeTab === "analytics" && (
           <AnalyticsView
+            customizationConfig={customizationHook.customizationConfig}
             pomodoroLogs={pomodoroLogs}
             tasks={tasks}
             completedTasks={completedTasks}
@@ -1751,6 +1753,7 @@ const MainLayout = React.memo(function MainLayout({
         )}
         {activeTab === "journal" && (
           <JournalView
+            initialDate={journalDate}
             tasks={tasks}
             completedTasks={completedTasks}
             pomodoroLogs={pomodoroLogs}
@@ -1764,7 +1767,8 @@ const MainLayout = React.memo(function MainLayout({
             pomodoroLogs={pomodoroLogs}
             journal={journal}
             config={customizationHook.customizationConfig}
-            onOpenJournalDate={(_date) => {
+            onOpenJournalDate={(date) => {
+              setJournalDate(date);
               setActiveTab("journal");
             }}
           />
@@ -1788,6 +1792,7 @@ const MainLayout = React.memo(function MainLayout({
     tasks,
     completedTasks,
     journal,
+    journalDate,
     t,
     fontFamily,
     wrappedHandleComplete,

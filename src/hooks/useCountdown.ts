@@ -10,13 +10,20 @@ export function useCountdown() {
   );
 
   const handleAddCountdown = useCallback(
-    (event: { title: string; targetDate: string; emoji?: string; color?: string }) => {
+    (event: {
+      title: string;
+      targetDate: string;
+      emoji?: string;
+      color?: string;
+      isLunar?: boolean;
+    }) => {
       const newEvent: CountdownEvent = {
         id: createId("countdown"),
         title: event.title,
         targetDate: event.targetDate,
         emoji: event.emoji || "🎯",
         color: event.color,
+        isLunar: event.isLunar,
       };
       setCountdowns((prev) => [...prev, newEvent]);
     },

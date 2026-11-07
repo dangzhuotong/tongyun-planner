@@ -1,3 +1,4 @@
+import { getLocalDateString } from "../utils/date";
 import React, { useState, useMemo } from "react";
 import {
   Calendar,
@@ -151,7 +152,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
           monthPomodoroMap[dateStr] = { count: 0, totalMinutes: 0, logs: [] };
         }
         monthPomodoroMap[dateStr].count += 1;
-        monthPomodoroMap[dateStr].totalMinutes += p.duration || 25;
+        monthPomodoroMap[dateStr].totalMinutes += (p.duration || 0) / 60;
         monthPomodoroMap[dateStr].logs.push(p);
       }
     });
@@ -254,7 +255,7 @@ export const MemoryView: React.FC<MemoryViewProps> = ({
     if (candidates.length === 0) {
       setDrawnCard({
         type: "journal",
-        date: new Date().toISOString().split("T")[0],
+        date: getLocalDateString(),
         title: isZh ? "开启第一篇时光记忆" : "Create Your First Memory",
         content: isZh
           ? "在日记本写下第一篇温情文字，或在待办里完成一项任务，让时光长廊留下属于你的美好痕迹吧！"

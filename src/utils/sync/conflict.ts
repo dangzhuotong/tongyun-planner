@@ -125,3 +125,22 @@ export function conflictBackupFileName(
   const ss = pad(date.getSeconds());
   return `${yyyy}${MM}${dd}-${hh}${mm}${ss}-${category}-${side}.json`;
 }
+
+/** Journal entry order is presentation-only; all entry fields and duplicates still matter. */
+export function equivalentJournalPayloads(local: unknown, remote: unknown): boolean {
+  if (!Array.isArray(local) || !Array.isArray(remote)) return false;
+  const canonicalize = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(canonicalize);
+    if (value !== null && typeof value === "object") {
+      return Object.fromEntries(
+        Object.entries(value)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, item]) => [key, canonicalize(item)]),
+      );
+    }
+    return value;
+  };
+  const entries = (items: unknown[]) =>
+    items.map((item) => JSON.stringify(canonicalize(item))).sort();
+  return JSON.stringify(entries(local)) === JSON.stringify(entries(remote));
+}

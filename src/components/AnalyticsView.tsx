@@ -15,7 +15,7 @@ import {
 import type { Task, PomodoroLog, CustomizationConfig } from "../types";
 import { useTranslation } from "../i18n/LanguageContext";
 import { getLocalDateString } from "../utils/date";
-import { callAI, generateReport } from "../utils/aiEngine";
+import { callAI, generateReport, canUseAI } from "../utils/aiEngine";
 import { FocusHeatmap } from "./FocusHeatmap";
 
 interface AnalyticsViewProps {
@@ -57,7 +57,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
     const [reportType, setReportType] = useState<"daily" | "weekly">("daily");
 
     const handleGenerateReport = async () => {
-      if (!customizationConfig?.aiApiKey) return;
+      if (!customizationConfig || !canUseAI(customizationConfig)) return;
       setReportLoading(true);
       try {
         const now = new Date();
@@ -70,7 +70,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
         const recentPomodoros = pomodoroLogs.filter(
           (log) => log.timestamp >= weekAgo.getTime() && log.timestamp <= now.getTime(),
         );
-        const totalPomoMin = recentPomodoros.reduce((s, l) => s + l.duration, 0);
+        const totalPomoMin = Math.round(recentPomodoros.reduce((s, l) => s + l.duration, 0) / 60);
         const cats: Record<string, number> = {};
         recentCompleted.forEach((t) => {
           cats[t.category] = (cats[t.category] || 0) + 1;
@@ -95,7 +95,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
     };
 
     const { totalHours, totalMinutes, todayPomodoros, avgDuration } = useMemo(() => {
-      const totalDur = pomodoroLogs.reduce((acc, curr) => acc + curr.duration, 0);
+      const totalDur = Math.round(pomodoroLogs.reduce((acc, curr) => acc + curr.duration, 0) / 60);
       const hours = Math.floor(totalDur / 60);
       const minutes = totalDur % 60;
       const todayStr = getLocalDateString();
@@ -127,7 +127,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
           taskStatsMap[tId] = { taskId: tId, taskTitle: tTitle, tomatoCount: 0, totalDuration: 0 };
         }
         taskStatsMap[tId].tomatoCount += 1;
-        taskStatsMap[tId].totalDuration += log.duration;
+        taskStatsMap[tId].totalDuration += log.duration / 60;
       });
       const sortedList = Object.values(taskStatsMap).sort(
         (a, b) => b.totalDuration - a.totalDuration,
@@ -201,7 +201,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
         task.tags.forEach((tag) => {
           const cur = tagMap.get(tag) || { count: 0, totalDuration: 0 };
           cur.count++;
-          cur.totalDuration += log.duration;
+          cur.totalDuration += log.duration / 60;
           tagMap.set(tag, cur);
         });
       });
@@ -218,7 +218,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
     const [aiError, setAiError] = useState("");
 
     const generateWeeklySummary = useCallback(async () => {
-      if (!customizationConfig?.aiApiKey) {
+      if (!customizationConfig || !canUseAI(customizationConfig)) {
         setAiError(a.aiWeeklyError);
         return;
       }
@@ -228,7 +228,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const weekLogs = pomodoroLogs.filter((log) => log.timestamp >= weekAgo.getTime());
       const totalSessions = weekLogs.length;
-      const totalMin = weekLogs.reduce((acc, l) => acc + l.duration, 0);
+      const totalMin = Math.round(weekLogs.reduce((acc, l) => acc + l.duration, 0) / 60);
       const daysActive = new Set(weekLogs.map((l) => getLocalDateString(new Date(l.timestamp))))
         .size;
       const topTasks = weekLogs.reduce<Record<string, number>>((acc, l) => {
@@ -296,7 +296,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = React.memo(
     return (
       <div className="animate-fade-in-up flex flex-col gap-4 flex-grow z-10 relative select-none">
         {/* AI Report Card */}
-        {customizationConfig?.aiApiKey && (
+        {customizationConfig && canUseAI(customizationConfig) && (
           <div className="rounded-2xl bg-white/90 dark:bg-[#1C1D21]/90 border border-[#EFEBE4] dark:border-[#33353A] p-4 shadow-xs transition-colors">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getLocalSyncData, sanitizeConfigForSync } from "./types";
+import { flushPendingStorage } from "../deferredStorage";
 import { safeJsonParse } from "../json";
 import { loadLedgerEntries } from "../ledger/ledgerStorage";
 
@@ -38,6 +39,7 @@ export function buildSnapshotPayload(
   now = new Date(),
   snapshotType?: "daily",
 ): Record<string, unknown> {
+  flushPendingStorage();
   const sync = getLocalSyncData();
   return {
     ...sync,
@@ -79,6 +81,7 @@ export async function ensureDailySnapshot(now = new Date()): Promise<string | nu
     }
 
     // 检查用户数据是否全空（6 维主要数据分类均为空时跳过）
+    flushPendingStorage();
     const syncData = getLocalSyncData();
     const hasUserData =
       (syncData.tasks && syncData.tasks.length > 0) ||
@@ -86,7 +89,8 @@ export async function ensureDailySnapshot(now = new Date()): Promise<string | nu
       (syncData.stickyNotes && syncData.stickyNotes.length > 0) ||
       (syncData.pomodoroLogs && syncData.pomodoroLogs.length > 0) ||
       (syncData.countdowns && syncData.countdowns.length > 0) ||
-      (syncData.journal && syncData.journal.length > 0);
+      (syncData.journal && syncData.journal.length > 0) ||
+      loadLedgerEntries().length > 0;
 
     if (!hasUserData) {
       return null;

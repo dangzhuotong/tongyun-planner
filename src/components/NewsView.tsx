@@ -244,6 +244,7 @@ export const NewsView: React.FC<NewsViewProps> = React.memo(
         {/* Reading Overlay */}
         {selectedArticle && (
           <ReadingOverlay
+            key={selectedArticle.link + selectedArticle.title}
             article={selectedArticle}
             onClose={() => {
               setSelectedArticle(null);

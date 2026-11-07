@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { formatNaturalPreview, parseNaturalDate } from "../dateParser";
 
 function ymd(date: Date): string {
@@ -16,16 +16,6 @@ function startOfToday(): Date {
 function shiftDays(days: number): string {
   const date = startOfToday();
   date.setDate(date.getDate() + days);
-  return ymd(date);
-}
-
-/** 与 dateParser 的本周/下周推算一致：目标日已过或就是今天时先跳到下一周。 */
-function weekdayOn(weekday: number, extraWeek: boolean): string {
-  const date = startOfToday();
-  let diff = weekday - date.getDay();
-  if (diff <= 0) diff += 7;
-  if (extraWeek) diff += 7;
-  date.setDate(date.getDate() + diff);
   return ymd(date);
 }
 
@@ -63,14 +53,24 @@ describe("Natural Date Parser", () => {
     expect(res?.dueTime).toBeUndefined();
   });
 
-  it("parses 下周五 as the Friday of next week", () => {
-    const res = parseNaturalDate("下周五评审");
-    expect(res?.dueDate).toBe(weekdayOn(5, true));
+  afterEach(() => vi.useRealTimers());
+
+  it.each([
+    ["下周一开会", "2026-11-09"],
+    ["下周五评审", "2026-11-13"],
+    ["下周日休息", "2026-11-15"],
+    ["本周五评审", "2026-11-06"],
+    ["这个星期三复盘", "2026-11-04"],
+  ])("uses calendar weeks for %s", (text, expected) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 7, 12));
+    expect(parseNaturalDate(text)?.dueDate).toBe(expected);
   });
 
-  it("parses 这个星期三 inside the current week, rolling forward once the day has passed", () => {
-    const res = parseNaturalDate("这个星期三复盘");
-    expect(res?.dueDate).toBe(weekdayOn(3, false));
+  it("clamps relative months at month end", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 0, 31, 12));
+    expect(parseNaturalDate("1个月后续费")?.dueDate).toBe("2026-02-28");
   });
 
   it("parses 下个月 as the first day of next month", () => {
@@ -93,9 +93,12 @@ describe("Natural Date Parser", () => {
     expect(parseNaturalDate("2周后回访")?.dueDate).toBe(shiftDays(14));
   });
 
-  it("parses N 个月后 with the same month rollover as Date", () => {
+  it("parses N 个月后 on the same day, clamped to month end", () => {
     const date = startOfToday();
+    const day = date.getDate();
+    date.setDate(1);
     date.setMonth(date.getMonth() + 1);
+    date.setDate(Math.min(day, new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()));
     expect(parseNaturalDate("1个月后续费")?.dueDate).toBe(ymd(date));
   });
 

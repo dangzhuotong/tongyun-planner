@@ -15,6 +15,8 @@ import {
   urlForPreset,
 } from "../webdavForm";
 import { categoryVersionAfterPull, shouldPullCategory } from "../pullDecision";
+import { getFingerprint, setFingerprint } from "../conflict";
+import { getLocalSyncData } from "../types";
 import { encryptSecretFields } from "../secretSync";
 import { secretSyncDecryptWarning, setSyncSecretsOptIn } from "../syncSecretsPref";
 
@@ -49,6 +51,51 @@ describe("WebDAV desktop transport", () => {
     vi.stubGlobal("window", {});
     vi.stubGlobal("isTauri", undefined);
   });
+
+  it.each([false, true])(
+    "handles journal metadata changes without hiding content edits (changed=%s)",
+    async (changed) => {
+      vi.stubGlobal("window", { isTauri: true, __TAURI_INTERNALS__: {} });
+      const local = [
+        { id: "a", content: "first", attachments: ["1", "2"] },
+        { id: "b", content: "second" },
+      ];
+      const remote = [local[1], { ...local[0], content: changed ? "edited elsewhere" : "first" }];
+      const provider = new WebDAVProvider(config);
+      const account = `${config.url}|${config.username}`;
+      setFingerprint(account, "journal.json", "etag:old");
+      const uploads: string[] = [];
+      vi.mocked(invoke).mockImplementation(async (cmd, args) => {
+        if (cmd === "webdav_stat") return { exists: true, etag: "new", lastModified: null };
+        if (cmd === "webdav_download_meta")
+          return {
+            content: JSON.stringify(
+              String((args as Record<string, unknown>)?.filename).endsWith("manifest.json")
+                ? { journal: { version: 100 } }
+                : remote,
+            ),
+            etag: "new",
+            lastModified: null,
+          };
+        if (cmd === "webdav_upload_meta")
+          uploads.push(String((args as Record<string, unknown>)?.filename));
+        if (cmd === "local_backup_write") return "/backup.json";
+        return null;
+      });
+      const result = await provider.push(
+        { ...getLocalSyncData(), journal: local as any },
+        new Set(["journal"]),
+      );
+      expect(result.conflicts).toHaveLength(changed ? 1 : 0);
+      expect(uploads).toEqual([]);
+      expect(getFingerprint(account, "journal.json")).toBe(changed ? "etag:old" : "etag:new");
+      if (changed) expect(result.conflicts[0].remotePayload).toEqual(remote);
+      else
+        expect(vi.mocked(invoke).mock.calls.some(([cmd]) => cmd === "local_backup_write")).toBe(
+          false,
+        );
+    },
+  );
 
   it("does not use webview fetch outside the desktop app", async () => {
     await expect(statFile(config, "TongYunPlanner/tasks.json")).rejects.toThrow(/CORS|desktop/);

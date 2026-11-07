@@ -8,7 +8,10 @@ const STORAGE_KEY = "tongyun_habits";
 function load(): HabitItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
   } catch {
     /* ignore */
   }
@@ -37,6 +40,19 @@ export function useHabits() {
     });
   });
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const today = getLocalDateString();
+      setHabits((prev) => {
+        if (!prev.some((h) => h.doneToday && h.lastDoneDate !== today)) return prev;
+        return prev.map((h) =>
+          h.doneToday && h.lastDoneDate !== today ? { ...h, doneToday: false } : h,
+        );
+      });
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   // 当日持久化
   useEffect(() => {
     save(habits);
@@ -59,7 +75,7 @@ export function useHabits() {
     setHabits((prev) =>
       prev.map((h) => {
         if (h.id !== id) return h;
-        const toggled = !h.doneToday;
+        const toggled = !(h.doneToday && h.lastDoneDate === today);
 
         // 计算连续天数：打卡 → 看昨天是否连续；取消 → streak 不动
         let newStreak = h.streak;

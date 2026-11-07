@@ -62,9 +62,11 @@ const RangeField: React.FC<RangeFieldProps> = ({
 }) => {
   const [draft, setDraft] = useState(String(value));
 
-  useEffect(() => {
+  const [previousValue, setPreviousValue] = useState(value);
+  if (previousValue !== value) {
+    setPreviousValue(value);
     setDraft(String(value));
-  }, [value]);
+  }
 
   const commit = () => {
     const parsed = Number(draft);
@@ -193,10 +195,13 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
   const [syncingIcal, setSyncingIcal] = useState(false);
   const [icalStatus, setIcalStatus] = useState<{ msg: string; isError: boolean } | null>(null);
 
-  // 配置里的订阅地址变化时同步输入框
-  useEffect(() => {
-    setIcalInputUrl(config.calendarIcalUrl || "");
-  }, [config.calendarIcalUrl]);
+  // Reset the draft when its source changes, before rendering the input.
+  const sourceIcalUrl = config.calendarIcalUrl || "";
+  const [previousIcalUrl, setPreviousIcalUrl] = useState(sourceIcalUrl);
+  if (previousIcalUrl !== sourceIcalUrl) {
+    setPreviousIcalUrl(sourceIcalUrl);
+    setIcalInputUrl(sourceIcalUrl);
+  }
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {

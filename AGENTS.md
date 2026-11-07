@@ -135,3 +135,6 @@ src-tauri/
 - `tongyun_pipeline.tasks.id` 在 TiDB 上是 `AUTO_RANDOM`，`information_schema.COLUMNS.EXTRA` 是空字符串。不能只拿 `/auto_increment/` 判断。要看 `SHOW CREATE TABLE` 里的 `AUTO_RANDOM`，插入省略 id；显式插入会 8216。回执 id 用 `lastInsertId` 或按 `planner_task_id` 回读，不要把本机雪花数当成库内 id。
 - 派活名单不要把 `agents` 行直接列出来。只列 enabled 且有心跳的 `workers`。不要为这个加 DDL 显示列。
 - 侧栏「数据库同步失败」只认个人库 `backend=database && channel=database && status=error`。`user_prefs` 只有「机密无口令拒明文」可以打断整次同步；单表失败和存储恢复前的「未配置」不能把侧栏打红。公司库派活失败只在 Agent 面板。
+
+- WebDAV 的文件指纹变化不等于日记内容变化；判冲突前比较完整条目，顶层排序不构成内容修改。下载完成后必须重新检查本机脏标记和版本，云端快照未成功读取或类型错误时不得接受并清空本机。
+- 番茄日志 `duration` 按数据模型统一为秒；计时设置为分钟，结算时乘 60，展示分钟时除 60。隔离测试必须覆盖已到时的首次 tick，避免在 interval 初始化前访问它。
