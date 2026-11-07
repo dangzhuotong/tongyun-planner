@@ -6,6 +6,16 @@ export function getLocalDateString(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+/** 截止日期是这一天，或完成时刻落在本地日历日。不用 UTC 日期，避免凌晨被算到前一天。 */
+export function taskBelongsToLocalDate(
+  task: { dueDate?: string; completedAt?: number },
+  dateStr: string,
+): boolean {
+  if (task.dueDate === dateStr) return true;
+  if (task.completedAt == null) return false;
+  return getLocalDateString(new Date(task.completedAt)) === dateStr;
+}
+
 export function parseLocalDate(dateStr: string): Date | null {
   const parts = dateStr.split("-").map((part) => parseInt(part, 10));
   if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) return null;

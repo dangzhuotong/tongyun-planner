@@ -16,6 +16,7 @@ import { useTranslation } from "../../i18n/LanguageContext";
 import { usePomodoroContext } from "../../context/PomodoroContext";
 import { useSetting } from "../../hooks/useSetting";
 import { checkForAppUpdate, resolveDisplayedAppVersion } from "../../utils/updater";
+import { exportDiagnosticLog } from "../../utils/diagnosticLog";
 import { openExternal } from "../../utils/openExternal";
 import { getVersion } from "@tauri-apps/api/app";
 import { version as bundledVersion } from "../../../package.json";
@@ -190,6 +191,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
   const [visibleNoises, setVisibleNoisesState] = useState<string[]>(() => getVisibleNoises());
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [exportingLogs, setExportingLogs] = useState(false);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [icalInputUrl, setIcalInputUrl] = useState(config.calendarIcalUrl || "");
   const [syncingIcal, setSyncingIcal] = useState(false);
@@ -362,6 +364,23 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
             )}
           </button>
         </div>
+        <button
+          type="button"
+          disabled={exportingLogs}
+          onClick={() => {
+            setExportingLogs(true);
+            void exportDiagnosticLog()
+              .then(() => triggerToast(s.exportLogsDone || "日志已导出到下载目录", "success"))
+              .catch((error: unknown) => {
+                const message = error instanceof Error ? error.message : String(error);
+                triggerToast((s.exportLogsFailed || "导出日志失败：") + message, "error");
+              })
+              .finally(() => setExportingLogs(false));
+          }}
+          className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-[#1E2026] hover:bg-slate-50 dark:hover:bg-[#252830] border border-[#EFEBE4] dark:border-[#2D3039] px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+        >
+          <span>{exportingLogs ? s.exportingLogs || "正在导出日志..." : s.exportLogs || "导出运行日志"}</span>
+        </button>
         <button
           type="button"
           onClick={() =>

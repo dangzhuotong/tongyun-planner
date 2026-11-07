@@ -2,10 +2,13 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
 use serde::{Serialize, Deserialize};
+use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 mod backup;
+mod diagnostic;
 mod email;
 mod webdav_meta;
 
@@ -710,6 +713,153 @@ fn project_env(text: &str) -> Option<String> {
     }
 }
 
+const EXTERNAL_PLAYER_LABEL: &str = "external-player";
+
+static PLAYER_URL: Mutex<Option<String>> = Mutex::new(None);
+static PLAYER_GEN: AtomicU64 = AtomicU64::new(0);
+static SILENT_PLAYER_GENS: Mutex<Option<HashSet<u64>>> = Mutex::new(None);
+
+/// 只允许已经解析好的 YouTube / B 站嵌入页。主窗口不再内嵌这些页面。
+fn external_player_url_allowed(raw: &str) -> bool {
+    let Ok(url) = reqwest::Url::parse(raw) else {
+        return false;
+    };
+    if url.scheme() != "https" || url.username() != "" || url.password().is_some() {
+        return false;
+    }
+    if url.port().is_some() || url.fragment().is_some() {
+        return false;
+    }
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    match host {
+        "www.youtube-nocookie.com" | "www.youtube.com" => {
+            let mut parts = url.path().split('/').filter(|part| !part.is_empty());
+            let Some("embed") = parts.next() else {
+                return false;
+            };
+            let Some(id) = parts.next() else {
+                return false;
+            };
+            parts.next().is_none()
+                && id.len() == 11
+                && id
+                    .chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+        }
+        "player.bilibili.com" => url.path() == "/player.html",
+        _ => false,
+    }
+}
+
+fn destroy_external_player(app: &AppHandle) {
+    let Some(window) = app.get_webview_window(EXTERNAL_PLAYER_LABEL) else {
+        return;
+    };
+    let generation = PLAYER_GEN.load(Ordering::SeqCst);
+    if generation != 0 {
+        if let Ok(mut guard) = SILENT_PLAYER_GENS.lock() {
+            guard.get_or_insert_with(HashSet::new).insert(generation);
+        }
+    }
+    let _ = window.destroy();
+}
+
+fn open_external_player(app: &AppHandle, target: &str) -> Result<(), String> {
+    let parsed = target
+        .parse()
+        .map_err(|_| "E_PLAYER_URL".to_string())?;
+    let generation = PLAYER_GEN.load(Ordering::SeqCst).saturating_add(1);
+    PLAYER_GEN.store(generation, Ordering::SeqCst);
+    let mut builder = tauri::WebviewWindowBuilder::new(app, EXTERNAL_PLAYER_LABEL, tauri::WebviewUrl::External(parsed))
+        .title("外部白噪音")
+        .inner_size(420.0, 280.0)
+        .resizable(true)
+        .always_on_top(true)
+        .focused(false)
+        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
+        .on_navigation(|url| url.scheme() == "https" || url.scheme() == "about");
+    if let Ok(dir) = app.path().app_data_dir() {
+        builder = builder.data_directory(dir.join("external-player-webview"));
+    }
+    let window = builder.build().map_err(|error| error.to_string())?;
+    let app_handle = app.clone();
+    window.on_window_event(move |event| {
+        if !matches!(event, tauri::WindowEvent::Destroyed) {
+            return;
+        }
+        let silent = SILENT_PLAYER_GENS
+            .lock()
+            .ok()
+            .and_then(|mut guard| guard.as_mut().map(|gens| gens.remove(&generation)))
+            .unwrap_or(false);
+        if silent {
+            return;
+        }
+        if PLAYER_GEN.load(Ordering::SeqCst) != generation {
+            return;
+        }
+        if let Ok(mut current) = PLAYER_URL.lock() {
+            *current = None;
+        }
+        let _ = app_handle.emit_to("main", "external-player-closed", ());
+    });
+    Ok(())
+}
+
+#[tauri::command]
+fn append_diagnostic_log(app: AppHandle, line: String) -> Result<(), String> {
+    diagnostic::append_log(&app, &line)
+}
+
+#[tauri::command]
+fn export_diagnostic_log(app: AppHandle) -> Result<String, String> {
+    diagnostic::export_log(&app)
+}
+
+#[tauri::command]
+fn set_external_player(app: AppHandle, url: Option<String>) -> Result<(), String> {
+    let desired = match url {
+        Some(raw) => {
+            let trimmed = raw.trim().to_string();
+            if !external_player_url_allowed(&trimmed) {
+                return Err("E_PLAYER_URL".to_string());
+            }
+            Some(trimmed)
+        }
+        None => None,
+    };
+
+    {
+        let current = PLAYER_URL.lock().map_err(|_| "E_PLAYER_LOCK".to_string())?;
+        if *current == desired {
+            if desired.is_some() {
+                if let Some(window) = app.get_webview_window(EXTERNAL_PLAYER_LABEL) {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    return Ok(());
+                }
+            } else if app.get_webview_window(EXTERNAL_PLAYER_LABEL).is_none() {
+                return Ok(());
+            }
+        }
+    }
+
+    destroy_external_player(&app);
+    if let Ok(mut current) = PLAYER_URL.lock() {
+        *current = None;
+    }
+    let Some(next) = desired else {
+        return Ok(());
+    };
+    open_external_player(&app, &next)?;
+    if let Ok(mut current) = PLAYER_URL.lock() {
+        *current = Some(next);
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -758,7 +908,10 @@ pub fn run() {
             local_backup_prune,
             local_backup_dir,
             app_quit_ready,
-            read_pipeline_home_files
+            read_pipeline_home_files,
+            set_external_player,
+            append_diagnostic_log,
+            export_diagnostic_log
         ])
         // 6. 初始化系统托盘
         .setup(|app| {
@@ -944,5 +1097,21 @@ mod tests {
         assert_eq!(de_clear.title.as_deref(), Some(""));
         assert_eq!(de_clear.description.as_deref(), Some(""));
         assert_eq!(de_clear.due_date.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn external_player_only_allows_known_embed_pages() {
+        assert!(external_player_url_allowed(
+            "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&autoplay=1"
+        ));
+        assert!(external_player_url_allowed(
+            "https://player.bilibili.com/player.html?bvid=BV1GJ411x7h7&autoplay=1"
+        ));
+        assert!(!external_player_url_allowed("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+        assert!(!external_player_url_allowed("https://evil.example/embed/dQw4w9WgXcQ"));
+        assert!(!external_player_url_allowed("file:///tmp/player.html"));
+        assert!(!external_player_url_allowed(
+            "https://user:pass@www.youtube.com/embed/dQw4w9WgXcQ"
+        ));
     }
 }
