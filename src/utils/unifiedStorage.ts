@@ -2,6 +2,8 @@ import { initializeDomainDatabase } from "../data/domainDatabase";
 
 const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+const PENDING_PREFIX = "tongyun_sqlite_pending:";
+
 const DB_NAME = "sqlite:tongyun_planner.db";
 
 function getAllKnownKeys(): string[] {
@@ -56,6 +58,9 @@ function getAllKnownKeys(): string[] {
     "tongyun_recollect_prose",
     // 日历 & 白噪音
     "tongyun_timeblocks",
+    "tongyun_saved_task_views",
+    "tongyun_external_calendar_source",
+    "tongyun_external_calendar_content",
     // 日历轻量记账（issue #51 第 3 项）
     "tongyun_ledger_entries",
     "tongyun_visible_noises",
@@ -86,7 +91,7 @@ function getAllKnownKeys(): string[] {
   ];
 }
 
-class UnifiedStorage {
+export class UnifiedStorage {
   private db: any = null;
   private readyPromise: Promise<void> | null = null;
   private flushTimer: number | null = null;
@@ -98,6 +103,7 @@ class UnifiedStorage {
   private origRemoveItem: ((key: string) => void) | null = null;
 
   private overridden = false;
+  private initialized = false;
 
   async init(): Promise<void> {
     if (this.readyPromise) return this.readyPromise;
@@ -130,19 +136,25 @@ class UnifiedStorage {
       );
       const sqliteKeys = new Set<string>();
 
-      if (rows.length > 0) {
-        for (const row of rows) {
-          sqliteKeys.add(row.key);
-          const local = this.origGetItem!(row.key);
-          if (local !== row.value) {
-            this.origSetItem!(row.key, row.value);
-          }
+      // A WebView can close after localStorage changes but before the SQLite debounce.
+      // Keep that pending change (including a removal) authoritative across restarts.
+      for (let i = 0; i < localStorage.length; i++) {
+        const marker = localStorage.key(i);
+        if (marker?.startsWith(PENDING_PREFIX))
+          this.dirtyKeys.add(marker.slice(PENDING_PREFIX.length));
+      }
+      for (const row of rows) {
+        sqliteKeys.add(row.key);
+        if (this.origGetItem!(PENDING_PREFIX + row.key) !== null) {
+          this.dirtyKeys.add(row.key);
+        } else if (this.origGetItem!(row.key) !== row.value) {
+          this.origSetItem!(row.key, row.value);
         }
       }
 
       const knownKeys = getAllKnownKeys();
       for (const key of knownKeys) {
-        if (!sqliteKeys.has(key)) {
+        if (!sqliteKeys.has(key) && !this.dirtyKeys.has(key)) {
           const local = this.origGetItem!(key);
           if (local !== null) {
             try {
@@ -158,10 +170,12 @@ class UnifiedStorage {
       }
 
       await initializeDomainDatabase();
-
-      this.overrideLocalStorage();
+      this.initialized = true;
     } catch (e) {
       console.warn("SQLite init failed, localStorage only", e);
+    } finally {
+      this.overrideLocalStorage();
+      if (this.dirtyKeys.size) this.scheduleFlush();
     }
   }
 
@@ -175,21 +189,41 @@ class UnifiedStorage {
     const _dirtyKeys = this.dirtyKeys;
     const _scheduleFlush = this.scheduleFlush.bind(this);
 
-    localStorage.getItem = ((key: string): string | null => {
-      return _getItem(key);
-    }) as typeof localStorage.getItem;
+    const markPending = (key: string) => {
+      _setItem(PENDING_PREFIX + key, globalThis.crypto.randomUUID());
+      _dirtyKeys.add(key);
+      _scheduleFlush();
+    };
 
-    localStorage.setItem = ((key: string, value: string): void => {
+    const setLocal = (key: string, value: string): void => {
+      if (_getItem(key) === value) return;
+      markPending(key);
       _setItem(key, value);
-      _dirtyKeys.add(key);
-      _scheduleFlush();
-    }) as typeof localStorage.setItem;
-
-    localStorage.removeItem = ((key: string): void => {
+    };
+    const removeLocal = (key: string): void => {
+      if (_getItem(key) === null) return;
+      markPending(key);
       _removeItem(key);
-      _dirtyKeys.add(key);
-      _scheduleFlush();
-    }) as typeof localStorage.removeItem;
+    };
+
+    // Web Storage uses named properties; assignment on the instance can be treated
+    // as a storage key. Intercept the real methods and leave sessionStorage alone.
+    if (typeof Storage !== "undefined" && localStorage instanceof Storage) {
+      const target = localStorage;
+      const nativeSet = Storage.prototype.setItem;
+      const nativeRemove = Storage.prototype.removeItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (this === target) setLocal(String(key), String(value));
+        else nativeSet.call(this, key, value);
+      };
+      Storage.prototype.removeItem = function (key) {
+        if (this === target) removeLocal(String(key));
+        else nativeRemove.call(this, key);
+      };
+    } else {
+      localStorage.setItem = setLocal;
+      localStorage.removeItem = removeLocal;
+    }
   }
 
   private scheduleFlush(): void {
@@ -209,6 +243,9 @@ class UnifiedStorage {
     this.writeQueue = this.writeQueue.then(async () => {
       for (const key of keys) {
         try {
+          const markerKey = PENDING_PREFIX + key;
+          const marker = this.origGetItem!(markerKey);
+          if (marker === null) continue; // another window already flushed it
           const value = this.origGetItem!(key);
           if (value !== null) {
             await this.db.execute("INSERT OR REPLACE INTO storage (key, value) VALUES ($1, $2)", [
@@ -218,6 +255,15 @@ class UnifiedStorage {
           } else {
             await this.db.execute("DELETE FROM storage WHERE key = $1", [key]);
           }
+          if (this.origGetItem!(markerKey) === marker) this.origRemoveItem!(markerKey);
+          else if (this.origGetItem!(key) !== value) {
+            // A newer write may have already been flushed by another window.
+            if (this.origGetItem!(markerKey) === null) {
+              this.origSetItem!(markerKey, globalThis.crypto.randomUUID());
+            }
+            this.dirtyKeys.add(key);
+            this.scheduleFlush();
+          }
         } catch (e) {
           this.dirtyKeys.add(key);
           console.error(`SQLite flush failed for "${key}"`, e);
@@ -226,6 +272,14 @@ class UnifiedStorage {
     });
 
     await this.writeQueue;
+  }
+
+  isMirrorReady(): boolean {
+    return this.initialized && this.overridden;
+  }
+
+  hasPendingMirrorWrite(key: string): boolean {
+    return this.origGetItem?.(PENDING_PREFIX + key) != null;
   }
 
   async flushNow(): Promise<void> {

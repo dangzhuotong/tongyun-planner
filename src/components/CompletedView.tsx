@@ -25,7 +25,7 @@ export const CompletedView: React.FC<CompletedViewProps> = React.memo(
           </h3>
           {completedTasks.length > 0 && (
             <button
-              onClick={handleClearCompleted}
+              onClick={() => handleClearCompleted()}
               className="text-[10px] text-red-500 dark:text-red-400 hover:bg-red-500 hover:text-white border border-red-200 dark:border-red-900/60 px-2.5 py-1.5 rounded-lg bg-transparent transition-all font-bold cursor-pointer hover:shadow-xs active:scale-95"
             >
               {c.clearAll}

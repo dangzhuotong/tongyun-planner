@@ -73,3 +73,73 @@ it("flushes pending persistence before exporting a backup", () => {
     unregister();
   }
 });
+
+it.each([false, true])(
+  "applies a newer completed-task clear only when clean (dirty=%s)",
+  async (dirty) => {
+    const provider = new WebDAVProvider(config);
+    const completed = [
+      { id: "done", title: "Done", category: "urgent-important", completedAt: 20 },
+    ];
+    localStorage.setItem("aero_completed_todos", JSON.stringify(completed));
+    localStorage.setItem("tongyun_cat_ver_completedTasks", "30");
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command !== "webdav_download_meta") return null;
+      const filename = String((args as Record<string, unknown>).filename);
+      return {
+        content: filename.endsWith("manifest.json")
+          ? JSON.stringify({ completedTasks: { version: 100 } })
+          : "[]",
+        etag: "new",
+        lastModified: null,
+      };
+    });
+
+    const result = await provider.pull(new Set<"completedTasks">(dirty ? ["completedTasks"] : []));
+    expect(result?.completedTasks).toEqual(dirty ? completed : []);
+    expect(localStorage.getItem("tongyun_cat_ver_completedTasks")).toBe(dirty ? "30" : "100");
+  },
+);
+
+it.each([false, true])(
+  "does not replay deleted tasks or startup examples on pull (dirty=%s)",
+  async (dirty) => {
+    const provider = new WebDAVProvider(config);
+    const local = ["1", "deleted"].map((id) => ({ id, title: id, category: "urgent-important" }));
+    const remote = [{ id: "keep", title: "Keep", category: "urgent-important" }];
+    localStorage.setItem("aero_todos", JSON.stringify(local));
+    localStorage.setItem("tongyun_cat_ver_tasks", "30");
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      if (command !== "webdav_download_meta") return null;
+      const filename = String((args as Record<string, unknown>).filename);
+      return {
+        content: JSON.stringify(
+          filename.endsWith("manifest.json") ? { tasks: { version: 100 } } : remote,
+        ),
+        etag: "new",
+        lastModified: null,
+      };
+    });
+    const result = await provider.pull(new Set<"tasks">(dirty ? ["tasks"] : []));
+    expect(result?.tasks).toEqual(dirty ? local : remote);
+  },
+);
+
+it("keeps real local tasks on an unversioned migration without reintroducing sample IDs", async () => {
+  const provider = new WebDAVProvider(config);
+  const real = { id: "legacy-real", title: "Legacy", category: "urgent-important" };
+  const remote = { id: "remote", title: "Remote", category: "urgent-important" };
+  localStorage.setItem("aero_todos", JSON.stringify([{ ...real, id: "1" }, real]));
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
+    if (command !== "webdav_download_meta") return null;
+    const filename = String((args as Record<string, unknown>).filename);
+    return {
+      content: JSON.stringify(
+        filename.endsWith("manifest.json") ? { tasks: { version: 100 } } : [remote],
+      ),
+      etag: "new",
+      lastModified: null,
+    };
+  });
+  expect((await provider.pull())?.tasks).toEqual([real, remote]);
+});

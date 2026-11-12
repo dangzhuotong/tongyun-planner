@@ -1,7 +1,7 @@
 {
   "name": "tongyun-planner",
   "private": true,
-  "version": "1.2.4",
+  "version": "1.2.6",
   "description": "橦云手帐：本地优先的 AI 手帐式桌面效率 App",
   "type": "module",
   "scripts": {
@@ -25,7 +25,9 @@
     "@tauri-apps/plugin-sql": "^2.4.0",
     "@tauri-apps/plugin-store": "^2.4.3",
     "@tauri-apps/plugin-updater": "^2.13.0",
+    "fflate": "^0.8.3",
     "framer-motion": "^12.40.0",
+    "ical.js": "^2.2.1",
     "lucide-react": "^1.21.0",
     "lunar-javascript": "^1.7.7",
     "react": "^19.1.0",
@@ -33,6 +35,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.1",
     "@tauri-apps/cli": "^2",

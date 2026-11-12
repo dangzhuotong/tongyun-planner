@@ -29,7 +29,9 @@ function fingerprint(task: Task): string {
 }
 
 export function completeTask(task: Task, now = Date.now()): TaskCompletion {
-  const completed: Task = { ...task, completedAt: now, updatedAt: now };
+  const completedAt = Math.max(now, (task.reopenedAt ?? 0) + 1);
+  const completed: Task = { ...task, completedAt, updatedAt: completedAt };
+  delete completed.reopenedAt;
   delete completed.repeatSuccessor;
   if (!task.repeat || task.repeat === "none") return { completed };
 
@@ -43,6 +45,7 @@ export function completeTask(task: Task, now = Date.now()): TaskCompletion {
     updatedAt: now,
   };
   delete successor.completedAt;
+  delete successor.reopenedAt;
   delete successor.repeatSuccessor;
   if (next.repeatAnchorDay != null) successor.repeatAnchorDay = next.repeatAnchorDay;
   else delete successor.repeatAnchorDay;
@@ -52,7 +55,8 @@ export function completeTask(task: Task, now = Date.now()): TaskCompletion {
 
 /** Only retract the generated occurrence if the user has not changed it. */
 export function undoTaskCompletion(completed: Task, tasks: Task[]): Task[] {
-  const restored = { ...completed, updatedAt: Date.now() };
+  const reopenedAt = Math.max(Date.now(), completed.completedAt ?? 0);
+  const restored = { ...completed, updatedAt: reopenedAt, reopenedAt };
   delete restored.completedAt;
   delete restored.repeatSuccessor;
   return [

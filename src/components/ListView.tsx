@@ -18,6 +18,9 @@ import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { audioEngine } from "../utils/audioEngine";
+import { matchesTaskView, SAVED_VIEWS_KEY, type TaskView } from "../utils/taskOrganization";
+import { safeJsonParse } from "../utils/json";
+import { createId } from "../utils/id";
 import { getTaskPomodoroStats, formatTaskPomodoroBadge } from "../utils/pomodoroTaskStats";
 
 interface ListViewProps {
@@ -44,6 +47,7 @@ interface ListViewProps {
     dueDate: string;
     dueTime?: string;
     isExplicit?: boolean;
+    project?: string;
   }) => void;
   handleToggleFavorite: (id: string) => void;
   handleTogglePin: (id: string) => void;
@@ -83,6 +87,39 @@ export const ListView: React.FC<ListViewProps> = React.memo(
     const tc = t.taskCard;
     // Local state to filter only starred tasks
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+    const [project, setProject] = useState("all");
+    const [due, setDue] = useState("all");
+    const [viewName, setViewName] = useState("");
+    const [activeView, setActiveView] = useState("");
+    const [savedViews, setSavedViews] = useState<TaskView[]>(() => {
+      const saved = safeJsonParse<TaskView[]>(localStorage.getItem(SAVED_VIEWS_KEY), []);
+      return Array.isArray(saved) ? saved : [];
+    });
+    const projects = [...new Set(tasks.flatMap((task) => task.project ? [task.project] : []))].sort();
+    const updateViews = (next: TaskView[]) => {
+      localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(next));
+      setSavedViews(next);
+    };
+    const saveView = () => {
+      const name = viewName.trim();
+      if (!name) return;
+      const entry: TaskView = { id: createId("view"), name, query: searchQuery, category: categoryFilter, tag: tagFilter, project, due, starred: showFavoritesOnly };
+      updateViews([...savedViews, entry]);
+      setActiveView(entry.id);
+      setViewName("");
+    };
+    const chooseView = (id: string) => {
+      setActiveView(id);
+      const view = savedViews.find((entry) => entry.id === id);
+      if (!view) return;
+      setSearchQuery(view.query);
+      setCategoryFilter(view.category);
+      setTagFilter(view.tag);
+      setProject(view.project);
+      setDue(view.due);
+      setShowFavoritesOnly(view.starred);
+    };
+
 
     // 依赖未完成时的轻提示（handleComplete 内部对 dependsOn 是静默拦截，这里补上反馈）
     const [toast, setToast] = useState<string | null>(null);
@@ -132,14 +169,14 @@ export const ListView: React.FC<ListViewProps> = React.memo(
           const matchesTag = tagFilter === "all" || (task.tags || []).includes(tagFilter);
           const matchesFavorite = !showFavoritesOnly || task.isFavorite;
 
-          return matchesSearch && matchesCategory && matchesTag && matchesFavorite;
+          return matchesSearch && matchesCategory && matchesTag && matchesFavorite && matchesTaskView(task, project, due);
         })
         .sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
           return 0;
         });
-    }, [categoryFilter, debouncedQuery, showFavoritesOnly, tagFilter, tasks]);
+    }, [categoryFilter, debouncedQuery, showFavoritesOnly, tagFilter, tasks, project, due]);
 
     return (
       <div className="animate-fade-in-up rounded-2xl bg-white/90 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[600px] custom-scrollbar select-none shadow-sm relative">
@@ -185,10 +222,32 @@ export const ListView: React.FC<ListViewProps> = React.memo(
           </button>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <select aria-label="项目" value={project} onChange={(event) => setProject(event.target.value)}>
+            <option value="all">所有项目</option><option value="none">未归项目</option>
+            {projects.map((name) => <option value={`project:${name}`} key={name}>{name}</option>)}
+          </select>
+          <select aria-label="到期范围" value={due} onChange={(event) => setDue(event.target.value)}>
+            <option value="all">所有日期</option><option value="today">今日</option><option value="week">未来 7 天</option><option value="overdue">已逾期</option><option value="none">无日期</option>
+          </select>
+          <select aria-label="保存的筛选" value={activeView} onChange={(event) => chooseView(event.target.value)}>
+            <option value="">保存的筛选</option>
+            {savedViews.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+          </select>
+          {activeView && <button type="button" className="underline" onClick={() => {
+            updateViews(savedViews.filter((view) => view.id !== activeView));
+            setActiveView("");
+          }}>移除筛选</button>}
+          <form className="flex items-center gap-2" onSubmit={(event) => { event.preventDefault(); saveView(); }}>
+            <input aria-label="筛选名称" placeholder="给当前筛选命名" maxLength={60} value={viewName} onChange={(event) => setViewName(event.target.value)} className="border rounded-lg px-2 py-1 bg-transparent" />
+            <button type="submit" disabled={!viewName.trim()} className="border rounded-lg px-2 py-1">保存筛选</button>
+          </form>
+        </div>
+
         {/* Inline Quick Add Component */}
         <div className="w-full">
           <QuickAddTask
-            handleAddTask={handleAddTask}
+            handleAddTask={(task) => handleAddTask({ ...task, project: project.startsWith("project:") ? project.slice(8) : undefined })}
             defaultCategory={
               categoryFilter !== "all" ? (categoryFilter as Task["category"]) : undefined
             }

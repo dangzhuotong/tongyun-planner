@@ -14,6 +14,8 @@ import type {
 } from "../types";
 import { safeJsonParse } from "../utils/json";
 import { mergeTaskSources } from "../utils/taskMerge";
+import { storage } from "../utils/unifiedStorage";
+import { writeSqliteBatch } from "./sqliteBatch";
 import { getDomainDatabase, queueDomainWrite } from "./domainDatabase";
 
 type DataRow = { id: string; data: string };
@@ -35,6 +37,7 @@ interface DbTaskRow {
   estimated_pomodoros?: number | null;
   journal_id?: string | null;
   completed_at?: number | null;
+  deleted_at?: number | null;
   assignee_kind?: string | null;
   assignee_agent_id?: string | null;
   run_status?: string | null;
@@ -97,10 +100,28 @@ function parseTaskRow(row: DbTaskRow): Task {
   return task;
 }
 
+async function tombstoneTask(
+  write: (sql: string, values: (string | number)[]) => Promise<unknown>,
+  id: string,
+  deletedAt: number,
+  completedOnly = false,
+): Promise<void> {
+  await write(
+    `INSERT INTO tasks (id, title, updated_at, deleted_at) VALUES ($1, '', $2, $2)
+     ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, deleted_at = excluded.deleted_at
+     WHERE $3 = 0 OR tasks.completed_at IS NOT NULL`,
+    [id, deletedAt, completedOnly ? 1 : 0],
+  );
+}
+
 class TaskRepository {
   private queue: Promise<void> = Promise.resolve();
 
-  private syncPartition(items: Task[], completed: boolean): void {
+  async flushPendingWrites(): Promise<void> {
+    await this.queue;
+  }
+
+  private syncPartition(items: Task[], completed: boolean, restore = false): void {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
@@ -115,81 +136,74 @@ class TaskRepository {
             });
 
           const existing = new Map(rows.map((row) => [row.id, row.data]));
-          await db.execute("BEGIN IMMEDIATE");
-          try {
+          await writeSqliteBatch(db, async (write) => {
             for (const task of items) {
               const data = JSON.stringify(task);
               if (existing.get(task.id) === data) continue;
               const now = Date.now();
-              await db
-                .execute(
-                  `INSERT OR REPLACE INTO tasks (
+              await write(
+                `INSERT OR REPLACE INTO tasks (
                   id, title, description, notes, category, due_date, due_time,
                   is_favorite, is_pinned, repeat_rule, repeat_anchor_day, priority,
                   energy_level, estimated_pomodoros, journal_id, completed_at,
                   assignee_kind, assignee_agent_id, run_status, stamp,
                   time_block_start, time_block_end, subtasks_json, tags_json,
                   depends_on_json, attachments_json, data, updated_at
-                ) VALUES (
-                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
-                  $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
-                )`,
-                  [
-                    task.id,
-                    task.title,
-                    task.description ?? null,
-                    task.notes ?? null,
-                    task.category,
-                    task.dueDate ?? null,
-                    task.dueTime ?? null,
-                    task.isFavorite ? 1 : 0,
-                    task.isPinned ? 1 : 0,
-                    task.repeat ?? null,
-                    task.repeatAnchorDay ?? null,
-                    task.priority ?? "medium",
-                    task.energyLevel ?? null,
-                    task.estimatedPomodoros ?? null,
-                    task.journalId ?? null,
-                    task.completedAt ?? null,
-                    task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
-                    task.assigneeAgentId ?? null,
-                    task.runStatus ?? null,
-                    task.stamp ?? null,
-                    task.timeBlock?.start ?? null,
-                    task.timeBlock?.end ?? null,
-                    JSON.stringify(task.subtasks || []),
-                    JSON.stringify(task.tags || []),
-                    JSON.stringify(task.dependsOn || []),
-                    JSON.stringify(task.attachments || []),
-                    data,
-                    now,
-                  ],
                 )
-                .catch(() => undefined);
+                SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                       $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+                WHERE $29 = 1 OR NOT EXISTS (SELECT 1 FROM tasks WHERE id = $1 AND deleted_at IS NOT NULL)`,
+                [
+                  task.id,
+                  task.title,
+                  task.description ?? null,
+                  task.notes ?? null,
+                  task.category,
+                  task.dueDate ?? null,
+                  task.dueTime ?? null,
+                  task.isFavorite ? 1 : 0,
+                  task.isPinned ? 1 : 0,
+                  task.repeat ?? null,
+                  task.repeatAnchorDay ?? null,
+                  task.priority ?? "medium",
+                  task.energyLevel ?? null,
+                  task.estimatedPomodoros ?? null,
+                  task.journalId ?? null,
+                  task.completedAt ?? null,
+                  task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
+                  task.assigneeAgentId ?? null,
+                  task.runStatus ?? null,
+                  task.stamp ?? null,
+                  task.timeBlock?.start ?? null,
+                  task.timeBlock?.end ?? null,
+                  JSON.stringify(task.subtasks || []),
+                  JSON.stringify(task.tags || []),
+                  JSON.stringify(task.dependsOn || []),
+                  JSON.stringify(task.attachments || []),
+                  data,
+                  now,
+                  restore ? 1 : 0,
+                ],
+              );
 
               // Maintain domain_tasks
-              await db
-                .execute(
-                  `INSERT OR REPLACE INTO domain_tasks(id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                  [
-                    task.id,
-                    task.completedAt ?? null,
-                    task.dueDate ?? null,
-                    now,
-                    data,
-                    task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
-                    task.assigneeAgentId ?? null,
-                    task.runStatus ?? null,
-                  ],
-                )
-                .catch(() => undefined);
+              await write(
+                `INSERT OR REPLACE INTO domain_tasks(id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status)
+                 SELECT $1, $2, $3, $4, $5, $6, $7, $8
+                 WHERE EXISTS (SELECT 1 FROM tasks WHERE id = $1 AND deleted_at IS NULL)`,
+                [
+                  task.id,
+                  task.completedAt ?? null,
+                  task.dueDate ?? null,
+                  now,
+                  data,
+                  task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
+                  task.assigneeAgentId ?? null,
+                  task.runStatus ?? null,
+                ],
+              );
             }
-            await db.execute("COMMIT");
-          } catch (error) {
-            await db.execute("ROLLBACK").catch(() => undefined);
-            throw error;
-          }
+          });
         }),
       )
       .catch((error) => console.error("Task repository partition sync failed", error));
@@ -200,11 +214,11 @@ class TaskRepository {
   }
 
   syncCompleted(completed: Task[]): void {
-    if (completed.length === 0) {
-      this.removeCompleted();
-      return;
-    }
     this.syncPartition(completed, true);
+  }
+
+  restore(task: Task, completed: boolean): void {
+    this.syncPartition([task], completed, true);
   }
 
   /** 只给这一行打删除标记。列表里没出现的任务不会被顺带删掉。 */
@@ -212,31 +226,27 @@ class TaskRepository {
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
-          const now = Date.now();
-          await db
-            .execute("UPDATE tasks SET deleted_at = $1, updated_at = $1 WHERE id = $2", [now, id])
-            .catch(() => undefined);
-          await db.execute("DELETE FROM domain_tasks WHERE id = $1", [id]).catch(() => undefined);
+          await tombstoneTask(db.execute.bind(db), id, Date.now());
+          await db.execute("DELETE FROM domain_tasks WHERE id = $1", [id]);
         }),
       )
       .catch((error) => console.error("Task repository delete failed", error));
   }
 
-  /** 给已完成分区打删除标记。未完成任务不动。 */
-  removeCompleted(): void {
+  /** 只清理用户看见的已完成项；另一个窗口可能刚完成了别的任务。 */
+  removeCompleted(visibleIds: string[]): void {
+    if (!visibleIds.length) return;
     this.queue = this.queue
       .then(() =>
         queueDomainWrite(async (db) => {
           const now = Date.now();
-          await db
-            .execute(
-              "UPDATE tasks SET deleted_at = $1, updated_at = $1 WHERE completed_at IS NOT NULL AND deleted_at IS NULL",
-              [now],
-            )
-            .catch(() => undefined);
-          await db
-            .execute("DELETE FROM domain_tasks WHERE completed_at IS NOT NULL")
-            .catch(() => undefined);
+          for (const id of visibleIds) {
+            await tombstoneTask(db.execute.bind(db), id, now, true);
+            await db.execute(
+              "DELETE FROM domain_tasks WHERE id = $1 AND completed_at IS NOT NULL",
+              [id],
+            );
+          }
         }),
       )
       .catch((error) => console.error("Task repository clear completed failed", error));
@@ -244,94 +254,70 @@ class TaskRepository {
 
   async load(): Promise<{ tasks: Task[]; completed: Task[] } | null> {
     const db = await getDomainDatabase();
-    if (!db) return null;
+    const readSnapshot = (raw: string | null): Task[] | null => {
+      const parsed = safeJsonParse<Task[] | null>(raw, null);
+      return Array.isArray(parsed) ? parsed : null;
+    };
 
-    let tasksRows: DbTaskRow[] = [];
-    try {
-      const rows = await db.select<DbTaskRow[]>(
-        "SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY updated_at DESC",
-      );
-      if (rows && rows.length > 0) {
-        tasksRows = rows;
-      }
-    } catch {
-      // tasks table might not exist
-    }
-
-    let legacyRows: DbTaskRow[] = [];
-    try {
-      const rows = await db.select<DbTaskRow[]>(
+    const tasksRows = await db?.select<DbTaskRow[]>("SELECT * FROM tasks ORDER BY updated_at DESC");
+    const legacyRows = await db
+      ?.select<DbTaskRow[]>(
         "SELECT id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status FROM domain_tasks ORDER BY updated_at DESC",
-      );
-      if (rows && rows.length > 0) {
-        legacyRows = rows;
-      }
-    } catch {
-      // domain_tasks table might not exist
-    }
-
-    let storageActive: Task[] = [];
-    let storageCompleted: Task[] = [];
-    try {
-      const sRows = await db.select<{ key: string; value: string }[]>(
+      )
+      .catch(() => []);
+    const storageRows = await db
+      ?.select<{ key: string; value: string }[]>(
         "SELECT key, value FROM storage WHERE key IN ('aero_todos', 'aero_completed_todos')",
-      );
-      for (const row of sRows) {
-        if (row.key === "aero_todos") {
-          storageActive = safeJsonParse<Task[]>(row.value, []);
-        } else if (row.key === "aero_completed_todos") {
-          storageCompleted = safeJsonParse<Task[]>(row.value, []);
-        }
-      }
-    } catch {
-      // storage table might not exist
-    }
+      )
+      .catch(() => []);
 
-    let localActive: Task[] = [];
-    let localCompleted: Task[] = [];
-    if (typeof localStorage !== "undefined") {
-      try {
-        const rawActive = localStorage.getItem("aero_todos");
-        const rawDone = localStorage.getItem("aero_completed_todos");
-        if (rawActive) localActive = safeJsonParse<Task[]>(rawActive, []);
-        if (rawDone) localCompleted = safeJsonParse<Task[]>(rawDone, []);
-      } catch {
-        // ignore localStorage error
-      }
-    }
+    const snapshots = new Map(storageRows?.map(({ key, value }) => [key, value]));
+    const storageActive = storage.hasPendingMirrorWrite("aero_todos")
+      ? null
+      : readSnapshot(snapshots.get("aero_todos") ?? null);
+    const storageCompleted = storage.hasPendingMirrorWrite("aero_completed_todos")
+      ? null
+      : readSnapshot(snapshots.get("aero_completed_todos") ?? null);
+    const localActive = readSnapshot(globalThis.localStorage?.getItem("aero_todos") ?? null);
+    const localCompleted = readSnapshot(
+      globalThis.localStorage?.getItem("aero_completed_todos") ?? null,
+    );
 
-    const parsedTasks = tasksRows.map(parseTaskRow);
-    const parsedLegacy = legacyRows.map(parseTaskRow);
-
+    // A saved empty list or a tombstoned row is evidence of prior initialization.
     if (
-      parsedTasks.length === 0 &&
-      parsedLegacy.length === 0 &&
-      storageActive.length === 0 &&
-      storageCompleted.length === 0 &&
-      localActive.length === 0 &&
-      localCompleted.length === 0
+      !tasksRows?.length &&
+      !legacyRows?.length &&
+      !storageActive &&
+      !storageCompleted &&
+      !localActive &&
+      !localCompleted
     ) {
       return null;
     }
 
-    return mergeTaskSources(
-      {
-        tasks: parsedTasks.filter((t) => !t.completedAt),
-        completed: parsedTasks.filter((t) => Boolean(t.completedAt)),
-      },
-      {
-        tasks: parsedLegacy.filter((t) => !t.completedAt),
-        completed: parsedLegacy.filter((t) => Boolean(t.completedAt)),
-      },
-      {
-        tasks: storageActive,
-        completed: storageCompleted,
-      },
-      {
-        tasks: localActive,
-        completed: localCompleted,
-      },
+    const deletedIds = new Set(
+      tasksRows?.filter((row) => row.deleted_at != null).map((row) => row.id),
     );
+    const parsedTasks = tasksRows?.filter((row) => row.deleted_at == null).map(parseTaskRow) ?? [];
+    const parsedLegacy = legacyRows?.map(parseTaskRow) ?? [];
+    const merged = mergeTaskSources(
+      {
+        tasks: parsedTasks.filter((task) => !task.completedAt),
+        completed: parsedTasks.filter((task) => Boolean(task.completedAt)),
+      },
+      {
+        tasks: parsedLegacy.filter((task) => !task.completedAt),
+        completed: parsedLegacy.filter((task) => Boolean(task.completedAt)),
+      },
+      { tasks: storageActive ?? [], completed: storageCompleted ?? [] },
+      { tasks: localActive ?? [], completed: localCompleted ?? [] },
+    );
+
+    // Compatibility snapshots can lag behind the canonical task table.
+    return {
+      tasks: merged.tasks.filter((task) => !deletedIds.has(task.id)),
+      completed: merged.completed.filter((task) => !deletedIds.has(task.id)),
+    };
   }
 
   syncSnapshot(tasks: Task[], completed: Task[]): void {
@@ -348,34 +334,24 @@ class TaskRepository {
             .select<{ id: string; data: string }[]>("SELECT id, data FROM domain_tasks")
             .catch(() => []);
 
-          const allExisting = new Map<string, string>();
-          for (const r of legacyRows) allExisting.set(r.id, r.data);
-          for (const r of taskRows) allExisting.set(r.id, r.data);
+          const canonical = new Map(taskRows.map(({ id, data }) => [id, data]));
+          const existingIds = new Set([...canonical.keys(), ...legacyRows.map(({ id }) => id)]);
 
           const desiredIds = new Set(desired.map((task) => task.id));
           const removedAt = Date.now();
-          await db.execute("BEGIN IMMEDIATE");
-          try {
-            for (const id of allExisting.keys()) {
+          await writeSqliteBatch(db, async (write) => {
+            for (const id of existingIds) {
               if (!desiredIds.has(id)) {
-                await db
-                  .execute(
-                    "UPDATE tasks SET deleted_at = $1, updated_at = $1 WHERE id = $2 AND deleted_at IS NULL",
-                    [removedAt, id],
-                  )
-                  .catch(() => undefined);
-                await db
-                  .execute("DELETE FROM domain_tasks WHERE id = $1", [id])
-                  .catch(() => undefined);
+                await tombstoneTask(write, id, removedAt);
+                await write("DELETE FROM domain_tasks WHERE id = $1", [id]);
               }
             }
             for (const task of desired) {
               const data = JSON.stringify(task);
-              if (allExisting.get(task.id) === data) continue;
+              if (canonical.get(task.id) === data) continue;
               const now = Date.now();
-              await db
-                .execute(
-                  `INSERT OR REPLACE INTO tasks (
+              await write(
+                `INSERT OR REPLACE INTO tasks (
                   id, title, description, notes, category, due_date, due_time,
                   is_favorite, is_pinned, repeat_rule, repeat_anchor_day, priority,
                   energy_level, estimated_pomodoros, journal_id, completed_at,
@@ -386,61 +362,54 @@ class TaskRepository {
                   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
                   $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
                 )`,
-                  [
-                    task.id,
-                    task.title,
-                    task.description ?? null,
-                    task.notes ?? null,
-                    task.category,
-                    task.dueDate ?? null,
-                    task.dueTime ?? null,
-                    task.isFavorite ? 1 : 0,
-                    task.isPinned ? 1 : 0,
-                    task.repeat ?? null,
-                    task.repeatAnchorDay ?? null,
-                    task.priority ?? "medium",
-                    task.energyLevel ?? null,
-                    task.estimatedPomodoros ?? null,
-                    task.journalId ?? null,
-                    task.completedAt ?? null,
-                    task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
-                    task.assigneeAgentId ?? null,
-                    task.runStatus ?? null,
-                    task.stamp ?? null,
-                    task.timeBlock?.start ?? null,
-                    task.timeBlock?.end ?? null,
-                    JSON.stringify(task.subtasks || []),
-                    JSON.stringify(task.tags || []),
-                    JSON.stringify(task.dependsOn || []),
-                    JSON.stringify(task.attachments || []),
-                    data,
-                    now,
-                  ],
-                )
-                .catch(() => undefined);
+                [
+                  task.id,
+                  task.title,
+                  task.description ?? null,
+                  task.notes ?? null,
+                  task.category,
+                  task.dueDate ?? null,
+                  task.dueTime ?? null,
+                  task.isFavorite ? 1 : 0,
+                  task.isPinned ? 1 : 0,
+                  task.repeat ?? null,
+                  task.repeatAnchorDay ?? null,
+                  task.priority ?? "medium",
+                  task.energyLevel ?? null,
+                  task.estimatedPomodoros ?? null,
+                  task.journalId ?? null,
+                  task.completedAt ?? null,
+                  task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
+                  task.assigneeAgentId ?? null,
+                  task.runStatus ?? null,
+                  task.stamp ?? null,
+                  task.timeBlock?.start ?? null,
+                  task.timeBlock?.end ?? null,
+                  JSON.stringify(task.subtasks || []),
+                  JSON.stringify(task.tags || []),
+                  JSON.stringify(task.dependsOn || []),
+                  JSON.stringify(task.attachments || []),
+                  data,
+                  now,
+                ],
+              );
 
-              await db
-                .execute(
-                  `INSERT OR REPLACE INTO domain_tasks(id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status)
+              await write(
+                `INSERT OR REPLACE INTO domain_tasks(id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                  [
-                    task.id,
-                    task.completedAt ?? null,
-                    task.dueDate ?? null,
-                    now,
-                    data,
-                    task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
-                    task.assigneeAgentId ?? null,
-                    task.runStatus ?? null,
-                  ],
-                )
-                .catch(() => undefined);
+                [
+                  task.id,
+                  task.completedAt ?? null,
+                  task.dueDate ?? null,
+                  now,
+                  data,
+                  task.assigneeKind ?? (task.assigneeAgentId ? "agent" : "human"),
+                  task.assigneeAgentId ?? null,
+                  task.runStatus ?? null,
+                ],
+              );
             }
-            await db.execute("COMMIT");
-          } catch (error) {
-            await db.execute("ROLLBACK").catch(() => undefined);
-            throw error;
-          }
+          });
         }),
       )
       .catch((error) => console.error("Task repository sync failed", error));
@@ -513,6 +482,10 @@ function parseJournalRow(row: DbJournalRow): JournalEntry {
 class JournalRepository {
   private queue: Promise<void> = Promise.resolve();
 
+  async flushPendingWrites(): Promise<void> {
+    await this.queue;
+  }
+
   async load(): Promise<JournalEntry[] | null> {
     const db = await getDomainDatabase();
     if (!db) return null;
@@ -550,68 +523,55 @@ class JournalRepository {
           const existing = new Map(rows.map((row) => [row.id, row.data]));
           const desiredIds = new Set(entries.map((entry) => entry.id));
           const removedAt = Date.now();
-          await db.execute("BEGIN IMMEDIATE");
-          try {
+          await writeSqliteBatch(db, async (write) => {
             for (const row of rows) {
               if (!desiredIds.has(row.id)) {
-                await db
-                  .execute(
-                    "UPDATE journal_entries SET deleted_at = $1, updated_at = $1 WHERE id = $2 AND deleted_at IS NULL",
-                    [removedAt, row.id],
-                  )
-                  .catch(() => undefined);
-                await db
-                  .execute("DELETE FROM domain_journal WHERE id = $1", [row.id])
-                  .catch(() => undefined);
+                await write(
+                  "UPDATE journal_entries SET deleted_at = $1, updated_at = $1 WHERE id = $2 AND deleted_at IS NULL",
+                  [removedAt, row.id],
+                );
+                await write("DELETE FROM domain_journal WHERE id = $1", [row.id]);
               }
             }
             for (const entry of entries) {
               const data = JSON.stringify(entry);
               if (existing.get(entry.id) === data) continue;
               const now = Date.now();
-              await db
-                .execute(
-                  `INSERT OR REPLACE INTO journal_entries (
+              await write(
+                `INSERT OR REPLACE INTO journal_entries (
                   id, link_key, title, body, entry_date, is_daily, mood,
                   ai_comment, template_id, washi_tape, stamp, stickers_json,
                   attachments_json, data, created_at, updated_at
                 ) VALUES (
                   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
                 )`,
-                  [
-                    entry.id,
-                    entry.linkKey || entry.date,
-                    entry.title,
-                    entry.content,
-                    entry.date,
-                    entry.isDaily ? 1 : 0,
-                    entry.mood ?? null,
-                    entry.aiComment ?? null,
-                    entry.templateId ?? null,
-                    entry.washiTape ?? null,
-                    entry.stamp ?? null,
-                    JSON.stringify(entry.stickers || []),
-                    JSON.stringify(entry.attachments || []),
-                    data,
-                    entry.createdAt || now,
-                    entry.updatedAt || now,
-                  ],
-                )
-                .catch(() => undefined);
+                [
+                  entry.id,
+                  entry.linkKey || entry.date,
+                  entry.title,
+                  entry.content,
+                  entry.date,
+                  entry.isDaily ? 1 : 0,
+                  entry.mood ?? null,
+                  entry.aiComment ?? null,
+                  entry.templateId ?? null,
+                  entry.washiTape ?? null,
+                  entry.stamp ?? null,
+                  JSON.stringify(entry.stickers || []),
+                  JSON.stringify(entry.attachments || []),
+                  data,
+                  entry.createdAt || now,
+                  entry.updatedAt || now,
+                ],
+              );
 
-              await db
-                .execute(
-                  `INSERT OR REPLACE INTO domain_journal(id, entry_date, is_daily, updated_at, data)
+              await write(
+                `INSERT OR REPLACE INTO domain_journal(id, entry_date, is_daily, updated_at, data)
                  VALUES ($1, $2, $3, $4, $5)`,
-                  [entry.id, entry.date, entry.isDaily ? 1 : 0, entry.updatedAt ?? now, data],
-                )
-                .catch(() => undefined);
+                [entry.id, entry.date, entry.isDaily ? 1 : 0, entry.updatedAt ?? now, data],
+              );
             }
-            await db.execute("COMMIT");
-          } catch (error) {
-            await db.execute("ROLLBACK").catch(() => undefined);
-            throw error;
-          }
+          });
         }),
       )
       .catch((error) => console.error("Journal repository sync failed", error));
@@ -671,10 +631,10 @@ class JournalRepository {
         queueDomainWrite(async (db) => {
           const now = Date.now();
           await db
-            .execute(
-              "UPDATE journal_entries SET deleted_at = $1, updated_at = $1 WHERE id = $2",
-              [now, id],
-            )
+            .execute("UPDATE journal_entries SET deleted_at = $1, updated_at = $1 WHERE id = $2", [
+              now,
+              id,
+            ])
             .catch(() => undefined);
           await db.execute("DELETE FROM domain_journal WHERE id = $1", [id]).catch(() => undefined);
         }),

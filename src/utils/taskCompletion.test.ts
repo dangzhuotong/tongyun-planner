@@ -1,3 +1,4 @@
+import { mergeTaskSources } from "./taskMerge";
 import { describe, expect, it, vi } from "vitest";
 import type { Task } from "../types";
 import { completeTask, parseTaskCompletion, undoTaskCompletion } from "./taskCompletion";
@@ -91,4 +92,19 @@ describe("repeating task completion", () => {
       vi.restoreAllMocks();
     }
   });
+});
+
+it("ignores a stale completed snapshot after undo but accepts an explicit re-completion", () => {
+  const first = completeTask(daily, 100).completed;
+  const [restored] = undoTaskCompletion(first, []);
+  const newerActiveSnapshot = { ...daily, updatedAt: restored.reopenedAt! + 1 };
+  const sources = [{ tasks: [restored] }, { tasks: [newerActiveSnapshot], completed: [first] }];
+  expect(mergeTaskSources(...sources).completed).toEqual([]);
+  expect(mergeTaskSources(...sources).tasks[0].reopenedAt).toBe(restored.reopenedAt);
+
+  const doneAgain = completeTask(restored, restored.reopenedAt).completed;
+  expect(mergeTaskSources(...sources, { completed: [doneAgain] }).tasks).toEqual([]);
+  expect(mergeTaskSources(...sources, { completed: [doneAgain] }).completed[0].completedAt).toBe(
+    doneAgain.completedAt,
+  );
 });

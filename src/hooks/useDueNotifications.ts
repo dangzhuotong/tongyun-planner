@@ -1,7 +1,23 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getLocalDateString } from "../utils/date";
+import { REMINDER_OFFSETS } from "../utils/taskOrganization";
 import type { Task } from "../types";
+
+export function customReminderTimes(task: Task): { offset: number; time: number }[] {
+  if (!task.dueDate || !task.reminderOffsets?.length) return [];
+  const due = Date.parse(`${task.dueDate}T${task.dueTime || "09:00"}:00`);
+  if (!Number.isFinite(due)) return [];
+  return REMINDER_OFFSETS.filter((offset) => task.reminderOffsets?.includes(offset)).map(
+    (offset) => ({ offset, time: due - offset * 60_000 }),
+  );
+}
+
+interface Reminder {
+  taskId: string;
+  title: string;
+  body: string;
+}
 
 interface UseDueNotificationsOptions {
   isHydrated: boolean;
@@ -19,14 +35,22 @@ export function useDueNotifications({
   onOpenTask,
 }: UseDueNotificationsOptions) {
   const notifiedDueRef = useRef<Set<string>>(new Set());
+  const snoozed = useRef(new Map<string, number>());
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const dismiss = (id: string) =>
+    setReminders((current) => current.filter((item) => item.taskId !== id));
+  const snooze = (id: string) => {
+    snoozed.current.set(id, Date.now() + 10 * 60_000);
+    dismiss(id);
+  };
 
   useEffect(() => {
     if (!isHydrated) return;
-    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
 
     const check = () => {
       try {
-        getCurrentWebviewWindow();
+        const label = getCurrentWebviewWindow().label;
+        if (label && label !== "main") return;
       } catch {
         return;
       }
@@ -46,9 +70,53 @@ export function useDueNotifications({
       const nowTs = now.getTime();
       const isZh = locale === "zh-CN";
       const completedIds = new Set(completedTasks.map((c) => c.id));
+      const notify = (task: Task, key: string, body: string) => {
+        if (notifiedDueRef.current.has(key)) return;
+        notifiedDueRef.current.add(key);
+        setReminders((current) => [
+          ...current.filter((item) => item.taskId !== task.id),
+          { taskId: task.id, title: task.title, body },
+        ]);
+        if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+        try {
+          const n = new Notification(isZh ? "任务提醒" : "Task Reminder", {
+            body: `${task.title}\n${body}`,
+            tag: `tongyun-due-${task.id}`,
+            data: { taskId: task.id },
+          });
+          n.onclick = () => {
+            onOpenTask(task.id);
+            n.close();
+          };
+        } catch {
+          // The in-app action remains available.
+        }
+      };
       for (const task of tasks) {
-        if (task.dueDate !== todayStr) continue;
         if (completedIds.has(task.id)) continue;
+        const deferred = snoozed.current.get(task.id);
+        if (deferred !== undefined) {
+          if (nowTs < deferred) continue;
+          snoozed.current.delete(task.id);
+          notify(task, `snooze:${task.id}:${deferred}`, isZh ? "稍后提醒" : "Snoozed reminder");
+        }
+        if (task.reminderOffsets !== undefined) {
+          const custom = customReminderTimes(task);
+          for (const { offset, time } of custom) {
+            if (nowTs < time || nowTs >= time + 60 * 60_000) continue;
+            const body =
+              offset === 0
+                ? isZh
+                  ? "任务已到期"
+                  : "Task is due"
+                : isZh
+                  ? `截止前 ${offset} 分钟提醒`
+                  : `Reminder ${offset} min before due`;
+            notify(task, `custom:${task.id}:${time}`, body);
+          }
+          continue;
+        }
+        if (task.dueDate !== todayStr) continue;
 
         let phase: "before" | "due" | "day" | null = null;
         let body = "";
@@ -97,29 +165,14 @@ export function useDueNotifications({
 
         if (!phase) continue;
         const key = `${task.id}:${task.dueDate}:${task.dueTime || "day"}:${phase}`;
-        if (notifiedDueRef.current.has(key)) continue;
-        notifiedDueRef.current.add(key);
-        try {
-          const n = new Notification(isZh ? "⏰ 任务提醒" : "⏰ Task Reminder", {
-            body: `${task.title}\n${body}`,
-            tag: `tongyun-due-${task.id}-${phase}`,
-            data: { taskId: task.id },
-          });
-          n.onclick = () => {
-            onOpenTask(task.id);
-            try {
-              n.close();
-            } catch {
-              /* ignore */
-            }
-          };
-        } catch {
-          /* ignore */
-        }
+        notify(task, key, body);
       }
     };
     check();
     const timer = setInterval(check, 60 * 1000);
     return () => clearInterval(timer);
   }, [isHydrated, locale, tasks, completedTasks, onOpenTask]);
+
+  const active = new Set(tasks.map((task) => task.id));
+  return { reminders: reminders.filter((item) => active.has(item.taskId)), dismiss, snooze };
 }

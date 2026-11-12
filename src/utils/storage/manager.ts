@@ -88,8 +88,12 @@ export class StorageManager {
     }
   }
 
+  private readProvider(path: string): StorageProvider {
+    return path.startsWith("attachments/portable-local/") ? this.local : this.provider;
+  }
+
   async downloadFile(path: string): Promise<Uint8Array | null> {
-    return this.provider.downloadFile(path);
+    return this.readProvider(path).downloadFile(path);
   }
 
   async deleteFile(path: string): Promise<void> {
@@ -105,7 +109,7 @@ export class StorageManager {
   }
 
   async getFileUrl(path: string, mime: string): Promise<string> {
-    return this.provider.getFileUrl(path, mime);
+    return this.readProvider(path).getFileUrl(path, mime);
   }
 
   async writeText(path: string, content: string): Promise<void> {

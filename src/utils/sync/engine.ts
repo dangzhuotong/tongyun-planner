@@ -47,7 +47,7 @@ export class SyncEngine {
   private rerunRequested = false;
 
   constructor() {
-    this.webdavProvider = new WebDAVProvider();
+    this.webdavProvider = new WebDAVProvider(undefined, requestCategoryReplace);
     this.loadPreferences();
     this.attachOnlineListener();
   }
@@ -310,6 +310,7 @@ export class SyncEngine {
 
   /** Multi-file incremental sync for WebDAV with conflict awareness */
   private async syncWebDAV(): Promise<boolean> {
+    flushPendingStorage();
     // pull 时跳过脏分类，避免远端数据覆盖用户本地的主动变更（如清空、完成等）
     await this.webdavProvider.pull(this.dirtyCategories);
 
@@ -345,7 +346,6 @@ export class SyncEngine {
     }
     this._conflicts = [];
     if (typeof window !== "undefined") {
-      requestCategoryReplace();
       window.dispatchEvent(new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }));
     }
     return false;
@@ -386,7 +386,6 @@ export class SyncEngine {
             await this.webdavProvider.acceptRemote(conflict);
           }
           if (typeof window !== "undefined") {
-            requestCategoryReplace();
             window.dispatchEvent(
               new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }),
             );
@@ -422,7 +421,6 @@ export class SyncEngine {
           this.dirtyCategories.clear();
           const pulled = await this.webdavProvider.pull();
           if (pulled && typeof window !== "undefined") {
-            requestCategoryReplace();
             window.dispatchEvent(
               new CustomEvent(SYNC_APPLIED_EVENT, { detail: getLocalSyncData() }),
             );

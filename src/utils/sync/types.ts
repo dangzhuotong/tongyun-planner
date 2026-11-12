@@ -370,7 +370,11 @@ export function mergeRemoteIntoLocal(
 }
 
 /** Apply a single category's payload into localStorage */
-export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void {
+export function applyCategoryPayload(
+  cat: SyncCategory,
+  payload: unknown,
+  replaceCompleted = false,
+): void {
   switch (cat) {
     case "tasks": {
       const localCompleted = sanitizeRepeatAnchors(readJson<Task[]>("aero_completed_todos", "[]"));
@@ -383,13 +387,12 @@ export function applyCategoryPayload(cat: SyncCategory, payload: unknown): void 
       break;
     }
     case "completedTasks": {
-      const localCompleted = sanitizeRepeatAnchors(readJson<Task[]>("aero_completed_todos", "[]"));
       const active = sanitizeRepeatAnchors(readJson<Task[]>("aero_todos", "[]"));
-      const { tasks, completedTasks } = mergeCompletedPreferLocal(
-        active,
-        sanitizeRepeatAnchors((payload as Task[]) || []),
-        localCompleted,
-      );
+      const incoming = sanitizeRepeatAnchors((payload as Task[]) || []);
+      const localCompleted = replaceCompleted
+        ? []
+        : sanitizeRepeatAnchors(readJson<Task[]>("aero_completed_todos", "[]"));
+      const { tasks, completedTasks } = mergeCompletedPreferLocal(active, incoming, localCompleted);
       localStorage.setItem("aero_todos", JSON.stringify(tasks));
       localStorage.setItem("aero_completed_todos", JSON.stringify(completedTasks));
       break;
@@ -538,7 +541,7 @@ export function applySyncData(data: SyncData): void {
   localStorage.setItem("tongyun_last_updated", String(Date.now()));
 
   if (typeof window !== "undefined") {
-    requestCategoryReplace();
+    requestCategoryReplace(...ALL_SYNC_CATEGORIES);
     window.dispatchEvent(
       new CustomEvent(SYNC_APPLIED_EVENT, {
         detail: { ...data, tasks, completedTasks },

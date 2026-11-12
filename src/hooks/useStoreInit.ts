@@ -4,8 +4,7 @@ import { safeJsonParse } from "../utils/json";
 import { storage } from "../utils/unifiedStorage";
 import { sanitizeRepeatAnchors } from "../utils/nextDueDate";
 import { dedupeActiveTasks } from "../utils/sync/types";
-import { mergeTaskSources } from "../utils/taskMerge";
-import type { Task, CustomizationConfig, Locale } from "../types";
+import type { CustomizationConfig, Locale } from "../types";
 import type { useTasks } from "./useTasks";
 import type { usePomodoro } from "./usePomodoro";
 import type { useStickyNotes } from "./useStickyNotes";
@@ -148,33 +147,12 @@ export function useStoreInit(
         if (localCountdowns)
           handlersRef.current.countdownHook.setCountdowns(safeJsonParse(localCountdowns, []));
 
-        const repositoryData = await taskRepository.load();
-        const localTasksRaw = localStorage.getItem("aero_todos");
-        const localCompletedRaw = localStorage.getItem("aero_completed_todos");
-        const parsedActive = localTasksRaw ? safeJsonParse<Task[]>(localTasksRaw, []) : [];
-        const parsedCompleted = localCompletedRaw
-          ? safeJsonParse<Task[]>(localCompletedRaw, [])
-          : [];
-        const localTasks = Array.isArray(parsedActive) ? parsedActive : [];
-        const localCompleted = Array.isArray(parsedCompleted) ? parsedCompleted : [];
-
-        // 合并三源：tasks 表 + domain_tasks + aero_todos/aero_completed_todos
-        const merged = mergeTaskSources(repositoryData, {
-          tasks: localTasks,
-          completed: localCompleted,
-        });
-
-        let resolvedTasks: Task[];
-        let resolvedCompleted: Task[];
-
-        // 禁止「tasks 有任意行就忽略 domain_tasks/localStorage」；仅全空才 INITIAL_TASKS
-        if (merged.tasks.length === 0 && merged.completed.length === 0) {
-          resolvedTasks = handlersRef.current.tasksHook.INITIAL_TASKS;
-          resolvedCompleted = [];
-        } else {
-          resolvedTasks = merged.tasks;
-          resolvedCompleted = merged.completed;
+        const savedTasks = await taskRepository.load();
+        if (!savedTasks && isTauriEnv && !storage.isMirrorReady()) {
+          throw new Error("无法确认手帐存储状态");
         }
+        let resolvedTasks = savedTasks?.tasks ?? handlersRef.current.tasksHook.INITIAL_TASKS;
+        let resolvedCompleted = savedTasks?.completed ?? [];
 
         resolvedTasks = sanitizeRepeatAnchors(resolvedTasks);
         resolvedCompleted = sanitizeRepeatAnchors(resolvedCompleted);
@@ -183,14 +161,12 @@ export function useStoreInit(
         handlersRef.current.tasksHook.setTasks(resolvedTasks);
         handlersRef.current.tasksHook.setCompletedTasks(resolvedCompleted);
 
-        // 合并后只补写已有行，不用整表对账删掉另一来源里多出来的任务
-        handlersRef.current.tasksHook.saveAll(resolvedTasks, resolvedCompleted);
-      } catch (e) {
-        console.warn("数据加载失败，使用初始任务", e);
-        handlersRef.current.tasksHook.setTasks(handlersRef.current.tasksHook.INITIAL_TASKS);
-        handlersRef.current.tasksHook.setCompletedTasks([]);
-      } finally {
+        // 迁移兼容快照时只补写，不把缺失条目当成删除。
+        handlersRef.current.tasksHook.saveAll(resolvedTasks, resolvedCompleted, false);
         setIsHydrated(true);
+      } catch (e) {
+        // 读取失败不能当成首次启动，也不能开放自动同步/Agent 写入。
+        console.warn("数据加载失败", e);
       }
     };
     initStore();

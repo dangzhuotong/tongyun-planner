@@ -8,6 +8,7 @@ import type {
   Task,
   TimeBlock,
 } from "../types";
+import { writeSqliteBatch } from "./sqliteBatch";
 import { safeJsonParse } from "../utils/json";
 
 const DB_NAME = "sqlite:tongyun_planner.db";
@@ -325,9 +326,13 @@ export async function createSchema(db: Database): Promise<void> {
   await db.execute("CREATE INDEX IF NOT EXISTS idx_sync_outbox_entity ON sync_outbox(entity)");
 }
 
-async function backupLocalValue(db: Database, key: string, value: string | null): Promise<void> {
+async function backupLocalValue(
+  write: (sql: string, values: (string | number)[]) => Promise<unknown>,
+  key: string,
+  value: string | null,
+): Promise<void> {
   if (value === null) return;
-  await db.execute(
+  await write(
     "INSERT OR IGNORE INTO migration_backups(source_key, payload, created_at) VALUES ($1, $2, $3)",
     [key, value, Date.now()],
   );
@@ -349,8 +354,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
     const habitsRaw =
       typeof localStorage !== "undefined" ? localStorage.getItem("tongyun_habits") : null;
 
-    await db.execute("BEGIN IMMEDIATE");
-    try {
+    await writeSqliteBatch(db, async (write) => {
       for (const [key, value] of [
         ["aero_todos", taskRaw],
         ["aero_completed_todos", completedRaw],
@@ -358,13 +362,13 @@ export async function migrateLegacyData(db: Database): Promise<void> {
         ["aero_pomodoro_logs", pomodoroRaw],
         ["tongyun_habits", habitsRaw],
       ] as const) {
-        await backupLocalValue(db, key, value);
+        await backupLocalValue(write, key, value);
       }
 
       const tasks = safeJsonParse<Task[]>(taskRaw || "[]", []);
       const completed = safeJsonParse<Task[]>(completedRaw || "[]", []);
       for (const task of [...tasks, ...completed]) {
-        await db.execute(
+        await write(
           `INSERT OR REPLACE INTO domain_tasks(id, completed_at, due_date, updated_at, data, assignee_kind, assignee_agent_id, run_status)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
@@ -381,7 +385,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
       }
 
       for (const entry of safeJsonParse<JournalEntry[]>(journalRaw || "[]", [])) {
-        await db.execute(
+        await write(
           `INSERT OR REPLACE INTO domain_journal(id, entry_date, is_daily, updated_at, data)
            VALUES ($1, $2, $3, $4, $5)`,
           [
@@ -395,27 +399,23 @@ export async function migrateLegacyData(db: Database): Promise<void> {
       }
 
       for (const log of safeJsonParse<PomodoroLog[]>(pomodoroRaw || "[]", [])) {
-        await db.execute(
+        await write(
           "INSERT OR REPLACE INTO domain_pomodoro_logs(id, occurred_at, data) VALUES ($1, $2, $3)",
           [log.id, log.timestamp, JSON.stringify(log)],
         );
       }
 
       for (const habit of safeJsonParse<HabitItem[]>(habitsRaw || "[]", [])) {
-        await db.execute(
+        await write(
           "INSERT OR REPLACE INTO domain_habits(id, updated_at, data) VALUES ($1, $2, $3)",
           [habit.id, Date.now(), JSON.stringify(habit)],
         );
       }
 
-      await db.execute("INSERT INTO schema_migrations(version, applied_at) VALUES (1, $1)", [
+      await write("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (1, $1)", [
         Date.now(),
       ]);
-      await db.execute("COMMIT");
-    } catch (error) {
-      await db.execute("ROLLBACK").catch(() => undefined);
-      throw error;
-    }
+    });
   }
 
   // Schema V2 migration
@@ -457,8 +457,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
     "SELECT version FROM schema_migrations WHERE version = 3",
   );
   if (appliedV3.length === 0) {
-    await db.execute("BEGIN IMMEDIATE");
-    try {
+    await writeSqliteBatch(db, async (write) => {
       // 1. Migrate tasks from domain_tasks
       const domainTasks = await db
         .select<
@@ -479,7 +478,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
 
       for (const dt of domainTasks) {
         const task = safeJsonParse<Partial<Task>>(dt.data, {});
-        await db.execute(
+        await write(
           `INSERT OR REPLACE INTO tasks (
             id, title, description, notes, category, due_date, due_time,
             is_favorite, is_pinned, repeat_rule, repeat_anchor_day, priority,
@@ -539,7 +538,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
 
       for (const dj of domainJournal) {
         const entry = safeJsonParse<Partial<JournalEntry>>(dj.data, {});
-        await db.execute(
+        await write(
           `INSERT OR REPLACE INTO journal_entries (
             id, link_key, title, body, entry_date, is_daily, mood,
             ai_comment, template_id, washi_tape, stamp, stickers_json,
@@ -581,7 +580,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
 
       for (const dp of domainPomodoro) {
         const log = safeJsonParse<Partial<PomodoroLog>>(dp.data, {});
-        await db.execute(
+        await write(
           `INSERT OR REPLACE INTO pomodoro_logs (id, timestamp, duration, task_id, task_title, created_at, data)
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
@@ -609,7 +608,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
 
       for (const dh of domainHabits) {
         const habit = safeJsonParse<Partial<HabitItem>>(dh.data, {});
-        await db.execute(
+        await write(
           `INSERT OR REPLACE INTO habits (id, name, emoji, done_today, streak, last_done_date, updated_at, data)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
@@ -640,14 +639,14 @@ export async function migrateLegacyData(db: Database): Promise<void> {
         .catch(() => []);
 
       for (const da of domainAgents) {
-        await db.execute(
+        await write(
           `INSERT OR REPLACE INTO agents (id, handle, kind, enabled, meta, updated_at)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [da.id, da.handle, da.kind, da.enabled, da.meta, da.updated_at],
         );
       }
       if (domainAgents.length === 0) {
-        await db.execute(
+        await write(
           `INSERT OR IGNORE INTO agents(id, handle, kind, enabled, meta, updated_at)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           ["agent_local_assistant", "本地助手", "manual", 1, "{}", Date.now()],
@@ -673,7 +672,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
         .catch(() => []);
 
       for (const dd of domainDispatches) {
-        await db.execute(
+        await write(
           `INSERT OR REPLACE INTO task_dispatch (id, task_id, agent_id, status, note, pipeline_task_id, created_at, updated_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
@@ -695,7 +694,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
         if (notesRaw) {
           const notes = safeJsonParse<StickyNote[]>(notesRaw, []);
           for (const n of notes) {
-            await db.execute(
+            await write(
               `INSERT OR REPLACE INTO sticky_notes (id, title, text, color, rotate, updated_at, data)
                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
               [
@@ -716,7 +715,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
         if (countdownsRaw) {
           const events = safeJsonParse<CountdownEvent[]>(countdownsRaw, []);
           for (const e of events) {
-            await db.execute(
+            await write(
               `INSERT OR REPLACE INTO countdowns (id, title, target_date, emoji, color, is_lunar, updated_at, data)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
               [
@@ -738,7 +737,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
         if (timeblocksRaw) {
           const blocks = safeJsonParse<TimeBlock[]>(timeblocksRaw, []);
           for (const b of blocks) {
-            await db.execute(
+            await write(
               `INSERT OR REPLACE INTO timeblocks (id, date, start_time, end_time, task_id, title, color, updated_at, data)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
               [
@@ -763,7 +762,7 @@ export async function migrateLegacyData(db: Database): Promise<void> {
         const focusRaw = localStorage.getItem("pomodoro_focus_duration");
         const breakRaw = localStorage.getItem("pomodoro_break_duration");
         const soundRaw = localStorage.getItem("aero_alert_sound_type");
-        await db.execute(
+        await write(
           `INSERT OR REPLACE INTO user_prefs (
             id, locale, nickname, customization_json,
             pomodoro_focus_duration, pomodoro_break_duration, alert_sound_type, updated_at
@@ -780,21 +779,23 @@ export async function migrateLegacyData(db: Database): Promise<void> {
         );
       }
 
-      await db.execute(
-        "INSERT OR REPLACE INTO schema_migrations(version, applied_at) VALUES (3, $1)",
-        [Date.now()],
-      );
-      await db.execute("COMMIT");
-    } catch (error) {
-      await db.execute("ROLLBACK").catch(() => undefined);
-      throw error;
-    }
+      await write("INSERT OR REPLACE INTO schema_migrations(version, applied_at) VALUES (3, $1)", [
+        Date.now(),
+      ]);
+    });
   }
 }
 
 export async function initializeDomainDatabase(): Promise<void> {
   const db = await getDomainDatabase();
   if (!db) return;
-  await createSchema(db);
-  await migrateLegacyData(db);
+  const initialize = async () => {
+    await createSchema(db);
+    await migrateLegacyData(db);
+  };
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    await navigator.locks.request("tongyun-planner-sqlite-initialize", initialize);
+  } else {
+    await initialize();
+  }
 }

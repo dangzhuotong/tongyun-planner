@@ -29,6 +29,8 @@ describe("Repositories (Tasks, Journal, and P0 Entities)", () => {
         if (sql.includes("FROM tasks")) {
           return hideDeleted ? mockTables.tasks.filter((t) => !t.deleted_at) : mockTables.tasks;
         }
+        if (sql.includes("FROM domain_tasks")) return mockTables.domain_tasks ?? [];
+        if (sql.includes("FROM storage")) return mockTables.storage ?? [];
         if (sql.includes("FROM journal_entries")) {
           return hideDeleted
             ? mockTables.journal_entries.filter((j) => !j.deleted_at)
@@ -40,7 +42,24 @@ describe("Repositories (Tasks, Journal, and P0 Entities)", () => {
         return [];
       }),
       execute: vi.fn(async (sql: string, params?: any[]) => {
-        if (sql.includes("INSERT OR REPLACE INTO tasks")) {
+        if (sql.includes("ON CONFLICT(id) DO UPDATE SET updated_at")) {
+          const id = params?.[0];
+          const existing = mockTables.tasks.find((row) => row.id === id);
+          if (existing && params?.[2] === 1 && existing.completed_at == null) return;
+          mockTables.tasks = mockTables.tasks.filter((row) => row.id !== id);
+          mockTables.tasks.push({
+            ...existing,
+            id,
+            updated_at: params?.[1],
+            deleted_at: params?.[1],
+          });
+        } else if (sql.includes("INSERT OR REPLACE INTO tasks")) {
+          if (
+            params?.[28] === 0 &&
+            mockTables.tasks.some((t) => t.id === params?.[0] && t.deleted_at)
+          ) {
+            return { rowsAffected: 0 };
+          }
           mockTables.tasks = mockTables.tasks.filter((t) => t.id !== params?.[0]);
           mockTables.tasks.push({
             id: params?.[0],
@@ -98,9 +117,86 @@ describe("Repositories (Tasks, Journal, and P0 Entities)", () => {
 
   afterEach(() => {
     setDatabaseOverrideForTesting(null);
+    vi.unstubAllGlobals();
   });
 
   describe("TaskRepository (tasks table)", () => {
+    it("distinguishes a fresh profile from a saved empty task list", async () => {
+      setDatabaseOverrideForTesting(null);
+      const getItem = vi.fn<(key: string) => string | null>().mockReturnValue(null);
+      vi.stubGlobal("localStorage", { getItem });
+
+      expect(await taskRepository.load()).toBeNull();
+      getItem.mockImplementation((key) => (key === "aero_todos" ? "[]" : null));
+      expect(await taskRepository.load()).toEqual({ tasks: [], completed: [] });
+    });
+
+    it("does not restore deleted tasks from any compatibility source", async () => {
+      const task: Task = { id: "deleted", title: "旧任务", category: "urgent-important" };
+      const completed: Task = { ...task, id: "deleted-completed", completedAt: 1 };
+      const keep: Task = { ...task, id: "legacy-only", title: "仍应保留" };
+      mockTables.tasks = [
+        { id: task.id, deleted_at: 10 },
+        { id: completed.id, deleted_at: 10, completed_at: 1 },
+      ];
+      mockTables.domain_tasks = [task, keep].map((row) => ({
+        id: row.id,
+        data: JSON.stringify(row),
+      }));
+      mockTables.storage = [
+        { key: "aero_todos", value: JSON.stringify([task]) },
+        { key: "aero_completed_todos", value: JSON.stringify([completed]) },
+      ];
+      vi.stubGlobal("localStorage", {
+        getItem: (key: string) => JSON.stringify(key === "aero_todos" ? [task] : [completed]),
+      });
+
+      expect(await taskRepository.load()).toEqual({ tasks: [keep], completed: [] });
+      mockTables.domain_tasks = [];
+      mockTables.storage = [];
+      expect(await taskRepository.load()).toEqual({ tasks: [], completed: [] });
+
+      taskRepository.syncActive([task]); // stale window snapshot cannot undo deletion
+      await taskRepository.flushPendingWrites();
+      expect((await taskRepository.load())?.tasks).toEqual([]);
+      taskRepository.restore(task, false);
+      await taskRepository.flushPendingWrites();
+      expect((await taskRepository.load())?.tasks.map((row) => row.id)).toEqual([task.id]);
+    });
+
+    it("records deletes for tasks that exist only in an old snapshot", async () => {
+      const active: Task = { id: "snapshot-active", title: "旧待办", category: "urgent-important" };
+      const completed = { ...active, id: "snapshot-completed", completedAt: 1 };
+      mockTables.storage = [
+        { key: "aero_todos", value: JSON.stringify([active]) },
+        { key: "aero_completed_todos", value: JSON.stringify([completed]) },
+      ];
+      expect(await taskRepository.load()).toEqual({ tasks: [active], completed: [completed] });
+
+      taskRepository.remove(active.id);
+      taskRepository.removeCompleted([completed.id]);
+      await taskRepository.flushPendingWrites();
+      expect(await taskRepository.load()).toEqual({ tasks: [], completed: [] });
+    });
+
+    it("keeps an active task when another window still shows it as completed", async () => {
+      const task: Task = { id: "reopened", title: "重新打开", category: "urgent-important" };
+      taskRepository.syncActive([task]);
+      taskRepository.removeCompleted([task.id]);
+      await taskRepository.flushPendingWrites();
+      expect((await taskRepository.load())?.tasks.map(({ id }) => id)).toEqual([task.id]);
+    });
+
+    it("writes a canonical row when a snapshot restores a task from an identical legacy row", async () => {
+      const task: Task = { id: "restored", title: "恢复任务", category: "urgent-important" };
+      mockTables.tasks = [{ id: task.id, deleted_at: 5 }];
+      mockTables.domain_tasks = [{ id: task.id, data: JSON.stringify(task) }];
+
+      taskRepository.syncSnapshot([task], []);
+      await taskRepository.flushPendingWrites();
+      expect((await taskRepository.load())?.tasks.map(({ id }) => id)).toEqual([task.id]);
+    });
+
     it("can sync active tasks and load them back", async () => {
       const sampleTasks: Task[] = [
         {

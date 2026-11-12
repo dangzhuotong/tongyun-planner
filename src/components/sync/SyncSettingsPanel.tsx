@@ -49,6 +49,7 @@ import { openExternal } from "../../utils/openExternal";
 import { applyImportedLedgerEntries } from "../../utils/ledger/ledgerStorage";
 import { useTranslation } from "../../i18n/LanguageContext";
 import { safeJsonParse } from "../../utils/json";
+import { PortableBackupPanel } from "./PortableBackupPanel";
 import { buildAiToolDocFromSettings } from "../../utils/sync/aiToolDoc";
 
 function readStoredSmtpPass(): string {
@@ -829,6 +830,7 @@ export function SyncSettingsPanel({ config, onChange, triggerToast }: SyncSettin
         </div>
       )}
 
+      <PortableBackupPanel />
       <div className="pt-4 border-t border-[#EFEBE4] dark:border-[#2D3039] space-y-3">
         <div className="flex items-center gap-2">
           <Download className="w-4 h-4 text-[#8B6E3C]" />
