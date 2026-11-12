@@ -671,10 +671,10 @@ class JournalRepository {
         queueDomainWrite(async (db) => {
           const now = Date.now();
           await db
-            .execute(
-              "UPDATE journal_entries SET deleted_at = $1, updated_at = $1 WHERE id = $2",
-              [now, id],
-            )
+            .execute("UPDATE journal_entries SET deleted_at = $1, updated_at = $1 WHERE id = $2", [
+              now,
+              id,
+            ])
             .catch(() => undefined);
           await db.execute("DELETE FROM domain_journal WHERE id = $1", [id]).catch(() => undefined);
         }),
