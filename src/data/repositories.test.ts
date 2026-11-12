@@ -282,6 +282,38 @@ describe("Repositories (Tasks, Journal, and P0 Entities)", () => {
       const entries = await journalRepository.load();
       expect((entries || []).some((e) => e.id === "journal_test_2")).toBe(false);
     });
+
+    it("drops a local journal row that the applied snapshot no longer contains", async () => {
+      const keep: JournalEntry = {
+        id: "journal_keep_local",
+        linkKey: "2026-11-08",
+        title: "2026-11-08",
+        content: "只在本机",
+        date: "2026-11-08",
+        isDaily: true,
+        createdAt: 1,
+        updatedAt: 2,
+      };
+      const other: JournalEntry = {
+        id: "journal_from_remote",
+        linkKey: "2026-11-07",
+        title: "2026-11-07",
+        content: "云端也有",
+        date: "2026-11-07",
+        isDaily: true,
+        createdAt: 1,
+        updatedAt: 1,
+      };
+      journalRepository.upsert(keep);
+      journalRepository.upsert(other);
+      await new Promise((r) => setTimeout(r, 50));
+
+      journalRepository.syncSnapshot([other]);
+      await new Promise((r) => setTimeout(r, 50));
+
+      const entries = await journalRepository.load();
+      expect((entries || []).map((entry) => entry.id)).toEqual(["journal_from_remote"]);
+    });
   });
 
   describe("Other P0 Repositories", () => {
