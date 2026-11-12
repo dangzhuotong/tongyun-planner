@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "../../i18n/LanguageContext";
+import { buildAgentConnectPrompt } from "../../utils/agentConnectPrompt";
 import { isDesktopRuntime } from "../../utils/tauriRuntime";
 
 const operations = [
@@ -50,6 +51,7 @@ export function AgentSettingsPanel() {
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const refresh = async () => setSettings(await invoke<Settings>("agent_api_settings"));
   useEffect(() => {
@@ -163,6 +165,53 @@ export function AgentSettingsPanel() {
           </button>
         </div>
       )}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <h3>{en ? "Connection prompt" : "接入提示词"}</h3>
+          <button
+            className={control}
+            type="button"
+            onClick={() => {
+              const prompt = buildAgentConnectPrompt(token, en);
+              const mark = (ok: boolean) => {
+                if (!ok) {
+                  setError(en ? "Could not copy the prompt." : "没能复制提示词。");
+                  return;
+                }
+                setError("");
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 2000);
+              };
+              const fallback = () => {
+                const area = document.createElement("textarea");
+                area.value = prompt;
+                document.body.appendChild(area);
+                area.select();
+                const ok = document.execCommand("copy");
+                area.remove();
+                mark(ok);
+              };
+              if (!navigator.clipboard?.writeText) {
+                fallback();
+                return;
+              }
+              void navigator.clipboard.writeText(prompt).then(
+                () => mark(true),
+                () => fallback(),
+              );
+            }}
+          >
+            {copied ? (en ? "Copied" : "已复制") : en ? "Copy prompt" : "复制接入提示词"}
+          </button>
+        </div>
+        <textarea
+          aria-label={en ? "Connection prompt" : "接入提示词"}
+          className={`${control} w-full font-mono text-xs`}
+          readOnly
+          rows={8}
+          value={buildAgentConnectPrompt(token, en)}
+        />
+      </div>
       {error && (
         <p role="alert" className="text-red-600 dark:text-red-300">
           {error}
