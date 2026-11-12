@@ -21,7 +21,11 @@ import { getLocalDateString } from "../utils/date";
 import { safeJsonParse } from "../utils/json";
 import { createId } from "../utils/id";
 import { groupTasksByDueDate, splitDayTasks } from "../utils/calendar/dayTasks";
-import { blockTimeRange, exportPlannerDay, validBlockTime } from "../utils/calendar/plannerCalendar";
+import {
+  blockTimeRange,
+  exportPlannerDay,
+  validBlockTime,
+} from "../utils/calendar/plannerCalendar";
 import { useExternalCalendar } from "../hooks/useExternalCalendar";
 import { calendarOverlap, planReview } from "../utils/calendar/externalCalendar";
 import { pomodoroStatsOn, taskCompletedOn } from "../utils/dailyReview";
@@ -66,7 +70,15 @@ interface CalendarViewProps {
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = React.memo(
-  ({ tasks, completedTasks, handleComplete, handleUndoComplete, handleAddTask, config, pomodoroLogs }) => {
+  ({
+    tasks,
+    completedTasks,
+    handleComplete,
+    handleUndoComplete,
+    handleAddTask,
+    config,
+    pomodoroLogs,
+  }) => {
     const {
       calendarYear,
       setCalendarYear,
@@ -126,11 +138,16 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       let active = true;
       void storage.init().then(() => {
         if (!active) return;
-        const saved = safeJsonParse<TimeBlock[]>(localStorage.getItem("tongyun_timeblocks") || "[]", []);
+        const saved = safeJsonParse<TimeBlock[]>(
+          localStorage.getItem("tongyun_timeblocks") || "[]",
+          [],
+        );
         setTimeBlocks(Array.isArray(saved) ? saved : []);
         setBlocksReady(true);
       });
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }, []);
     useEffect(() => {
       if (blocksReady) localStorage.setItem("tongyun_timeblocks", JSON.stringify(timeBlocks));
@@ -142,22 +159,33 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
         : getLocalDateString();
 
     const external = useExternalCalendar(effectiveSelectedDate);
-    const [showExternal, setShowExternal] = useState(false);
     const [reviewWritten, setReviewWritten] = useState("");
     const focus = pomodoroStatsOn(pomodoroLogs, effectiveSelectedDate);
     const review = planReview(timeBlocks, focus.minutes, effectiveSelectedDate);
     const dueCount = tasksByDueDate[effectiveSelectedDate]?.length ?? 0;
-    const doneCount = completedTasks.filter((task) => taskCompletedOn(task, effectiveSelectedDate)).length;
-    const reviewText = locale === "en"
-      ? `## Daily review\n- Planned time: ${review.planned} min\n- Focus time: ${review.actual} min\n- Completed: ${doneCount} · Due and open: ${dueCount}`
-      : `## 计划与专注复盘\n- 计划时间：${review.planned} 分钟\n- 实际专注：${review.actual} 分钟\n- 完成 ${doneCount} 项 · 当日未完成 ${dueCount} 项`;
+    const doneCount = completedTasks.filter((task) =>
+      taskCompletedOn(task, effectiveSelectedDate),
+    ).length;
+    const reviewText =
+      locale === "en"
+        ? `## Daily review\n- Planned time: ${review.planned} min\n- Focus time: ${review.actual} min\n- Completed: ${doneCount} · Due and open: ${dueCount}`
+        : `## 计划与专注复盘\n- 计划时间：${review.planned} 分钟\n- 实际专注：${review.actual} 分钟\n- 完成 ${doneCount} 项 · 当日未完成 ${dueCount} 项`;
     const writeReview = () => {
-      const existing = journal.find((entry) => entry.isDaily && entry.date === effectiveSelectedDate);
-      if (existing?.content.includes(reviewText)) { setReviewWritten(effectiveSelectedDate); return; }
+      const existing = journal.find(
+        (entry) => entry.isDaily && entry.date === effectiveSelectedDate,
+      );
+      if (existing?.content.includes(reviewText)) {
+        setReviewWritten(effectiveSelectedDate);
+        return;
+      }
       const now = Date.now();
       handleUpsertJournal({
-        id: createId("journal"), date: effectiveSelectedDate, linkKey: effectiveSelectedDate,
-        title: effectiveSelectedDate, isDaily: true, createdAt: now,
+        id: createId("journal"),
+        date: effectiveSelectedDate,
+        linkKey: effectiveSelectedDate,
+        title: effectiveSelectedDate,
+        isDaily: true,
+        createdAt: now,
         ...existing,
         content: [existing?.content.trimEnd(), reviewText].filter(Boolean).join("\n\n"),
         updatedAt: now,
@@ -184,7 +212,8 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
     };
 
     const addTimeBlock = () => {
-      if (!blocksReady || !newBlockTitle.trim() || !validBlockTime(newBlockStart, newBlockEnd)) return;
+      if (!blocksReady || !newBlockTitle.trim() || !validBlockTime(newBlockStart, newBlockEnd))
+        return;
       const block: TimeBlock = {
         id: editingBlock?.id ?? createId("tb"),
         date: editingBlock?.date ?? effectiveSelectedDate,
@@ -194,7 +223,9 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
         taskId: linkedTaskId,
         color: editingBlock?.color ?? "#C4D7B2",
       };
-      setTimeBlocks((prev) => editingBlock ? prev.map((item) => item.id === block.id ? block : item) : [...prev, block]);
+      setTimeBlocks((prev) =>
+        editingBlock ? prev.map((item) => (item.id === block.id ? block : item)) : [...prev, block],
+      );
       setShowTimeBlockInput(false);
     };
 
@@ -1101,48 +1132,59 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                   <Calendar className="w-3 h-3 text-[#8B6E3C] dark:text-[#E2C799]" />
                   <span>{cv.tasksForDate.replace("{date}", effectiveSelectedDate)}</span>
                 </h3>
-                <button type="button" onClick={exportDay} disabled={!blocksReady} className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+                <button
+                  type="button"
+                  onClick={exportDay}
+                  disabled={!blocksReady}
+                  className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300"
+                >
                   <Download className="w-3 h-3" /> {locale === "en" ? "Export .ics" : "导出 .ics"}
                 </button>
               </div>
 
               <div className="flex flex-wrap gap-2 items-center mb-2 text-xs">
-                <button type="button" className="underline" aria-expanded={showExternal} onClick={() => setShowExternal(!showExternal)}>外部日历</button>
-                <span>计划 {review.planned} 分钟 · 专注 {review.actual} 分钟</span>
-                <button type="button" className="underline" onClick={writeReview}>{reviewWritten === effectiveSelectedDate ? "已写入日记" : "写入当日日记"}</button>
+                <span>
+                  计划 {review.planned} 分钟 · 专注 {review.actual} 分钟
+                </span>
+                <button type="button" className="underline" onClick={writeReview}>
+                  {reviewWritten === effectiveSelectedDate ? "已写入日记" : "写入当日日记"}
+                </button>
               </div>
-              {showExternal && <div className="mb-2 space-y-2 border rounded-lg p-2 text-xs">
-                <label className="block">导入日历文件
-                  <input type="file" accept=".ics,text/calendar" disabled={external.busy} className="block w-full" onChange={(event) => {
-                    const file = event.currentTarget.files?.[0];
-                    event.currentTarget.value = "";
-                    if (file) void external.importFile(file);
-                  }} />
-                </label>
-                <form className="flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void external.refresh(); }}>
-                  <input aria-label="日历订阅地址" type="password" autoComplete="off" placeholder="HTTPS 日历订阅地址" value={external.draft} onChange={(event) => external.setDraft(event.target.value)} className="min-w-0 flex-1 border rounded px-2 py-1 bg-transparent" />
-                  <button type="submit" disabled={external.busy || !external.draft.trim()}>{external.source ? "刷新" : "连接"}</button>
-                </form>
-                {external.hasCalendar && <button type="button" disabled={external.busy} className="underline" onClick={external.clear}>移除日历</button>}
-                {external.error && <p role="alert" className="text-red-600 dark:text-red-300">{external.error}</p>}
-              </div>}
-              {external.events.length > 0 && <ul className="mb-2 space-y-1 text-xs">
-                {external.events.map((event) => <li key={event.id} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800">
-                  {event.allDay ? "全天" : new Date(event.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · {event.title}
-                </li>)}
-              </ul>}
+              {external.events.length > 0 && (
+                <ul className="mb-2 space-y-1 text-xs">
+                  {external.events.map((event) => (
+                    <li key={event.id} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800">
+                      {event.allDay
+                        ? "全天"
+                        : new Date(event.start).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}{" "}
+                      · {event.title}
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               <div className="flex gap-2 mb-2">
                 {([30, 60] as const).map((duration) => (
-                  <div key={duration} onDragOver={(event) => {
-                    if (event.dataTransfer.types.includes("application/x-tongyun-calendar-task")) event.preventDefault();
-                  }} onDrop={(event) => {
-                    event.preventDefault();
-                    const id = event.dataTransfer.getData("application/x-tongyun-calendar-task");
-                    const task = selectedDayGroups.pending.find((item) => item.id === id);
-                    if (task && blocksReady) openTimeBlock(task, duration);
-                  }} className="flex-1 rounded-lg border border-dashed border-[#C4D7B2] dark:border-[#4D7C5D] p-2 text-xs text-slate-600 dark:text-slate-300">
-                    {locale === "en" ? `Drop task · ${duration} min` : `拖入任务 · ${duration} 分钟`}
+                  <div
+                    key={duration}
+                    onDragOver={(event) => {
+                      if (event.dataTransfer.types.includes("application/x-tongyun-calendar-task"))
+                        event.preventDefault();
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const id = event.dataTransfer.getData("application/x-tongyun-calendar-task");
+                      const task = selectedDayGroups.pending.find((item) => item.id === id);
+                      if (task && blocksReady) openTimeBlock(task, duration);
+                    }}
+                    className="flex-1 rounded-lg border border-dashed border-[#C4D7B2] dark:border-[#4D7C5D] p-2 text-xs text-slate-600 dark:text-slate-300"
+                  >
+                    {locale === "en"
+                      ? `Drop task · ${duration} min`
+                      : `拖入任务 · ${duration} 分钟`}
                   </div>
                 ))}
               </div>
@@ -1164,10 +1206,17 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                         </p>
                         <p className="text-[8px] text-slate-400 font-medium">
                           {block.startTime} - {block.endTime}
-                          {external.events.some((event) => calendarOverlap(block, event)) && <span className="ml-2 text-red-600 dark:text-red-300">与日程重叠</span>}
+                          {external.events.some((event) => calendarOverlap(block, event)) && (
+                            <span className="ml-2 text-red-600 dark:text-red-300">与日程重叠</span>
+                          )}
                         </p>
                       </div>
-                      <button type="button" aria-label={locale === "en" ? "Edit time block" : "编辑时间块"} onClick={() => openTimeBlock(undefined, 30, block)} className="p-1 text-slate-500 dark:text-slate-300">
+                      <button
+                        type="button"
+                        aria-label={locale === "en" ? "Edit time block" : "编辑时间块"}
+                        onClick={() => openTimeBlock(undefined, 30, block)}
+                        className="p-1 text-slate-500 dark:text-slate-300"
+                      >
                         <Pencil className="w-3 h-3" />
                       </button>
                       <button
@@ -1192,7 +1241,10 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                         draggable={blocksReady}
                         onDragStart={(event) => {
                           event.dataTransfer.effectAllowed = "copy";
-                          event.dataTransfer.setData("application/x-tongyun-calendar-task", task.id);
+                          event.dataTransfer.setData(
+                            "application/x-tongyun-calendar-task",
+                            task.id,
+                          );
                         }}
                         className="p-3 rounded-xl bg-[#FAF8F5]/60 dark:bg-[#26282E]/60 border border-[#EFEBE4]/75 dark:border-[#33353A] flex justify-between items-center gap-2 group hover:bg-[#FAF8F5] dark:hover:bg-[#26282E] transition-all"
                       >
@@ -1206,9 +1258,17 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                             </p>
                           )}
                         </div>
-                        <button type="button" onClick={() => openTimeBlock(task)} disabled={!blocksReady}
-                          aria-label={locale === "en" ? `Plan time for ${task.title}` : `为${task.title}安排时间`}
-                          className="text-[10px] shrink-0 text-[#4D7C5D] dark:text-[#78C496] cursor-pointer">
+                        <button
+                          type="button"
+                          onClick={() => openTimeBlock(task)}
+                          disabled={!blocksReady}
+                          aria-label={
+                            locale === "en"
+                              ? `Plan time for ${task.title}`
+                              : `为${task.title}安排时间`
+                          }
+                          className="text-[10px] shrink-0 text-[#4D7C5D] dark:text-[#78C496] cursor-pointer"
+                        >
                           {locale === "en" ? "Plan" : "排时间"}
                         </button>
                         <button
@@ -1315,7 +1375,13 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                       className="bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#33353A] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:border-[#C4D7B2] dark:focus:border-[#4D7C5D] w-20"
                     />
                   </div>
-                  {!validBlockTime(newBlockStart, newBlockEnd) && <p role="alert" className="text-xs text-red-600 dark:text-red-300">{locale === "en" ? "End time must be after start time." : "结束时间必须晚于开始时间。"}</p>}
+                  {!validBlockTime(newBlockStart, newBlockEnd) && (
+                    <p role="alert" className="text-xs text-red-600 dark:text-red-300">
+                      {locale === "en"
+                        ? "End time must be after start time."
+                        : "结束时间必须晚于开始时间。"}
+                    </p>
+                  )}
                   <div className="flex gap-2 justify-end">
                     <button
                       onClick={() => setShowTimeBlockInput(false)}
@@ -1324,7 +1390,11 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                       {locale === "en" ? "Cancel" : "取消"}
                     </button>
                     <button
-                      disabled={!blocksReady || !newBlockTitle.trim() || !validBlockTime(newBlockStart, newBlockEnd)}
+                      disabled={
+                        !blocksReady ||
+                        !newBlockTitle.trim() ||
+                        !validBlockTime(newBlockStart, newBlockEnd)
+                      }
                       onClick={addTimeBlock}
                       className="text-[9px] px-2 py-1 rounded-lg bg-[#4D7C5D] text-white font-bold hover:bg-[#3F684C] transition-colors cursor-pointer"
                     >

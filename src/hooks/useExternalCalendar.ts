@@ -7,6 +7,7 @@ const SOURCE = "tongyun_external_calendar_source";
 const REFRESHED = "tongyun_external_calendar_refreshed";
 const REFRESH_INTERVAL = 30 * 60_000;
 const CONTENT = "tongyun_external_calendar_content";
+const UPDATED = "tongyun-external-calendar-updated";
 
 export function useExternalCalendar(date: string) {
   const [source, setSource] = useState("");
@@ -16,15 +17,20 @@ export function useExternalCalendar(date: string) {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    void storage.init().then(() => {
-      if (!active) return;
+    const load = () => {
       const url = localStorage.getItem(SOURCE) ?? "";
       setSource(url);
       setDraft(url);
       setText(localStorage.getItem(CONTENT) ?? "");
+    };
+    void storage.init().then(() => {
+      if (active) load();
     });
+    const onUpdated = () => load();
+    window.addEventListener(UPDATED, onUpdated);
     return () => {
       active = false;
+      window.removeEventListener(UPDATED, onUpdated);
     };
   }, []);
 
@@ -82,6 +88,7 @@ export function useExternalCalendar(date: string) {
     setText(content);
     setSource(url);
     setDraft(url);
+    window.dispatchEvent(new Event(UPDATED));
   }
 
   async function run(work: () => Promise<void>) {
@@ -119,6 +126,7 @@ export function useExternalCalendar(date: string) {
     setDraft("");
     setText("");
     setError("");
+    window.dispatchEvent(new Event(UPDATED));
   }
   return {
     source,
