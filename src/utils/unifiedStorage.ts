@@ -59,8 +59,6 @@ function getAllKnownKeys(): string[] {
     // 日历 & 白噪音
     "tongyun_timeblocks",
     "tongyun_saved_task_views",
-    "tongyun_external_calendar_source",
-    "tongyun_external_calendar_content",
     // 日历轻量记账（issue #51 第 3 项）
     "tongyun_ledger_entries",
     "tongyun_visible_noises",

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { blockTimeRange, exportPlannerDay, validBlockTime } from "./plannerCalendar";
+import { blockTimeRange, exportPlannerDay, planReview, validBlockTime } from "./plannerCalendar";
 
 it("keeps a late time block on the same day at the requested length", () => {
   expect(blockTimeRange("23:55", 60)).toEqual({ start: "22:59", end: "23:59" });
@@ -36,4 +36,18 @@ it("exports valid folded iCalendar lines and skips a duplicate deadline for a li
   expect(calendar.split("\r\n").every((line) => new TextEncoder().encode(line).length <= 75)).toBe(
     true,
   );
+});
+
+it("counts an overlapping planned minute once", () => {
+  const block = {
+    date: "2026-11-13",
+    startTime: "09:00",
+    endTime: "10:00",
+    id: "b",
+    title: "",
+    color: "",
+  };
+  expect(
+    planReview([block, { ...block, startTime: "09:45", endTime: "10:30" }], 32, block.date),
+  ).toEqual({ planned: 90, actual: 32 });
 });

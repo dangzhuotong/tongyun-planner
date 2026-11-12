@@ -24,10 +24,9 @@ import { groupTasksByDueDate, splitDayTasks } from "../utils/calendar/dayTasks";
 import {
   blockTimeRange,
   exportPlannerDay,
+  planReview,
   validBlockTime,
 } from "../utils/calendar/plannerCalendar";
-import { useExternalCalendar } from "../hooks/useExternalCalendar";
-import { calendarOverlap, planReview } from "../utils/calendar/externalCalendar";
 import { pomodoroStatsOn, taskCompletedOn } from "../utils/dailyReview";
 import { storage } from "../utils/unifiedStorage";
 import { usePersonal } from "../context/PersonalContext";
@@ -158,7 +157,6 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
         ? selectedCalendarDate
         : getLocalDateString();
 
-    const external = useExternalCalendar(effectiveSelectedDate);
     const [reviewWritten, setReviewWritten] = useState("");
     const focus = pomodoroStatsOn(pomodoroLogs, effectiveSelectedDate);
     const review = planReview(timeBlocks, focus.minutes, effectiveSelectedDate);
@@ -1150,21 +1148,6 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                   {reviewWritten === effectiveSelectedDate ? "已写入日记" : "写入当日日记"}
                 </button>
               </div>
-              {external.events.length > 0 && (
-                <ul className="mb-2 space-y-1 text-xs">
-                  {external.events.map((event) => (
-                    <li key={event.id} className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800">
-                      {event.allDay
-                        ? "全天"
-                        : new Date(event.start).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}{" "}
-                      · {event.title}
-                    </li>
-                  ))}
-                </ul>
-              )}
 
               <div className="flex gap-2 mb-2">
                 {([30, 60] as const).map((duration) => (
@@ -1206,9 +1189,6 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                         </p>
                         <p className="text-[8px] text-slate-400 font-medium">
                           {block.startTime} - {block.endTime}
-                          {external.events.some((event) => calendarOverlap(block, event)) && (
-                            <span className="ml-2 text-red-600 dark:text-red-300">与日程重叠</span>
-                          )}
                         </p>
                       </div>
                       <button

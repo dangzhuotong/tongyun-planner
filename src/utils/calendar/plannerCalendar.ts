@@ -16,6 +16,24 @@ export function blockTimeRange(preferred: string | undefined, duration: 30 | 60)
   return { start: format(first), end: format(first + duration) };
 }
 
+export function planReview(blocks: TimeBlock[], minutes: number, date: string) {
+  const intervals = blocks
+    .filter((block) => block.date === date)
+    .map(({ startTime, endTime }) => {
+      const toMinutes = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
+      return [toMinutes(startTime), toMinutes(endTime)];
+    })
+    .filter(([start, end]) => start < end)
+    .sort((a, b) => a[0] - b[0]);
+  let end = 0;
+  let planned = 0;
+  for (const [start, nextEnd] of intervals) {
+    planned += Math.max(0, nextEnd - Math.max(start, end));
+    end = Math.max(end, nextEnd);
+  }
+  return { planned, actual: minutes };
+}
+
 function escapeText(value: string) {
   return value
     .replace(/\\/g, "\\\\")

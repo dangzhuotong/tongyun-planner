@@ -17,7 +17,6 @@ import { usePomodoroContext } from "../../context/PomodoroContext";
 import { useSetting } from "../../hooks/useSetting";
 import { checkForAppUpdate, resolveDisplayedAppVersion } from "../../utils/updater";
 import { exportDiagnosticLog } from "../../utils/diagnosticLog";
-import { ExternalCalendarSettings } from "./ExternalCalendarSettings";
 import { openExternal } from "../../utils/openExternal";
 import { getVersion } from "@tauri-apps/api/app";
 import { version as bundledVersion } from "../../../package.json";
@@ -617,7 +616,6 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
             </p>
           )}
         </div>
-        <ExternalCalendarSettings />
       </div>
 
       {/* 系统声音选择 */}

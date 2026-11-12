@@ -938,7 +938,6 @@ pub fn run() {
             agent_api::agent_api_grant,
             agent_api::agent_api_revoke,
             sqlite_transaction::planner_sqlite_write_batch,
-            planner_portable::fetch_calendar_feed,
             planner_portable::read_planner_attachment
         ])
         // 6. 初始化系统托盘

@@ -27,7 +27,6 @@
     "@tauri-apps/plugin-updater": "^2.13.0",
     "fflate": "^0.8.3",
     "framer-motion": "^12.40.0",
-    "ical.js": "^2.2.1",
     "lucide-react": "^1.21.0",
     "lunar-javascript": "^1.7.7",
     "react": "^19.1.0",
