@@ -1,3 +1,6 @@
+mod agent_api;
+mod sqlite_transaction;
+mod planner_portable;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::menu::{Menu, MenuItem};
@@ -860,6 +863,24 @@ fn set_external_player(app: AppHandle, url: Option<String>) -> Result<(), String
     Ok(())
 }
 
+fn planner_context() -> tauri::Context<tauri::Wry> {
+    let context = tauri::generate_context!();
+    #[cfg(all(debug_assertions, target_os = "macos"))]
+    {
+        let mut context = context;
+        // Keep development acceptance WebViews in a separate WebKit data store.
+        if let Ok(id) = std::env::var("TONGYUN_PLANNER_ACCEPTANCE_WEBVIEW_STORE") {
+            let id = uuid::Uuid::parse_str(&id).expect("invalid Planner acceptance WebView store UUID");
+            for window in &mut context.config_mut().app.windows {
+                window.data_store_identifier = Some(*id.as_bytes());
+            }
+        }
+        context
+    }
+    #[cfg(not(all(debug_assertions, target_os = "macos")))]
+    context
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -911,7 +932,13 @@ pub fn run() {
             read_pipeline_home_files,
             set_external_player,
             append_diagnostic_log,
-            export_diagnostic_log
+            export_diagnostic_log,
+            agent_api::agent_api_finish,
+            agent_api::agent_api_settings,
+            agent_api::agent_api_grant,
+            agent_api::agent_api_revoke,
+            sqlite_transaction::planner_sqlite_write_batch,
+            planner_portable::read_planner_attachment
         ])
         // 6. 初始化系统托盘
         .setup(|app| {
@@ -969,6 +996,7 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            agent_api::start(app.handle().clone());
             Ok(())
         })
         // 7. 主窗口点关闭：隐藏到托盘，不退出。macOS 再点 Dock 由 RunEvent::Reopen 拉回主窗。
@@ -987,7 +1015,7 @@ pub fn run() {
                 }
             }
         })
-        .build(tauri::generate_context!())
+        .build(planner_context())
         .expect("运行 Tauri 应用程序时发生错误")
         .run(|app, event| match event {
             tauri::RunEvent::ExitRequested { code, api, .. } => {

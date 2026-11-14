@@ -31,7 +31,7 @@ import type {
   Attachment,
   HabitItem,
 } from "../types";
-import { extractJournalTags } from "../constants";
+import { extractJournalTags, JOURNAL_TEMPLATES } from "../constants";
 import { createId } from "../utils/id";
 import { getLocalDateString } from "../utils/date";
 import { pomodoroStatsOn, taskCompletedOn } from "../utils/dailyReview";
@@ -724,6 +724,22 @@ export function JournalView({
           {selected?.stamp ? `印章: ${selected.stamp}` : "盖章"}
         </button>
       </div>
+
+      <label className="flex items-center gap-2 mb-2 text-xs text-slate-600 dark:text-slate-300">
+        {locale === "en" ? "Journal template" : "日记模板"}
+        <select value="" className="px-2 py-1 rounded-lg border border-[#EFEBE4] dark:border-[#3A3A3A] bg-transparent" onChange={(event) => {
+          const template = JOURNAL_TEMPLATES.find((item) => item.id === event.target.value);
+          if (!template?.content) return;
+          const current = draftContentRef.current;
+          const next = current.trim() ? `${current.trimEnd()}\n\n${template.content}` : template.content;
+          setDraftContent(next);
+          draftContentRef.current = next;
+          commit({ content: next, templateId: template.id });
+        }}>
+          <option value="" disabled>{locale === "en" ? "Insert template" : "插入模板"}</option>
+          {JOURNAL_TEMPLATES.filter((item) => item.content).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}
+        </select>
+      </label>
 
       <textarea
         ref={textareaRef}

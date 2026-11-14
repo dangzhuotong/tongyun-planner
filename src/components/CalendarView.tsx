@@ -10,8 +10,10 @@ import {
   Undo2,
   ChevronDown,
   ChevronRight,
+  Download,
+  Pencil,
 } from "lucide-react";
-import type { Task, TimeBlock, CustomizationConfig, LedgerDirection } from "../types";
+import type { Task, TimeBlock, CustomizationConfig, LedgerDirection, PomodoroLog } from "../types";
 import { QuickAddTask } from "./QuickAddTask";
 import { useTranslation } from "../i18n/LanguageContext";
 import LunarLib from "lunar-javascript";
@@ -19,6 +21,14 @@ import { getLocalDateString } from "../utils/date";
 import { safeJsonParse } from "../utils/json";
 import { createId } from "../utils/id";
 import { groupTasksByDueDate, splitDayTasks } from "../utils/calendar/dayTasks";
+import {
+  blockTimeRange,
+  exportPlannerDay,
+  planReview,
+  validBlockTime,
+} from "../utils/calendar/plannerCalendar";
+import { pomodoroStatsOn, taskCompletedOn } from "../utils/dailyReview";
+import { storage } from "../utils/unifiedStorage";
 import { usePersonal } from "../context/PersonalContext";
 import { useLedger } from "../hooks/useLedger";
 import {
@@ -55,10 +65,19 @@ interface CalendarViewProps {
     isExplicit?: boolean;
   }) => void;
   config?: CustomizationConfig;
+  pomodoroLogs: PomodoroLog[];
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = React.memo(
-  ({ tasks, completedTasks, handleComplete, handleUndoComplete, handleAddTask, config }) => {
+  ({
+    tasks,
+    completedTasks,
+    handleComplete,
+    handleUndoComplete,
+    handleAddTask,
+    config,
+    pomodoroLogs,
+  }) => {
     const {
       calendarYear,
       setCalendarYear,
@@ -66,6 +85,8 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       setCalendarMonth,
       selectedCalendarDate,
       setSelectedCalendarDate,
+      journal,
+      handleUpsertJournal,
     } = usePersonal();
     const { t, locale } = useTranslation();
     const cv = t.calendarView;
@@ -103,22 +124,72 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
     const completedByDueDate = useMemo(() => groupTasksByDueDate(completedTasks), [completedTasks]);
 
     // 时间块规划
-    const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>(() =>
-      safeJsonParse(localStorage.getItem("tongyun_timeblocks") || "[]", []),
-    );
+    const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([]);
+    const [blocksReady, setBlocksReady] = useState(false);
     const [showTimeBlockInput, setShowTimeBlockInput] = useState(false);
+    const [editingBlock, setEditingBlock] = useState<TimeBlock>();
+    const [linkedTaskId, setLinkedTaskId] = useState<string>();
     const [newBlockTitle, setNewBlockTitle] = useState("");
     const [newBlockStart, setNewBlockStart] = useState("09:00");
     const [newBlockEnd, setNewBlockEnd] = useState("10:00");
 
     useEffect(() => {
-      localStorage.setItem("tongyun_timeblocks", JSON.stringify(timeBlocks));
-    }, [timeBlocks]);
+      let active = true;
+      void storage.init().then(() => {
+        if (!active) return;
+        const saved = safeJsonParse<TimeBlock[]>(
+          localStorage.getItem("tongyun_timeblocks") || "[]",
+          [],
+        );
+        setTimeBlocks(Array.isArray(saved) ? saved : []);
+        setBlocksReady(true);
+      });
+      return () => {
+        active = false;
+      };
+    }, []);
+    useEffect(() => {
+      if (blocksReady) localStorage.setItem("tongyun_timeblocks", JSON.stringify(timeBlocks));
+    }, [blocksReady, timeBlocks]);
 
     const effectiveSelectedDate =
       selectedCalendarDate && !isNaN(new Date(`${selectedCalendarDate}T00:00:00`).getTime())
         ? selectedCalendarDate
         : getLocalDateString();
+
+    const [reviewWritten, setReviewWritten] = useState("");
+    const focus = pomodoroStatsOn(pomodoroLogs, effectiveSelectedDate);
+    const review = planReview(timeBlocks, focus.minutes, effectiveSelectedDate);
+    const dueCount = tasksByDueDate[effectiveSelectedDate]?.length ?? 0;
+    const doneCount = completedTasks.filter((task) =>
+      taskCompletedOn(task, effectiveSelectedDate),
+    ).length;
+    const reviewText =
+      locale === "en"
+        ? `## Daily review\n- Planned time: ${review.planned} min\n- Focus time: ${review.actual} min\n- Completed: ${doneCount} · Due and open: ${dueCount}`
+        : `## 计划与专注复盘\n- 计划时间：${review.planned} 分钟\n- 实际专注：${review.actual} 分钟\n- 完成 ${doneCount} 项 · 当日未完成 ${dueCount} 项`;
+    const writeReview = () => {
+      const existing = journal.find(
+        (entry) => entry.isDaily && entry.date === effectiveSelectedDate,
+      );
+      if (existing?.content.includes(reviewText)) {
+        setReviewWritten(effectiveSelectedDate);
+        return;
+      }
+      const now = Date.now();
+      handleUpsertJournal({
+        id: createId("journal"),
+        date: effectiveSelectedDate,
+        linkKey: effectiveSelectedDate,
+        title: effectiveSelectedDate,
+        isDaily: true,
+        createdAt: now,
+        ...existing,
+        content: [existing?.content.trimEnd(), reviewText].filter(Boolean).join("\n\n"),
+        updatedAt: now,
+      });
+      setReviewWritten(effectiveSelectedDate);
+    };
 
     const selectedDateBlocks = useMemo(
       () =>
@@ -128,19 +199,42 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
       [timeBlocks, effectiveSelectedDate],
     );
 
+    const openTimeBlock = (task?: Task, duration: 30 | 60 = 30, existing?: TimeBlock) => {
+      const range = blockTimeRange(task?.dueTime, duration);
+      setEditingBlock(existing);
+      setLinkedTaskId(existing?.taskId ?? task?.id);
+      setNewBlockTitle(existing?.title ?? task?.title ?? "");
+      setNewBlockStart(existing?.startTime ?? range.start);
+      setNewBlockEnd(existing?.endTime ?? range.end);
+      setShowTimeBlockInput(true);
+    };
+
     const addTimeBlock = () => {
-      if (!newBlockTitle.trim()) return;
+      if (!blocksReady || !newBlockTitle.trim() || !validBlockTime(newBlockStart, newBlockEnd))
+        return;
       const block: TimeBlock = {
-        id: createId("tb"),
-        date: effectiveSelectedDate,
+        id: editingBlock?.id ?? createId("tb"),
+        date: editingBlock?.date ?? effectiveSelectedDate,
         startTime: newBlockStart,
         endTime: newBlockEnd,
         title: newBlockTitle.trim(),
-        color: "#C4D7B2",
+        taskId: linkedTaskId,
+        color: editingBlock?.color ?? "#C4D7B2",
       };
-      setTimeBlocks((prev) => [...prev, block]);
-      setNewBlockTitle("");
+      setTimeBlocks((prev) =>
+        editingBlock ? prev.map((item) => (item.id === block.id ? block : item)) : [...prev, block],
+      );
       setShowTimeBlockInput(false);
+    };
+
+    const exportDay = () => {
+      const content = exportPlannerDay(effectiveSelectedDate, tasks, selectedDateBlocks);
+      const url = URL.createObjectURL(new Blob([content], { type: "text/calendar;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `tongyun-${effectiveSelectedDate}.ics`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     };
 
     const deleteTimeBlock = (id: string) => {
@@ -792,7 +886,7 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
           </div>
 
           {/* 右侧面板: 上=当日信息 下=待办列 */}
-          <div className="rounded-2xl bg-white/90 dark:bg-[#1E2025]/95 border border-[#EFEBE4] dark:border-[#33353A] shadow-sm flex flex-col overflow-hidden max-h-[480px]">
+          <div className="rounded-2xl bg-white/90 dark:bg-[#1E2025]/95 border border-[#EFEBE4] dark:border-[#33353A] shadow-sm overflow-y-auto custom-scrollbar max-h-[480px]">
             {/* 上: 当日信息 */}
             <div className="p-5 pb-0">
               <div className="bg-[#FAF8F5] dark:bg-[#26282E] rounded-xl p-4 border border-transparent dark:border-[#33353A]/40">
@@ -1030,14 +1124,53 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
             <div className="border-t border-[#EFEBE4] dark:border-[#33353A] mx-5 my-3" />
 
             {/* 下: 待办列 */}
-            <div className="px-5 pb-5 flex-grow flex flex-col min-h-0">
+            <div className="px-5 pb-5 flex flex-col">
               <div className="flex items-center justify-between mb-2.5">
                 <h3 className="text-[10px] font-extrabold text-[#8B6E3C] dark:text-[#E2C799] tracking-wide flex items-center gap-1.5">
                   <Calendar className="w-3 h-3 text-[#8B6E3C] dark:text-[#E2C799]" />
                   <span>{cv.tasksForDate.replace("{date}", effectiveSelectedDate)}</span>
                 </h3>
+                <button
+                  type="button"
+                  onClick={exportDay}
+                  disabled={!blocksReady}
+                  className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300"
+                >
+                  <Download className="w-3 h-3" /> {locale === "en" ? "Export .ics" : "导出 .ics"}
+                </button>
               </div>
 
+              <div className="flex flex-wrap gap-2 items-center mb-2 text-xs">
+                <span>
+                  计划 {review.planned} 分钟 · 专注 {review.actual} 分钟
+                </span>
+                <button type="button" className="underline" onClick={writeReview}>
+                  {reviewWritten === effectiveSelectedDate ? "已写入日记" : "写入当日日记"}
+                </button>
+              </div>
+
+              <div className="flex gap-2 mb-2">
+                {([30, 60] as const).map((duration) => (
+                  <div
+                    key={duration}
+                    onDragOver={(event) => {
+                      if (event.dataTransfer.types.includes("application/x-tongyun-calendar-task"))
+                        event.preventDefault();
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const id = event.dataTransfer.getData("application/x-tongyun-calendar-task");
+                      const task = selectedDayGroups.pending.find((item) => item.id === id);
+                      if (task && blocksReady) openTimeBlock(task, duration);
+                    }}
+                    className="flex-1 rounded-lg border border-dashed border-[#C4D7B2] dark:border-[#4D7C5D] p-2 text-xs text-slate-600 dark:text-slate-300"
+                  >
+                    {locale === "en"
+                      ? `Drop task · ${duration} min`
+                      : `拖入任务 · ${duration} 分钟`}
+                  </div>
+                ))}
+              </div>
               {/* 时间块 */}
               {selectedDateBlocks.length > 0 && (
                 <div className="mb-2 space-y-1">
@@ -1059,6 +1192,15 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                         </p>
                       </div>
                       <button
+                        type="button"
+                        aria-label={locale === "en" ? "Edit time block" : "编辑时间块"}
+                        onClick={() => openTimeBlock(undefined, 30, block)}
+                        className="p-1 text-slate-500 dark:text-slate-300"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        aria-label={locale === "en" ? "Delete time block" : "删除时间块"}
                         onClick={() => deleteTimeBlock(block.id)}
                         className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-950/40 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
                       >
@@ -1070,12 +1212,20 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
               )}
 
               {/* 单日列表循环：未完成在上，当天已完成的弱样式列表在下 */}
-              <div className="flex-grow overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
+              <div className="space-y-2 pr-0.5">
                 {selectedDayGroups.hasAny ? (
                   <>
                     {selectedDayGroups.pending.map((task) => (
                       <div
                         key={task.id}
+                        draggable={blocksReady}
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = "copy";
+                          event.dataTransfer.setData(
+                            "application/x-tongyun-calendar-task",
+                            task.id,
+                          );
+                        }}
                         className="p-3 rounded-xl bg-[#FAF8F5]/60 dark:bg-[#26282E]/60 border border-[#EFEBE4]/75 dark:border-[#33353A] flex justify-between items-center gap-2 group hover:bg-[#FAF8F5] dark:hover:bg-[#26282E] transition-all"
                       >
                         <div className="min-w-0 flex-grow">
@@ -1088,6 +1238,19 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                             </p>
                           )}
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => openTimeBlock(task)}
+                          disabled={!blocksReady}
+                          aria-label={
+                            locale === "en"
+                              ? `Plan time for ${task.title}`
+                              : `为${task.title}安排时间`
+                          }
+                          className="text-[10px] shrink-0 text-[#4D7C5D] dark:text-[#78C496] cursor-pointer"
+                        >
+                          {locale === "en" ? "Plan" : "排时间"}
+                        </button>
                         <button
                           onClick={() => handleComplete(task.id)}
                           className="text-[8px] flex-shrink-0 text-[#4D7C5D] dark:text-[#78C496] hover:bg-[#4D7C5D] hover:text-white border border-[#DEEAE2] dark:border-[#33353A] px-2 py-0.5 rounded bg-white dark:bg-[#1E2025] transition-all font-bold cursor-pointer"
@@ -1171,42 +1334,58 @@ export const CalendarView: React.FC<CalendarViewProps> = React.memo(
                     type="text"
                     value={newBlockTitle}
                     onChange={(e) => setNewBlockTitle(e.target.value)}
-                    placeholder="时间块名称"
+                    placeholder={locale === "en" ? "Time block title" : "时间块名称"}
+                    aria-label={locale === "en" ? "Time block title" : "时间块名称"}
                     className="w-full bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#33353A] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#C4D7B2] dark:focus:border-[#4D7C5D] font-medium"
                   />
                   <div className="flex items-center gap-2">
                     <input
                       type="time"
+                      aria-label={locale === "en" ? "Start time" : "开始时间"}
                       value={newBlockStart}
-                      onChange={(e) => setNewBlockStart(e.target.value)}
+                      onInput={(e) => setNewBlockStart(e.currentTarget.value)}
                       className="bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#33353A] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:border-[#C4D7B2] dark:focus:border-[#4D7C5D] w-20"
                     />
                     <span className="text-[9px] text-slate-400">至</span>
                     <input
                       type="time"
+                      aria-label={locale === "en" ? "End time" : "结束时间"}
                       value={newBlockEnd}
-                      onChange={(e) => setNewBlockEnd(e.target.value)}
+                      onInput={(e) => setNewBlockEnd(e.currentTarget.value)}
                       className="bg-white dark:bg-[#1C1D21] border border-[#EFEBE4] dark:border-[#33353A] px-2 py-1 rounded-lg text-[10px] text-slate-700 dark:text-slate-200 font-bold focus:outline-none focus:border-[#C4D7B2] dark:focus:border-[#4D7C5D] w-20"
                     />
                   </div>
+                  {!validBlockTime(newBlockStart, newBlockEnd) && (
+                    <p role="alert" className="text-xs text-red-600 dark:text-red-300">
+                      {locale === "en"
+                        ? "End time must be after start time."
+                        : "结束时间必须晚于开始时间。"}
+                    </p>
+                  )}
                   <div className="flex gap-2 justify-end">
                     <button
                       onClick={() => setShowTimeBlockInput(false)}
                       className="text-[9px] px-2 py-1 rounded-lg border border-[#EFEBE4] dark:border-[#33353A] text-slate-500 dark:text-slate-400 hover:bg-[#FAF8F5] dark:hover:bg-[#33353A] transition-colors cursor-pointer font-bold"
                     >
-                      取消
+                      {locale === "en" ? "Cancel" : "取消"}
                     </button>
                     <button
+                      disabled={
+                        !blocksReady ||
+                        !newBlockTitle.trim() ||
+                        !validBlockTime(newBlockStart, newBlockEnd)
+                      }
                       onClick={addTimeBlock}
                       className="text-[9px] px-2 py-1 rounded-lg bg-[#4D7C5D] text-white font-bold hover:bg-[#3F684C] transition-colors cursor-pointer"
                     >
-                      添加
+                      {locale === "en" ? "Save" : "保存"}
                     </button>
                   </div>
                 </div>
               ) : (
                 <button
-                  onClick={() => setShowTimeBlockInput(true)}
+                  disabled={!blocksReady}
+                  onClick={() => openTimeBlock()}
                   className="mt-2 flex items-center gap-1 text-[9px] text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#78C496] transition-colors cursor-pointer font-medium"
                 >
                   <Plus className="w-3 h-3" /> {locale === "en" ? "Add time block" : "添加时间块"}

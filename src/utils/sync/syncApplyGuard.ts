@@ -1,3 +1,5 @@
+import type { SyncCategory } from "./types";
+
 /**
  * 同步拉取写回 React 状态时，抑制「脏标记 / 版本 bump」，
  * 避免 apply → markDirty → 空包或重复 push 的循环。
@@ -22,15 +24,14 @@ export function isSyncApplying(): boolean {
   return depth > 0;
 }
 
-/** WebDAV 整包和手动恢复要按分类覆盖本地行。远端库拉回已经按行写过，不要再对账删除。 */
-let categoryReplace = false;
+const replacements = new Set<SyncCategory>();
 
-export function requestCategoryReplace(): void {
-  categoryReplace = true;
+export function requestCategoryReplace(...categories: SyncCategory[]): void {
+  for (const category of categories) replacements.add(category);
 }
 
-export function consumeCategoryReplace(): boolean {
-  const pending = categoryReplace;
-  categoryReplace = false;
+export function consumeCategoryReplace(): Set<SyncCategory> {
+  const pending = new Set(replacements);
+  replacements.clear();
   return pending;
 }

@@ -25,6 +25,7 @@ import { parseNaturalDate, formatNaturalPreview } from "../utils/dateParser";
 import { storageManager, getAttachmentPath } from "../utils/storage";
 import { PRIORITY_LEVELS } from "../constants";
 import { CustomSelect } from "./CustomSelect";
+import { REMINDER_OFFSETS } from "../utils/taskOrganization";
 import { createId } from "../utils/id";
 import { getTaskPomodoroStats } from "../utils/pomodoroTaskStats";
 
@@ -352,6 +353,41 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                     }
                   }}
                 />
+              </div>
+
+              <div className="w-full grid gap-3 text-xs">
+                <label className="flex items-center gap-2">
+                  项目
+                  <input key={task.id + (task.project || "")} defaultValue={task.project || ""}
+                    list="planner-project-names" maxLength={80} placeholder="项目名称"
+                    className="border rounded-lg px-2 py-1.5 bg-transparent"
+                    onBlur={(event) => {
+                      const project = event.currentTarget.value.trim();
+                      if (project !== (task.project || "")) onEditTask(task.id, { project: project || undefined });
+                    }}
+                    onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} />
+                  <datalist id="planner-project-names">
+                    {[...new Set(allTasks?.flatMap((item) => item.project ? [item.project] : []) ?? [])].map((name) => <option key={name} value={name} />)}
+                  </datalist>
+                </label>
+                <fieldset className="flex flex-wrap gap-2">
+                  <legend className="mb-1">任务提醒</legend>
+                  <select aria-label="提醒方式" value={task.reminderOffsets === undefined ? "default" : task.reminderOffsets.length ? "custom" : "off"}
+                    onChange={(event) => onEditTask(task.id, { reminderOffsets: event.target.value === "default" ? undefined : event.target.value === "off" ? [] : [0] })}>
+                    <option value="default">跟随全局设置</option>
+                    <option value="custom">自定义</option>
+                    <option value="off">关闭</option>
+                  </select>
+                  {!!task.reminderOffsets?.length && REMINDER_OFFSETS.map((offset) => (
+                    <label className="flex gap-1 items-center" key={offset}>
+                      <input type="checkbox" checked={task.reminderOffsets?.includes(offset)} onChange={(event) => {
+                        const next = task.reminderOffsets ?? [];
+                        onEditTask(task.id, { reminderOffsets: event.target.checked ? [...next, offset] : next.filter((item) => item !== offset) });
+                      }} />
+                      {offset === 0 ? "到期" : offset === 1440 ? "提前一天" : `提前 ${offset} 分钟`}
+                    </label>
+                  ))}
+                </fieldset>
               </div>
 
               {/* Dependencies */}

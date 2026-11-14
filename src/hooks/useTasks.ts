@@ -79,19 +79,23 @@ export function useTasks() {
     }
   }, []);
 
-  /** 原子写入 tasks + completedTasks，避免分开写各写一次 timestamp */
-  const saveAll = useCallback(async (updatedTasks: Task[], updatedCompleted: Task[]) => {
-    try {
-      scheduleStorageWrite("aero_todos", updatedTasks);
-      scheduleStorageWrite("aero_completed_todos", updatedCompleted);
-      scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
-      taskRepository.syncActive(updatedTasks);
-      taskRepository.syncCompleted(updatedCompleted);
-      syncEngine.markDirty("tasks", "completedTasks");
-    } catch (e) {
-      console.error("批量保存失败", e);
-    }
-  }, []);
+  const saveAll = useCallback(
+    async (updatedTasks: Task[], updatedCompleted: Task[], markDirty = true) => {
+      try {
+        scheduleStorageWrite("aero_todos", updatedTasks);
+        scheduleStorageWrite("aero_completed_todos", updatedCompleted);
+        taskRepository.syncActive(updatedTasks);
+        taskRepository.syncCompleted(updatedCompleted);
+        if (markDirty) {
+          scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
+          syncEngine.markDirty("tasks", "completedTasks");
+        }
+      } catch (e) {
+        console.error("批量保存失败", e);
+      }
+    },
+    [],
+  );
 
   const safeTasks = Array.isArray(tasks) ? tasks : [];
   const safeCompleted = Array.isArray(completedTasks) ? completedTasks : [];
@@ -206,79 +210,72 @@ export function useTasks() {
     [saveTasks, syncState],
   );
 
-  const handleDeleteTask = useCallback(
-    (id: string, shouldSync: boolean = true) => {
-      const fromActive = tasks.find((t) => t.id === id);
-      const fromCompleted = !fromActive ? completedTasks.find((t) => t.id === id) : undefined;
-      const removed = fromActive || fromCompleted;
-      if (fromActive) {
-        setLastDeleted({ task: fromActive, wasCompleted: false });
-      } else if (fromCompleted) {
-        setLastDeleted({ task: fromCompleted, wasCompleted: true });
-      } else {
-        setLastDeleted(null);
-      }
-      if (removed) dismissJournalTodo(removed);
+  const handleDeleteTasks = useCallback(
+    (ids: string[], shouldSync: boolean = true) => {
+      if (ids.length === 0) return;
+      const deletedIds = new Set(ids);
+      const activeVictims = tasks.filter((task) => deletedIds.has(task.id));
+      const completedVictims = completedTasks.filter((task) => deletedIds.has(task.id));
+      const undoId = ids[ids.length - 1];
+      const activeUndo = activeVictims.find((task) => task.id === undoId);
+      const completedUndo = completedVictims.find((task) => task.id === undoId);
+      setLastDeleted(
+        activeUndo
+          ? { task: activeUndo, wasCompleted: false }
+          : completedUndo
+            ? { task: completedUndo, wasCompleted: true }
+            : null,
+      );
+      for (const task of [...activeVictims, ...completedVictims]) dismissJournalTodo(task);
 
-      setTasks((prev) => {
-        const updated = prev.filter((t) => t.id !== id);
-        return updated;
-      });
-      setCompletedTasks((prev) => {
-        const updated = prev.filter((t) => t.id !== id);
-        return updated;
-      });
-      // 原子写入：del 后 tasks/completedTasks 都已更新，React 18 自动批处理
-      const filteredActive = tasks.filter((t) => t.id !== id);
-      const filteredCompleted = completedTasks.filter((t) => t.id !== id);
-      scheduleStorageWrite("aero_todos", filteredActive);
-      scheduleStorageWrite("aero_completed_todos", filteredCompleted);
+      const keep = (task: Task) => !deletedIds.has(task.id);
+      setTasks((prev) => prev.filter(keep));
+      setCompletedTasks((prev) => prev.filter(keep));
+      scheduleStorageWrite("aero_todos", tasks.filter(keep));
+      scheduleStorageWrite("aero_completed_todos", completedTasks.filter(keep));
       scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
-      taskRepository.remove(id);
-      syncEngine.markDirty(fromCompleted ? "completedTasks" : "tasks");
-      setDetailTaskId((prev) => (prev === id ? null : prev));
-      if (shouldSync) syncState(id, "delete");
+      for (const id of deletedIds) taskRepository.remove(id);
+      if (activeVictims.length > 0) syncEngine.markDirty("tasks");
+      if (completedVictims.length > 0) syncEngine.markDirty("completedTasks");
+      setDetailTaskId((prev) => (prev && deletedIds.has(prev) ? null : prev));
+      if (shouldSync) {
+        if (ids.length === 1) syncState(ids[0], "delete");
+        else syncState(ids[0], "delete_batch", JSON.stringify(ids));
+      }
     },
     [tasks, completedTasks, syncState],
+  );
+
+  const handleDeleteTask = useCallback(
+    (id: string, shouldSync: boolean = true) => handleDeleteTasks([id], shouldSync),
+    [handleDeleteTasks],
+  );
+
+  const restoreDeletedTask = useCallback(
+    (task: Task, wasCompleted: boolean) => {
+      restoreJournalTodo(task);
+      const setList = wasCompleted ? setCompletedTasks : setTasks;
+      const saveList = wasCompleted ? saveCompleted : saveTasks;
+      taskRepository.restore(task, wasCompleted);
+      setList((prev) => {
+        if (prev.some((item) => item.id === task.id)) return prev;
+        const updated = [task, ...prev];
+        saveList(updated);
+        return updated;
+      });
+    },
+    [saveTasks, saveCompleted],
   );
 
   const handleUndoDelete = useCallback(
     (shouldSync: boolean = true) => {
       if (!lastDeleted) return;
       const { task, wasCompleted } = lastDeleted;
-      restoreJournalTodo(task);
+      restoreDeletedTask(task, wasCompleted);
       setLastDeleted(null);
-
-      if (wasCompleted) {
-        setCompletedTasks((prev) => {
-          if (prev.some((t) => t.id === task.id)) return prev;
-          const updated = [task, ...prev];
-          saveCompleted(updated);
-          return updated;
-        });
-        if (shouldSync) syncState(task.id, "complete");
-      } else {
-        setTasks((prev) => {
-          if (prev.some((t) => t.id === task.id)) return prev;
-          const updated = [task, ...prev];
-          saveTasks(updated);
-          return updated;
-        });
-        if (shouldSync) {
-          syncState(
-            task.id,
-            "add",
-            task.title,
-            task.description || "",
-            task.category,
-            task.notes || "",
-            task.dueDate,
-            task.dueTime,
-          );
-        }
-      }
+      if (shouldSync) syncState(task.id, "restore_deleted", JSON.stringify(lastDeleted));
     },
-    [lastDeleted, saveTasks, saveCompleted, syncState],
+    [lastDeleted, restoreDeletedTask, syncState],
   );
 
   const handleTaskClick = useCallback((task: Task) => {
@@ -400,6 +397,7 @@ export function useTasks() {
       isExplicit?: boolean;
       repeat?: string;
       tags?: string[];
+      project?: string;
       priority?: Task["priority"];
       assigneeKind?: Task["assigneeKind"];
       assigneeAgentId?: Task["assigneeAgentId"];
@@ -424,6 +422,7 @@ export function useTasks() {
         dueTime: dueTime || undefined,
         repeat: repeat || undefined,
         tags: tags || undefined,
+        project: taskData.project,
         priority: priority || undefined,
         assigneeKind: "human",
         pipelineTaskId: taskData.pipelineTaskId,
@@ -437,17 +436,21 @@ export function useTasks() {
         return updated;
       });
 
-      syncState(
-        newTask.id,
-        "add",
-        newTask.title,
-        newTask.description || "",
-        newTask.category,
-        newTask.notes || "",
-        newTask.dueDate,
-        newTask.dueTime,
-      );
+      if (newTask.project) {
+        syncState(taskId, "add_with_planning", JSON.stringify(newTask));
+      } else {
+        syncState(
+          newTask.id,
+          "add",
+          newTask.title,
+          newTask.description || "",
+          newTask.category,
+          newTask.notes || "",
+          newTask.dueDate,
+          newTask.dueTime,
+        );
 
+      }
       return { taskId, newTask };
     },
     [saveTasks, syncState],
@@ -473,6 +476,10 @@ export function useTasks() {
             nextTask.dueDate,
             nextTask.dueTime,
           );
+          const planning: { project?: string | null; reminderOffsets?: number[] | null } = {};
+          if ("project" in updates) planning.project = nextTask.project ?? null;
+          if ("reminderOffsets" in updates) planning.reminderOffsets = nextTask.reminderOffsets ?? null;
+          if (Object.keys(planning).length) syncState(id, "task_planning", JSON.stringify(planning));
         });
         const updated = prev.map((t) => (t.id === id ? nextTask : t));
         saveTasks(updated);
@@ -534,14 +541,17 @@ export function useTasks() {
     syncState("reset", "reset");
   }, [replaceStoredTasks, syncState]);
 
-  const handleClearCompleted = useCallback(() => {
-    setCompletedTasks([]);
-    taskRepository.removeCompleted();
-    scheduleStorageWrite("aero_completed_todos", []);
-    scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
-    syncEngine.markDirty("completedTasks");
-    syncState("clear_completed", "clear_completed");
-  }, [syncState]);
+  const handleClearCompleted = useCallback(
+    (shouldSync: boolean = true) => {
+      setCompletedTasks([]);
+      taskRepository.removeCompleted(completedTasks.map(({ id }) => id));
+      scheduleStorageWrite("aero_completed_todos", []);
+      scheduleStorageWrite("tongyun_last_updated", String(Date.now()));
+      syncEngine.markDirty("completedTasks");
+      if (shouldSync) syncState("clear_completed", "clear_completed");
+    },
+    [completedTasks, syncState],
+  );
 
   return {
     tasks: safeTasks,
@@ -564,7 +574,9 @@ export function useTasks() {
     handleToggleFavorite,
     handleTogglePin,
     handleDeleteTask,
+    handleDeleteTasks,
     handleUndoDelete,
+    restoreDeletedTask,
     lastDeleted,
     handleTaskClick,
     handleCloseDetail,

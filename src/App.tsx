@@ -89,7 +89,8 @@ import { createId } from "./utils/id";
 import { getLocalDateString } from "./utils/date";
 import { safeJsonParse } from "./utils/json";
 import { syncEngine } from "./utils/sync/engine";
-import { journalRepository } from "./data/repositories";
+import { journalRepository, taskRepository } from "./data/repositories";
+import { flushPendingStorage } from "./utils/deferredStorage";
 import { sidebarStatusFromSync } from "./utils/sync/sidebarDbStatus";
 import { storage } from "./utils/unifiedStorage";
 import {
@@ -114,6 +115,7 @@ import { getRandomMicroBreakTheme, pickMicroBreakDurationSec } from "./utils/mic
 import { useDueNotifications } from "./hooks/useDueNotifications";
 import { useCrossWindowSync } from "./hooks/useCrossWindowSync";
 import { useStoreInit } from "./hooks/useStoreInit";
+import { usePlannerAgent } from "./hooks/usePlannerAgent";
 import { SyncConflictModal } from "./components/sync/SyncConflictModal";
 import { ensureDailySnapshot } from "./utils/sync/localSnapshots";
 
@@ -279,17 +281,19 @@ function AppBody() {
     }
   }, [customizationHook.customizationConfig.locale, locale, setLocale]);
 
-  const { journal, journalAddTodo, handleUpsertJournal, setJournal } = usePersonal();
+  const { journal, journalReady, journalAddTodo, handleUpsertJournal, setJournal } = usePersonal();
 
   // 全局开关：是否把每一天的日记加入当日待办 → 同步生成/移除关联任务
   const journalTodoTitle = useCallback((entry: JournalEntry) => {
     return `日记 ${entry.date}`;
   }, []);
 
+  const agentJournalCreatesRef = useRef(new Set<string>());
   const previousJournalTodoStateRef = useRef<Map<string, string>>(new Map());
   const previousJournalTodoToggleRef = useRef<boolean | null>(null);
 
   useEffect(() => {
+    if (!isHydrated || !journalReady) return;
     const knownTasks = [...tasksRef.current, ...completedRef.current];
     const previous = previousJournalTodoStateRef.current;
     const previousToggle = previousJournalTodoToggleRef.current;
@@ -301,13 +305,18 @@ function AppBody() {
     for (const entry of journal) {
       const signature = `${entry.updatedAt || 0}:${entry.date}:${entry.content.slice(0, 200)}`;
       nextState.set(entry.id, signature);
-      if (toggleChanged || previous.get(entry.id) !== signature) changedEntries.push(entry);
+      if (agentJournalCreatesRef.current.delete(entry.id)) continue;
+      // Initial hydration is a baseline, not a new edit to every old journal entry.
+      if (previousToggle !== null && (toggleChanged || previous.get(entry.id) !== signature)) {
+        changedEntries.push(entry);
+      }
     }
     previousJournalTodoStateRef.current = nextState;
     previousJournalTodoToggleRef.current = journalAddTodo;
     // 同步回写只是换了数组，日记内容没变就不生成。守卫还在时更不能新建，否则会把刚删的待办写回去。
     if (isSyncApplying() || changedEntries.length === 0) return;
 
+    const deletedTaskIds: string[] = [];
     for (const entry of changedEntries) {
       if (!entry.isDaily) continue;
       const title = journalTodoTitle(entry);
@@ -333,11 +342,12 @@ function AppBody() {
         });
       } else {
         for (const task of activeLinked) {
-          if (task.journalId === entry.id) tasksHook.handleDeleteTask(task.id);
+          if (task.journalId === entry.id) deletedTaskIds.push(task.id);
         }
       }
     }
-  }, [journal, journalAddTodo]);
+    tasksHook.handleDeleteTasks(deletedTaskIds);
+  }, [journal, journalAddTodo, isHydrated, journalReady]);
 
   // ============ handler ref 转发 (#4) ============
   // initStore 的 useEffect 依赖为 []，但需要在跨窗口 listener 里调用最新的 hook 函数。
@@ -382,6 +392,19 @@ function AppBody() {
   useDebouncedPersistence(pomodoroHook.pomodoroLogs, "aero_pomodoro_logs", 250, isHydrated);
   useDebouncedPersistence(countdownHook.countdowns, "tongyun_countdowns", 250, isHydrated);
 
+  usePlannerAgent(windowLabel === "main", isHydrated && journalReady, {
+    tasks: tasksHook.tasks,
+    completed: tasksHook.completedTasks,
+    notes: notesHook.stickyNotes,
+    journal,
+    addTask: tasksHook.handleAddTask,
+    addNote: notesHook.handleAddNote,
+    addJournal: (entry) => {
+      agentJournalCreatesRef.current.add(entry.id);
+      handleUpsertJournal(entry);
+    },
+  });
+
   // ============ Pomodoro Timer Effect ============
   usePomodoroTimer({
     pomodoroHook,
@@ -414,7 +437,7 @@ function AppBody() {
   );
 
   // ============ 任务到期系统通知 ============
-  useDueNotifications({
+  const dueNotifications = useDueNotifications({
     isHydrated,
     locale,
     tasks: tasksHook.tasks,
@@ -603,26 +626,33 @@ function AppBody() {
         if (data) console.warn("[sync] Received invalid SyncData without tasks array, ignoring", data);
         return;
       }
+      const replacements = consumeCategoryReplace();
+      if (!replacements.size) return;
       beginSyncApply();
       isRestoringRef.current = true;
       try {
-        const completedTasks = Array.isArray(data.completedTasks) ? data.completedTasks : [];
-        const tasks = dedupeActiveTasks(data.tasks, completedTasks);
-        const replaceCategory = consumeCategoryReplace();
-        tasksHook.setTasks(tasks);
-        tasksHook.setCompletedTasks(completedTasks);
-        if (replaceCategory) {
-          tasksHook.replaceStoredTasks(tasks, completedTasks, false);
+        if (replacements.has("tasks") || replacements.has("completedTasks")) {
+          const completed = Array.isArray(data.completedTasks) ? data.completedTasks : [];
+          const tasks = dedupeActiveTasks(data.tasks, completed);
+          tasksHook.setTasks(tasks);
+          tasksHook.setCompletedTasks(completed);
+          tasksHook.replaceStoredTasks(tasks, completed, false);
         }
-        if (Array.isArray(data.stickyNotes)) notesHook.setStickyNotes(data.stickyNotes);
-        if (Array.isArray(data.pomodoroLogs)) pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
-        if (Array.isArray(data.countdowns)) countdownHook.setCountdowns(data.countdowns);
-        if (Array.isArray(data.journal)) {
+        if (replacements.has("stickyNotes") && Array.isArray(data.stickyNotes)) {
+          notesHook.setStickyNotes(data.stickyNotes);
+        }
+        if (replacements.has("pomodoroLogs") && Array.isArray(data.pomodoroLogs)) {
+          pomodoroHook.setPomodoroLogs(data.pomodoroLogs);
+        }
+        if (replacements.has("countdowns") && Array.isArray(data.countdowns)) {
+          countdownHook.setCountdowns(data.countdowns);
+        }
+        if (replacements.has("journal") && Array.isArray(data.journal)) {
           setJournal(data.journal);
           localStorage.setItem("tongyun_journal", JSON.stringify(data.journal));
-          if (replaceCategory) journalRepository.syncSnapshot(data.journal);
+          journalRepository.syncSnapshot(data.journal);
         }
-        if (data.customizationConfig) {
+        if (replacements.has("config") && data.customizationConfig) {
           customizationHook.setCustomizationConfig((prev) =>
             withLocalSecrets(data.customizationConfig!, prev),
           );
@@ -830,7 +860,18 @@ function AppBody() {
 
     listen("tongyun-quit-requested", async () => {
       try {
-        await syncEngine.flush(6000);
+        flushPendingStorage();
+        const results = await Promise.allSettled([
+          taskRepository.flushPendingWrites(),
+          syncEngine.flush(6000),
+        ]);
+        flushPendingStorage();
+        await storage.flushNow();
+        for (const result of results) {
+          if (result.status === "rejected") {
+            console.error("[App] quit flush failed:", result.reason);
+          }
+        }
       } finally {
         try {
           await invoke("app_quit_ready");
@@ -860,6 +901,7 @@ function AppBody() {
       isExplicit?: boolean;
       repeat?: any;
       tags?: string[];
+      project?: string;
       priority?: Task["priority"];
       assigneeKind?: Task["assigneeKind"];
       assigneeAgentId?: Task["assigneeAgentId"];
@@ -878,6 +920,7 @@ function AppBody() {
         isExplicit: taskData.isExplicit ?? isAgent,
         repeat: taskData.repeat,
         tags: taskData.tags,
+        project: taskData.project,
         priority: taskData.priority,
         assigneeKind: taskData.assigneeKind,
         assigneeAgentId: taskData.assigneeAgentId,
@@ -1206,6 +1249,29 @@ function AppBody() {
         onAppendJournal={handleQuickCaptureJournal}
         onToast={showMicroBreakToast}
       />
+      {dueNotifications.reminders.length > 0 && (
+        <div className="fixed bottom-5 right-5 z-[95] max-w-80 max-h-64 overflow-y-auto space-y-2">
+          {dueNotifications.reminders.map((reminder) => (
+            <div key={reminder.taskId} role="status" className="rounded-xl border bg-white dark:bg-[#26282E] shadow-lg p-3 text-xs text-slate-800 dark:text-slate-100">
+              <p className="font-semibold break-words">{reminder.title}</p>
+              <p className="mt-1">{reminder.body}</p>
+              <div className="flex flex-wrap gap-3 mt-2">
+                <button type="button" className="underline" onClick={() => {
+                  const task = tasksHook.tasks.find((item) => item.id === reminder.taskId);
+                  if (task?.dependsOn?.some((id) => tasksHook.tasks.some((open) => open.id === id))) {
+                    showMicroBreakToast(locale === "en" ? "Complete the prerequisite tasks first." : "请先完成前置任务");
+                    return;
+                  }
+                  wrappedHandleComplete(reminder.taskId);
+                  dueNotifications.dismiss(reminder.taskId);
+                }}>{locale === "en" ? "Complete" : "完成"}</button>
+                <button type="button" className="underline" onClick={() => dueNotifications.snooze(reminder.taskId)}>{locale === "en" ? "In 10 minutes" : "10 分钟后提醒"}</button>
+                <button type="button" className="underline" onClick={() => dueNotifications.dismiss(reminder.taskId)}>{locale === "en" ? "Dismiss" : "关闭"}</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {microBreakSession && (
         <MicroBreakOverlay
           onSkip={microBreakSession.skip}
@@ -1700,6 +1766,7 @@ const MainLayout = React.memo(function MainLayout({
           <CalendarView
             tasks={tasks}
             completedTasks={completedTasks}
+            pomodoroLogs={pomodoroLogs}
             handleComplete={wrappedHandleComplete}
             handleUndoComplete={handleUndoComplete}
             handleAddTask={handleAddTaskWithAI}

@@ -14,7 +14,9 @@ export function pomodoroStatsOn(
   date: string,
 ): { count: number; minutes: number } {
   const start = new Date(`${date}T00:00:00`).getTime();
-  const end = start + 24 * 60 * 60 * 1000;
+  const nextDay = new Date(start);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const end = nextDay.getTime();
   let count = 0;
   let seconds = 0;
   for (const log of logs) {

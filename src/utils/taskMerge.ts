@@ -162,7 +162,10 @@ export function mergeTwoTasks(a: Task, b: Task): Task {
   }
 
   // 补齐其他属性
-  if (merged.completedAt == null && other.completedAt != null) {
+  if (other.reopenedAt && other.reopenedAt > (merged.reopenedAt ?? 0)) {
+    merged.reopenedAt = other.reopenedAt;
+  }
+  if (other.completedAt != null && other.completedAt > (merged.completedAt ?? -Infinity)) {
     merged.completedAt = other.completedAt;
   }
   if (merged.repeat == null && other.repeat != null) merged.repeat = other.repeat;
@@ -220,12 +223,15 @@ export function mergeTaskSources(...sources: (TaskSourceCollection | null | unde
     }
   }
 
-  // 解决活动与完成列表之间的重复项：完成态优先。
-  // 一旦任务在任意来源中包含有效的 completedAt，必须保持为已完成状态。
-  // 严禁因活动行由于本地保存、迁移或同步而临时刷新的 updatedAt > completedAt 误把已完成任务重新复活为待办。
+  // Only an explicit undo can supersede a completion. SQLite writes can refresh updatedAt.
   for (const [id, activeTask] of activeMap.entries()) {
     const completedTask = completedMap.get(id);
     if (!completedTask) continue;
+
+    if (activeTask.reopenedAt && activeTask.reopenedAt >= (completedTask.completedAt ?? 0)) {
+      completedMap.delete(id);
+      continue;
+    }
 
     const merged = mergeTwoTasks(completedTask, activeTask);
     const completedTime = completedTask.completedAt || completedTask.updatedAt || Date.now();

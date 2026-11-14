@@ -54,6 +54,9 @@ export interface Task {
   category: TaskCategory;
   dueDate?: string; // YYYY-MM-DD
   dueTime?: string; // HH:mm (e.g. "14:30")
+  project?: string;
+  /** Minutes before the due time. Undefined uses the global defaults. */
+  reminderOffsets?: number[];
   isFavorite?: boolean;
   isPinned?: boolean;
   repeat?: string;
@@ -71,6 +74,8 @@ export interface Task {
   journalId?: string; // 关联自某篇日记（addToTodo 时创建）
   /** 完成时刻（ms）；撤销完成时清除。旧数据可能缺失 */
   completedAt?: number;
+  /** Time of an explicit undo-completion, used to reject older completed snapshots. */
+  reopenedAt?: number;
   /** 预估番茄数（目标），可选 */
   estimatedPomodoros?: number;
   /** 精力消耗等级（昼夜潮汐匹配）：高能攻坚 / 常规平稳 / 轻量碎片 */

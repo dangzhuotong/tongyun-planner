@@ -49,9 +49,46 @@ export function useCrossWindowSync(
         case "delete":
           tH.handleDeleteTask(p.task_id, false);
           break;
+        case "delete_batch": {
+          try {
+            const ids: unknown = JSON.parse(p.title);
+            if (Array.isArray(ids) && ids.every((id) => typeof id === "string" && id)) {
+              tH.handleDeleteTasks(ids, false);
+            }
+          } catch {
+            // Ignore a malformed delete event.
+          }
+          break;
+        }
+        case "restore_deleted": {
+          try {
+            const restored = JSON.parse(p.title);
+            if (restored?.task?.id === p.task_id && typeof restored.wasCompleted === "boolean") {
+              tH.restoreDeletedTask(restored.task, restored.wasCompleted);
+            }
+          } catch {
+            // Ignore a malformed restore event.
+          }
+          break;
+        }
         case "snooze":
           tH.handleSnooze(p.task_id, false);
           break;
+        case "add_with_planning": {
+          try {
+            const task = JSON.parse(p.title) as Task;
+            if (task?.id !== p.task_id || typeof task.title !== "string") break;
+            tH.setTasks((prev) => {
+              if (prev.some((item) => item.id === task.id)) return prev;
+              const updated = [task, ...prev];
+              tH.saveTasks(updated);
+              return updated;
+            });
+          } catch {
+            // Ignore malformed task data.
+          }
+          break;
+        }
         case "add": {
           tH.setTasks((prev: Task[]) => {
             const existing = prev.find((t: Task) => t.id === p.task_id);
@@ -99,6 +136,23 @@ export function useCrossWindowSync(
             return updated;
           });
           break;
+        case "task_planning": {
+          try {
+            const data = JSON.parse(p.title);
+            tH.setTasks((prev) => {
+              const updated = prev.map((task) => task.id === p.task_id ? {
+                ...task,
+                ...("project" in data ? { project: data.project ?? undefined } : {}),
+                ...("reminderOffsets" in data ? { reminderOffsets: data.reminderOffsets ?? undefined } : {}),
+              } : task);
+              tH.saveTasks(updated);
+              return updated;
+            });
+          } catch {
+            // Ignore malformed planning metadata.
+          }
+          break;
+        }
         case "update":
           tH.setTasks((prev: Task[]) => {
             const updated = prev.map((t) => {
@@ -123,8 +177,7 @@ export function useCrossWindowSync(
           tH.replaceStoredTasks(tH.INITIAL_TASKS, []);
           break;
         case "clear_completed":
-          tH.setCompletedTasks([]);
-          tH.saveCompleted([]);
+          tH.handleClearCompleted(false);
           break;
         case "lock_widget":
           wH.setIsWidgetLocked(true);
@@ -216,9 +269,8 @@ export function useCrossWindowSync(
             const completed = restored.completedTasks || [];
             const notes = restored.stickyNotes || [];
             tH.setTasks(tasks);
-            tH.saveTasks(tasks);
             tH.setCompletedTasks(completed);
-            tH.saveCompleted(completed);
+            tH.replaceStoredTasks(tasks, completed);
             nH.setStickyNotes(notes);
             if (Array.isArray(restored.pomodoroLogs)) {
               pH.setPomodoroLogs(restored.pomodoroLogs);

@@ -1,6 +1,6 @@
 [package]
 name = "tongyun-planner"
-version = "1.2.5"
+version = "1.2.6"
 description = "橦云手帐：本地优先的 AI 手帐式桌面效率 App"
 authors = ["TongYun Planner contributors"]
 edition = "2021"
@@ -26,3 +26,12 @@ tauri-plugin-updater = "2.13.0"
 tauri-plugin-process = "2.4.0"
 tauri-plugin-notification = "2.8.0"
 
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
+tokio = { version = "1", features = ["net", "sync", "time"] }
+subtle = "2"
+sha2 = "0.10"
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }

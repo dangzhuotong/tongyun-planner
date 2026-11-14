@@ -8,10 +8,11 @@ export function useStickyNotes() {
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>([]);
 
   const handleAddNote = useCallback(
-    (initialText: string = "") => {
+    (initialText: string = "", title?: string) => {
       const newNote = {
         id: createId("note"),
         text: initialText,
+        title,
         color: "tea",
         rotate:
           Math.random() > 0.5
@@ -20,6 +21,7 @@ export function useStickyNotes() {
       };
       setStickyNotes((prev) => [newNote, ...prev]);
       syncState(newNote.id, "add_note", JSON.stringify(newNote));
+      return newNote.id;
     },
     [syncState],
   );

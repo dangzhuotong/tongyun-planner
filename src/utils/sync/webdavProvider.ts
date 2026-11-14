@@ -9,6 +9,7 @@ import {
   getCategoryPayload,
   applyCategoryPayload,
   mergeRemoteIntoLocal,
+  isSampleTasksOnly,
   normalizeSyncData,
   getLocalSyncData,
   reconcileTasksAndCompleted,
@@ -44,21 +45,22 @@ function assertDesktopWebDav(): void {
   }
 }
 
-function invokeWithTimeout<T>(
+async function invokeWithTimeout<T>(
   cmd: string,
   args: Record<string, unknown>,
   ms = SYNC_TIMEOUT,
 ): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  return Promise.race([
-    invoke<T>(cmd, args).then((result) => {
-      clearTimeout(timeoutId);
-      return result;
-    }),
-    new Promise<T>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("WebDAV timeout (" + ms / 1000 + "s)")), ms);
-    }),
-  ]);
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      invoke<T>(cmd, args),
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("WebDAV timeout (" + ms / 1000 + "s)")), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function statFile(
@@ -217,8 +219,16 @@ export class WebDAVProvider implements SyncProvider {
   readonly displayName = "坚果云 WebDAV";
   private config: WebDavConfig | null = null;
 
-  constructor(config?: WebDavConfig) {
+  constructor(
+    config?: WebDavConfig,
+    private readonly onCategoryApplied?: (category: SyncCategory) => void,
+  ) {
     this.config = config || null;
+  }
+
+  private applyCategory(category: SyncCategory, payload: unknown, replaceCompleted = false) {
+    applyCategoryPayload(category, payload, replaceCompleted);
+    this.onCategoryApplied?.(category);
   }
 
   private getAccount(): string {
@@ -387,7 +397,7 @@ export class WebDAVProvider implements SyncProvider {
         if (drift.action === "upload") {
           // 只是某一边多了一篇日记。合并后继续上传，不挡用户。
           driftedPayload = drift.payload;
-          if (cat !== "config") applyCategoryPayload(cat, drift.payload);
+          if (cat !== "config") this.applyCategory(cat, drift.payload);
         } else {
           const backupPaths: string[] = [];
           if (remoteContent) {
@@ -439,7 +449,7 @@ export class WebDAVProvider implements SyncProvider {
       if (guard.skip) {
         console.warn(`[sync] skip empty overwrite for ${cat}`);
         if (remotePayload != null) {
-          applyCategoryPayload(cat, remotePayload);
+          this.applyCategory(cat, remotePayload);
           if (cat === "config") {
             await importDecryptedSecrets(remotePayload, data.customizationConfig);
           }
@@ -455,7 +465,7 @@ export class WebDAVProvider implements SyncProvider {
 
       if (guard.mergedLocal !== undefined) {
         payload = guard.mergedLocal;
-        applyCategoryPayload(cat, payload);
+        this.applyCategory(cat, payload);
       }
       if (cat === "config") {
         payload = await prepareConfigForUpload(payload as CustomizationConfig, {
@@ -584,15 +594,27 @@ export class WebDAVProvider implements SyncProvider {
         (localVer >= remoteVer || dirtyOnly?.has(cat) || getLocalCategoryVersion(cat) !== localVer)
       ) {
         await importDecryptedSecrets(remotePayload, getLocalSyncData().customizationConfig);
+        this.onCategoryApplied?.("config");
         clearForceConfigPull();
         if (fp) setFingerprint(account, fileName, fp);
         anyUpdated = true;
         continue;
       }
 
-      // 远端为主 + 本地补充合并
-      const merged = mergeRemoteIntoLocal(cat, remotePayload, localPayload);
-      applyCategoryPayload(cat, merged);
+      // A newer task snapshot carries removals (including the last item). The dirty/version checks above
+      // protect pending local edits before accepting that snapshot.
+      const merged =
+        cat === "completedTasks" ||
+        (cat === "tasks" && localVer > 0)
+          ? remotePayload
+          : mergeRemoteIntoLocal(
+              cat,
+              remotePayload,
+              cat === "tasks" && Array.isArray(localPayload)
+                ? localPayload.filter((task) => !isSampleTasksOnly([task]))
+                : localPayload,
+            );
+      this.applyCategory(cat, merged, cat === "completedTasks");
       if (cat === "config") {
         await importDecryptedSecrets(remotePayload, localPayload);
         if (forceConfig) clearForceConfigPull();
@@ -632,7 +654,7 @@ export class WebDAVProvider implements SyncProvider {
       const localPayload =
         cat === "config" ? localData.customizationConfig : getCategoryPayload(localData, cat);
       const merged = mergeRemoteIntoLocal(cat, remotePayload, localPayload);
-      applyCategoryPayload(cat, merged);
+      this.applyCategory(cat, merged);
       if (cat === "config") {
         await importDecryptedSecrets(remotePayload, localPayload);
       }
@@ -713,7 +735,7 @@ export class WebDAVProvider implements SyncProvider {
         : conflict.category === "journal"
           ? mergeRemoteIntoLocal("journal", remotePayload, localData.journal)
           : remotePayload;
-    applyCategoryPayload(conflict.category, payload);
+    this.applyCategory(conflict.category, payload, conflict.category === "completedTasks");
     if (conflict.category === "journal") {
       // 云端没有的本地日记留在合并结果里，并写回云端，避免下次再被整本对账删掉。
       bumpCategoryVersion("journal");
@@ -732,7 +754,7 @@ export class WebDAVProvider implements SyncProvider {
         if (compRes?.content) {
           const compData = JSON.parse(compRes.content);
           if (Array.isArray(compData)) {
-            applyCategoryPayload("completedTasks", compData);
+            this.applyCategory("completedTasks", compData);
           }
         }
       } catch {

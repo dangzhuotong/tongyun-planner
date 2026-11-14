@@ -9,6 +9,8 @@ const harness = vi.hoisted(() => ({
   remove: vi.fn(),
   syncActive: vi.fn(),
   syncCompleted: vi.fn(),
+  scheduleStorageWrite: vi.fn(),
+  markDirty: vi.fn(),
 }));
 vi.mock("react", () => ({
   useCallback: (fn: unknown) => fn,
@@ -24,8 +26,8 @@ vi.mock("react", () => ({
   },
 }));
 vi.mock("./useSync", () => ({ useSync: () => ({ syncState: harness.sync }) }));
-vi.mock("../utils/deferredStorage", () => ({ scheduleStorageWrite: vi.fn() }));
-vi.mock("../utils/sync/engine", () => ({ syncEngine: { markDirty: vi.fn() } }));
+vi.mock("../utils/deferredStorage", () => ({ scheduleStorageWrite: harness.scheduleStorageWrite }));
+vi.mock("../utils/sync/engine", () => ({ syncEngine: { markDirty: harness.markDirty } }));
 vi.mock("../utils/journalTodoLink", () => ({
   dismissJournalTodo: vi.fn(),
   restoreJournalTodo: vi.fn(),
@@ -35,6 +37,7 @@ vi.mock("../data/repositories", () => ({
     syncActive: harness.syncActive,
     syncCompleted: harness.syncCompleted,
     remove: harness.remove,
+    restore: vi.fn(),
   },
 }));
 import { useTasks } from "./useTasks";
@@ -58,6 +61,21 @@ beforeEach(() => {
 });
 
 describe("task completion persistence and window replay", () => {
+  it("persists hydration locally without marking either task category dirty", async () => {
+    const view = RenderTasks([daily]);
+    await view.saveAll([daily], [], false);
+    expect(harness.scheduleStorageWrite.mock.calls).toEqual([
+      ["aero_todos", [daily]],
+      ["aero_completed_todos", []],
+    ]);
+    expect(harness.syncActive).toHaveBeenCalledWith([daily]);
+    expect(harness.syncCompleted).toHaveBeenCalledWith([]);
+    expect(harness.markDirty).not.toHaveBeenCalled();
+
+    await view.saveAll([daily], []);
+    expect(harness.markDirty).toHaveBeenCalledWith("tasks", "completedTasks");
+  });
+
   it("replays the sender's exact successor and ignores duplicate completion events", () => {
     RenderTasks([daily]).handleComplete(daily.id);
     const sender = RenderTasks();
@@ -104,5 +122,35 @@ describe("task completion persistence and window replay", () => {
     RenderTasks().handleComplete(daily.id);
     expect(RenderTasks().tasks).toEqual([]);
     expect(RenderTasks().completedTasks.some((t) => t.id === next.id)).toBe(true);
+  });
+});
+
+describe("task deletion persistence and window replay", () => {
+  it("persists all journal-linked deletes in one snapshot and event", () => {
+    const first = { ...daily, id: "first" };
+    const second = { ...daily, id: "second" };
+    RenderTasks([first, second, daily]).handleDeleteTasks([first.id, second.id]);
+
+    expect(RenderTasks().tasks).toEqual([daily]);
+    expect(harness.scheduleStorageWrite).toHaveBeenCalledWith("aero_todos", [daily]);
+    expect(harness.remove.mock.calls).toEqual([[first.id], [second.id]]);
+    expect(harness.sync.mock.calls).toEqual([
+      [first.id, "delete_batch", JSON.stringify([first.id, second.id])],
+    ]);
+  });
+
+  it("restores the full completed task in another window without duplicating it", () => {
+    const task = { ...daily, completedAt: 123, tags: ["日记"], journalId: "entry" };
+    RenderTasks([], [task]).handleDeleteTask(task.id);
+    RenderTasks().handleUndoDelete();
+    const [id, action, payload] = harness.sync.mock.calls[1];
+    expect([id, action]).toEqual([task.id, "restore_deleted"]);
+
+    const restored = JSON.parse(payload);
+    const receiver = RenderTasks([], []);
+    receiver.restoreDeletedTask(restored.task, restored.wasCompleted);
+    receiver.restoreDeletedTask(restored.task, restored.wasCompleted);
+    expect(RenderTasks().completedTasks).toEqual([task]);
+    expect(RenderTasks().tasks).toEqual([]);
   });
 });

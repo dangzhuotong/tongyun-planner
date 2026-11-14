@@ -379,7 +379,9 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
           }}
           className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-[#1E2026] hover:bg-slate-50 dark:hover:bg-[#252830] border border-[#EFEBE4] dark:border-[#2D3039] px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs disabled:opacity-50"
         >
-          <span>{exportingLogs ? s.exportingLogs || "正在导出日志..." : s.exportLogs || "导出运行日志"}</span>
+          <span>
+            {exportingLogs ? s.exportingLogs || "正在导出日志..." : s.exportLogs || "导出运行日志"}
+          </span>
         </button>
         <button
           type="button"

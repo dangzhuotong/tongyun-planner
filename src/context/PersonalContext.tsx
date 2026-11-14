@@ -12,6 +12,7 @@ import { migrateLegacyJournalAttachments } from "../utils/journalAttachmentStora
 interface PersonalState {
   // 日记
   journal: JournalEntry[];
+  journalReady: boolean;
   handleUpsertJournal: (entry: JournalEntry) => void;
   handleDeleteJournal: (id: string) => void;
   journalAddTodo: boolean;
@@ -127,6 +128,7 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<PersonalState>(
     () => ({
       journal,
+      journalReady: persistReady,
       handleUpsertJournal,
       handleDeleteJournal,
       journalAddTodo,
@@ -141,6 +143,7 @@ export function PersonalProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       journal,
+      persistReady,
       handleUpsertJournal,
       handleDeleteJournal,
       journalAddTodo,

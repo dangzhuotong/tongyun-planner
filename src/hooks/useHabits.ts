@@ -53,6 +53,13 @@ export function useHabits() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const reload = () => setHabits(load());
+    window.addEventListener("tongyun-portable-restored", reload);
+    return () => window.removeEventListener("tongyun-portable-restored", reload);
+  }, []);
+
   // 当日持久化
   useEffect(() => {
     save(habits);
