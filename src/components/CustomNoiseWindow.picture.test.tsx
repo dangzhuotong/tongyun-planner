@@ -1,5 +1,10 @@
 /** @vitest-environment jsdom */
 import { act, useState, type ReactNode } from "react";
+
+// React 19 在 act() 时检查这个全局标记。未设置会在 CI 打出
+// “testing environment is not configured to support act(...)”。
+// 这只让 act 更新被正确包住，不给 jsdom 增加媒体引擎。
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LanguageProvider } from "../i18n/LanguageContext";
@@ -74,12 +79,15 @@ describe("CustomNoiseWindow picture and playback", () => {
     });
   }
 
-  it("隐藏直链画面时不卸载、不暂停、不清地址，并能恢复", async () => {
+  it("隐藏直链画面后仍是同一元素，音量属性还在，恢复后也没调用 pause", async () => {
+    // jsdom 不解码、不推进 currentTime，也不出声。这里只断言 DOM 状态和 volume 属性。
     seed(videoLink);
     await render(<CustomNoiseWindow onClose={() => {}} stopSignal={0} volume={0.4} />);
-    const video = document.querySelector("video");
+    const video = document.querySelector("video") as HTMLVideoElement;
     expect(video).not.toBeNull();
-    expect(video!.getAttribute("src")).toContain("rain.mp4");
+    expect(video.getAttribute("src")).toContain("rain.mp4");
+    expect(video.volume).toBeCloseTo(0.4);
+    expect(video.getAttribute("data-picture-hidden")).toBe("false");
 
     await act(async () => {
       document
@@ -87,11 +95,13 @@ describe("CustomNoiseWindow picture and playback", () => {
         .click();
     });
 
-    const hidden = document.querySelector("video");
+    const hidden = document.querySelector("video") as HTMLVideoElement;
     expect(hidden).toBe(video);
-    expect(hidden!.isConnected).toBe(true);
-    expect(hidden!.getAttribute("data-picture-hidden")).toBe("true");
-    expect(hidden!.getAttribute("src")).toContain("rain.mp4");
+    expect(hidden.isConnected).toBe(true);
+    expect(hidden.getAttribute("data-picture-hidden")).toBe("true");
+    expect(hidden.className).toContain("h-0");
+    expect(hidden.getAttribute("src")).toContain("rain.mp4");
+    expect(hidden.volume).toBeCloseTo(0.4);
     expect(pauseCalls).toBe(0);
     expect(localStorage.getItem(CUSTOM_NOISE_PICTURE_HIDDEN_KEY)).toBe("true");
 
@@ -100,19 +110,54 @@ describe("CustomNoiseWindow picture and playback", () => {
         .querySelector<HTMLButtonElement>('[data-testid="custom-noise-picture-toggle"]')!
         .click();
     });
-    expect(document.querySelector("video")!.getAttribute("data-picture-hidden")).toBe("false");
-    expect(document.querySelector("video")!.isConnected).toBe(true);
+    const restored = document.querySelector("video") as HTMLVideoElement;
+    expect(restored).toBe(video);
+    expect(restored.getAttribute("data-picture-hidden")).toBe("false");
+    expect(restored.className).not.toContain("h-0");
+    expect(restored.volume).toBeCloseTo(0.4);
     expect(pauseCalls).toBe(0);
   });
 
-  it("直链音量写到媒体元素，并显示滑块百分比", async () => {
+  it("画面收起后改滑块，仍写到同一个媒体元素的 volume 属性", async () => {
+    // 同样只检查 HTMLMediaElement.volume。jsdom 不会因此发出声音或改变 currentTime。
     seed(videoLink);
-    await render(<CustomNoiseWindow onClose={() => {}} stopSignal={0} volume={0.2} />);
+
+    function Harness() {
+      const [volume, setVolume] = useState(0.2);
+      return (
+        <>
+          <button type="button" data-testid="set-volume" onClick={() => setVolume(0.15)}>
+            set
+          </button>
+          <CustomNoiseWindow onClose={() => {}} stopSignal={0} volume={volume} />
+        </>
+      );
+    }
+
+    await render(<Harness />);
     const video = document.querySelector("video") as HTMLVideoElement;
     expect(video.volume).toBeCloseTo(0.2);
+
+    await act(async () => {
+      document
+        .querySelector<HTMLButtonElement>('[data-testid="custom-noise-picture-toggle"]')!
+        .click();
+    });
+    expect(document.querySelector("video")).toBe(video);
+    expect(video.getAttribute("data-picture-hidden")).toBe("true");
+    expect(video.volume).toBeCloseTo(0.2);
+
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[data-testid="set-volume"]')!.click();
+    });
+    expect(document.querySelector("video")).toBe(video);
+    expect(video.getAttribute("data-picture-hidden")).toBe("true");
+    expect(video.className).toContain("h-0");
+    expect(video.volume).toBeCloseTo(0.15);
     expect(document.querySelector('[data-testid="custom-noise-volume"]')?.textContent).toContain(
-      "20%",
+      "15%",
     );
+    expect(pauseCalls).toBe(0);
   });
 
   it("音频直链没有隐藏画面按钮，跨站预览不假装已经藏起画面", async () => {

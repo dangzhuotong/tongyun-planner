@@ -30,7 +30,7 @@ describe("noisePicture", () => {
     expect(clampMediaVolume(Number.NaN)).toBe(0);
   });
 
-  it("只检查白噪音勾选 label 的 class 含 relative，不模拟滚动或空白页", () => {
+  it("只核对源码字符串：勾选 label 的 class 含 relative。不打开页面，不测量 scrollTop，不能证明不会滚到空白", () => {
     expect(VISIBLE_NOISE_LABEL_CLASS.split(/\s+/)).toContain("relative");
     expect(panelSource).toContain("VISIBLE_NOISE_LABEL_CLASS");
     expect(panelSource).not.toMatch(
