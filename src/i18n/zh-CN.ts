@@ -51,11 +51,6 @@ const zhCN: Translations = {
     customNoisePictureHide: "仅声音",
     customNoisePictureShow: "显示画面",
     customNoisePictureAudio: "这条是音频直链，没有画面可隐藏。",
-    customNoisePictureDesktopOnly:
-      "隐藏 YouTube / B 站画面只在桌面版独立窗口里生效。这里没有那一块画面，也不会去改网页里的播放器。",
-    customNoisePictureExternalHint:
-      "点「仅声音」只把独立窗口缩到标题栏，不关闭、不停止播放。系统若限制最小尺寸，仍可能露出一条画面；若系统把窗口挂起，声音可能停。",
-    customNoisePictureFailed: "没能收起或恢复画面，窗口保持原样，播放没有被关掉。",
     customNoiseVolumeScope:
       "这个滑块只改变内置白噪音和音视频直链。YouTube / B 站请用独立窗口里的音量。",
     customNoiseErrEmpty: "请先粘贴链接",

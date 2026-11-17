@@ -30,7 +30,7 @@ describe("noisePicture", () => {
     expect(clampMediaVolume(Number.NaN)).toBe(0);
   });
 
-  it("白噪音勾选 label 带 relative，避免 sr-only 焦点把设置页滚到底", () => {
+  it("只检查白噪音勾选 label 的 class 含 relative，不模拟滚动或空白页", () => {
     expect(VISIBLE_NOISE_LABEL_CLASS.split(/\s+/)).toContain("relative");
     expect(panelSource).toContain("VISIBLE_NOISE_LABEL_CLASS");
     expect(panelSource).not.toMatch(

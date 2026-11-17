@@ -133,9 +133,10 @@ describe("CustomNoiseWindow picture and playback", () => {
     expect(document.querySelector("video")).toBeNull();
     expect(document.querySelector('[data-testid="custom-noise-volume"]')).toBeNull();
     expect(document.querySelector('[data-testid="custom-noise-picture-toggle"]')).toBeNull();
-    expect(
-      document.querySelector('[data-testid="custom-noise-picture-desktop"]')?.textContent,
-    ).toContain("桌面版");
+    expect(document.querySelector('[data-testid="custom-noise-picture-desktop"]')).toBeNull();
+    expect(document.querySelector('[data-testid="custom-noise-embed"]')?.textContent).toContain(
+      "独立窗口",
+    );
   });
 
   it("悬浮窗回声不会把播放信号越加越高", async () => {

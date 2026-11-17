@@ -12,12 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { useTranslation } from "../i18n/LanguageContext";
-import {
-  canControlExternalPlayerPicture,
-  listenExternalPlayerClosed,
-  setExternalPlayerPictureHidden,
-  setExternalPlayerUrl,
-} from "../utils/externalPlayer";
+import { listenExternalPlayerClosed, setExternalPlayerUrl } from "../utils/externalPlayer";
 import {
   clampMediaVolume,
   isDirectMediaWithPicture,
@@ -112,10 +107,8 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
     return clampWindowPosition(stored ?? defaultPosition(), viewportSize(), PANEL_SIZE);
   });
   const [pictureHidden, setPictureHidden] = useState<boolean>(() => loadPictureHidden());
-  const [pictureFailed, setPictureFailed] = useState(false);
 
   const positionRef = useRef(position);
-  const pictureHiddenRef = useRef(pictureHidden);
   const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
   const mediaRef = useRef<HTMLMediaElement | null>(null);
   const consumedPlaySignalRef = useRef<number | null>(null);
@@ -268,43 +261,14 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
     const next = !pictureHidden;
     setPictureHidden(next);
     savePictureHidden(next);
-    setPictureFailed(false);
   };
-
-  const hideExternalPicture = async () => {
-    if (!canControlExternalPlayerPicture()) return;
-    const next = !pictureHidden;
-    try {
-      const result = await setExternalPlayerPictureHidden(next);
-      if (result !== "applied") return;
-      setPictureHidden(next);
-      savePictureHidden(next);
-      setPictureFailed(false);
-    } catch (error) {
-      console.warn("[noise] picture", error);
-      setPictureFailed(true);
-    }
-  };
-
-  useEffect(() => {
-    pictureHiddenRef.current = pictureHidden;
-  }, [pictureHidden]);
 
   // YouTube / B 站放到独立窗口。主 WebView 不再挂第三方页面，页面卡死也不会冻住主界面。
-  // 打开前先记下「仅声音」，新窗口按这个尺寸创建，避免先铺开画面再缩回去。
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      try {
-        if (externalEmbedUrl && canControlExternalPlayerPicture()) {
-          await setExternalPlayerPictureHidden(pictureHiddenRef.current);
-        }
-        if (cancelled) return;
-        await setExternalPlayerUrl(externalEmbedUrl);
-      } catch (error) {
-        if (!cancelled) console.warn("[noise] external player", error);
-      }
-    })();
+    void setExternalPlayerUrl(externalEmbedUrl).catch((error) => {
+      if (!cancelled) console.warn("[noise] external player", error);
+    });
     return () => {
       cancelled = true;
     };
@@ -473,36 +437,6 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
                 data-testid="custom-noise-picture-audio"
               >
                 {s.customNoisePictureAudio}
-              </p>
-            )}
-            {activeLink.kind !== "media" && canControlExternalPlayerPicture() && (
-              <div className="px-2.5 py-1.5 space-y-1">
-                <button
-                  type="button"
-                  data-testid="custom-noise-picture-toggle"
-                  aria-pressed={pictureHidden}
-                  onClick={() => void hideExternalPicture()}
-                  className="w-full flex items-center justify-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-[#4D7C5D] dark:text-[#78C496] bg-[#4D7C5D]/10 hover:bg-[#4D7C5D]/15 cursor-pointer"
-                >
-                  {pictureHidden ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                  {pictureHidden ? s.customNoisePictureShow : s.customNoisePictureHide}
-                </button>
-                <p className="text-[9px] leading-snug text-slate-400 dark:text-slate-500">
-                  {s.customNoisePictureExternalHint}
-                </p>
-                {pictureFailed && (
-                  <p role="alert" className="text-[9px] leading-snug text-red-500">
-                    {s.customNoisePictureFailed}
-                  </p>
-                )}
-              </div>
-            )}
-            {activeLink.kind !== "media" && !canControlExternalPlayerPicture() && (
-              <p
-                className="px-2.5 py-1.5 text-[10px] leading-snug text-slate-500 dark:text-slate-400"
-                data-testid="custom-noise-picture-desktop"
-              >
-                {s.customNoisePictureDesktopOnly}
               </p>
             )}
             {activeLink.kind === "media" ? (
