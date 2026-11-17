@@ -2,6 +2,16 @@
 
 格式大致遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。应用版本号以 `package.json` / `src-tauri/tauri.conf.json` 为准，本文不负责发版。
 
+## [Unreleased]
+
+### 新增
+
+- 音视频直链可以一键「仅声音」：画面收起后继续播放，再点「显示画面」恢复。YouTube / B 站仍是原来的独立窗口，没有缩窗或隐藏画面开关。
+
+### 说明
+
+- 主界面音量滑块只作用于内置白噪音和音视频直链。YouTube / B 站独立窗口仍用窗口内的音量，主滑块不会假装已经同步。
+
 ## [1.2.6] - 2026-11-14
 
 ### 新增

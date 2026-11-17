@@ -47,7 +47,12 @@ const zhCN: Translations = {
     customNoiseClose: "关闭悬浮窗",
     customNoiseDragHint: "按住标题栏拖动，位置会自动记住",
     customNoiseIsolated:
-      "YouTube / B 站在独立窗口播放，避免卡住主界面。音量用那个窗口里的控制。",
+      "YouTube / B 站在独立窗口播放，避免卡住主界面。主界面音量滑块改不了那个窗口。",
+    customNoisePictureHide: "仅声音",
+    customNoisePictureShow: "显示画面",
+    customNoisePictureAudio: "这条是音频直链，没有画面可隐藏。",
+    customNoiseVolumeScope:
+      "这个滑块只改变内置白噪音和音视频直链。YouTube / B 站请用独立窗口里的音量。",
     customNoiseErrEmpty: "请先粘贴链接",
     customNoiseErrInvalid: "链接格式不正确，请使用 http/https 链接",
     customNoiseErrUnsupported: "暂不支持该链接，仅支持 B 站、YouTube 或音频/视频直链",

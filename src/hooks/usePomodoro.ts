@@ -3,9 +3,9 @@ import type { AlertSoundType, PomodoroLog } from "../types";
 import { useSync } from "./useSync";
 import { audioEngine } from "../utils/audioEngine";
 import {
+  nextExternalPlaySignal,
   nextNoiseStartSignal,
   resolveAutoNoiseTarget,
-  shouldEmitExternalPlaySignal,
 } from "../utils/noisePolicy";
 import {
   loadCustomNoiseActiveId,
@@ -263,14 +263,13 @@ export function usePomodoro() {
       audioEngine.stopNoise();
       setIsPlayingNoise(false);
       setIsPlayingExternalNoise(true);
-      if (
-        shouldEmitExternalPlaySignal({
+      setExternalPlaySignal((signal) =>
+        nextExternalPlaySignal({
+          signal,
           echo: options?.echo !== false,
           alreadyPlayingExternal: isPlayingExternalNoise,
-        })
-      ) {
-        setExternalPlaySignal((s) => s + 1);
-      }
+        }),
+      );
     },
     [isPlayingExternalNoise],
   );
@@ -309,15 +308,14 @@ export function usePomodoro() {
       if (target === "external") {
         audioEngine.stopNoise();
         setIsPlayingNoise(false);
-        if (
-          shouldEmitExternalPlaySignal({
+        setExternalPlaySignal((signal) =>
+          nextExternalPlaySignal({
+            signal,
             echo: true,
             alreadyPlayingExternal: isPlayingExternalNoise,
-          })
-        ) {
-          setIsPlayingExternalNoise(true);
-          setExternalPlaySignal((s) => s + 1);
-        }
+          }),
+        );
+        if (!isPlayingExternalNoise) setIsPlayingExternalNoise(true);
         return;
       }
       if (target === "internal") {

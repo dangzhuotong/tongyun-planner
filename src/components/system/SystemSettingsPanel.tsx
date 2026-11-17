@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { CustomizationConfig, AlertSoundType, Locale } from "../../types";
 import { NOISE_DEFINITIONS, getVisibleNoises, setVisibleNoises } from "../../constants";
+import { VISIBLE_NOISE_LABEL_CLASS } from "../../utils/noisePicture";
 import { audioEngine } from "../../utils/audioEngine";
 import { CustomSelect } from "../CustomSelect";
 import { useTranslation } from "../../i18n/LanguageContext";
@@ -722,7 +723,7 @@ export const SystemSettingsPanel: React.FC<SystemSettingsPanelProps> = ({
                 >
                   <span className="text-[9px]">▶</span>
                 </button>
-                <label className="relative flex items-center gap-1.5 flex-grow cursor-pointer select-none">
+                <label className={VISIBLE_NOISE_LABEL_CLASS}>
                   <input
                     type="checkbox"
                     checked={checked}

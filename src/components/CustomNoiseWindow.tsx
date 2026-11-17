@@ -1,8 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, GripVertical, Link2, Plus, Radio, Trash2, X } from "lucide-react";
+import {
+  ExternalLink,
+  Eye,
+  EyeOff,
+  GripVertical,
+  Link2,
+  Plus,
+  Radio,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useTranslation } from "../i18n/LanguageContext";
 import { listenExternalPlayerClosed, setExternalPlayerUrl } from "../utils/externalPlayer";
+import {
+  clampMediaVolume,
+  isDirectMediaWithPicture,
+  loadPictureHidden,
+  mainSliderReachesPlayback,
+  savePictureHidden,
+} from "../utils/noisePicture";
 import { openExternal } from "../utils/openExternal";
 import {
   appendCustomNoiseLink,
@@ -89,6 +106,7 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
     const stored = loadCustomNoiseWindowPosition();
     return clampWindowPosition(stored ?? defaultPosition(), viewportSize(), PANEL_SIZE);
   });
+  const [pictureHidden, setPictureHidden] = useState<boolean>(() => loadPictureHidden());
 
   const positionRef = useRef(position);
   const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
@@ -117,10 +135,10 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
     return () => saveCustomNoiseWindowPosition(positionRef.current);
   }, []);
 
-  // 音量同步至原生多媒体标签（直链音频/视频）
+  // 音量只写到本页的直链媒体。跨站独立窗口没有对应的公开音量接口。
   useEffect(() => {
     if (mediaRef.current && typeof volume === "number") {
-      mediaRef.current.volume = Math.max(0, Math.min(1, volume));
+      mediaRef.current.volume = clampMediaVolume(volume);
     }
   }, [volume, activeId]);
 
@@ -235,8 +253,15 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
   }, [error, s]);
 
   const activeLink = links.find((link) => link.id === activeId) ?? null;
-  const externalEmbedUrl =
-    activeLink && activeLink.kind !== "media" ? activeLink.embedUrl : null;
+  const externalEmbedUrl = activeLink && activeLink.kind !== "media" ? activeLink.embedUrl : null;
+  const directPicture = activeLink ? isDirectMediaWithPicture(activeLink.embedUrl) : false;
+  const sliderReachesActive = activeLink ? mainSliderReachesPlayback(activeLink.kind) : false;
+
+  const hideDirectPicture = () => {
+    const next = !pictureHidden;
+    setPictureHidden(next);
+    savePictureHidden(next);
+  };
 
   // YouTube / B 站放到独立窗口。主 WebView 不再挂第三方页面，页面卡死也不会冻住主界面。
   useEffect(() => {
@@ -300,9 +325,12 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
           <GripVertical className="w-3.5 h-3.5 text-slate-400" />
           <Radio className="w-3.5 h-3.5 text-[#4D7C5D] dark:text-[#78C496]" />
           {s.customNoiseTitle}
-          {typeof volume === "number" && (
-            <span className="text-[9px] text-slate-400 font-mono font-normal">
-              ({Math.round(volume * 100)}%)
+          {sliderReachesActive && typeof volume === "number" && (
+            <span
+              className="text-[9px] text-slate-400 font-mono font-normal"
+              data-testid="custom-noise-volume"
+            >
+              ({Math.round(clampMediaVolume(volume) * 100)}%)
             </span>
           )}
         </span>
@@ -391,24 +419,45 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
 
         {activeLink && (
           <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-[#33353A] bg-black/5 dark:bg-black/20">
+            {activeLink.kind === "media" && directPicture && (
+              <button
+                type="button"
+                data-testid="custom-noise-picture-toggle"
+                aria-pressed={pictureHidden}
+                onClick={hideDirectPicture}
+                className="w-full flex items-center justify-center gap-1 px-2 py-1 text-[10px] font-semibold text-[#4D7C5D] dark:text-[#78C496] bg-[#4D7C5D]/10 hover:bg-[#4D7C5D]/15 cursor-pointer"
+              >
+                {pictureHidden ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                {pictureHidden ? s.customNoisePictureShow : s.customNoisePictureHide}
+              </button>
+            )}
+            {activeLink.kind === "media" && !directPicture && (
+              <p
+                className="px-2.5 py-1.5 text-[10px] leading-snug text-slate-500 dark:text-slate-400"
+                data-testid="custom-noise-picture-audio"
+              >
+                {s.customNoisePictureAudio}
+              </p>
+            )}
             {activeLink.kind === "media" ? (
-              /\.(mp4|webm|m3u8)$/i.test(activeLink.embedUrl.split(/[?#]/)[0]) ? (
+              directPicture ? (
                 <video
                   ref={(el) => {
                     mediaRef.current = el;
                   }}
                   key={activeLink.id}
                   src={activeLink.embedUrl}
-                  controls
+                  controls={!pictureHidden}
                   autoPlay
+                  playsInline
                   onLoadedMetadata={(e) => {
-                    (e.currentTarget as HTMLVideoElement).volume = Math.max(
-                      0,
-                      Math.min(1, volume ?? 0.35),
-                    );
+                    (e.currentTarget as HTMLVideoElement).volume = clampMediaVolume(volume ?? 0.35);
                   }}
-                  className="w-full h-[150px] bg-black"
+                  className={
+                    pictureHidden ? "block w-full h-0 overflow-hidden" : "w-full h-[150px] bg-black"
+                  }
                   data-testid="custom-noise-media"
+                  data-picture-hidden={pictureHidden ? "true" : "false"}
                 />
               ) : (
                 <audio
@@ -420,10 +469,7 @@ export const CustomNoiseWindow: React.FC<CustomNoiseWindowProps> = ({
                   controls
                   autoPlay
                   onLoadedMetadata={(e) => {
-                    (e.currentTarget as HTMLAudioElement).volume = Math.max(
-                      0,
-                      Math.min(1, volume ?? 0.35),
-                    );
+                    (e.currentTarget as HTMLAudioElement).volume = clampMediaVolume(volume ?? 0.35);
                   }}
                   className="w-full h-8"
                   data-testid="custom-noise-media"
