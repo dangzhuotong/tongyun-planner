@@ -48,7 +48,18 @@ const en: Translations = {
     customNoiseClose: "Close floating window",
     customNoiseDragHint: "Drag the title bar; the position is remembered",
     customNoiseIsolated:
-      "YouTube / Bilibili play in their own window so the main window stays responsive. Use that window's volume control.",
+      "YouTube / Bilibili play in their own window so the main window stays responsive. The main volume slider does not reach that window.",
+    customNoisePictureHide: "Sound only",
+    customNoisePictureShow: "Show picture",
+    customNoisePictureAudio: "This is a direct audio link, so there is no picture to hide.",
+    customNoisePictureDesktopOnly:
+      "Hiding the YouTube / Bilibili picture only works in the desktop app's separate window. This view has no picture and does not change the page player.",
+    customNoisePictureExternalHint:
+      "Sound only shrinks that window to its title bar. It does not close the window or stop playback. The system may keep a sliver visible, or pause sound if it suspends the window.",
+    customNoisePictureFailed:
+      "The picture could not be hidden or restored. The window stays as it is, and playback was not stopped.",
+    customNoiseVolumeScope:
+      "This slider changes built-in noise and direct audio or video only. YouTube and Bilibili use the volume control in their own window.",
     customNoiseErrEmpty: "Paste a link first",
     customNoiseErrInvalid: "Invalid link format. Use an http/https URL.",
     customNoiseErrUnsupported:

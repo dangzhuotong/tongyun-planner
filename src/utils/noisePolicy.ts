@@ -79,3 +79,15 @@ export function shouldEmitExternalPlaySignal(input: {
 }): boolean {
   return input.echo && !input.alreadyPlayingExternal;
 }
+
+/**
+ * 悬浮窗回调必须带 echo: false。播放标记即使还停在上一次渲染的 false，
+ * 也不能把信号再加一，否则主线程会跟着信号一直重绘，自定义标题栏一起卡住。
+ */
+export function nextExternalPlaySignal(input: {
+  signal: number;
+  echo: boolean;
+  alreadyPlayingExternal: boolean;
+}): number {
+  return shouldEmitExternalPlaySignal(input) ? input.signal + 1 : input.signal;
+}

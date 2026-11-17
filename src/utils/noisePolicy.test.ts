@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   autoNoiseToggleAction,
+  nextExternalPlaySignal,
   nextNoiseStartSignal,
   resolveAutoNoiseTarget,
   shouldAutoStartNoise,
@@ -43,22 +44,16 @@ describe("noisePolicy", () => {
       expect(autoNoiseToggleAction({ enabling: true, active: false, isBreak: false })).toBe(
         "leave",
       );
-      expect(autoNoiseToggleAction({ enabling: true, active: false, isBreak: true })).toBe(
-        "leave",
-      );
+      expect(autoNoiseToggleAction({ enabling: true, active: false, isBreak: true })).toBe("leave");
       expect(autoNoiseToggleAction({ enabling: true, active: true, isBreak: true })).toBe("leave");
     });
 
     it("打开开关时，只有专注进行中才立刻播放", () => {
-      expect(autoNoiseToggleAction({ enabling: true, active: true, isBreak: false })).toBe(
-        "start",
-      );
+      expect(autoNoiseToggleAction({ enabling: true, active: true, isBreak: false })).toBe("start");
     });
 
     it("关掉开关时停止播放，且不视为手动静音", () => {
-      expect(autoNoiseToggleAction({ enabling: false, active: true, isBreak: false })).toBe(
-        "stop",
-      );
+      expect(autoNoiseToggleAction({ enabling: false, active: true, isBreak: false })).toBe("stop");
       expect(autoNoiseToggleAction({ enabling: false, active: false, isBreak: false })).toBe(
         "stop",
       );
@@ -118,6 +113,40 @@ describe("noisePolicy", () => {
       expect(shouldEmitExternalPlaySignal({ echo: true, alreadyPlayingExternal: true })).toBe(
         false,
       );
+    });
+  });
+
+  describe("nextExternalPlaySignal", () => {
+    it("悬浮窗回声在播放标记仍是旧值时也不加信号，避免 v1.2.2 的重绘回环", () => {
+      let signal = 1;
+      for (let step = 0; step < 100; step += 1) {
+        signal = nextExternalPlaySignal({
+          signal,
+          echo: false,
+          alreadyPlayingExternal: false,
+        });
+      }
+      expect(signal).toBe(1);
+    });
+
+    it("已经在播时，外部再次同步不会把信号打高", () => {
+      expect(
+        nextExternalPlaySignal({
+          signal: 4,
+          echo: true,
+          alreadyPlayingExternal: true,
+        }),
+      ).toBe(4);
+    });
+
+    it("专注或侧栏第一次向外发起播放时只加一", () => {
+      expect(
+        nextExternalPlaySignal({
+          signal: 0,
+          echo: true,
+          alreadyPlayingExternal: false,
+        }),
+      ).toBe(1);
     });
   });
 

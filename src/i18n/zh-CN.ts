@@ -47,7 +47,17 @@ const zhCN: Translations = {
     customNoiseClose: "关闭悬浮窗",
     customNoiseDragHint: "按住标题栏拖动，位置会自动记住",
     customNoiseIsolated:
-      "YouTube / B 站在独立窗口播放，避免卡住主界面。音量用那个窗口里的控制。",
+      "YouTube / B 站在独立窗口播放，避免卡住主界面。主界面音量滑块改不了那个窗口。",
+    customNoisePictureHide: "仅声音",
+    customNoisePictureShow: "显示画面",
+    customNoisePictureAudio: "这条是音频直链，没有画面可隐藏。",
+    customNoisePictureDesktopOnly:
+      "隐藏 YouTube / B 站画面只在桌面版独立窗口里生效。这里没有那一块画面，也不会去改网页里的播放器。",
+    customNoisePictureExternalHint:
+      "点「仅声音」只把独立窗口缩到标题栏，不关闭、不停止播放。系统若限制最小尺寸，仍可能露出一条画面；若系统把窗口挂起，声音可能停。",
+    customNoisePictureFailed: "没能收起或恢复画面，窗口保持原样，播放没有被关掉。",
+    customNoiseVolumeScope:
+      "这个滑块只改变内置白噪音和音视频直链。YouTube / B 站请用独立窗口里的音量。",
     customNoiseErrEmpty: "请先粘贴链接",
     customNoiseErrInvalid: "链接格式不正确，请使用 http/https 链接",
     customNoiseErrUnsupported: "暂不支持该链接，仅支持 B 站、YouTube 或音频/视频直链",

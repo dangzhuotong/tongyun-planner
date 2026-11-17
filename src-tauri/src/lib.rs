@@ -721,6 +721,58 @@ const EXTERNAL_PLAYER_LABEL: &str = "external-player";
 static PLAYER_URL: Mutex<Option<String>> = Mutex::new(None);
 static PLAYER_GEN: AtomicU64 = AtomicU64::new(0);
 static SILENT_PLAYER_GENS: Mutex<Option<HashSet<u64>>> = Mutex::new(None);
+static PICTURE_HIDDEN: AtomicBool = AtomicBool::new(false);
+
+struct ExternalPicturePlan {
+    destroy: bool,
+    hide_window: bool,
+    show_window: bool,
+    width: f64,
+    height: f64,
+    title: &'static str,
+}
+
+/// 仅声音只改窗口尺寸。销毁或 hide 会让不少 WebView 停掉正在播的声音。
+fn plan_external_picture(hidden: bool) -> ExternalPicturePlan {
+    if hidden {
+        ExternalPicturePlan {
+            destroy: false,
+            hide_window: false,
+            show_window: true,
+            width: 280.0,
+            height: 1.0,
+            title: "外部白噪音 · 仅声音",
+        }
+    } else {
+        ExternalPicturePlan {
+            destroy: false,
+            hide_window: false,
+            show_window: true,
+            width: 420.0,
+            height: 280.0,
+            title: "外部白噪音",
+        }
+    }
+}
+
+fn apply_external_picture(window: &tauri::WebviewWindow, hidden: bool) -> Result<(), String> {
+    let plan = plan_external_picture(hidden);
+    if plan.destroy || plan.hide_window || !plan.show_window {
+        return Err("E_PLAYER_PICTURE".to_string());
+    }
+    window
+        .set_title(plan.title)
+        .map_err(|error| error.to_string())?;
+    window
+        .set_size(tauri::Size::Logical(tauri::LogicalSize::new(
+            plan.width,
+            plan.height,
+        )))
+        .map_err(|error| error.to_string())?;
+    let _ = window.unminimize();
+    let _ = window.show();
+    Ok(())
+}
 
 /// 只允许已经解析好的 YouTube / B 站嵌入页。主窗口不再内嵌这些页面。
 fn external_player_url_allowed(raw: &str) -> bool {
@@ -770,19 +822,22 @@ fn destroy_external_player(app: &AppHandle) {
 }
 
 fn open_external_player(app: &AppHandle, target: &str) -> Result<(), String> {
-    let parsed = target
-        .parse()
-        .map_err(|_| "E_PLAYER_URL".to_string())?;
+    let parsed = target.parse().map_err(|_| "E_PLAYER_URL".to_string())?;
     let generation = PLAYER_GEN.load(Ordering::SeqCst).saturating_add(1);
     PLAYER_GEN.store(generation, Ordering::SeqCst);
-    let mut builder = tauri::WebviewWindowBuilder::new(app, EXTERNAL_PLAYER_LABEL, tauri::WebviewUrl::External(parsed))
-        .title("外部白噪音")
-        .inner_size(420.0, 280.0)
-        .resizable(true)
-        .always_on_top(true)
-        .focused(false)
-        .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
-        .on_navigation(|url| url.scheme() == "https" || url.scheme() == "about");
+    let picture = plan_external_picture(PICTURE_HIDDEN.load(Ordering::SeqCst));
+    let mut builder = tauri::WebviewWindowBuilder::new(
+        app,
+        EXTERNAL_PLAYER_LABEL,
+        tauri::WebviewUrl::External(parsed),
+    )
+    .title(picture.title)
+    .inner_size(picture.width, picture.height)
+    .resizable(true)
+    .always_on_top(true)
+    .focused(false)
+    .on_new_window(|_, _| tauri::webview::NewWindowResponse::Deny)
+    .on_navigation(|url| url.scheme() == "https" || url.scheme() == "about");
     if let Ok(dir) = app.path().app_data_dir() {
         builder = builder.data_directory(dir.join("external-player-webview"));
     }
@@ -839,8 +894,7 @@ fn set_external_player(app: AppHandle, url: Option<String>) -> Result<(), String
         if *current == desired {
             if desired.is_some() {
                 if let Some(window) = app.get_webview_window(EXTERNAL_PLAYER_LABEL) {
-                    let _ = window.unminimize();
-                    let _ = window.show();
+                    apply_external_picture(&window, PICTURE_HIDDEN.load(Ordering::SeqCst))?;
                     return Ok(());
                 }
             } else if app.get_webview_window(EXTERNAL_PLAYER_LABEL).is_none() {
@@ -861,6 +915,15 @@ fn set_external_player(app: AppHandle, url: Option<String>) -> Result<(), String
         *current = Some(next);
     }
     Ok(())
+}
+
+#[tauri::command]
+fn set_external_player_picture_hidden(app: AppHandle, hidden: bool) -> Result<(), String> {
+    PICTURE_HIDDEN.store(hidden, Ordering::SeqCst);
+    let Some(window) = app.get_webview_window(EXTERNAL_PLAYER_LABEL) else {
+        return Ok(());
+    };
+    apply_external_picture(&window, hidden)
 }
 
 fn planner_context() -> tauri::Context<tauri::Wry> {
@@ -931,6 +994,7 @@ pub fn run() {
             app_quit_ready,
             read_pipeline_home_files,
             set_external_player,
+            set_external_player_picture_hidden,
             append_diagnostic_log,
             export_diagnostic_log,
             agent_api::agent_api_finish,
@@ -1141,5 +1205,24 @@ mod tests {
         assert!(!external_player_url_allowed(
             "https://user:pass@www.youtube.com/embed/dQw4w9WgXcQ"
         ));
+    }
+
+    #[test]
+    fn hiding_external_picture_shrinks_without_destroy_or_hide() {
+        let hidden = plan_external_picture(true);
+        assert!(!hidden.destroy);
+        assert!(!hidden.hide_window);
+        assert!(hidden.show_window);
+        assert!(hidden.height < 32.0);
+        assert!(hidden.width > 0.0);
+        assert!(hidden.title.contains("仅声音"));
+
+        let shown = plan_external_picture(false);
+        assert!(!shown.destroy);
+        assert!(!shown.hide_window);
+        assert!(shown.show_window);
+        assert_eq!(shown.width, 420.0);
+        assert_eq!(shown.height, 280.0);
+        assert_eq!(shown.title, "外部白噪音");
     }
 }
