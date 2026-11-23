@@ -10,6 +10,7 @@ import { SyncSettingsPanel } from "./sync/SyncSettingsPanel";
 import { SystemSettingsPanel } from "./system/SystemSettingsPanel";
 import { AgentSettingsPanel } from "./agent/AgentSettingsPanel";
 import { FunSettingsPanel } from "./fun/FunSettingsPanel";
+import { PluginsSettingsPanel } from "./plugins/PluginsSettingsPanel";
 
 interface SettingsViewProps {
   config: CustomizationConfig;
@@ -23,18 +24,19 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = React.memo(
-  ({
-    config,
-    onChange,
-    alertSoundType,
-    setAlertSoundType,
-    resetTasks,
-    onTestMicroBreak,
-  }) => {
+  ({ config, onChange, alertSoundType, setAlertSoundType, resetTasks, onTestMicroBreak }) => {
     const { t } = useTranslation();
     const s = t.settings;
     const [subTab, setSubTab] = useState<
-      "personalization" | "ai" | "sunset" | "sync" | "system" | "fun" | "email" | "agent"
+      | "personalization"
+      | "ai"
+      | "sunset"
+      | "sync"
+      | "system"
+      | "fun"
+      | "email"
+      | "agent"
+      | "plugins"
     >(() => {
       if (typeof sessionStorage !== "undefined") {
         const initial = sessionStorage.getItem("tongyun_settings_initial_tab");
@@ -47,6 +49,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
           "fun",
           "email",
           "agent",
+          "plugins",
         ];
         if (initial && validTabs.includes(initial)) {
           return initial as any;
@@ -127,6 +130,11 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
         keywords: ["同步", "备份", "webdav", "坚果云", "云端", "sync", "backup"],
       },
       { id: "agent", label: "Agent", keywords: ["agent", "mcp", "api", "授权", "审计", "token"] },
+      {
+        id: "plugins",
+        label: s.plugins || "插件",
+        keywords: ["插件", "扩展", "启用", "停用", "plugin", "朝花夕拾", "资讯"],
+      },
       { id: "fun", label: s.fun, keywords: ["趣味", "夸夸", "庆祝", "fun", "celebration"] },
       {
         id: "system",
@@ -247,6 +255,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(
             />
           )}
           {subTab === "agent" && <AgentSettingsPanel />}
+          {subTab === "plugins" && <PluginsSettingsPanel />}
           {subTab === "fun" && <FunSettingsPanel config={config} onChange={onChange} />}
 
           {/* Toast 队列 */}

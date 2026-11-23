@@ -371,6 +371,7 @@ const zhCN: Translations = {
     sync: "☁️ 备份同步",
     system: "⚙️ 系统与语言",
     fun: "🎉 趣味",
+    plugins: "🧩 插件",
     quadColors: "🎨 四象限主色调搭配",
     nickname: "👤 你的昵称",
     nicknamePlaceholder: "输入昵称（显示在主页）",

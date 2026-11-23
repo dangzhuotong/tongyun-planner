@@ -2,6 +2,12 @@
 
 格式大致遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。应用版本号以 `package.json` / `src-tauri/tauri.conf.json` 为准，本文不负责发版。
 
+## [Unreleased]
+
+### 新增
+
+- 编译期内置插件宿主：设置页按注册表启停插件。首个插件是朝花夕拾，默认启用。停用只隐藏入口，不删除收藏，也不改任务和日记的同步格式。没有 zip 导入。同一进程不提供安全沙箱。
+
 ## [1.2.6] - 2026-11-14
 
 ### 新增
