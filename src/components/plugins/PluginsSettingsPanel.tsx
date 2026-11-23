@@ -27,7 +27,11 @@ export function PluginsSettingsPanel() {
   const settingsPlugin = rows.find(
     (row) => row.plugin.manifest.id === openSettingsId && row.status === "enabled",
   );
-  const settingsNode = settingsPlugin?.plugin.renderSettings?.() ?? null;
+  const settingsApi = settingsPlugin ? host.viewApi(settingsPlugin.plugin.manifest.id) : null;
+  const settingsNode =
+    settingsApi && settingsPlugin
+      ? (settingsPlugin.plugin.renderSettings?.(settingsApi) ?? null)
+      : null;
 
   if (settingsNode && settingsPlugin) {
     return (

@@ -13,9 +13,11 @@ import {
   type PluginCommand,
   type PluginContext,
   type PluginRecord,
+  type LoopbackTransport,
   type PluginViewApi,
   type TongyunPlugin,
 } from "./types";
+import { assertLoopbackGet, loopbackPrefix } from "./loopback";
 import { hasPermission, validateManifest } from "./validate";
 
 export interface SidebarItem {
@@ -35,6 +37,7 @@ export class PluginHost {
   private byId = new Map<string, PluginRecord>();
   private enabledMap: PluginEnabledMap = {};
   private bridges: PluginBridges | null = null;
+  private loopback: LoopbackTransport | null = null;
 
   constructor(private readonly store: KeyValueStore) {}
 
@@ -69,6 +72,10 @@ export class PluginHost {
 
   setBridges(bridges: PluginBridges): void {
     this.bridges = bridges;
+  }
+
+  setLoopbackTransport(transport: LoopbackTransport | null): void {
+    this.loopback = transport;
   }
 
   list(): PluginRecord[] {
@@ -124,7 +131,39 @@ export class PluginHost {
     const api: PluginViewApi = { config: bridges.config };
     if (hasPermission(manifest, "tasks:write")) api.saveTask = bridges.saveTask;
     if (hasPermission(manifest, "journal:write")) api.saveJournal = bridges.saveJournal;
+    if (hasPermission(manifest, "storage:read") || hasPermission(manifest, "storage:write")) {
+      api.storage = this.contextFor(id).storage;
+    }
+    if (manifest.loopbackGets && manifest.loopbackGets.length > 0 && this.loopback) {
+      const transport = this.loopback;
+      const pluginId = id;
+      api.readLoopback = (url, options) =>
+        this.readLoopback(pluginId, url, options?.attachSecret === true);
+      api.putSessionSecret = (secret) => transport.putSecret(pluginId, secret);
+      api.clearSessionSecret = () => transport.forgetSecret(pluginId);
+      api.hasSessionSecret = () => transport.hasSecret(pluginId);
+    }
     return api;
+  }
+
+  async readLoopback(
+    id: string,
+    url: string,
+    attachSecret = false,
+  ): Promise<{ status: number; body: string }> {
+    const record = this.byId.get(id);
+    if (!record || record.status !== "enabled") {
+      throw new Error(`插件 ${id} 未启用`);
+    }
+    const rules = record.plugin.manifest.loopbackGets ?? [];
+    assertLoopbackGet(url, rules);
+    if (!this.loopback) throw new Error("desktop_required");
+    return this.loopback.get(
+      id,
+      url,
+      rules.map((rule) => loopbackPrefix(rule, url)),
+      attachSecret,
+    );
   }
 
   setEnabled(id: string, enabled: boolean): void {
@@ -133,6 +172,7 @@ export class PluginHost {
     if (!enabled) {
       this.deactivate(record);
       record.status = "disabled";
+      void this.loopback?.forgetSecret(id);
     } else {
       this.activate(record);
     }

@@ -11,6 +11,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 mod backup;
+mod loopback_read;
 mod diagnostic;
 mod email;
 mod webdav_meta;
@@ -938,7 +939,11 @@ pub fn run() {
             agent_api::agent_api_grant,
             agent_api::agent_api_revoke,
             sqlite_transaction::planner_sqlite_write_batch,
-            planner_portable::read_planner_attachment
+            planner_portable::read_planner_attachment,
+            loopback_read::plugin_loopback_get,
+            loopback_read::plugin_secret_put,
+            loopback_read::plugin_secret_forget,
+            loopback_read::plugin_secret_exists
         ])
         // 6. 初始化系统托盘
         .setup(|app| {
