@@ -48,6 +48,7 @@ function getAllKnownKeys(): string[] {
     "tongyun_random_break",
     "tongyun_auto_noise",
     // 资讯偏好
+    "tongyun_plugin_host_v1",
     "tongyun_news_bookmarks",
     "tongyun_news_history",
     "tongyun_news_font_size",

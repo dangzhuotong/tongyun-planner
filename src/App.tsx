@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import type { Task, AppTab } from "./types";
+import type { Task } from "./types";
+import type { MainSlot } from "./plugins/host/slots";
 import { TitleBar } from "./components/TitleBar";
 import { Sidebar } from "./components/Sidebar";
 const DashboardView = React.lazy(() =>
@@ -18,9 +19,6 @@ const CalendarView = React.lazy(() =>
 );
 const StickyNotesView = React.lazy(() =>
   import("./components/StickyNotesView").then((m) => ({ default: m.StickyNotesView })),
-);
-const NewsView = React.lazy(() =>
-  import("./components/NewsView").then((m) => ({ default: m.NewsView })),
 );
 import { CelebrationOverlay } from "./components/CelebrationOverlay";
 const AnalyticsView = React.lazy(() =>
@@ -61,6 +59,8 @@ import { SunsetShutdownModal } from "./components/sunset/SunsetShutdownModal";
 import { EnergyTimeBlockModal } from "./components/energy/EnergyTimeBlockModal";
 import { QuickCaptureModal } from "./components/QuickCaptureModal";
 import { shouldPromptSunsetShutdown, getTodayString } from "./utils/sunsetShutdown";
+import { PluginHostProvider, usePluginHost } from "./plugins/host/PluginHostContext";
+import { PluginErrorBoundary } from "./plugins/host/PluginErrorBoundary";
 
 const viewFallback = (
   <div className="flex-grow flex items-center justify-center text-slate-400 text-sm py-20">
@@ -236,7 +236,7 @@ function AppBody() {
   const [deleteUndoToast, setDeleteUndoToast] = useState<string | null>(null);
   const deleteUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [activeTab, setActiveTab] = useState<AppTab>("home");
+  const [activeTab, setActiveTab] = useState<MainSlot>("home");
   const [flowMode, setFlowMode] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   // 傍晚下班自动提醒日落离线（18:00后且今日未做）
@@ -1151,166 +1151,200 @@ function AppBody() {
   }
 
   return (
-    <PomodoroContext.Provider value={pomodoroHook}>
-      <MainLayout
-        flowMode={flowMode}
-        setFlowMode={setFlowMode}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        t={t}
-        fontFamily={customizationHook.customizationConfig.fontFamily || "sans"}
-        tasks={tasksHook.tasks}
-        completedTasks={tasksHook.completedTasks}
-        journal={journal}
-        progressPercentage={tasksHook.progressPercentage}
-        wrappedHandleComplete={wrappedHandleComplete}
-        handleDeleteTask={wrappedHandleDeleteTask}
-        handleTaskClick={tasksHook.handleTaskClick}
-        handleCloseDetail={tasksHook.handleCloseDetail}
-        handleToggleSubtask={tasksHook.handleToggleSubtask}
-        handleAddSubtask={tasksHook.handleAddSubtask}
-        handleSaveNotes={tasksHook.handleSaveNotes}
-        handleUpdateTags={tasksHook.handleUpdateTags}
-        handleEditTask={wrappedHandleEditTask}
-        handleUndoComplete={tasksHook.handleUndoComplete}
-        handleToggleFavorite={tasksHook.handleToggleFavorite}
-        handleTogglePin={tasksHook.handleTogglePin}
-        handleAddTaskWithAI={handleAddTaskWithAI}
-        handleConfirmAiTasks={handleConfirmAiTasks}
-        expandedNoteId={tasksHook.expandedNoteId}
-        setExpandedNoteId={tasksHook.setExpandedNoteId}
-        editingNotes={tasksHook.editingNotes}
-        setEditingNotes={tasksHook.setEditingNotes}
-        detailTaskId={tasksHook.detailTaskId}
-        notesHook={notesHook}
-        countdownHook={countdownHook}
-        widgetHook={widgetHook}
-        aiHook={aiHook}
-        customizationHook={customizationHook}
-        habitsHook={habitsHook}
-        handlePinNoteToDesktop={handlePinNoteToDesktop}
-        celebrationData={celebrationData}
-        onClearCelebration={() => setCelebrationData(null)}
-        deleteUndoToast={deleteUndoToast}
-        onUndoDelete={handleUndoDeleteClick}
-        syncStatus={syncStatus}
-        lastBackupTime={lastBackupTime}
-        commandPaletteOpen={commandPaletteOpen}
-        setCommandPaletteOpen={setCommandPaletteOpen}
-        windowLabel={windowLabel}
-        resetTasks={tasksHook.resetTasks}
-        handleStartFocus={handleStartFocusWithToast}
-        activeFocusTaskId={pomodoroHook.pomodoroTaskId}
-        isPomodoroActive={pomodoroHook.pomodoroIsActive}
-        pomodoroLogs={pomodoroHook.pomodoroLogs}
-        alertSoundType={pomodoroHook.alertSoundType}
-        setAlertSoundType={pomodoroHook.setAlertSoundType}
-        handleClearCompleted={tasksHook.handleClearCompleted}
-        onNewsSaveTask={handleNewsSaveTask}
-        onNewsSaveJournal={handleNewsSaveJournal}
-        onTestMicroBreak={handleTestMicroBreak}
-        onOpenSunsetShutdown={() => setSunsetShutdownOpen(true)}
-        onOpenEnergyTimeBlock={() => setEnergyTimeBlockOpen(true)}
-        onOpenQuickCapture={() => setQuickCaptureOpen(true)}
-      />
-      <SunsetShutdownModal
-        isOpen={sunsetShutdownOpen}
-        onClose={() => {
-          setSunsetShutdownOpen(false);
-          try {
-            localStorage.setItem("tongyun_last_sunset_date", getTodayString());
-          } catch {
-            // ignore localStorage quota errors
-          }
-        }}
-        tasks={tasksHook.tasks}
-        completedTasks={tasksHook.completedTasks}
-        pomodoroLogs={pomodoroHook.pomodoroLogs}
-        onUpdateTasks={(updated) => tasksHook.saveTasks(updated)}
-        onAppendJournalNote={handleSunsetTomorrowAnchor}
-      />
-      <EnergyTimeBlockModal
-        isOpen={energyTimeBlockOpen}
-        onClose={() => setEnergyTimeBlockOpen(false)}
-        tasks={tasksHook.tasks}
-        onStartFocus={(taskId, title) => {
-          setEnergyTimeBlockOpen(false);
-          handleStartFocusWithToast(taskId, title);
-        }}
-        onUpdateTask={(task) => {
-          wrappedHandleEditTask(task.id, task);
-        }}
-      />
-      <QuickCaptureModal
-        isOpen={quickCaptureOpen}
-        onClose={() => setQuickCaptureOpen(false)}
-        onAddTask={handleQuickCaptureTask}
-        onAddNote={handleQuickCaptureNote}
-        onAppendJournal={handleQuickCaptureJournal}
-        onToast={showMicroBreakToast}
-      />
-      {dueNotifications.reminders.length > 0 && (
-        <div className="fixed bottom-5 right-5 z-[95] max-w-80 max-h-64 overflow-y-auto space-y-2">
-          {dueNotifications.reminders.map((reminder) => (
-            <div key={reminder.taskId} role="status" className="rounded-xl border bg-white dark:bg-[#26282E] shadow-lg p-3 text-xs text-slate-800 dark:text-slate-100">
-              <p className="font-semibold break-words">{reminder.title}</p>
-              <p className="mt-1">{reminder.body}</p>
-              <div className="flex flex-wrap gap-3 mt-2">
-                <button type="button" className="underline" onClick={() => {
-                  const task = tasksHook.tasks.find((item) => item.id === reminder.taskId);
-                  if (task?.dependsOn?.some((id) => tasksHook.tasks.some((open) => open.id === id))) {
-                    showMicroBreakToast(locale === "en" ? "Complete the prerequisite tasks first." : "请先完成前置任务");
-                    return;
-                  }
-                  wrappedHandleComplete(reminder.taskId);
-                  dueNotifications.dismiss(reminder.taskId);
-                }}>{locale === "en" ? "Complete" : "完成"}</button>
-                <button type="button" className="underline" onClick={() => dueNotifications.snooze(reminder.taskId)}>{locale === "en" ? "In 10 minutes" : "10 分钟后提醒"}</button>
-                <button type="button" className="underline" onClick={() => dueNotifications.dismiss(reminder.taskId)}>{locale === "en" ? "Dismiss" : "关闭"}</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {microBreakSession && (
-        <MicroBreakOverlay
-          onSkip={microBreakSession.skip}
-          initialTheme={microBreakSession.theme}
-          durationSec={microBreakSession.durationSec}
+    <PluginHostProvider
+      saveTask={handleNewsSaveTask}
+      saveJournal={handleNewsSaveJournal}
+      config={customizationHook.customizationConfig}
+    >
+      <PomodoroContext.Provider value={pomodoroHook}>
+        <MainLayout
+          flowMode={flowMode}
+          setFlowMode={setFlowMode}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          t={t}
+          fontFamily={customizationHook.customizationConfig.fontFamily || "sans"}
+          tasks={tasksHook.tasks}
+          completedTasks={tasksHook.completedTasks}
+          journal={journal}
+          progressPercentage={tasksHook.progressPercentage}
+          wrappedHandleComplete={wrappedHandleComplete}
+          handleDeleteTask={wrappedHandleDeleteTask}
+          handleTaskClick={tasksHook.handleTaskClick}
+          handleCloseDetail={tasksHook.handleCloseDetail}
+          handleToggleSubtask={tasksHook.handleToggleSubtask}
+          handleAddSubtask={tasksHook.handleAddSubtask}
+          handleSaveNotes={tasksHook.handleSaveNotes}
+          handleUpdateTags={tasksHook.handleUpdateTags}
+          handleEditTask={wrappedHandleEditTask}
+          handleUndoComplete={tasksHook.handleUndoComplete}
+          handleToggleFavorite={tasksHook.handleToggleFavorite}
+          handleTogglePin={tasksHook.handleTogglePin}
+          handleAddTaskWithAI={handleAddTaskWithAI}
+          handleConfirmAiTasks={handleConfirmAiTasks}
+          expandedNoteId={tasksHook.expandedNoteId}
+          setExpandedNoteId={tasksHook.setExpandedNoteId}
+          editingNotes={tasksHook.editingNotes}
+          setEditingNotes={tasksHook.setEditingNotes}
+          detailTaskId={tasksHook.detailTaskId}
+          notesHook={notesHook}
+          countdownHook={countdownHook}
+          widgetHook={widgetHook}
+          aiHook={aiHook}
+          customizationHook={customizationHook}
+          habitsHook={habitsHook}
+          handlePinNoteToDesktop={handlePinNoteToDesktop}
+          celebrationData={celebrationData}
+          onClearCelebration={() => setCelebrationData(null)}
+          deleteUndoToast={deleteUndoToast}
+          onUndoDelete={handleUndoDeleteClick}
+          syncStatus={syncStatus}
+          lastBackupTime={lastBackupTime}
+          commandPaletteOpen={commandPaletteOpen}
+          setCommandPaletteOpen={setCommandPaletteOpen}
+          windowLabel={windowLabel}
+          resetTasks={tasksHook.resetTasks}
+          handleStartFocus={handleStartFocusWithToast}
+          activeFocusTaskId={pomodoroHook.pomodoroTaskId}
+          isPomodoroActive={pomodoroHook.pomodoroIsActive}
+          pomodoroLogs={pomodoroHook.pomodoroLogs}
+          alertSoundType={pomodoroHook.alertSoundType}
+          setAlertSoundType={pomodoroHook.setAlertSoundType}
+          handleClearCompleted={tasksHook.handleClearCompleted}
+          onTestMicroBreak={handleTestMicroBreak}
+          onOpenSunsetShutdown={() => setSunsetShutdownOpen(true)}
+          onOpenEnergyTimeBlock={() => setEnergyTimeBlockOpen(true)}
+          onOpenQuickCapture={() => setQuickCaptureOpen(true)}
         />
-      )}
-      {microBreakToast && !microBreakSession && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
-          {microBreakToast}
-        </div>
-      )}
-      {activeUpdate && (
-        <UpdateModal
-          update={activeUpdate}
+        <SunsetShutdownModal
+          isOpen={sunsetShutdownOpen}
           onClose={() => {
-            activeUpdate.close().catch(() => {});
-            setActiveUpdate(null);
+            setSunsetShutdownOpen(false);
+            try {
+              localStorage.setItem("tongyun_last_sunset_date", getTodayString());
+            } catch {
+              // ignore localStorage quota errors
+            }
+          }}
+          tasks={tasksHook.tasks}
+          completedTasks={tasksHook.completedTasks}
+          pomodoroLogs={pomodoroHook.pomodoroLogs}
+          onUpdateTasks={(updated) => tasksHook.saveTasks(updated)}
+          onAppendJournalNote={handleSunsetTomorrowAnchor}
+        />
+        <EnergyTimeBlockModal
+          isOpen={energyTimeBlockOpen}
+          onClose={() => setEnergyTimeBlockOpen(false)}
+          tasks={tasksHook.tasks}
+          onStartFocus={(taskId, title) => {
+            setEnergyTimeBlockOpen(false);
+            handleStartFocusWithToast(taskId, title);
+          }}
+          onUpdateTask={(task) => {
+            wrappedHandleEditTask(task.id, task);
           }}
         />
-      )}
-      {showLegacySyncNotice && (
-        <LegacySyncNotice
-          onClose={() => setLegacyNoticeDismissed(true)}
-          onGoSettings={handleGoSettingsFromNotice}
+        <QuickCaptureModal
+          isOpen={quickCaptureOpen}
+          onClose={() => setQuickCaptureOpen(false)}
+          onAddTask={handleQuickCaptureTask}
+          onAddNote={handleQuickCaptureNote}
+          onAppendJournal={handleQuickCaptureJournal}
+          onToast={showMicroBreakToast}
         />
-      )}
-      {syncEngine.status === "conflict" &&
-        syncConflicts.length > 0 &&
-        conflictDismissedKey !== conflictSetKey && (
-          <SyncConflictModal
-            conflicts={syncConflicts}
-            onResolve={async (choice) => {
-              await syncEngine.resolveConflicts(choice);
-            }}
-            onClose={() => setConflictDismissedKey(conflictSetKey)}
+        {dueNotifications.reminders.length > 0 && (
+          <div className="fixed bottom-5 right-5 z-[95] max-w-80 max-h-64 overflow-y-auto space-y-2">
+            {dueNotifications.reminders.map((reminder) => (
+              <div
+                key={reminder.taskId}
+                role="status"
+                className="rounded-xl border bg-white dark:bg-[#26282E] shadow-lg p-3 text-xs text-slate-800 dark:text-slate-100"
+              >
+                <p className="font-semibold break-words">{reminder.title}</p>
+                <p className="mt-1">{reminder.body}</p>
+                <div className="flex flex-wrap gap-3 mt-2">
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => {
+                      const task = tasksHook.tasks.find((item) => item.id === reminder.taskId);
+                      if (
+                        task?.dependsOn?.some((id) =>
+                          tasksHook.tasks.some((open) => open.id === id),
+                        )
+                      ) {
+                        showMicroBreakToast(
+                          locale === "en"
+                            ? "Complete the prerequisite tasks first."
+                            : "请先完成前置任务",
+                        );
+                        return;
+                      }
+                      wrappedHandleComplete(reminder.taskId);
+                      dueNotifications.dismiss(reminder.taskId);
+                    }}
+                  >
+                    {locale === "en" ? "Complete" : "完成"}
+                  </button>
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => dueNotifications.snooze(reminder.taskId)}
+                  >
+                    {locale === "en" ? "In 10 minutes" : "10 分钟后提醒"}
+                  </button>
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={() => dueNotifications.dismiss(reminder.taskId)}
+                  >
+                    {locale === "en" ? "Dismiss" : "关闭"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {microBreakSession && (
+          <MicroBreakOverlay
+            onSkip={microBreakSession.skip}
+            initialTheme={microBreakSession.theme}
+            durationSec={microBreakSession.durationSec}
           />
         )}
-    </PomodoroContext.Provider>
+        {microBreakToast && !microBreakSession && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] px-4 py-2.5 rounded-xl bg-[#2D323A] text-white text-xs font-bold shadow-lg animate-fade-in-up">
+            {microBreakToast}
+          </div>
+        )}
+        {activeUpdate && (
+          <UpdateModal
+            update={activeUpdate}
+            onClose={() => {
+              activeUpdate.close().catch(() => {});
+              setActiveUpdate(null);
+            }}
+          />
+        )}
+        {showLegacySyncNotice && (
+          <LegacySyncNotice
+            onClose={() => setLegacyNoticeDismissed(true)}
+            onGoSettings={handleGoSettingsFromNotice}
+          />
+        )}
+        {syncEngine.status === "conflict" &&
+          syncConflicts.length > 0 &&
+          conflictDismissedKey !== conflictSetKey && (
+            <SyncConflictModal
+              conflicts={syncConflicts}
+              onResolve={async (choice) => {
+                await syncEngine.resolveConflicts(choice);
+              }}
+              onClose={() => setConflictDismissedKey(conflictSetKey)}
+            />
+          )}
+      </PomodoroContext.Provider>
+    </PluginHostProvider>
   );
 }
 
@@ -1318,8 +1352,8 @@ function AppBody() {
 interface MainLayoutProps {
   flowMode: boolean;
   setFlowMode: (v: boolean) => void;
-  activeTab: AppTab;
-  setActiveTab: (v: AppTab) => void;
+  activeTab: MainSlot;
+  setActiveTab: (v: MainSlot) => void;
   t: ReturnType<typeof useTranslation>["t"];
   fontFamily: string;
   tasks: Task[];
@@ -1372,8 +1406,6 @@ interface MainLayoutProps {
   windowLabel: string;
   resetTasks: () => void;
   handleClearCompleted: () => void;
-  onNewsSaveTask: (ref: { title: string; url: string }) => void;
-  onNewsSaveJournal: (ref: { title: string; url: string; description?: string }) => void;
   onTestMicroBreak: () => void;
   onOpenSunsetShutdown: () => void;
   onOpenEnergyTimeBlock: () => void;
@@ -1434,16 +1466,21 @@ const MainLayout = React.memo(function MainLayout({
   windowLabel,
   resetTasks,
   handleClearCompleted,
-  onNewsSaveTask,
-  onNewsSaveJournal,
   onTestMicroBreak,
   onOpenSunsetShutdown,
   onOpenEnergyTimeBlock,
   onOpenQuickCapture,
 }: MainLayoutProps) {
   const [journalDate, setJournalDate] = useState<string>();
+  const { host, revision, bridges, markFailed } = usePluginHost();
+  useEffect(() => {
+    const next = host.normalizeSlot(activeTab);
+    if (next !== activeTab) setActiveTab(next);
+  }, [activeTab, host, revision, setActiveTab]);
+  const pluginId = host.idForLocation(activeTab);
+  const pluginRecord = pluginId ? host.record(pluginId) : undefined;
+  const pluginApi = pluginId ? host.viewApi(pluginId, bridges) : null;
   const mainContent = useMemo(() => {
-
     return (
       <main
         className={`flex-grow ${
@@ -1457,48 +1494,52 @@ const MainLayout = React.memo(function MainLayout({
             <header className="flex justify-between items-center border-b border-[#EFEBE4] dark:border-[#33353A] pb-4">
               <div>
                 <h2 className="text-xl font-bold tracking-wide text-[#2D323A] dark:text-slate-100">
-                  {activeTab === "list"
-                    ? t.header.list
-                    : activeTab === "calendar"
-                      ? t.header.calendar
-                      : activeTab === "notes"
-                        ? t.header.notes
-                        : activeTab === "analytics"
-                          ? t.header.analytics
-                          : activeTab === "completed"
-                            ? t.header.completed
-                            : activeTab === "countdown"
-                              ? t.header.countdown
-                              : activeTab === "news"
-                                ? t.header.news
-                                : activeTab === "gantt"
-                                  ? "甘特图"
-                                  : activeTab === "journal"
-                                    ? t.journal?.title || "日记手账"
-                                    : activeTab === "memory"
-                                      ? t.sidebar?.memory || "时光长廊"
-                                      : t.sidebar.settings}
+                  {pluginRecord?.status === "enabled"
+                    ? pluginRecord.plugin.manifest.name
+                    : activeTab === "list"
+                      ? t.header.list
+                      : activeTab === "calendar"
+                        ? t.header.calendar
+                        : activeTab === "notes"
+                          ? t.header.notes
+                          : activeTab === "analytics"
+                            ? t.header.analytics
+                            : activeTab === "completed"
+                              ? t.header.completed
+                              : activeTab === "countdown"
+                                ? t.header.countdown
+                                : activeTab === "news"
+                                  ? t.header.news
+                                  : activeTab === "gantt"
+                                    ? "甘特图"
+                                    : activeTab === "journal"
+                                      ? t.journal?.title || "日记手账"
+                                      : activeTab === "memory"
+                                        ? t.sidebar?.memory || "时光长廊"
+                                        : t.sidebar.settings}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                  {activeTab === "list"
-                    ? t.header.listDesc
-                    : activeTab === "calendar"
-                      ? t.header.calendarDesc
-                      : activeTab === "notes"
-                        ? t.header.notesDesc
-                        : activeTab === "analytics"
-                          ? t.header.analyticsDesc
-                          : activeTab === "completed"
-                            ? t.header.completedDesc
-                            : activeTab === "countdown"
-                              ? t.header.countdownDesc
-                              : activeTab === "settings"
-                                ? t.header.settingsDesc
-                                : activeTab === "news"
-                                  ? t.header.newsDesc
-                                  : activeTab === "memory"
-                                    ? t.header.memoryDesc
-                                    : t.header.homeDesc}
+                  {pluginRecord?.status === "enabled"
+                    ? pluginRecord.plugin.manifest.description
+                    : activeTab === "list"
+                      ? t.header.listDesc
+                      : activeTab === "calendar"
+                        ? t.header.calendarDesc
+                        : activeTab === "notes"
+                          ? t.header.notesDesc
+                          : activeTab === "analytics"
+                            ? t.header.analyticsDesc
+                            : activeTab === "completed"
+                              ? t.header.completedDesc
+                              : activeTab === "countdown"
+                                ? t.header.countdownDesc
+                                : activeTab === "settings"
+                                  ? t.header.settingsDesc
+                                  : activeTab === "news"
+                                    ? t.header.newsDesc
+                                    : activeTab === "memory"
+                                      ? t.header.memoryDesc
+                                      : t.header.homeDesc}
                 </p>
               </div>
               {activeTab === "list" && (
@@ -1785,12 +1826,13 @@ const MainLayout = React.memo(function MainLayout({
             onPinNoteToDesktop={handlePinNoteToDesktop}
           />
         )}
-        {activeTab === "news" && (
-          <NewsView
-            config={customizationHook.customizationConfig}
-            onSaveTask={onNewsSaveTask}
-            onSaveJournal={onNewsSaveJournal}
-          />
+        {pluginApi && pluginRecord?.status === "enabled" && pluginRecord.plugin.renderView && (
+          <PluginErrorBoundary
+            pluginName={pluginRecord.plugin.manifest.name}
+            onFail={(message) => markFailed(pluginRecord.plugin.manifest.id, message)}
+          >
+            {pluginRecord.plugin.renderView(pluginApi)}
+          </PluginErrorBoundary>
         )}
         {activeTab === "analytics" && (
           <AnalyticsView
@@ -1900,8 +1942,12 @@ const MainLayout = React.memo(function MainLayout({
     countdownHook.handleAddCountdown,
     countdownHook.handleDeleteCountdown,
     habitsHook,
-    onNewsSaveTask,
-    onNewsSaveJournal,
+    pluginId,
+    pluginRecord?.status,
+    pluginRecord?.plugin,
+    pluginApi,
+    revision,
+    markFailed,
     setActiveTab,
     handlePinNoteToDesktop,
     resetTasks,
@@ -2107,7 +2153,9 @@ class AppErrorBoundary extends React.Component<
     // eslint-disable-next-line no-console
     console.error("Component stack:", info.componentStack);
     void import("./utils/diagnosticLog").then(({ flushDiagnosticLog, recordDiagnostic }) => {
-      recordDiagnostic(`AppErrorBoundary ${error.message}\n${error.stack || ""}\n${info.componentStack || ""}`);
+      recordDiagnostic(
+        `AppErrorBoundary ${error.message}\n${error.stack || ""}\n${info.componentStack || ""}`,
+      );
       return flushDiagnosticLog();
     });
   }

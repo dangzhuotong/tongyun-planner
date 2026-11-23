@@ -377,6 +377,7 @@ const en: Translations = {
     sync: "Backup & Sync",
     system: "System & Language",
     fun: "Fun",
+    plugins: "Plugins",
     quadColors: "Quadrant Colors",
     nickname: "Nickname",
     nicknamePlaceholder: "Enter your nickname (shown on homepage)",

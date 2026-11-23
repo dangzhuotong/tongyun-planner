@@ -20,6 +20,7 @@ import {
   Volume2,
   Archive,
   Newspaper,
+  Puzzle,
   BookOpen,
   Sunset,
   Zap,
@@ -28,6 +29,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import type { AppTab, AlertSoundType } from "../types";
+import type { MainSlot } from "../plugins/host/slots";
+import { usePluginHost } from "../plugins/host/PluginHostContext";
 import { audioEngine } from "../utils/audioEngine";
 import { autoNoiseToggleAction } from "../utils/noisePolicy";
 import { useTranslation } from "../i18n/LanguageContext";
@@ -36,9 +39,13 @@ import { NOISE_DEFINITIONS, getVisibleNoises } from "../constants";
 import { CustomNoiseWindow } from "./CustomNoiseWindow";
 import logo from "../assets/logo.png";
 
+function isCoreTab(group: readonly AppTab[], slot: MainSlot): boolean {
+  return (group as readonly string[]).includes(slot);
+}
+
 interface SidebarProps {
-  activeTab: AppTab;
-  setActiveTab: (tab: AppTab) => void;
+  activeTab: MainSlot;
+  setActiveTab: (tab: MainSlot) => void;
   progressPercentage: number;
   completedTasksCount: number;
   tasksCount: number;
@@ -90,6 +97,8 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     onOpenEnergyTimeBlock,
     onOpenQuickCapture,
   }) => {
+    const { host } = usePluginHost();
+    const pluginItems = host.sidebarItems();
     const {
       pomodoroIsActive,
       setPomodoroIsActive,
@@ -164,9 +173,11 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
     }`;
 
     // Sub-navigation expansion states
-    const [tasksExpanded, setTasksExpanded] = useState(() => TASKS_GROUP.includes(activeTab));
-    const [focusExpanded, setFocusExpanded] = useState(() => FOCUS_GROUP.includes(activeTab));
-    const [archiveExpanded, setArchiveExpanded] = useState(() => ARCHIVE_GROUP.includes(activeTab));
+    const [tasksExpanded, setTasksExpanded] = useState(() => isCoreTab(TASKS_GROUP, activeTab));
+    const [focusExpanded, setFocusExpanded] = useState(() => isCoreTab(FOCUS_GROUP, activeTab));
+    const [archiveExpanded, setArchiveExpanded] = useState(() =>
+      isCoreTab(ARCHIVE_GROUP, activeTab),
+    );
     const [noiseControlsExpanded, setNoiseControlsExpanded] = useState(false);
     const [customNoiseOpen, setCustomNoiseOpen] = useState(false);
 
@@ -212,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
       label,
       count,
     }: {
-      tab: AppTab;
+      tab: MainSlot;
       icon: React.ReactNode;
       label: string;
       count?: number | null;
@@ -384,12 +395,12 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                 onToggle={() => {
                   if (!tasksExpanded) {
                     setTasksExpanded(true);
-                    if (!TASKS_GROUP.includes(activeTab)) setActiveTab("matrix");
+                    if (!isCoreTab(TASKS_GROUP, activeTab)) setActiveTab("matrix");
                   } else {
                     setTasksExpanded(false);
                   }
                 }}
-                isGroupActive={TASKS_GROUP.includes(activeTab)}
+                isGroupActive={isCoreTab(TASKS_GROUP, activeTab)}
                 count={tasksCount}
                 groupDefaultTab="matrix"
               />
@@ -411,12 +422,12 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                 onToggle={() => {
                   if (!focusExpanded) {
                     setFocusExpanded(true);
-                    if (!FOCUS_GROUP.includes(activeTab)) setActiveTab("analytics");
+                    if (!isCoreTab(FOCUS_GROUP, activeTab)) setActiveTab("analytics");
                   } else {
                     setFocusExpanded(false);
                   }
                 }}
-                isGroupActive={FOCUS_GROUP.includes(activeTab)}
+                isGroupActive={isCoreTab(FOCUS_GROUP, activeTab)}
                 groupDefaultTab="analytics"
               />
               {!isCollapsed && focusExpanded && (
@@ -442,12 +453,20 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
               count={null}
             />
 
-            {/* 4.5. News / RSS */}
-            <NavButton
-              tab="news"
-              icon={<Newspaper className="w-4 h-4" />}
-              label={s.news || "朝花夕拾"}
-            />
+            {pluginItems.map((item) => (
+              <NavButton
+                key={item.slot}
+                tab={item.slot}
+                icon={
+                  item.icon === "puzzle" ? (
+                    <Puzzle className="w-4 h-4" />
+                  ) : (
+                    <Newspaper className="w-4 h-4" />
+                  )
+                }
+                label={item.label}
+              />
+            ))}
 
             {/* 5. Archive (expandable: Completed / Countdown) */}
             <div>
@@ -458,12 +477,12 @@ export const Sidebar: React.FC<SidebarProps> = React.memo(
                 onToggle={() => {
                   if (!archiveExpanded) {
                     setArchiveExpanded(true);
-                    if (!ARCHIVE_GROUP.includes(activeTab)) setActiveTab("completed");
+                    if (!isCoreTab(ARCHIVE_GROUP, activeTab)) setActiveTab("completed");
                   } else {
                     setArchiveExpanded(false);
                   }
                 }}
-                isGroupActive={ARCHIVE_GROUP.includes(activeTab)}
+                isGroupActive={isCoreTab(ARCHIVE_GROUP, activeTab)}
                 count={completedTasksCount}
                 groupDefaultTab="completed"
               />

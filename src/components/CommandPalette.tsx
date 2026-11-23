@@ -17,7 +17,10 @@ import {
   Layout,
   Sparkles,
 } from "lucide-react";
-import type { Task, StickyNote as StickyNoteType, AppTab, JournalEntry } from "../types";
+import type { Task, StickyNote as StickyNoteType, JournalEntry } from "../types";
+import type { MainSlot } from "../plugins/host/slots";
+import { usePluginHost } from "../plugins/host/PluginHostContext";
+import { Puzzle } from "lucide-react";
 
 interface CommandItem {
   id: string;
@@ -36,7 +39,7 @@ interface CommandPaletteProps {
   stickyNotes: StickyNoteType[];
   journal?: JournalEntry[];
   onTaskClick: (task: Task) => void;
-  onNavigate: (tab: AppTab) => void;
+  onNavigate: (tab: MainSlot) => void;
   onCreateTask: () => void;
   onStartFocus: (taskId: string, taskTitle: string) => void;
   onToggleWidget: () => void;
@@ -58,6 +61,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onToggleWidgetLock,
   onEnterFlowMode,
 }) => {
+  const { host } = usePluginHost();
+  const pluginCommands = host.commands();
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -161,6 +166,17 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         onSelect: () => onNavigate("settings"),
         keywords: "settings 设置 setting",
       },
+      ...pluginCommands.map((command) => ({
+        id: `plugin-${command.pluginId}-${command.id}`,
+        label: command.label,
+        section: "navigation" as const,
+        icon: Puzzle,
+        onSelect: () => {
+          command.run?.();
+          onNavigate(command.slot);
+        },
+        keywords: command.keywords || command.label,
+      })),
     ];
 
     const actions: CommandItem[] = [
@@ -262,6 +278,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     onToggleWidget,
     onToggleWidgetLock,
     onEnterFlowMode,
+    pluginCommands,
   ]);
 
   // 简易 fuzzy：所有字符按顺序出现即算命中；同时对完全 includes 优先加分

@@ -20,4 +20,22 @@ export default tseslint.config(
       "no-console": "warn",
     },
   },
+  {
+    files: ["src/plugins/**/*.{ts,tsx}"],
+    ignores: ["src/plugins/**/*.test.ts", "src/plugins/**/*.test.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/data/**", "**/utils/sync/**", "@tauri-apps/plugin-sql"],
+              message:
+                "插件只能走宿主 ctx。不要引用同步实现或 SQL 插件。这不是安全沙箱，只是评审边界。",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );
