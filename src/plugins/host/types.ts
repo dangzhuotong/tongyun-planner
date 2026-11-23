@@ -31,6 +31,24 @@ export interface PluginManifest {
   storageKeys: string[];
   /** 旧的 activeTab 字符串，例如资讯的 "news"。 */
   legacySlots?: string[];
+  /**
+   * 仅允许这些本机 http 前缀上的 GET。
+   * 公开清单可以不填。具体地址由使用方在运行时提供，不写进公开安装包。
+   */
+  loopbackGets?: LoopbackGetRule[];
+}
+
+export interface LoopbackGetRule {
+  /** 省略时只接受调用时给出的本机 origin，仍必须是 127.0.0.1 或 localhost 且带端口。 */
+  origin?: string;
+  pathPrefix: string;
+  /** 路径段完全等于其中任一项时拒绝。用来挡住同一前缀下会写库的子路径。 */
+  excludeSegments?: string[];
+}
+
+export interface LoopbackPrefix {
+  prefix: string;
+  excludeSegments: string[];
 }
 
 export interface PluginStorage {
@@ -54,6 +72,29 @@ export interface PluginViewApi {
   /** 仅当 manifest 声明了对应权限时才存在。 */
   saveTask?: (ref: { title: string; url: string }) => void;
   saveJournal?: (ref: NewsSaveRef) => void;
+  storage?: PluginStorage;
+  /** 仅当声明了 loopbackGets 且桌面通道可用时存在。令牌不会随响应返回。 */
+  readLoopback?: (url: string, options?: { attachSecret?: boolean }) => Promise<LoopbackResult>;
+  putSessionSecret?: (secret: string) => Promise<void>;
+  clearSessionSecret?: () => Promise<void>;
+  hasSessionSecret?: () => Promise<boolean>;
+}
+
+export interface LoopbackResult {
+  status: number;
+  body: string;
+}
+
+export interface LoopbackTransport {
+  get(
+    pluginId: string,
+    url: string,
+    prefixes: LoopbackPrefix[],
+    attachSecret: boolean,
+  ): Promise<LoopbackResult>;
+  putSecret(pluginId: string, secret: string): Promise<void>;
+  forgetSecret(pluginId: string): Promise<void>;
+  hasSecret(pluginId: string): Promise<boolean>;
 }
 
 export interface PluginCommand {
@@ -75,7 +116,7 @@ export interface TongyunPlugin {
   sidebar?: PluginSidebarContribution;
   commands?: PluginCommand[];
   renderView?(api: PluginViewApi): ReactNode;
-  renderSettings?(): ReactNode;
+  renderSettings?(api: PluginViewApi): ReactNode;
 }
 
 export interface PluginRecord {

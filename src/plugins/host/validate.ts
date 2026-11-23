@@ -1,4 +1,5 @@
 import { isCoreStorageKey } from "./coreKeys";
+import { assertLoopbackRule } from "./loopback";
 import {
   HOST_API_VERSION,
   PLUGIN_PERMISSIONS,
@@ -59,6 +60,18 @@ export function validateManifest(manifest: PluginManifest, seen: Set<string>): M
     }
     if (isCoreStorageKey(key)) {
       return { ok: false, status: "invalid", reason: `不能声明核心键 ${key}` };
+    }
+  }
+  if (manifest.loopbackGets) {
+    if (!Array.isArray(manifest.loopbackGets) || manifest.loopbackGets.length > 8) {
+      return { ok: false, status: "invalid", reason: "loopbackGets 不合法" };
+    }
+    for (const rule of manifest.loopbackGets) {
+      try {
+        assertLoopbackRule(rule);
+      } catch {
+        return { ok: false, status: "invalid", reason: "loopbackGets 含非本机地址" };
+      }
     }
   }
   return { ok: true };

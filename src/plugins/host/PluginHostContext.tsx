@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { CustomizationConfig } from "../../types";
 import { builtinPlugins } from "../builtins";
+import { extraPlugins } from "tongyun-extra-plugins";
+import { createDesktopLoopbackTransport } from "./desktopLoopback";
 import { PluginHost } from "./registry";
 import type { KeyValueStore, PluginBridges } from "./types";
 
@@ -49,7 +51,8 @@ export function PluginHostProvider({
 }: PluginBridges & { children: ReactNode; config: CustomizationConfig }) {
   const [host] = useState(() => {
     const created = new PluginHost(browserStore());
-    created.load(builtinPlugins);
+    created.setLoopbackTransport(createDesktopLoopbackTransport());
+    created.load([...builtinPlugins, ...extraPlugins]);
     return created;
   });
   const [revision, setRevision] = useState(0);

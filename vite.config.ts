@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -41,6 +42,12 @@ function devCorsProxyPlugin(): Plugin {
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), devCorsProxyPlugin()],
+  resolve: {
+    alias: {
+      "tongyun-extra-plugins":
+        process.env.TONGYUN_EXTRA_PLUGINS || path.resolve("src/plugins/extra.ts"),
+    },
+  },
   optimizeDeps: {
     include: ["lunar-javascript"],
   },
