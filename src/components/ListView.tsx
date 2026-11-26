@@ -22,6 +22,8 @@ import { matchesTaskView, SAVED_VIEWS_KEY, type TaskView } from "../utils/taskOr
 import { safeJsonParse } from "../utils/json";
 import { createId } from "../utils/id";
 import { getTaskPomodoroStats, formatTaskPomodoroBadge } from "../utils/pomodoroTaskStats";
+import { TaskDateFilter } from "./TaskDateFilter";
+import { useLocalToday } from "../hooks/useLocalToday";
 
 interface ListViewProps {
   tasks: Task[];
@@ -88,7 +90,8 @@ export const ListView: React.FC<ListViewProps> = React.memo(
     // Local state to filter only starred tasks
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [project, setProject] = useState("all");
-    const [due, setDue] = useState("all");
+    const [due, setDue] = useState("actionable");
+    const today = useLocalToday();
     const [viewName, setViewName] = useState("");
     const [activeView, setActiveView] = useState("");
     const [savedViews, setSavedViews] = useState<TaskView[]>(() => {
@@ -169,14 +172,14 @@ export const ListView: React.FC<ListViewProps> = React.memo(
           const matchesTag = tagFilter === "all" || (task.tags || []).includes(tagFilter);
           const matchesFavorite = !showFavoritesOnly || task.isFavorite;
 
-          return matchesSearch && matchesCategory && matchesTag && matchesFavorite && matchesTaskView(task, project, due);
+          return matchesSearch && matchesCategory && matchesTag && matchesFavorite && matchesTaskView(task, project, due, new Date(today + "T12:00:00"));
         })
         .sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
           return 0;
         });
-    }, [categoryFilter, debouncedQuery, showFavoritesOnly, tagFilter, tasks, project, due]);
+    }, [categoryFilter, debouncedQuery, showFavoritesOnly, tagFilter, tasks, project, due, today]);
 
     return (
       <div className="animate-fade-in-up rounded-2xl bg-white/90 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[600px] custom-scrollbar select-none shadow-sm relative">
@@ -227,9 +230,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
             <option value="all">所有项目</option><option value="none">未归项目</option>
             {projects.map((name) => <option value={`project:${name}`} key={name}>{name}</option>)}
           </select>
-          <select aria-label="到期范围" value={due} onChange={(event) => setDue(event.target.value)}>
-            <option value="all">所有日期</option><option value="today">今日</option><option value="week">未来 7 天</option><option value="overdue">已逾期</option><option value="none">无日期</option>
-          </select>
+          <TaskDateFilter value={due} onChange={setDue} />
           <select aria-label="保存的筛选" value={activeView} onChange={(event) => chooseView(event.target.value)}>
             <option value="">保存的筛选</option>
             {savedViews.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}

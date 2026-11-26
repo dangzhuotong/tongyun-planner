@@ -1,5 +1,5 @@
 import type { Task } from "../types";
-import { getLocalDateString } from "./date";
+import { getLocalDateString, getHomeTaskKind } from "./date";
 
 export const SAVED_VIEWS_KEY = "tongyun_saved_task_views";
 export interface TaskView {
@@ -22,6 +22,7 @@ export function matchesTaskView(
   if (project === "none" && task.project) return false;
   if (project.startsWith("project:") && task.project !== project.slice(8)) return false;
   if (due === "all") return true;
+  if (due === "actionable") return getHomeTaskKind(task, getLocalDateString(now)) !== null;
   if (due === "none") return !task.dueDate;
   if (!task.dueDate) return false;
   const today = getLocalDateString(now);

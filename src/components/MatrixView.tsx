@@ -24,6 +24,9 @@ import { useTranslation } from "../i18n/LanguageContext";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { audioEngine } from "../utils/audioEngine";
 import { getTaskPomodoroStats, formatTaskPomodoroBadge } from "../utils/pomodoroTaskStats";
+import { TaskDateFilter } from "./TaskDateFilter";
+import { matchesTaskView } from "../utils/taskOrganization";
+import { useLocalToday } from "../hooks/useLocalToday";
 
 interface MatrixViewProps {
   tasks: Task[];
@@ -85,6 +88,12 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     const [expandedQuadrant, setExpandedQuadrant] = useState<TaskCategory | null>(null);
     const [showMethodologyHelp, setShowMethodologyHelp] = useState(false);
     const [showEveningOnly, setShowEveningOnly] = useState(false);
+    const [due, setDue] = useState("actionable");
+    const today = useLocalToday();
+    const datedTasks = useMemo(
+      () => tasks.filter((task) => matchesTaskView(task, "all", due, new Date(today + "T12:00:00"))),
+      [tasks, due, today],
+    );
     const [activeAddQuadrant, setActiveAddQuadrant] = useState<TaskCategory | null>(null);
     const [mobileActiveQuadrant, setMobileActiveQuadrant] =
       useState<TaskCategory>("urgent-important");
@@ -176,8 +185,8 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     const effectiveSetQuery = setSearchQuery || setLocalSearch;
 
     const eveningTaskCount = useMemo(() => {
-      return tasks.filter((t) => t.isEvening).length;
-    }, [tasks]);
+      return datedTasks.filter((t) => t.isEvening).length;
+    }, [datedTasks]);
 
     const tasksByQuadrant = useMemo(() => {
       const query = debouncedQuery.toLowerCase();
@@ -188,7 +197,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
         "not-urgent-not-important": [],
       };
 
-      tasks.forEach((task) => {
+      datedTasks.forEach((task) => {
         if (showEveningOnly && !task.isEvening) return;
         const matchesSearch =
           !query ||
@@ -208,7 +217,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
       });
 
       return grouped;
-    }, [debouncedQuery, tasks]);
+    }, [debouncedQuery, datedTasks, showEveningOnly]);
 
     // Total tasks count for ratio calculation
     const totalMatchingTasks = useMemo(() => {
@@ -218,7 +227,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     return (
       <div className="animate-fade-in-up select-none flex-grow flex flex-col gap-3 min-h-0">
         {/* Top Control Bar: Compact Toolbar (Title + Stats + Search + Guide + AI Inbox) */}
-        <div className="flex items-center justify-between gap-3 bg-white/90 dark:bg-[#1C1D21]/90 p-2.5 px-4 rounded-xl border border-[#EFEBE4] dark:border-[#33353A] shadow-xs flex-shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white/90 dark:bg-[#1C1D21]/90 p-2.5 px-4 rounded-xl border border-[#EFEBE4] dark:border-[#33353A] shadow-xs flex-shrink-0">
           {/* Left: Title & Stats */}
           <div className="flex items-center gap-2.5">
             <h2 className="text-sm font-bold tracking-wide text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
@@ -244,6 +253,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
 
           {/* Right: Guide & AI Inbox */}
           <div className="flex items-center gap-2">
+            <TaskDateFilter value={due} onChange={setDue} />
             <button
               onClick={() => setShowEveningOnly(!showEveningOnly)}
               className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
