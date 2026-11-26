@@ -28,6 +28,7 @@ import { TaskDateFilter } from "./TaskDateFilter";
 import { matchesTaskView } from "../utils/taskOrganization";
 import { useLocalToday } from "../hooks/useLocalToday";
 import { TaskTagFilter } from "./TaskTagControls";
+import { TaskFilterMenu } from "./TaskFilterMenu";
 
 interface MatrixViewProps {
   tasks: Task[];
@@ -231,7 +232,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     return (
       <div className="animate-fade-in-up select-none flex-grow flex flex-col gap-3 min-h-0">
         {/* Top Control Bar: Compact Toolbar (Title + Stats + Search + Guide + AI Inbox) */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-white/90 dark:bg-[#1C1D21]/90 p-4 rounded-2xl border border-[#EFEBE4] dark:border-[#33353A] shadow-xs flex-shrink-0">
+        <div data-task-toolbar className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-white/90 dark:bg-[#1C1D21]/90 p-3 rounded-2xl border border-[#EFEBE4] dark:border-[#33353A] shadow-xs flex-shrink-0">
           {/* Left: Title & Stats */}
           <div className="flex items-center gap-2.5">
             <h2 className="text-base font-bold tracking-wide text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
@@ -244,7 +245,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
           </div>
 
           {/* Center: Search */}
-          <div className="relative min-w-36 flex-grow max-w-xs">
+          <div className="relative min-w-28 flex-1">
             <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
             <input
               type="text"
@@ -257,6 +258,12 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
 
           {/* Right: Guide & AI Inbox */}
           <div className="flex flex-wrap items-center gap-2">
+            {onToggleAiInbox && (
+              <button onClick={onToggleAiInbox} className="min-h-8 flex items-center gap-1 rounded-lg border border-[#DEEAE2] bg-[#F0F5F1] px-2.5 text-xs font-medium text-[#365A40] dark:border-[#2D3A31] dark:bg-[#212923] dark:text-[#B8D6C1]" title={showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}>
+                <Sparkles className="h-3.5 w-3.5" />{showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}
+              </button>
+            )}
+            <TaskFilterMenu label={showEveningOnly ? (locale === "en" ? "This Evening" : "今晚清单") : (locale === "en" ? "More" : "更多")} active={showEveningOnly || showMethodologyHelp}>
             <button
               onClick={() => setShowEveningOnly(!showEveningOnly)}
               className={`min-h-8 flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
@@ -290,22 +297,9 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
               <span>{locale === "en" ? "Matrix Guide" : "象限法则指引"}</span>
             </button>
 
-            {onToggleAiInbox && (
-              <button
-                onClick={onToggleAiInbox}
-                className={`min-h-8 text-xs px-3 py-1 rounded-lg font-medium border transition-all cursor-pointer flex items-center gap-1 shadow-2xs select-none ${
-                  showAiInbox
-                    ? "bg-[#FCF2F0] dark:bg-[#3D2325] text-[#A34E36] dark:text-[#E06D53] border-[#F5DFDB] dark:border-[#422D30]"
-                    : "bg-[#F0F5F1] dark:bg-[#212923] text-[#4D7C5D] dark:text-[#6FAD84] border-[#DEEAE2] dark:border-[#2D3A31] hover:brightness-95"
-                }`}
-                title={showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}</span>
-              </button>
-            )}
+            </TaskFilterMenu>
           </div>
-          <div className="basis-full flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-[#EFEBE4] pt-3 dark:border-[#33353A]">
+          <div className="basis-full flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-[#EFEBE4] pt-2 dark:border-[#33353A]">
             <TaskDateFilter value={due} onChange={setDue} />
             <TaskTagFilter tasks={tasks} value={tagFilter} onChange={setTagFilter} />
           </div>
