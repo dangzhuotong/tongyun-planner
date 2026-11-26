@@ -24,6 +24,11 @@ import { useTranslation } from "../i18n/LanguageContext";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { audioEngine } from "../utils/audioEngine";
 import { getTaskPomodoroStats, formatTaskPomodoroBadge } from "../utils/pomodoroTaskStats";
+import { TaskDateFilter } from "./TaskDateFilter";
+import { matchesTaskView } from "../utils/taskOrganization";
+import { useLocalToday } from "../hooks/useLocalToday";
+import { TaskTagFilter } from "./TaskTagControls";
+import { TaskFilterMenu } from "./TaskFilterMenu";
 
 interface MatrixViewProps {
   tasks: Task[];
@@ -43,6 +48,7 @@ interface MatrixViewProps {
     dueDate: string;
     dueTime?: string;
     isExplicit?: boolean;
+    tags?: string[];
   }) => void;
   handleToggleFavorite: (id: string) => void;
   handleTogglePin: (id: string) => void;
@@ -85,6 +91,13 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     const [expandedQuadrant, setExpandedQuadrant] = useState<TaskCategory | null>(null);
     const [showMethodologyHelp, setShowMethodologyHelp] = useState(false);
     const [showEveningOnly, setShowEveningOnly] = useState(false);
+    const [due, setDue] = useState("actionable");
+    const [tagFilter, setTagFilter] = useState("all");
+    const today = useLocalToday();
+    const datedTasks = useMemo(
+      () => tasks.filter((task) => matchesTaskView(task, "all", due, new Date(today + "T12:00:00"))),
+      [tasks, due, today],
+    );
     const [activeAddQuadrant, setActiveAddQuadrant] = useState<TaskCategory | null>(null);
     const [mobileActiveQuadrant, setMobileActiveQuadrant] =
       useState<TaskCategory>("urgent-important");
@@ -176,8 +189,8 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     const effectiveSetQuery = setSearchQuery || setLocalSearch;
 
     const eveningTaskCount = useMemo(() => {
-      return tasks.filter((t) => t.isEvening).length;
-    }, [tasks]);
+      return datedTasks.filter((t) => t.isEvening).length;
+    }, [datedTasks]);
 
     const tasksByQuadrant = useMemo(() => {
       const query = debouncedQuery.toLowerCase();
@@ -188,8 +201,9 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
         "not-urgent-not-important": [],
       };
 
-      tasks.forEach((task) => {
+      datedTasks.forEach((task) => {
         if (showEveningOnly && !task.isEvening) return;
+        if (tagFilter !== "all" && !task.tags?.includes(tagFilter)) return;
         const matchesSearch =
           !query ||
           task.title.toLowerCase().includes(query) ||
@@ -208,7 +222,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
       });
 
       return grouped;
-    }, [debouncedQuery, tasks]);
+    }, [debouncedQuery, datedTasks, showEveningOnly, tagFilter]);
 
     // Total tasks count for ratio calculation
     const totalMatchingTasks = useMemo(() => {
@@ -218,10 +232,10 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     return (
       <div className="animate-fade-in-up select-none flex-grow flex flex-col gap-3 min-h-0">
         {/* Top Control Bar: Compact Toolbar (Title + Stats + Search + Guide + AI Inbox) */}
-        <div className="flex items-center justify-between gap-3 bg-white/90 dark:bg-[#1C1D21]/90 p-2.5 px-4 rounded-xl border border-[#EFEBE4] dark:border-[#33353A] shadow-xs flex-shrink-0">
+        <div data-task-toolbar className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 bg-white/90 dark:bg-[#1C1D21]/90 p-3 rounded-2xl border border-[#EFEBE4] dark:border-[#33353A] shadow-xs flex-shrink-0">
           {/* Left: Title & Stats */}
           <div className="flex items-center gap-2.5">
-            <h2 className="text-sm font-bold tracking-wide text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
+            <h2 className="text-base font-bold tracking-wide text-[#2D323A] dark:text-slate-100 flex items-center gap-1.5">
               <span>{t.header.matrix}</span>
             </h2>
             <span className="text-[10px] bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-md font-mono font-bold">
@@ -231,22 +245,28 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
           </div>
 
           {/* Center: Search */}
-          <div className="relative flex-grow max-w-xs hidden sm:block">
+          <div className="relative min-w-28 flex-1">
             <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-400" />
             <input
               type="text"
               placeholder={lv.search}
               value={effectiveQuery}
               onChange={(e) => effectiveSetQuery(e.target.value)}
-              className="w-full bg-[#FAF8F5] dark:bg-[#282A30] border border-[#EFEBE4] dark:border-[#383A42] pl-8 pr-3 py-1 rounded-lg text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-[#4D7C5D] font-medium transition-colors"
+              className="w-full min-h-8 bg-[#FAF8F5] dark:bg-[#282A30] border border-[#EFEBE4] dark:border-[#383A42] pl-8 pr-3 py-1 rounded-lg text-xs text-slate-800 dark:text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#4D7C5D] font-medium transition-colors"
             />
           </div>
 
           {/* Right: Guide & AI Inbox */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {onToggleAiInbox && (
+              <button onClick={onToggleAiInbox} className="min-h-8 flex items-center gap-1 rounded-lg border border-[#DEEAE2] bg-[#F0F5F1] px-2.5 text-xs font-medium text-[#365A40] dark:border-[#2D3A31] dark:bg-[#212923] dark:text-[#B8D6C1]" title={showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}>
+                <Sparkles className="h-3.5 w-3.5" />{showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}
+              </button>
+            )}
+            <TaskFilterMenu label={showEveningOnly ? (locale === "en" ? "This Evening" : "今晚清单") : (locale === "en" ? "More" : "更多")} active={showEveningOnly || showMethodologyHelp}>
             <button
               onClick={() => setShowEveningOnly(!showEveningOnly)}
-              className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
+              className={`min-h-8 flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
                 showEveningOnly
                   ? "bg-[#8D82C4]/20 text-[#5C528B] dark:text-[#C5BCF0] border-[#8D82C4]/50 shadow-2xs"
                   : "text-slate-500 dark:text-slate-400 hover:text-[#5C528B] dark:hover:text-[#C5BCF0] border-[#EFEBE4] dark:border-[#383A42] bg-[#FAF8F5] dark:bg-[#282A30]"
@@ -266,7 +286,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
 
             <button
               onClick={() => setShowMethodologyHelp(!showMethodologyHelp)}
-              className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
+              className={`min-h-8 flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
                 showMethodologyHelp
                   ? "bg-[#4D7C5D]/10 text-[#4D7C5D] dark:text-[#6FAD84] border-[#4D7C5D]/30"
                   : "text-slate-500 dark:text-slate-400 hover:text-[#4D7C5D] dark:hover:text-[#6FAD84] border-[#EFEBE4] dark:border-[#383A42] bg-[#FAF8F5] dark:bg-[#282A30]"
@@ -277,20 +297,11 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
               <span>{locale === "en" ? "Matrix Guide" : "象限法则指引"}</span>
             </button>
 
-            {onToggleAiInbox && (
-              <button
-                onClick={onToggleAiInbox}
-                className={`text-[11px] px-3 py-1 rounded-lg font-bold border transition-all cursor-pointer flex items-center gap-1 shadow-2xs select-none ${
-                  showAiInbox
-                    ? "bg-[#FCF2F0] dark:bg-[#3D2325] text-[#A34E36] dark:text-[#E06D53] border-[#F5DFDB] dark:border-[#422D30]"
-                    : "bg-[#F0F5F1] dark:bg-[#212923] text-[#4D7C5D] dark:text-[#6FAD84] border-[#DEEAE2] dark:border-[#2D3A31] hover:brightness-95"
-                }`}
-                title={showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{showAiInbox ? t.quickAdd.closeAi : t.quickAdd.aiInbox}</span>
-              </button>
-            )}
+            </TaskFilterMenu>
+          </div>
+          <div className="basis-full flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-[#EFEBE4] pt-2 dark:border-[#33353A]">
+            <TaskDateFilter value={due} onChange={setDue} />
+            <TaskTagFilter tasks={tasks} value={tagFilter} onChange={setTagFilter} />
           </div>
         </div>
 
@@ -440,7 +451,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                       >
                         {quad.label}
                       </span>
-                      <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 block">
+                      <span className="text-[11px] text-slate-600 dark:text-slate-300 font-medium mt-1 block">
                         {quad.strategy}
                       </span>
                     </div>
@@ -457,10 +468,10 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                     {/* Quick Add Toggle Button */}
                     <button
                       onClick={() => setActiveAddQuadrant(isAdding ? null : quad.id)}
-                      className={`w-6 h-6 rounded-lg transition-colors border ${borderClass} flex items-center justify-center cursor-pointer ${
+                      className={`w-8 h-8 rounded-lg transition-colors border ${borderClass} flex items-center justify-center cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-700 dark:focus-visible:outline-slate-200 ${
                         isAdding
                           ? "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-900 font-bold"
-                          : "hover:bg-white/80 dark:hover:bg-[#1C1D21]/80 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                          : "bg-white/70 hover:bg-white dark:bg-[#252B27] dark:hover:bg-[#334039] text-[#45664D] dark:text-[#B8D6C1]"
                       }`}
                       title={isAdding ? t.common.cancel : m.add}
                     >
@@ -470,7 +481,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                     {/* Maximize / Collapse toggle buttons */}
                     <button
                       onClick={() => setExpandedQuadrant(expandedQuadrant ? null : quad.id)}
-                      className={`w-6 h-6 rounded-lg hover:bg-white/80 dark:hover:bg-[#1C1D21]/80 transition-colors border ${borderClass} text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer flex items-center justify-center`}
+                      className={`w-8 h-8 rounded-lg hover:bg-white/80 dark:hover:bg-[#1C1D21]/80 transition-colors border ${borderClass} text-slate-600 dark:text-slate-300 cursor-pointer flex items-center justify-center`}
                       title={expandedQuadrant ? m.collapse : m.expand}
                     >
                       {expandedQuadrant ? (
@@ -487,7 +498,11 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                   <div className="z-10 animate-fade-in-up shrink-0">
                     <QuickAddTask
                       handleAddTask={(data) => {
-                        handleAddTask({ ...data, isExplicit: true });
+                        handleAddTask({
+                          ...data,
+                          isExplicit: true,
+                          tags: tagFilter === "all" ? data.tags : [...new Set([...(data.tags || []), tagFilter])],
+                        });
                         setActiveAddQuadrant(null);
                       }}
                       defaultCategory={quad.id}
@@ -810,10 +825,10 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                       title="点击即可在此象限添加待办"
                     >
                       <Inbox className="w-5 h-5 text-slate-300 dark:text-slate-600 stroke-[1.5]" />
-                      <p className="text-[10px] font-bold tracking-wider text-slate-400 dark:text-slate-500">
+                      <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
                         {t.listView.noTasks}
                       </p>
-                      <p className="text-[9px] font-medium text-slate-400/80 dark:text-slate-600">
+                      <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
                         点击右上角 + 按钮添加，或拖拽卡片至此
                       </p>
                     </div>

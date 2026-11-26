@@ -22,6 +22,9 @@ import { matchesTaskView, SAVED_VIEWS_KEY, type TaskView } from "../utils/taskOr
 import { safeJsonParse } from "../utils/json";
 import { createId } from "../utils/id";
 import { getTaskPomodoroStats, formatTaskPomodoroBadge } from "../utils/pomodoroTaskStats";
+import { TaskDateFilter } from "./TaskDateFilter";
+import { useLocalToday } from "../hooks/useLocalToday";
+import { TaskTagFilter } from "./TaskTagControls";
 
 interface ListViewProps {
   tasks: Task[];
@@ -48,6 +51,7 @@ interface ListViewProps {
     dueTime?: string;
     isExplicit?: boolean;
     project?: string;
+    tags?: string[];
   }) => void;
   handleToggleFavorite: (id: string) => void;
   handleTogglePin: (id: string) => void;
@@ -88,7 +92,8 @@ export const ListView: React.FC<ListViewProps> = React.memo(
     // Local state to filter only starred tasks
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [project, setProject] = useState("all");
-    const [due, setDue] = useState("all");
+    const [due, setDue] = useState("actionable");
+    const today = useLocalToday();
     const [viewName, setViewName] = useState("");
     const [activeView, setActiveView] = useState("");
     const [savedViews, setSavedViews] = useState<TaskView[]>(() => {
@@ -147,11 +152,6 @@ export const ListView: React.FC<ListViewProps> = React.memo(
       }, 220);
     };
 
-    const tagOptions = useMemo(() => {
-      const allTags = [...new Set(tasks.flatMap((t) => t.tags || []))];
-      return [{ value: "all", label: lv.allTags }, ...allTags.map((t) => ({ value: t, label: t }))];
-    }, [lv.allTags, tasks]);
-
     // Filter tasks matching search query, category, and favorite filter
     // then sort so pinned tasks float to the top
     const debouncedQuery = useDebouncedValue(searchQuery, 200);
@@ -169,20 +169,20 @@ export const ListView: React.FC<ListViewProps> = React.memo(
           const matchesTag = tagFilter === "all" || (task.tags || []).includes(tagFilter);
           const matchesFavorite = !showFavoritesOnly || task.isFavorite;
 
-          return matchesSearch && matchesCategory && matchesTag && matchesFavorite && matchesTaskView(task, project, due);
+          return matchesSearch && matchesCategory && matchesTag && matchesFavorite && matchesTaskView(task, project, due, new Date(today + "T12:00:00"));
         })
         .sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
           return 0;
         });
-    }, [categoryFilter, debouncedQuery, showFavoritesOnly, tagFilter, tasks, project, due]);
+    }, [categoryFilter, debouncedQuery, showFavoritesOnly, tagFilter, tasks, project, due, today]);
 
     return (
       <div className="animate-fade-in-up rounded-2xl bg-white/90 dark:bg-[#16171B]/90 border border-[#EFEBE4] dark:border-[#282A30] p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[600px] custom-scrollbar select-none shadow-sm relative">
         {/* 筛选与搜索 */}
-        <div className="flex gap-3 pb-2 border-b border-[#EFEBE4] dark:border-[#282A30] items-center">
-          <div className="relative flex-grow">
+        <div className="flex flex-wrap gap-3 pb-2 border-b border-[#EFEBE4] dark:border-[#282A30] items-center">
+          <div className="relative min-w-40 basis-40 flex-grow">
             <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
             <input
               type="text"
@@ -196,14 +196,7 @@ export const ListView: React.FC<ListViewProps> = React.memo(
             value={categoryFilter}
             onChange={setCategoryFilter}
             options={FILTER_OPTIONS}
-            className="w-48"
-          />
-          {/* Tag Filter */}
-          <CustomSelect
-            value={tagFilter}
-            onChange={setTagFilter}
-            options={tagOptions}
-            className="w-32"
+            className="w-40 shrink-0"
           />
           {/* Star Filter Button */}
           <button
@@ -222,15 +215,16 @@ export const ListView: React.FC<ListViewProps> = React.memo(
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <select aria-label="项目" value={project} onChange={(event) => setProject(event.target.value)}>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+          <TaskDateFilter value={due} onChange={setDue} />
+          <TaskTagFilter tasks={tasks} value={tagFilter} onChange={setTagFilter} />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-[#EFEBE4] pt-3 text-xs dark:border-[#33353A]">
+          <select aria-label="项目" value={project} onChange={(event) => setProject(event.target.value)} className="min-h-8 max-w-full rounded-lg border border-[#D9D5CD] bg-[#FAF8F5] px-2 text-slate-600 dark:border-[#555963] dark:bg-[#23252B] dark:text-slate-300">
             <option value="all">所有项目</option><option value="none">未归项目</option>
             {projects.map((name) => <option value={`project:${name}`} key={name}>{name}</option>)}
           </select>
-          <select aria-label="到期范围" value={due} onChange={(event) => setDue(event.target.value)}>
-            <option value="all">所有日期</option><option value="today">今日</option><option value="week">未来 7 天</option><option value="overdue">已逾期</option><option value="none">无日期</option>
-          </select>
-          <select aria-label="保存的筛选" value={activeView} onChange={(event) => chooseView(event.target.value)}>
+          <select aria-label="保存的筛选" value={activeView} onChange={(event) => chooseView(event.target.value)} className="min-h-8 max-w-full rounded-lg border border-[#D9D5CD] bg-[#FAF8F5] px-2 text-slate-600 dark:border-[#555963] dark:bg-[#23252B] dark:text-slate-300">
             <option value="">保存的筛选</option>
             {savedViews.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
           </select>
@@ -239,15 +233,19 @@ export const ListView: React.FC<ListViewProps> = React.memo(
             setActiveView("");
           }}>移除筛选</button>}
           <form className="flex items-center gap-2" onSubmit={(event) => { event.preventDefault(); saveView(); }}>
-            <input aria-label="筛选名称" placeholder="给当前筛选命名" maxLength={60} value={viewName} onChange={(event) => setViewName(event.target.value)} className="border rounded-lg px-2 py-1 bg-transparent" />
-            <button type="submit" disabled={!viewName.trim()} className="border rounded-lg px-2 py-1">保存筛选</button>
+            <input aria-label="筛选名称" placeholder="给当前筛选命名" maxLength={60} value={viewName} onChange={(event) => setViewName(event.target.value)} className="min-h-8 min-w-0 w-36 rounded-lg border border-[#D9D5CD] bg-transparent px-2 text-slate-700 placeholder:text-slate-500 dark:border-[#555963] dark:text-slate-200 dark:placeholder:text-slate-400" />
+            <button type="submit" disabled={!viewName.trim()} className="min-h-8 shrink-0 rounded-lg border border-[#D9D5CD] px-3 text-slate-600 hover:bg-[#F7F5F1] disabled:opacity-50 dark:border-[#555963] dark:text-slate-300 dark:hover:bg-[#31343D]">保存筛选</button>
           </form>
         </div>
 
         {/* Inline Quick Add Component */}
         <div className="w-full">
           <QuickAddTask
-            handleAddTask={(task) => handleAddTask({ ...task, project: project.startsWith("project:") ? project.slice(8) : undefined })}
+            handleAddTask={(task) => handleAddTask({
+              ...task,
+              project: project.startsWith("project:") ? project.slice(8) : undefined,
+              tags: tagFilter === "all" ? task.tags : [...new Set([...(task.tags || []), tagFilter])],
+            })}
             defaultCategory={
               categoryFilter !== "all" ? (categoryFilter as Task["category"]) : undefined
             }

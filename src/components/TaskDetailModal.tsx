@@ -26,6 +26,7 @@ import { storageManager, getAttachmentPath } from "../utils/storage";
 import { PRIORITY_LEVELS } from "../constants";
 import { CustomSelect } from "./CustomSelect";
 import { REMINDER_OFFSETS } from "../utils/taskOrganization";
+import { TaskTagPresets } from "./TaskTagControls";
 import { createId } from "../utils/id";
 import { getTaskPomodoroStats } from "../utils/pomodoroTaskStats";
 
@@ -241,6 +242,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = React.memo(
                 <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                   {tc.tags}
                 </span>
+              </div>
+              <div className="mb-2">
+                <TaskTagPresets tags={tags} onChange={next => {
+                  setTags(next);
+                  onUpdateTags(task.id, next);
+                }} />
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
                 {tags.map((tag, i) => (

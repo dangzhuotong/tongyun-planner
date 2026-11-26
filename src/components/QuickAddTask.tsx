@@ -7,6 +7,7 @@ import { useTranslation } from "../i18n/LanguageContext";
 import { getLocalDateString } from "../utils/date";
 import { parseNaturalDate, formatNaturalPreview } from "../utils/dateParser";
 import { buildRRule, rruleToLabel } from "../utils/rrule";
+import { TaskTagPresets } from "./TaskTagControls";
 
 interface QuickAddTaskProps {
   handleAddTask: (taskData: {
@@ -423,6 +424,7 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = React.memo(
               </div>
 
               {/* Tags */}
+              <TaskTagPresets tags={tags} onChange={setTags} />
               <div className="flex flex-wrap items-center gap-1.5">
                 {tags.map((tag, i) => (
                   <span
