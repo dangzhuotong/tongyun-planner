@@ -2,6 +2,7 @@ import type { Task } from "../types";
 import { getLocalDateString, getHomeTaskKind } from "./date";
 
 export const SAVED_VIEWS_KEY = "tongyun_saved_task_views";
+export const COMMON_TASK_TAGS = ["工作", "生活", "学习"] as const;
 export interface TaskView {
   id: string;
   name: string;

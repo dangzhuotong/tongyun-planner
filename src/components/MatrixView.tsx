@@ -27,6 +27,7 @@ import { getTaskPomodoroStats, formatTaskPomodoroBadge } from "../utils/pomodoro
 import { TaskDateFilter } from "./TaskDateFilter";
 import { matchesTaskView } from "../utils/taskOrganization";
 import { useLocalToday } from "../hooks/useLocalToday";
+import { TaskTagFilter } from "./TaskTagControls";
 
 interface MatrixViewProps {
   tasks: Task[];
@@ -46,6 +47,7 @@ interface MatrixViewProps {
     dueDate: string;
     dueTime?: string;
     isExplicit?: boolean;
+    tags?: string[];
   }) => void;
   handleToggleFavorite: (id: string) => void;
   handleTogglePin: (id: string) => void;
@@ -89,6 +91,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
     const [showMethodologyHelp, setShowMethodologyHelp] = useState(false);
     const [showEveningOnly, setShowEveningOnly] = useState(false);
     const [due, setDue] = useState("actionable");
+    const [tagFilter, setTagFilter] = useState("all");
     const today = useLocalToday();
     const datedTasks = useMemo(
       () => tasks.filter((task) => matchesTaskView(task, "all", due, new Date(today + "T12:00:00"))),
@@ -199,6 +202,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
 
       datedTasks.forEach((task) => {
         if (showEveningOnly && !task.isEvening) return;
+        if (tagFilter !== "all" && !task.tags?.includes(tagFilter)) return;
         const matchesSearch =
           !query ||
           task.title.toLowerCase().includes(query) ||
@@ -217,7 +221,7 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
       });
 
       return grouped;
-    }, [debouncedQuery, datedTasks, showEveningOnly]);
+    }, [debouncedQuery, datedTasks, showEveningOnly, tagFilter]);
 
     // Total tasks count for ratio calculation
     const totalMatchingTasks = useMemo(() => {
@@ -252,8 +256,9 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
           </div>
 
           {/* Right: Guide & AI Inbox */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <TaskDateFilter value={due} onChange={setDue} />
+            <TaskTagFilter tasks={tasks} value={tagFilter} onChange={setTagFilter} />
             <button
               onClick={() => setShowEveningOnly(!showEveningOnly)}
               className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
@@ -497,7 +502,11 @@ export const MatrixView: React.FC<MatrixViewProps> = React.memo(
                   <div className="z-10 animate-fade-in-up shrink-0">
                     <QuickAddTask
                       handleAddTask={(data) => {
-                        handleAddTask({ ...data, isExplicit: true });
+                        handleAddTask({
+                          ...data,
+                          isExplicit: true,
+                          tags: tagFilter === "all" ? data.tags : [...new Set([...(data.tags || []), tagFilter])],
+                        });
                         setActiveAddQuadrant(null);
                       }}
                       defaultCategory={quad.id}

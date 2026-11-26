@@ -24,6 +24,7 @@ import { createId } from "../utils/id";
 import { getTaskPomodoroStats, formatTaskPomodoroBadge } from "../utils/pomodoroTaskStats";
 import { TaskDateFilter } from "./TaskDateFilter";
 import { useLocalToday } from "../hooks/useLocalToday";
+import { TaskTagFilter } from "./TaskTagControls";
 
 interface ListViewProps {
   tasks: Task[];
@@ -50,6 +51,7 @@ interface ListViewProps {
     dueTime?: string;
     isExplicit?: boolean;
     project?: string;
+    tags?: string[];
   }) => void;
   handleToggleFavorite: (id: string) => void;
   handleTogglePin: (id: string) => void;
@@ -150,11 +152,6 @@ export const ListView: React.FC<ListViewProps> = React.memo(
       }, 220);
     };
 
-    const tagOptions = useMemo(() => {
-      const allTags = [...new Set(tasks.flatMap((t) => t.tags || []))];
-      return [{ value: "all", label: lv.allTags }, ...allTags.map((t) => ({ value: t, label: t }))];
-    }, [lv.allTags, tasks]);
-
     // Filter tasks matching search query, category, and favorite filter
     // then sort so pinned tasks float to the top
     const debouncedQuery = useDebouncedValue(searchQuery, 200);
@@ -202,11 +199,10 @@ export const ListView: React.FC<ListViewProps> = React.memo(
             className="w-48"
           />
           {/* Tag Filter */}
-          <CustomSelect
+          <TaskTagFilter
+            tasks={tasks}
             value={tagFilter}
             onChange={setTagFilter}
-            options={tagOptions}
-            className="w-32"
           />
           {/* Star Filter Button */}
           <button
@@ -248,7 +244,11 @@ export const ListView: React.FC<ListViewProps> = React.memo(
         {/* Inline Quick Add Component */}
         <div className="w-full">
           <QuickAddTask
-            handleAddTask={(task) => handleAddTask({ ...task, project: project.startsWith("project:") ? project.slice(8) : undefined })}
+            handleAddTask={(task) => handleAddTask({
+              ...task,
+              project: project.startsWith("project:") ? project.slice(8) : undefined,
+              tags: tagFilter === "all" ? task.tags : [...new Set([...(task.tags || []), tagFilter])],
+            })}
             defaultCategory={
               categoryFilter !== "all" ? (categoryFilter as Task["category"]) : undefined
             }
